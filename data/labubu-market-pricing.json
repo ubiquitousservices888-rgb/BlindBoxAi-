@@ -1,0 +1,170 @@
+{
+  "_schema": "labubu-market-pricing/v1",
+  "_status": "STALE_SEED_DATA",
+  "_note": "This file contains manually seeded placeholder data only. No values have been verified against live market listings. Update each entry with real sold-listing data before using in any published pricing claim. Set status to 'verified' and populate checkedAt/source/sampleSize when real data is available.",
+  "lastUpdated": null,
+  "series": [
+    {
+      "series": "The Monsters: Exciting Macaron",
+      "slug": "labubu-the-monsters-exciting-macaron",
+      "variants": [
+        {
+          "variant": "Blueberry Macaron",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Strawberry Macaron",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Matcha Macaron",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Secret Macaron",
+          "rarity": "secret",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        }
+      ]
+    },
+    {
+      "series": "The Monsters: Have A Seat",
+      "slug": "labubu-the-monsters-have-a-seat",
+      "variants": [
+        {
+          "variant": "Sitting on Cake",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Secret Throne",
+          "rarity": "secret",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        }
+      ]
+    },
+    {
+      "series": "The Monsters: Big Into Energy",
+      "slug": "labubu-the-monsters-big-into-energy",
+      "variants": [
+        {
+          "variant": "Energy Drink Green",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Secret Energy",
+          "rarity": "secret",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        }
+      ]
+    },
+    {
+      "series": "The Monsters: Hair Salon",
+      "slug": "labubu-the-monsters-hair-salon",
+      "variants": [
+        {
+          "variant": "Blow Dry",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Secret Stylist",
+          "rarity": "secret",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        }
+      ]
+    },
+    {
+      "series": "Sanrio x Labubu Collaboration",
+      "slug": "labubu-sanrio-collaboration",
+      "variants": [
+        {
+          "variant": "Labubu x Hello Kitty",
+          "rarity": "common",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        },
+        {
+          "variant": "Secret Sanrio Variant",
+          "rarity": "secret",
+          "price_low": null,
+          "price_median": null,
+          "price_high": null,
+          "sample_size": 0,
+          "checked_at": null,
+          "source": null,
+          "status": "STALE_SEED_DATA"
+        }
+      ]
+    }
+  ]
+}

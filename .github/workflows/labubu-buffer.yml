@@ -1,0 +1,97 @@
+name: Labubu Buffer Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without uploading artifacts (for testing)"
+        required: false
+        default: "false"
+        type: string
+  schedule:
+    # Every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+
+jobs:
+  generate:
+    name: Generate Labubu Social Content
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Step 1: Validate source data ──────────────────────────────────────────
+      - name: Validate Labubu series data files
+        run: node --input-type=module <<'JSEOF'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const SERIES_DIR = 'data/series';
+          const SLUGS = [
+            'labubu-the-monsters-exciting-macaron',
+            'labubu-the-monsters-have-a-seat',
+            'labubu-the-monsters-big-into-energy',
+            'labubu-the-monsters-hair-salon',
+            'labubu-sanrio-collaboration',
+          ];
+          const REQUIRED = ['slug','name','brand','retailUSD','figures','seriesPageUrl'];
+          let allOk = true;
+          for (const slug of SLUGS) {
+            const file = path.join(SERIES_DIR, slug + '.json');
+            if (!fs.existsSync(file)) { console.error('FAIL: missing', file); allOk = false; continue; }
+            const d = JSON.parse(fs.readFileSync(file, 'utf8'));
+            let slotOk = true;
+            for (const k of REQUIRED) {
+              if (d[k] === undefined || d[k] === null) {
+                console.error('FAIL: missing', k, 'in', file); allOk = false; slotOk = false;
+              }
+            }
+            if (slotOk) console.log('OK:', file);
+          }
+          if (!allOk) process.exit(1);
+        JSEOF
+
+      # ── Step 2: Generate social posts + Buffer CSV ────────────────────────────
+      - name: Generate social posts and Buffer CSV
+        run: node scripts/labubu-post-generator.mjs
+
+      # ── Step 3: Validate generated output ─────────────────────────────────────
+      - name: Validate generated output
+        run: node scripts/labubu-validate.mjs --output-dir output/labubu
+
+      # ── Step 4: Run unit tests ─────────────────────────────────────────────────
+      - name: Run Labubu tests
+        run: node --test scripts/labubu-test.mjs
+
+      # ── Step 5: Upload artifacts ───────────────────────────────────────────────
+      - name: Upload Buffer CSV artifact
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: labubu-buffer-schedule-${{ github.run_id }}
+          path: output/labubu/
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          echo "## Labubu Buffer Automation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Run completed at: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f output/labubu/buffer-schedule.csv ]; then
+            ROWS=$(tail -n +2 output/labubu/buffer-schedule.csv | wc -l | tr -d ' ')
+            echo "Posts generated: **${ROWS}**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the \`labubu-buffer-schedule-${{ github.run_id }}\` artifact and upload \`buffer-schedule.csv\` to Buffer → Bulk Scheduler." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Buffer publishing is **not** automated. Manual upload required." >> $GITHUB_STEP_SUMMARY

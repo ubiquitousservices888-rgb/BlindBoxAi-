@@ -1,0 +1,48 @@
+{
+  "_schema": "labubu-video-manifest/v1",
+  "_note": "Pair existing MP4 files with generated captions and scheduling metadata. Add entries here before running the post generator. 'videoPath' should be relative to the repo root or an absolute path accessible at generation time.",
+  "videos": [
+    {
+      "id": "labubu-exciting-macaron-intro",
+      "videoPath": "media/labubu-exciting-macaron-intro.mp4",
+      "seriesSlug": "labubu-the-monsters-exciting-macaron",
+      "title": "Labubu Exciting Macaron Series Unboxing 🍬",
+      "caption": "Which macaron Labubu would YOU pull? 🤍 Full series breakdown at BlindBoxAI — link in bio.",
+      "hashtags": [
+        "#Labubu",
+        "#LabubuUnboxing",
+        "#TheMonsters",
+        "#POPMART",
+        "#BlindBox",
+        "#BlindBoxAI",
+        "#CollectibleToys",
+        "#UnboxingVideo"
+      ],
+      "cta": "Check the full guide at BlindBoxAI — link in bio.",
+      "targetChannels": ["tiktok", "instagram", "youtube_shorts"],
+      "scheduledTime": null,
+      "_scheduledTimeNote": "Populated at generation time via post generator."
+    },
+    {
+      "id": "labubu-sanrio-collab-intro",
+      "videoPath": "media/labubu-sanrio-collab-intro.mp4",
+      "seriesSlug": "labubu-sanrio-collaboration",
+      "title": "Sanrio x Labubu Collab — The Cutest Crossover 🎀",
+      "caption": "Hello Kitty meets Labubu and honestly we are NOT okay 🥹 Full collab breakdown at BlindBoxAI — link in bio.",
+      "hashtags": [
+        "#Labubu",
+        "#SanrioXLabubu",
+        "#HelloKitty",
+        "#POPMART",
+        "#BlindBox",
+        "#BlindBoxAI",
+        "#CollectibleToys",
+        "#SanrioCollabs"
+      ],
+      "cta": "Full collab breakdown at BlindBoxAI — link in bio.",
+      "targetChannels": ["tiktok", "instagram", "youtube_shorts"],
+      "scheduledTime": null,
+      "_scheduledTimeNote": "Populated at generation time via post generator."
+    }
+  ]
+}
