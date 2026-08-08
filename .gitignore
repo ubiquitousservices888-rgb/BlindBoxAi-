@@ -7,3 +7,7 @@ node_modules
 .evidence-backup-*
 *.log
 reports/affiliate/*.csv
+
+.affiliate-link-backup-*
+*.bak
+*.before*
