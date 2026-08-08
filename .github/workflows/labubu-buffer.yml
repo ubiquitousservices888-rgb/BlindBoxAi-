@@ -40,9 +40,9 @@ jobs:
 
       # ── Step 2: Validate source data ──────────────────────────────────────────
       - name: Validate Labubu series data files
-        run: node scripts/labubu-validate.mjs --skip-url-check --output-dir output/labubu || true
-        # Note: output/labubu does not exist yet at this step; series + pricing checks still run.
-        # The CSV checks are deferred to step 4.
+        run: node scripts/labubu-validate.mjs --skip-url-check --output-dir output/labubu
+        # Missing channel CSVs produce warnings (not errors) at this stage;
+        # they are validated properly in step 4 after the generator runs.
 
       # ── Step 3: Generate social posts + per-channel Buffer CSVs ──────────────
       - name: Generate social posts and Buffer CSVs

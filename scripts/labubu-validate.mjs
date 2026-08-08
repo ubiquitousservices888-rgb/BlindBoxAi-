@@ -18,7 +18,8 @@ const ROOT = path.resolve(__dirname, "..");
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-const outputDirArg = args[args.indexOf("--output-dir") + 1];
+const outputDirIdx = args.indexOf("--output-dir");
+const outputDirArg = outputDirIdx >= 0 ? args[outputDirIdx + 1] : undefined;
 const OUTPUT_DIR = path.resolve(ROOT, outputDirArg ?? "output/labubu");
 const SKIP_URL_CHECK = args.includes("--skip-url-check");
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -81,12 +82,13 @@ const SECRET_PATTERNS = [
   /Bearer\s+[A-Za-z0-9\-_]{20,}/, // Generic bearer token
 ];
 
-// Placeholder link patterns
+// Placeholder link patterns (also checks video manifest videoUrl placeholders)
 const PLACEHOLDER_LINK_PATTERNS = [
   /https?:\/\/example\.com/i,
   /https?:\/\/placeholder/i,
   /YOUR_LINK_HERE/i,
   /INSERT_URL/i,
+  /REPLACE_WITH_HOSTED_VIDEO_URL/i,
 ];
 
 // Posting Time format: YYYY-MM-DD HH:mm
@@ -369,14 +371,19 @@ function checkChannelCSV(channel, filename) {
       error(`${label}: Pinterest post missing required Board Name`);
     }
 
-    // Posting Time: must be YYYY-MM-DD HH:mm and in the future
+    // Posting Time: must be YYYY-MM-DD HH:mm and in the future.
+    // The format lacks a timezone designator; Buffer interprets it as the
+    // account's local timezone. For validation we parse it as local time
+    // by rewriting "YYYY-MM-DD HH:mm" → "YYYY-MM-DDTHH:mm:00" (ISO 8601
+    // local form), which all modern JS engines consistently parse as local.
     const postingTime = row["Posting Time"];
     if (!postingTime || postingTime.trim() === "") {
       warn(`${label}: Posting Time is empty`);
     } else if (!POSTING_TIME_RE.test(postingTime.trim())) {
       error(`${label}: Posting Time must be YYYY-MM-DD HH:mm format, got: ${postingTime}`);
     } else {
-      const scheduled = new Date(postingTime.trim());
+      const isoLocal = postingTime.trim().replace(" ", "T") + ":00";
+      const scheduled = new Date(isoLocal);
       if (isNaN(scheduled.getTime())) {
         error(`${label}: invalid Posting Time: ${postingTime}`);
       } else if (scheduled < now) {
