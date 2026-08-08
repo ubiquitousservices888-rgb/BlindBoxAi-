@@ -1,0 +1,22 @@
+{
+  "slug": "skullpanda-you-found-me",
+  "name": "Skullpanda You Found Me (plush pendants)",
+  "brand": "Pop Mart",
+  "retailUSD": 22,
+  "pullOdds": { "secret": "secret in series", "source": "official" },
+  "checklist": [
+    "Plush fakes show uneven fur density and loose pendant clasps.",
+    "Check the sewn-in tag print sharpness against official photos.",
+    "Boxless bulk 'overstock' listings shipped from overseas carry the highest fake risk."
+  ],
+  "figures": [
+    { "name": "Sealed blind box", "rarity": "sealed", "resaleLow": 39, "resaleHigh": 39, "needsReview": true,
+      "evidence": "1 US sale Jul 21 2026: $39.00 sealed — needs 2nd sale" },
+    { "name": "Pranky Peanut", "rarity": "common", "resaleLow": 10, "resaleHigh": 22, "needsReview": false,
+      "evidence": "2 US sales Jul 21 2026: $10.00 auction (pre-owned) and $21.99 BIN (new) — condition drives the spread" },
+    { "name": "Sandman", "rarity": "common", "resaleLow": 30, "resaleHigh": 30, "needsReview": true,
+      "evidence": "1 US sale Jul 21 2026: $29.99 — needs 2nd sale" },
+    { "name": "Darkness", "rarity": "rare", "resaleLow": 50, "resaleHigh": 50, "needsReview": true,
+      "evidence": "1 US sale Jul 22 2026: $49.99 — needs 2nd sale" }
+  ]
+}

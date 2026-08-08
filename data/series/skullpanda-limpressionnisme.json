@@ -1,0 +1,18 @@
+{
+  "slug": "skullpanda-limpressionnisme",
+  "name": "Skullpanda L'impressionnisme (plush pendants)",
+  "brand": "Pop Mart",
+  "retailUSD": 22,
+  "pullOdds": { "secret": "secret in series", "source": "official" },
+  "checklist": [
+    "Secret 'In the Garden' is the faked target — verify seller photos show the original card.",
+    "Fur color tone should match official photos; fakes skew saturated.",
+    "Check pendant hardware finish — genuine clasps are smooth-plated."
+  ],
+  "figures": [
+    { "name": "In the Garden (secret)", "rarity": "secret", "resaleLow": 100, "resaleHigh": 131, "needsReview": false,
+      "evidence": "US secret sales: $130.80 best offer (Jul 21), $100.00 (May 20), $100.00 (May 28), $125.00 (May 10)" },
+    { "name": "Common pendants", "rarity": "common", "resaleLow": 27, "resaleHigh": 35, "needsReview": false,
+      "evidence": "2 US sales: $27.00 auction (Jul 21) and $35.00 (May 24)" }
+  ]
+}

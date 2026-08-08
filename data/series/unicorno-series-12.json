@@ -1,0 +1,15 @@
+{
+  "slug": "unicorno-series-12",
+  "name": "Unicorno Series 12",
+  "brand": "tokidoki",
+  "retailUSD": 16,
+  "pullOdds": { "secret": "chaser 1 in 48", "source": "official (printed on box)" },
+  "checklist": [
+    "Chaser ratio is printed on genuine boxes — missing ratio text is a red flag.",
+    "Check horn and hoof paint separation lines against official photos.",
+    "Loose 'chase' figures without box or card carry the highest fake risk."
+  ],
+  "figures": [
+    { "name": "ADD_FIGURES_FROM_OFFICIAL_LINEUP", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true }
+  ]
+}

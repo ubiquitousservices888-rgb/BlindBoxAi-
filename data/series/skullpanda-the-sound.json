@@ -1,0 +1,18 @@
+{
+  "slug": "skullpanda-the-sound",
+  "name": "Skullpanda The Sound",
+  "brand": "Pop Mart",
+  "retailUSD": 14,
+  "pullOdds": { "secret": "1/144", "source": "official" },
+  "checklist": [
+    "Verify the box QR/seal via Pop Mart's official verification flow.",
+    "Compare hairline and eye paint edges with official photos — fakes blur here.",
+    "Under-market 'guaranteed secret' sealed listings are the classic fake pattern."
+  ],
+  "figures": [
+    { "name": "The Ecstasy", "rarity": "common", "resaleLow": 5, "resaleHigh": 5, "needsReview": true,
+      "evidence": "1 US auction Jul 21 2026: $4.99 (pre-owned) — needs 2nd sale" },
+    { "name": "The Awe", "rarity": "common", "resaleLow": 6, "resaleHigh": 6, "needsReview": true,
+      "evidence": "1 US auction Jul 21 2026: $5.50, 4 bids (pre-owned) — needs 2nd sale" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "slug": "brand-series-name",
+  "name": "Series Name",
+  "brand": "Brand",
+  "retailUSD": 15,
+  "pullOdds": { "secret": "1/144", "source": "official | community" },
+  "checklist": [
+    "One concrete physical tell per line.",
+    "Packaging tell.",
+    "Where fakes are most often listed."
+  ],
+  "figures": [
+    { "name": "Figure Name", "rarity": "common | rare | secret",
+      "resaleLow": null, "resaleHigh": null, "needsReview": true }
+  ]
+}

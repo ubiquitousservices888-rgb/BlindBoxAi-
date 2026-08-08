@@ -1,0 +1,16 @@
+{
+  "slug": "hirono-city-of-mercy",
+  "name": "Hirono City of Mercy",
+  "brand": "Pop Mart",
+  "retailUSD": 18,
+  "pullOdds": { "secret": "1/72", "source": "official" },
+  "checklist": [
+    "Verify the seal/QR on the box through Pop Mart's own verification flow.",
+    "Compare paint edges at the hairline and eyes with official product photos — fakes blur here.",
+    "Sealed 'guaranteed secret' listings well under market are the classic fake pattern."
+  ],
+  "figures": [
+    { "name": "Belonging (secret)", "rarity": "secret", "resaleLow": null, "resaleHigh": null, "needsReview": true },
+    { "name": "ADD_REMAINING_FIGURES", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "slug": "smiski-series-1",
+  "name": "Smiski Series 1",
+  "brand": "Smiski (Dreams)",
+  "retailUSD": 13,
+  "pullOdds": { "secret": "6 poses + 1 secret", "source": "official" },
+  "checklist": [
+    "Genuine figures glow evenly under light; fakes glow weakly or in patches.",
+    "Check box print sharpness and green tone — blurred logos and off-color boxes signal fakes.",
+    "Deep-discount multi-figure lots from overseas sellers are the most common fake source."
+  ],
+  "figures": [
+    { "name": "Sealed single blind box", "rarity": "sealed", "resaleLow": 8, "resaleHigh": 8, "needsReview": true,
+      "evidence": "1 US sale Jul 22 2026: $8.00 (1 bid) — needs 2nd sale" },
+    { "name": "Secret (Munk / Scream pose)", "rarity": "secret", "resaleLow": 66, "resaleHigh": 66, "needsReview": true,
+      "evidence": "1 US sale (Scream) $66.99; Munk secret comps are Japan-based (excluded) — needs 2nd US sale" },
+    { "name": "Standing", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true, "evidence": "US-sold data pending" },
+    { "name": "Hugging Knees", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true, "evidence": "US-sold data pending" },
+    { "name": "Peeking", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true, "evidence": "US-sold data pending" },
+    { "name": "Lookout", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true, "evidence": "US-sold data pending" },
+    { "name": "Lying Down", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true, "evidence": "US-sold data pending" },
+    { "name": "Hiding", "rarity": "common", "resaleLow": null, "resaleHigh": null, "needsReview": true, "evidence": "US-sold data pending" }
+  ]
+}

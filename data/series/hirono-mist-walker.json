@@ -1,0 +1,74 @@
+{
+  "slug": "hirono-mist-walker",
+  "name": "Hirono Mist-Walker Plush Pendant",
+  "brand": "Pop Mart",
+  "retailUSD": null,
+  "pullOdds": {
+    "secret": null,
+    "source": "unconfirmed"
+  },
+  "checklist": [
+    "Verify the box QR through Pop Mart's official verification page before paying secret-tier prices.",
+    "Confirm the paper character card matches the figure inside — mismatched cards signal a swapped or reboxed pull.",
+    "Inspect fur pile density and face paint edges against official product photos; soft or bleeding edges are the common counterfeit tell.",
+    "Fakes concentrate in listings priced well under the sealed blind box range and in lots shipped from outside the US."
+  ],
+  "figures": [
+    {
+      "name": "The Wingless Follower",
+      "rarity": "common",
+      "resaleLow": 45,
+      "resaleHigh": 70,
+      "needsReview": false,
+      "evidence": "5 firm US sales Jun 18 - Jul 22 2026: $52.99, $50.00, $57.00, $49.00, $70.00"
+    },
+    {
+      "name": "The Backlit Messenger",
+      "rarity": "common",
+      "resaleLow": 30,
+      "resaleHigh": 44,
+      "needsReview": false,
+      "evidence": "2 firm US sales Jun 23 and Jul 23 2026: $43.50 and $29.99 - trending down"
+    },
+    {
+      "name": "The Gap-Glimmer Wanderer",
+      "rarity": "common",
+      "resaleLow": 25,
+      "resaleHigh": 32,
+      "needsReview": false,
+      "evidence": "2 firm US sales Jun 30 and Jul 24 2026: $31.50 and $24.99"
+    },
+    {
+      "name": "The Soul Corroder",
+      "rarity": "common",
+      "resaleLow": 36,
+      "resaleHigh": 40,
+      "needsReview": false,
+      "evidence": "2 firm US Buy It Now sales Jul 13 and Jul 23 2026: $36.50 and $39.99"
+    },
+    {
+      "name": "The Unfallen Wing",
+      "rarity": "common",
+      "resaleLow": 30,
+      "resaleHigh": 30,
+      "needsReview": true,
+      "evidence": "1 US sale Jul 15 2026: $30.00 - single sale, range not yet established"
+    },
+    {
+      "name": "The Primordial Grace",
+      "rarity": "common",
+      "resaleLow": 22,
+      "resaleHigh": 24,
+      "needsReview": false,
+      "evidence": "2 firm US Buy It Now sales Jul 23 and Jul 25 2026: $21.99 and $23.99 (same seller); $35 Best Offer comp excluded"
+    },
+    {
+      "name": "The Tempered Aegis",
+      "rarity": "secret",
+      "resaleLow": 152,
+      "resaleHigh": 165,
+      "needsReview": false,
+      "evidence": "2 firm US sales Jul 4 and Jul 7 2026: $152.00 and $165.00"
+    }
+  ]
+}

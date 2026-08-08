@@ -1,0 +1,16 @@
+{
+  "slug": "skullpanda-the-mirage",
+  "name": "Skullpanda The Mirage",
+  "brand": "Pop Mart",
+  "retailUSD": 17,
+  "pullOdds": { "secret": "1/144", "source": "community" },
+  "checklist": [
+    "Light-up figures: test the light function — many fakes omit or dim it.",
+    "Verify box QR via Pop Mart official verification.",
+    "Compare lantern paint detail with official photos."
+  ],
+  "figures": [
+    { "name": "The Carousel Lantern", "rarity": "common", "resaleLow": 18, "resaleHigh": 20, "needsReview": false,
+      "evidence": "2 US sales Jul 21-22 2026: $18.00 and $19.50" }
+  ]
+}

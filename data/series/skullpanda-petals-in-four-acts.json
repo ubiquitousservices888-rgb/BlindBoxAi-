@@ -1,0 +1,20 @@
+{
+  "slug": "skullpanda-petals-in-four-acts",
+  "name": "Skullpanda Petals in Four Acts",
+  "brand": "Pop Mart",
+  "retailUSD": 17,
+  "pullOdds": { "secret": "1/144", "source": "community" },
+  "checklist": [
+    "Verify box seal/QR through Pop Mart's official check.",
+    "Secret listings: inspect card + figure paint gradient against official reveal photos.",
+    "Confirmed-figure sealed-bag listings should show the matching inner card."
+  ],
+  "figures": [
+    { "name": "Chronos' Gardener (secret)", "rarity": "secret", "resaleLow": 97, "resaleHigh": 110, "needsReview": false,
+      "evidence": "2 US sales: $110.00 BIN (Jul 21) and $97.00 auction (Jun 8)" },
+    { "name": "The Decay Awaited", "rarity": "common", "resaleLow": 18, "resaleHigh": 18, "needsReview": false,
+      "evidence": "US sale Jul 21 2026: $17.99" },
+    { "name": "Confirmed common figures", "rarity": "common", "resaleLow": 12, "resaleHigh": 20, "needsReview": false,
+      "evidence": "US variation listing Jul 21 2026: $11.99-$19.99 per figure" }
+  ]
+}
