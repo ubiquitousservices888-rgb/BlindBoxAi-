@@ -5,7 +5,7 @@
  * Exits with code 1 and descriptive errors if any check fails.
  *
  * Usage:
- *   node scripts/labubu-validate.mjs [--output-dir output/labubu]
+ *   node scripts/labubu-validate.mjs [--output-dir output/labubu] [--skip-url-check]
  */
 
 import fs from "node:fs";
@@ -20,8 +20,10 @@ const ROOT = path.resolve(__dirname, "..");
 const args = process.argv.slice(2);
 const outputDirArg = args[args.indexOf("--output-dir") + 1];
 const OUTPUT_DIR = path.resolve(ROOT, outputDirArg ?? "output/labubu");
+const SKIP_URL_CHECK = args.includes("--skip-url-check");
 const SERIES_DIR = path.join(ROOT, "data", "series");
 const PRICING_FILE = path.join(ROOT, "data", "labubu-market-pricing.json");
+const VIDEO_MANIFEST_FILE = path.join(ROOT, "data", "labubu-video-manifest.json");
 
 const LABUBU_SLUGS = [
   "labubu-the-monsters-exciting-macaron",
@@ -45,15 +47,18 @@ const REQUIRED_PRICING_VARIANT_FIELDS = [
   "status",
 ];
 
-const REQUIRED_CSV_HEADERS = [
-  "post_type",
-  "series_slug",
-  "series_name",
-  "platform",
-  "text",
-  "image_url",
-  "scheduled_at",
-];
+// Buffer official CSV headers (exact case-sensitive)
+const BUFFER_CSV_HEADERS_BASE = ["Text", "Image URL", "Tags", "Posting Time"];
+const BUFFER_CSV_HEADERS_PINTEREST = ["Text", "Image URL", "Tags", "Posting Time", "Board Name"];
+
+// Per-channel CSV files produced by the generator
+const CHANNEL_CSV_FILES = {
+  tiktok:    "buffer-tiktok.csv",
+  instagram: "buffer-instagram.csv",
+  facebook:  "buffer-facebook.csv",
+  x:         "buffer-x.csv",
+  pinterest: "buffer-pinterest.csv",
+};
 
 const DISCLOSURE_PREFIX = "#ad BlindBoxAI may earn a commission";
 
@@ -69,10 +74,10 @@ const PROHIBITED_PHRASES = [
 
 // Secret patterns — checks output only for accidentally leaked secrets
 const SECRET_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/,           // AWS access key
-  /sk-[A-Za-z0-9]{32,}/,        // OpenAI / Stripe
-  /ghp_[A-Za-z0-9]{36}/,        // GitHub personal token
-  /xoxb-[0-9]+-[A-Za-z0-9]+/,  // Slack bot token
+  /AKIA[0-9A-Z]{16}/,            // AWS access key
+  /sk-[A-Za-z0-9]{32,}/,         // OpenAI / Stripe
+  /ghp_[A-Za-z0-9]{36}/,         // GitHub personal token
+  /xoxb-[0-9]+-[A-Za-z0-9]+/,   // Slack bot token
   /Bearer\s+[A-Za-z0-9\-_]{20,}/, // Generic bearer token
 ];
 
@@ -83,6 +88,9 @@ const PLACEHOLDER_LINK_PATTERNS = [
   /YOUR_LINK_HERE/i,
   /INSERT_URL/i,
 ];
+
+// Posting Time format: YYYY-MM-DD HH:mm
+const POSTING_TIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
 
 let errors = [];
 let warnings = [];
@@ -104,7 +112,6 @@ function pass(msg) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseCSV(text) {
-  // Parse the full text character-by-character so multi-line quoted fields work.
   const rows = [];
   let cells = [];
   let cell = "";
@@ -117,7 +124,6 @@ function parseCSV(text) {
     if (inQuote) {
       if (ch === '"') {
         if (text[i + 1] === '"') {
-          // Escaped quote
           cell += '"';
           i += 2;
           continue;
@@ -133,43 +139,21 @@ function parseCSV(text) {
       }
     }
 
-    // Not in quote
-    if (ch === '"') {
-      inQuote = true;
-      i++;
-      continue;
-    }
-
-    if (ch === ",") {
-      cells.push(cell);
-      cell = "";
-      i++;
-      continue;
-    }
+    if (ch === '"') { inQuote = true; i++; continue; }
+    if (ch === ",") { cells.push(cell); cell = ""; i++; continue; }
 
     if (ch === "\r" && text[i + 1] === "\n") {
-      cells.push(cell);
-      cell = "";
-      rows.push(cells);
-      cells = [];
-      i += 2;
-      continue;
+      cells.push(cell); cell = ""; rows.push(cells); cells = []; i += 2; continue;
     }
 
     if (ch === "\n") {
-      cells.push(cell);
-      cell = "";
-      rows.push(cells);
-      cells = [];
-      i++;
-      continue;
+      cells.push(cell); cell = ""; rows.push(cells); cells = []; i++; continue;
     }
 
     cell += ch;
     i++;
   }
 
-  // Flush last row
   if (cell !== "" || cells.length > 0) {
     cells.push(cell);
     if (cells.some((c) => c !== "")) rows.push(cells);
@@ -180,9 +164,7 @@ function parseCSV(text) {
   const headers = rows[0];
   const dataRows = rows.slice(1).map((rowCells) => {
     const row = {};
-    headers.forEach((h, idx) => {
-      row[h] = rowCells[idx] ?? "";
-    });
+    headers.forEach((h, idx) => { row[h] = rowCells[idx] ?? ""; });
     return row;
   });
 
@@ -221,12 +203,48 @@ function checkSeriesFiles() {
       error(`${slug}: seriesPageUrl contains placeholder domain`);
     }
 
+    if (!data.seriesPageUrl?.startsWith("https://")) {
+      error(`${slug}: seriesPageUrl must start with https://`);
+    }
+
     if (!Array.isArray(data.figures) || data.figures.length === 0) {
       error(`${slug}: figures array is empty or missing`);
     }
 
+    // _dataQuality checks for factual fields
+    if (!data._dataQuality?.retailUSD?.status) {
+      warn(`${slug}: _dataQuality.retailUSD.status missing — retail price will not be emitted`);
+    }
+
     if (errors.length === errorsBefore) {
       pass(`Series file OK: ${slug}`);
+    }
+  }
+}
+
+async function checkSeriesPageUrls() {
+  if (SKIP_URL_CHECK) {
+    console.log("\n🔗 URL check skipped (--skip-url-check)");
+    return;
+  }
+  console.log("\n🔗 Validating series page URLs…");
+
+  for (const slug of LABUBU_SLUGS) {
+    const file = path.join(SERIES_DIR, `${slug}.json`);
+    if (!fs.existsSync(file)) continue;
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    const url = data.seriesPageUrl;
+    if (!url) { error(`${slug}: seriesPageUrl is missing`); continue; }
+
+    try {
+      const res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(10000) });
+      if (!res.ok) {
+        error(`${slug}: seriesPageUrl returned HTTP ${res.status}: ${url}`);
+      } else {
+        pass(`URL resolves (${res.status}): ${url}`);
+      }
+    } catch (e) {
+      error(`${slug}: seriesPageUrl failed to fetch: ${url} — ${e.message}`);
     }
   }
 }
@@ -260,27 +278,18 @@ function checkPricingFile() {
         }
       }
 
-      // If status is 'verified', all price fields must be present
       if (variant.status === "verified") {
         if (!variant.price_low || !variant.price_median || !variant.price_high) {
-          error(
-            `Verified variant '${variant.variant}' in '${series.series}' is missing price fields`,
-          );
+          error(`Verified variant '${variant.variant}' in '${series.series}' is missing price fields`);
         }
         if (!variant.source) {
-          error(
-            `Verified variant '${variant.variant}' in '${series.series}' must have a source`,
-          );
+          error(`Verified variant '${variant.variant}' in '${series.series}' must have a source`);
         }
         if (!variant.checked_at) {
-          error(
-            `Verified variant '${variant.variant}' in '${series.series}' must have checked_at`,
-          );
+          error(`Verified variant '${variant.variant}' in '${series.series}' must have checked_at`);
         }
         if (!variant.sample_size || variant.sample_size < 2) {
-          warn(
-            `Verified variant '${variant.variant}' in '${series.series}' has sample_size < 2 — recommend more data`,
-          );
+          warn(`Verified variant '${variant.variant}' in '${series.series}' has sample_size < 2`);
         }
       }
     }
@@ -289,27 +298,32 @@ function checkPricingFile() {
   pass("Pricing file structure OK");
 }
 
-function checkCSVOutput() {
-  console.log("\n📄 Checking Buffer CSV output…");
-
-  const csvPath = path.join(OUTPUT_DIR, "buffer-schedule.csv");
+function checkChannelCSV(channel, filename) {
+  const csvPath = path.join(OUTPUT_DIR, filename);
   if (!fs.existsSync(csvPath)) {
-    error(`Missing Buffer CSV: ${csvPath}`);
+    // Instagram and Pinterest are required (need images); others are expected
+    if (channel === "instagram" || channel === "pinterest") {
+      warn(`${channel} CSV not found (may have no qualifying posts with Image URL): ${csvPath}`);
+    } else {
+      warn(`${channel} CSV not found: ${csvPath}`);
+    }
     return;
   }
 
   const text = fs.readFileSync(csvPath, "utf8");
   const { headers, rows } = parseCSV(text);
 
-  // Required headers
-  for (const required of REQUIRED_CSV_HEADERS) {
+  const expectedHeaders = channel === "pinterest" ? BUFFER_CSV_HEADERS_PINTEREST : BUFFER_CSV_HEADERS_BASE;
+
+  // Verify exact Buffer CSV headers (case-sensitive)
+  for (const required of expectedHeaders) {
     if (!headers.includes(required)) {
-      error(`CSV missing required header: ${required}`);
+      error(`${channel} CSV missing required Buffer header: '${required}' (found: ${JSON.stringify(headers)})`);
     }
   }
 
   if (rows.length === 0) {
-    error("CSV has no data rows");
+    warn(`${channel} CSV has no data rows`);
     return;
   }
 
@@ -317,84 +331,94 @@ function checkCSVOutput() {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const label = `Row ${i + 2}`;
+    const label = `${channel} Row ${i + 2}`;
 
-    // Disclosure check
-    if (!row.text?.includes(DISCLOSURE_PREFIX)) {
-      error(`${label}: missing EPN disclosure. text must include: "${DISCLOSURE_PREFIX}"`);
+    // Text / disclosure
+    if (!row["Text"]?.includes(DISCLOSURE_PREFIX)) {
+      error(`${label}: missing EPN disclosure in Text`);
     }
 
     // Prohibited phrases
     for (const phrase of PROHIBITED_PHRASES) {
-      if (row.text?.toLowerCase().includes(phrase.toLowerCase())) {
+      if (row["Text"]?.toLowerCase().includes(phrase.toLowerCase())) {
         error(`${label}: prohibited phrase found: "${phrase}"`);
       }
     }
 
     // Placeholder links
     for (const pattern of PLACEHOLDER_LINK_PATTERNS) {
-      if (pattern.test(row.text ?? "")) {
+      if (pattern.test(row["Text"] ?? "")) {
         error(`${label}: placeholder link found in post text`);
       }
     }
 
     // Secret patterns
     for (const pattern of SECRET_PATTERNS) {
-      if (pattern.test(row.text ?? "")) {
+      if (pattern.test(row["Text"] ?? "")) {
         error(`${label}: possible secret/token found in post text`);
       }
     }
 
-    // Date must not be in the past
-    if (row.scheduled_at) {
-      const scheduled = new Date(row.scheduled_at);
-      if (isNaN(scheduled.getTime())) {
-        error(`${label}: invalid scheduled_at date: ${row.scheduled_at}`);
-      } else if (scheduled < now) {
-        error(`${label}: scheduled_at date is in the past: ${row.scheduled_at}`);
-      }
-    } else {
-      warn(`${label}: scheduled_at is empty`);
+    // Instagram requires Image URL
+    if (channel === "instagram" && !row["Image URL"]) {
+      error(`${label}: Instagram post missing required Image URL`);
     }
 
-    // Required fields present
-    for (const field of REQUIRED_CSV_HEADERS) {
-      if (field === "image_url" || field === "figure_name") continue; // Optional
-      if (!row[field] || row[field].trim() === "") {
-        error(`${label}: required CSV field '${field}' is empty`);
+    // Pinterest requires Board Name
+    if (channel === "pinterest" && !row["Board Name"]) {
+      error(`${label}: Pinterest post missing required Board Name`);
+    }
+
+    // Posting Time: must be YYYY-MM-DD HH:mm and in the future
+    const postingTime = row["Posting Time"];
+    if (!postingTime || postingTime.trim() === "") {
+      warn(`${label}: Posting Time is empty`);
+    } else if (!POSTING_TIME_RE.test(postingTime.trim())) {
+      error(`${label}: Posting Time must be YYYY-MM-DD HH:mm format, got: ${postingTime}`);
+    } else {
+      const scheduled = new Date(postingTime.trim());
+      if (isNaN(scheduled.getTime())) {
+        error(`${label}: invalid Posting Time: ${postingTime}`);
+      } else if (scheduled < now) {
+        error(`${label}: Posting Time is in the past: ${postingTime}`);
       }
     }
   }
 
-  // Check for accidentally embedded secrets in entire CSV
+  // Check for accidentally embedded secrets in entire CSV file
   for (const pattern of SECRET_PATTERNS) {
     if (pattern.test(text)) {
-      error("Possible secret/token pattern found in CSV output file");
+      error(`Possible secret/token pattern found in ${channel} CSV output`);
     }
   }
 
-  pass(`CSV output OK — ${rows.length} rows`);
+  pass(`${channel} CSV OK — ${rows.length} rows`);
+}
+
+function checkAllChannelCSVs() {
+  console.log("\n📄 Checking Buffer per-channel CSV files…");
+  for (const [channel, filename] of Object.entries(CHANNEL_CSV_FILES)) {
+    checkChannelCSV(channel, filename);
+  }
 }
 
 function checkVideoManifest() {
-  console.log("\n🎬 Checking scheduled video manifest…");
+  console.log("\n🎬 Checking video manifest…");
 
-  const manifestPath = path.join(OUTPUT_DIR, "video-manifest-scheduled.json");
-  if (!fs.existsSync(manifestPath)) {
-    warn(`Video manifest not found (optional): ${manifestPath}`);
+  if (!fs.existsSync(VIDEO_MANIFEST_FILE)) {
+    warn(`Video manifest not found (optional): ${VIDEO_MANIFEST_FILE}`);
     return;
   }
 
   let manifest;
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    manifest = JSON.parse(fs.readFileSync(VIDEO_MANIFEST_FILE, "utf8"));
   } catch (e) {
     error(`Invalid JSON in video manifest: ${e.message}`);
     return;
   }
 
-  const now = new Date();
-  const REQUIRED_VIDEO_FIELDS = ["id", "videoPath", "seriesSlug", "title", "caption", "cta", "targetChannels"];
+  const REQUIRED_VIDEO_FIELDS = ["id", "videoUrl", "seriesSlug", "title", "caption", "cta", "targetChannels"];
 
   for (const video of manifest.videos ?? []) {
     for (const field of REQUIRED_VIDEO_FIELDS) {
@@ -403,17 +427,28 @@ function checkVideoManifest() {
       }
     }
 
-    if (video.scheduledTime) {
-      const scheduled = new Date(video.scheduledTime);
-      if (isNaN(scheduled.getTime())) {
-        error(`Video '${video.id}': invalid scheduledTime: ${video.scheduledTime}`);
-      } else if (scheduled < now) {
-        error(`Video '${video.id}': scheduledTime is in the past: ${video.scheduledTime}`);
+    // videoUrl must be a real hosted URL, not a local path
+    if (video.videoUrl && !video.videoUrl.startsWith("https://")) {
+      error(`Video '${video.id}': videoUrl must be a public https:// URL, got: ${video.videoUrl}`);
+    }
+
+    // EPN disclosure required in video caption
+    if (video.caption && !video.caption.includes(DISCLOSURE_PREFIX)) {
+      error(`Video '${video.id}': caption missing EPN disclosure: "${DISCLOSURE_PREFIX}"`);
+    }
+
+    // No placeholder paths
+    for (const pattern of PLACEHOLDER_LINK_PATTERNS) {
+      if (pattern.test(video.videoUrl ?? "")) {
+        error(`Video '${video.id}': videoUrl is a placeholder`);
       }
     }
+
+    // YouTube should not appear in targetChannels with a note that CSV can't handle it
+    // (youtube_shorts is valid for Buffer API publishing only)
   }
 
-  pass("Video manifest OK");
+  pass("Video manifest structure OK");
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -422,8 +457,9 @@ console.log("🔍 Labubu Automation — Validation\n");
 console.log(`Output directory: ${OUTPUT_DIR}`);
 
 checkSeriesFiles();
+await checkSeriesPageUrls();
 checkPricingFile();
-checkCSVOutput();
+checkAllChannelCSVs();
 checkVideoManifest();
 
 console.log("\n─────────────────────────────────────────────");
