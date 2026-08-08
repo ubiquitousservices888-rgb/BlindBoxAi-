@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { allSeries, getSeries, ebaySoldLink, ebayActiveLink } from "../../../lib/data";
+import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
 import FakeCheck from "../../_components/FakeCheck";
 
 export const revalidate = 86400;
@@ -54,17 +54,17 @@ export default function SeriesPage({ params }) {
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     <a
                       className="ebay"
-                      href={ebaySoldLink(`${s.brand} ${s.name} ${f.name}`)}
+                      href={ebayOutboundPath(s.slug, f.name, "sold")}
                       target="_blank"
-                      rel="sponsored noopener noreferrer"
+                      rel="sponsored nofollow noopener noreferrer"
                     >
                       Sold comps ↗
                     </a>
                     <a
                       className="ebay"
-                      href={ebayActiveLink(`${s.brand} ${s.name} ${f.name}`)}
+                      href={ebayOutboundPath(s.slug, f.name, "active")}
                       target="_blank"
-                      rel="sponsored noopener noreferrer"
+                      rel="sponsored nofollow noopener noreferrer"
                     >
                       Shop active ↗
                     </a>

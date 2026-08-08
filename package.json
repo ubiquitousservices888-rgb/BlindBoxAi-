@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "affiliate:report": "node --env-file=.env.local scripts/affiliate-click-report.mjs"
   },
   "dependencies": {
     "@vercel/blob": "2.6.1",
