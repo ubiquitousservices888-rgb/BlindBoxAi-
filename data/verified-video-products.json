@@ -1,0 +1,5 @@
+{
+  "_schema": "blindboxai/verified-video-products/v1",
+  "_note": "Intentionally empty. Add a product only after every claim has a primary HTTPS source checked within 30 days. The daily job fails closed when no product qualifies.",
+  "products": []
+}
