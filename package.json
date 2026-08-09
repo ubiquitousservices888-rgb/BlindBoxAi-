@@ -8,12 +8,20 @@
     "affiliate:report": "node --env-file=.env.local scripts/affiliate-click-report.mjs",
     "labubu:generate": "node scripts/labubu-post-generator.mjs",
     "labubu:validate": "node scripts/labubu-validate.mjs",
-    "labubu:test": "node --test scripts/labubu-test.mjs"
+    "labubu:test": "node --test scripts/labubu-test.mjs",
+    "video:daily": "node scripts/video-pipeline.mjs daily",
+    "video:approve": "node scripts/video-pipeline.mjs approve",
+    "video:reject": "node scripts/video-pipeline.mjs reject",
+    "video:publish": "node scripts/video-pipeline.mjs publish",
+    "video:test": "node --test scripts/video-pipeline.test.mjs",
+    "test": "npm run labubu:test && npm run video:test",
+    "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate"
   },
   "dependencies": {
     "@vercel/blob": "2.6.1",
-    "next": "^15.5.0",
+    "next": "16.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "sharp": "0.35.3"
   }
 }
