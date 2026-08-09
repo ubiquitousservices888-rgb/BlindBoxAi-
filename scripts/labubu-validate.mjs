@@ -426,6 +426,8 @@ function checkVideoManifest() {
   }
 
   const REQUIRED_VIDEO_FIELDS = ["id", "videoUrl", "seriesSlug", "title", "caption", "cta", "targetChannels"];
+  const errorsBefore = errors.length;
+  const warningsBefore = warnings.length;
 
   for (const video of manifest.videos ?? []) {
     for (const field of REQUIRED_VIDEO_FIELDS) {
@@ -434,9 +436,12 @@ function checkVideoManifest() {
       }
     }
 
-    // videoUrl must be a real hosted URL, not a local path
+    // videoUrl must be a real hosted URL, not a local path.
+    // In --skip-url-check mode (used in CI while URLs are staged), treat this as warning.
     if (video.videoUrl && !video.videoUrl.startsWith("https://")) {
-      error(`Video '${video.id}': videoUrl must be a public https:// URL, got: ${video.videoUrl}`);
+      const message = `Video '${video.id}': videoUrl must be a public https:// URL, got: ${video.videoUrl}`;
+      if (SKIP_URL_CHECK) warn(message);
+      else error(message);
     }
 
     // EPN disclosure required in video caption
@@ -444,10 +449,12 @@ function checkVideoManifest() {
       error(`Video '${video.id}': caption missing EPN disclosure: "${DISCLOSURE_PREFIX}"`);
     }
 
-    // No placeholder paths
+    // No placeholder paths (warning only when URL checks are intentionally skipped)
     for (const pattern of PLACEHOLDER_LINK_PATTERNS) {
       if (pattern.test(video.videoUrl ?? "")) {
-        error(`Video '${video.id}': videoUrl is a placeholder`);
+        const message = `Video '${video.id}': videoUrl is a placeholder`;
+        if (SKIP_URL_CHECK) warn(message);
+        else error(message);
       }
     }
 
@@ -455,7 +462,9 @@ function checkVideoManifest() {
     // (youtube_shorts is valid for Buffer API publishing only)
   }
 
-  pass("Video manifest structure OK");
+  if (errors.length === errorsBefore && warnings.length === warningsBefore) {
+    pass("Video manifest structure OK");
+  }
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
