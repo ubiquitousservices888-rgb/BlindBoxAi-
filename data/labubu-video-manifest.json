@@ -5,6 +5,7 @@
   "videos": [
     {
       "id": "labubu-exciting-macaron-intro",
+      "enabled": false,
       "videoUrl": "REPLACE_WITH_HOSTED_VIDEO_URL",
       "_videoUrlNote": "Set this to a stable public https:// URL for the BlindBoxAI Exciting Macaron MP4. The URL must remain accessible through the time of publishing. Do not use a local file path.",
       "seriesSlug": "labubu-the-monsters-exciting-macaron",
@@ -33,6 +34,7 @@
     },
     {
       "id": "labubu-sanrio-collab-intro",
+      "enabled": false,
       "videoUrl": "REPLACE_WITH_HOSTED_VIDEO_URL",
       "_videoUrlNote": "Set this to a stable public https:// URL for the BlindBoxAI Sanrio Collab MP4. The URL must remain accessible through the time of publishing. Do not use a local file path.",
       "seriesSlug": "labubu-sanrio-collaboration",

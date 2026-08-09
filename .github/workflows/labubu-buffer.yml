@@ -28,7 +28,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -51,6 +51,13 @@ jobs:
       # ── Step 4: Validate generated output ─────────────────────────────────────
       - name: Validate generated output
         run: node scripts/labubu-validate.mjs --output-dir output/labubu --skip-url-check
+
+      # ── Step 4b: Strict publish preflight (non-PR only) ───────────────────────
+      - name: Strict publish preflight
+        if: ${{ github.event_name != 'pull_request' }}
+        run: node scripts/labubu-validate.mjs --output-dir output/labubu --strict-publish
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
 
       # ── Step 5: Repository build ───────────────────────────────────────────────
       - name: Build repository

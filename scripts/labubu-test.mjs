@@ -11,6 +11,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -229,6 +230,7 @@ describe("Market pricing file", () => {
 
 describe("Video manifest file", () => {
   const manifestFile = path.join(ROOT, "data", "labubu-video-manifest.json");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "labubu-test-"));
 
   it("exists and is valid JSON", () => {
     assert.ok(fs.existsSync(manifestFile), `Missing: ${manifestFile}`);
@@ -240,6 +242,7 @@ describe("Video manifest file", () => {
     const data = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
     for (const video of data.videos ?? []) {
       assert.ok(video.id, `Video missing 'id'`);
+      assert.equal(typeof video.enabled, "boolean", `Video '${video.id}' must set boolean 'enabled'`);
       assert.ok(video.videoUrl !== undefined, `Video '${video.id}' must have 'videoUrl', not 'videoPath'`);
       assert.ok(!video.videoPath, `Video '${video.id}' must not use deprecated 'videoPath' — use 'videoUrl'`);
       assert.ok(video.seriesSlug, `Video '${video.id}' missing 'seriesSlug'`);
@@ -267,6 +270,94 @@ describe("Video manifest file", () => {
     assert.ok(
       note.includes("api") || note.includes("not csv"),
       "Video manifest should note that video publishing uses Buffer API, not CSV",
+    );
+  });
+
+  it("disabled placeholder videos do not fail ordinary CI validation and are not publishable", () => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const manifestPath = path.join(tmpDir, "video-disabled-placeholder.json");
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          videos: [
+            {
+              id: "disabled-video",
+              enabled: false,
+              videoUrl: "REPLACE_WITH_HOSTED_VIDEO_URL",
+              seriesSlug: "labubu-sanrio-collaboration",
+              title: "Disabled draft",
+              caption:
+                "Draft caption only.\n\n#ad BlindBoxAI may earn a commission from qualifying purchases.",
+              hashtags: ["#Labubu"],
+              cta: "Link in bio.",
+              targetChannels: ["tiktok"],
+              videoSpec: { format: "MP4", codec: "H.264", audio: "AAC" },
+              scheduledTime: null,
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts", "labubu-validate.mjs"), "--skip-url-check"],
+      {
+        cwd: ROOT,
+        env: { ...process.env, LABUBU_VIDEO_MANIFEST_FILE: manifestPath },
+        stdio: "pipe",
+      },
+    ).toString();
+    assert.ok(
+      out.includes("is disabled and will not publish"),
+      "Expected disabled video warning indicating it cannot publish",
+    );
+  });
+
+  it("enabled placeholder videos fail validation", () => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const manifestPath = path.join(tmpDir, "video-enabled-placeholder.json");
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          videos: [
+            {
+              id: "enabled-video",
+              enabled: true,
+              videoUrl: "REPLACE_WITH_HOSTED_VIDEO_URL",
+              seriesSlug: "labubu-sanrio-collaboration",
+              title: "Enabled draft",
+              caption:
+                "Enabled caption.\n\n#ad BlindBoxAI may earn a commission from qualifying purchases.",
+              hashtags: ["#Labubu"],
+              cta: "Link in bio.",
+              targetChannels: ["tiktok"],
+              videoSpec: { format: "MP4", codec: "H.264", audio: "AAC" },
+              scheduledTime: null,
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    assert.throws(
+      () =>
+        execFileSync(
+          process.execPath,
+          [path.join(ROOT, "scripts", "labubu-validate.mjs"), "--skip-url-check"],
+          {
+            cwd: ROOT,
+            env: { ...process.env, LABUBU_VIDEO_MANIFEST_FILE: manifestPath },
+            stdio: "pipe",
+          },
+        ),
+      /videoUrl is a placeholder/,
     );
   });
 });

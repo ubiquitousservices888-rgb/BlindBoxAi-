@@ -78,6 +78,7 @@ To publish BlindBoxAI MP4 videos to TikTok, Instagram Reels, or YouTube Shorts:
 1. Host your video at a **stable public HTTPS URL** (e.g. Cloudflare R2, S3, CDN).
 2. The MP4 must be **H.264 video** + **AAC audio** and remain publicly accessible through the time of publishing.
 3. Add the entry to `data/labubu-video-manifest.json` with `videoUrl` set to your hosted URL.
+4. Set `enabled: true` only when the entry is fully configured and ready to publish.
 4. Use the **Buffer API** (or Buffer Composer manually) to schedule the video.
 5. Store your `BUFFER_API_TOKEN` in **GitHub Secrets only** — never in code or CSV files.
 
@@ -88,6 +89,7 @@ To publish BlindBoxAI MP4 videos to TikTok, Instagram Reels, or YouTube Shorts:
 ```json
 {
   "id": "my-video-id",
+  "enabled": false,
   "videoUrl": "https://cdn.example.com/my-video.mp4",
   "seriesSlug": "labubu-the-monsters-hair-salon",
   "title": "My Video Title",
@@ -137,6 +139,14 @@ node scripts/labubu-validate.mjs --skip-url-check
 ```
 
 Exits with code 1 and a list of errors if any check fails.
+
+### 2b. Strict publish preflight
+
+```bash
+node scripts/labubu-validate.mjs --strict-publish
+```
+
+Strict mode enforces publish gates for `enabled: true` videos: real public `https` media URL, no placeholders, disclosure, valid target channels, required metadata, live URL checks, and required `BUFFER_API_TOKEN`.
 
 ### 3. Run tests
 

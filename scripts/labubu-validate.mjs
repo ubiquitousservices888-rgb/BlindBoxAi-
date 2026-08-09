@@ -22,9 +22,14 @@ const outputDirIdx = args.indexOf("--output-dir");
 const outputDirArg = outputDirIdx >= 0 ? args[outputDirIdx + 1] : undefined;
 const OUTPUT_DIR = path.resolve(ROOT, outputDirArg ?? "output/labubu");
 const SKIP_URL_CHECK = args.includes("--skip-url-check");
+const STRICT_PUBLISH = args.includes("--strict-publish");
 const SERIES_DIR = path.join(ROOT, "data", "series");
 const PRICING_FILE = path.join(ROOT, "data", "labubu-market-pricing.json");
-const VIDEO_MANIFEST_FILE = path.join(ROOT, "data", "labubu-video-manifest.json");
+const VIDEO_MANIFEST_FILE = process.env.LABUBU_VIDEO_MANIFEST_FILE
+  ? path.isAbsolute(process.env.LABUBU_VIDEO_MANIFEST_FILE)
+    ? process.env.LABUBU_VIDEO_MANIFEST_FILE
+    : path.resolve(ROOT, process.env.LABUBU_VIDEO_MANIFEST_FILE)
+  : path.join(ROOT, "data", "labubu-video-manifest.json");
 
 const LABUBU_SLUGS = [
   "labubu-the-monsters-exciting-macaron",
@@ -62,6 +67,7 @@ const CHANNEL_CSV_FILES = {
 };
 
 const DISCLOSURE_PREFIX = "#ad BlindBoxAI may earn a commission";
+const VALID_VIDEO_CHANNELS = new Set(["tiktok", "instagram", "youtube_shorts"]);
 
 const PROHIBITED_PHRASES = [
   "verified seller",
@@ -409,7 +415,7 @@ function checkAllChannelCSVs() {
   }
 }
 
-function checkVideoManifest() {
+async function checkVideoManifest() {
   console.log("\n🎬 Checking video manifest…");
 
   if (!fs.existsSync(VIDEO_MANIFEST_FILE)) {
@@ -425,9 +431,36 @@ function checkVideoManifest() {
     return;
   }
 
-  const REQUIRED_VIDEO_FIELDS = ["id", "videoUrl", "seriesSlug", "title", "caption", "cta", "targetChannels"];
+  const REQUIRED_VIDEO_FIELDS = [
+    "id",
+    "videoUrl",
+    "seriesSlug",
+    "title",
+    "caption",
+    "cta",
+    "targetChannels",
+    "videoSpec",
+  ];
+
+  let enabledVideos = 0;
+  const manifestRaw = fs.readFileSync(VIDEO_MANIFEST_FILE, "utf8");
+  if (STRICT_PUBLISH) {
+    for (const pattern of SECRET_PATTERNS) {
+      if (pattern.test(manifestRaw)) {
+        error(`Video manifest contains possible secret/token pattern`);
+      }
+    }
+  }
 
   for (const video of manifest.videos ?? []) {
+    const isEnabled = video.enabled === true;
+    if (!isEnabled) {
+      warn(`Video '${video.id ?? "unknown"}' is disabled and will not publish`);
+      continue;
+    }
+
+    enabledVideos += 1;
+
     for (const field of REQUIRED_VIDEO_FIELDS) {
       if (!video[field]) {
         error(`Video '${video.id ?? "unknown"}' missing required field '${field}'`);
@@ -451,8 +484,50 @@ function checkVideoManifest() {
       }
     }
 
-    // YouTube should not appear in targetChannels with a note that CSV can't handle it
-    // (youtube_shorts is valid for Buffer API publishing only)
+    if (!Array.isArray(video.targetChannels) || video.targetChannels.length === 0) {
+      error(`Video '${video.id}': targetChannels must be a non-empty array`);
+    } else {
+      for (const channel of video.targetChannels) {
+        if (!VALID_VIDEO_CHANNELS.has(channel)) {
+          error(`Video '${video.id}': invalid target channel '${channel}'`);
+        }
+      }
+    }
+
+    if (STRICT_PUBLISH) {
+      for (const pattern of SECRET_PATTERNS) {
+        if (
+          pattern.test(video.videoUrl ?? "") ||
+          pattern.test(video.caption ?? "") ||
+          pattern.test(video.cta ?? "") ||
+          pattern.test(video.title ?? "")
+        ) {
+          error(`Video '${video.id}': possible secret/token detected in publishing metadata`);
+        }
+      }
+
+      if (video.videoUrl?.startsWith("https://")) {
+        try {
+          const res = await fetch(video.videoUrl, {
+            method: "HEAD",
+            signal: AbortSignal.timeout(10000),
+          });
+          if (!res.ok) {
+            error(`Video '${video.id}': videoUrl returned HTTP ${res.status}`);
+          } else {
+            pass(`Video URL resolves (${res.status}): ${video.id}`);
+          }
+        } catch (e) {
+          error(`Video '${video.id}': videoUrl failed to fetch — ${e.message}`);
+        }
+      }
+    }
+  }
+
+  if (STRICT_PUBLISH && enabledVideos > 0) {
+    if (!process.env.BUFFER_API_TOKEN) {
+      error("Strict publish preflight requires BUFFER_API_TOKEN when any video is enabled");
+    }
   }
 
   pass("Video manifest structure OK");
@@ -462,12 +537,19 @@ function checkVideoManifest() {
 
 console.log("🔍 Labubu Automation — Validation\n");
 console.log(`Output directory: ${OUTPUT_DIR}`);
+if (STRICT_PUBLISH) {
+  console.log("Mode: strict publish preflight");
+}
+
+if (STRICT_PUBLISH && SKIP_URL_CHECK) {
+  error("Strict publish preflight cannot run with --skip-url-check");
+}
 
 checkSeriesFiles();
 await checkSeriesPageUrls();
 checkPricingFile();
 checkAllChannelCSVs();
-checkVideoManifest();
+await checkVideoManifest();
 
 console.log("\n─────────────────────────────────────────────");
 
