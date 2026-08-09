@@ -79,8 +79,8 @@ To publish BlindBoxAI MP4 videos to TikTok, Instagram Reels, or YouTube Shorts:
 2. The MP4 must be **H.264 video** + **AAC audio** and remain publicly accessible through the time of publishing.
 3. Add the entry to `data/labubu-video-manifest.json` with `videoUrl` set to your hosted URL.
 4. Set `enabled: true` only when the entry is fully configured and ready to publish.
-4. Use the **Buffer API** (or Buffer Composer manually) to schedule the video.
-5. Store your `BUFFER_API_TOKEN` in **GitHub Secrets only** — never in code or CSV files.
+5. Use the **Buffer API** (or Buffer Composer manually) to schedule the video.
+6. Store your `BUFFER_API_TOKEN` in **GitHub Secrets only** — never in code or CSV files.
 
 > ⚠️ Automatic video publishing via the Buffer API is **not yet activated**. The manifest is ready; a publish step must be added after the API token is obtained and the video URL is confirmed publicly accessible.
 

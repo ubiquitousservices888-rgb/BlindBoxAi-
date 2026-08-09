@@ -179,6 +179,13 @@ function parseCSV(text) {
   return { headers, rows: dataRows };
 }
 
+function patternMatches(pattern, text) {
+  if (pattern.global || pattern.sticky) {
+    pattern.lastIndex = 0;
+  }
+  return pattern.test(text);
+}
+
 // ─── Checks ───────────────────────────────────────────────────────────────────
 
 function checkSeriesFiles() {
@@ -355,14 +362,14 @@ function checkChannelCSV(channel, filename) {
 
     // Placeholder links
     for (const pattern of PLACEHOLDER_LINK_PATTERNS) {
-      if (pattern.test(row["Text"] ?? "")) {
+      if (patternMatches(pattern, row["Text"] ?? "")) {
         error(`${label}: placeholder link found in post text`);
       }
     }
 
     // Secret patterns
     for (const pattern of SECRET_PATTERNS) {
-      if (pattern.test(row["Text"] ?? "")) {
+      if (patternMatches(pattern, row["Text"] ?? "")) {
         error(`${label}: possible secret/token found in post text`);
       }
     }
@@ -400,7 +407,7 @@ function checkChannelCSV(channel, filename) {
 
   // Check for accidentally embedded secrets in entire CSV file
   for (const pattern of SECRET_PATTERNS) {
-    if (pattern.test(text)) {
+    if (patternMatches(pattern, text)) {
       error(`Possible secret/token pattern found in ${channel} CSV output`);
     }
   }
@@ -446,7 +453,7 @@ async function checkVideoManifest() {
   const manifestRaw = fs.readFileSync(VIDEO_MANIFEST_FILE, "utf8");
   if (STRICT_PUBLISH) {
     for (const pattern of SECRET_PATTERNS) {
-      if (pattern.test(manifestRaw)) {
+      if (patternMatches(pattern, manifestRaw)) {
         error(`Video manifest contains possible secret/token pattern`);
       }
     }
@@ -479,7 +486,7 @@ async function checkVideoManifest() {
 
     // No placeholder paths
     for (const pattern of PLACEHOLDER_LINK_PATTERNS) {
-      if (pattern.test(video.videoUrl ?? "")) {
+      if (patternMatches(pattern, video.videoUrl ?? "")) {
         error(`Video '${video.id}': videoUrl is a placeholder`);
       }
     }
@@ -497,10 +504,10 @@ async function checkVideoManifest() {
     if (STRICT_PUBLISH) {
       for (const pattern of SECRET_PATTERNS) {
         if (
-          pattern.test(video.videoUrl ?? "") ||
-          pattern.test(video.caption ?? "") ||
-          pattern.test(video.cta ?? "") ||
-          pattern.test(video.title ?? "")
+          patternMatches(pattern, video.videoUrl ?? "") ||
+          patternMatches(pattern, video.caption ?? "") ||
+          patternMatches(pattern, video.cta ?? "") ||
+          patternMatches(pattern, video.title ?? "")
         ) {
           error(`Video '${video.id}': possible secret/token detected in publishing metadata`);
         }

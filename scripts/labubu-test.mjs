@@ -14,7 +14,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -302,15 +302,17 @@ describe("Video manifest file", () => {
       ),
     );
 
-    const out = execFileSync(
+    const result = spawnSync(
       process.execPath,
       [path.join(ROOT, "scripts", "labubu-validate.mjs"), "--skip-url-check"],
       {
         cwd: ROOT,
         env: { ...process.env, LABUBU_VIDEO_MANIFEST_FILE: manifestPath },
-        stdio: "pipe",
+        encoding: "utf8",
       },
-    ).toString();
+    );
+    assert.equal(result.status, 0, `Validation should pass, got stderr:\n${result.stderr}`);
+    const out = `${result.stdout}\n${result.stderr}`;
     assert.ok(
       out.includes("is disabled and will not publish"),
       "Expected disabled video warning indicating it cannot publish",
