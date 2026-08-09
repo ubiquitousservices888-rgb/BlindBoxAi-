@@ -1,0 +1,63 @@
+{
+  "_schema": "labubu-video-manifest/v2",
+  "_note": "Pairs hosted MP4 videos with generated captions and scheduling metadata. Videos CANNOT be bulk-uploaded via Buffer CSV — use the Buffer API with a stable public HTTPS URL. Fields: videoUrl must be a publicly accessible https:// URL (MP4/H.264, AAC audio) that remains public through publishing. Do NOT commit MP4 files to Git (media/*.mp4 is gitignored). The BUFFER_API_TOKEN must be stored in GitHub Secrets only.",
+  "_videoPublishingPath": "Buffer API (not CSV). See docs/labubu-buffer-automation.md — 'Video Publishing' section.",
+  "videos": [
+    {
+      "id": "labubu-exciting-macaron-intro",
+      "videoUrl": "REPLACE_WITH_HOSTED_VIDEO_URL",
+      "_videoUrlNote": "Set this to a stable public https:// URL for the BlindBoxAI Exciting Macaron MP4. The URL must remain accessible through the time of publishing. Do not use a local file path.",
+      "seriesSlug": "labubu-the-monsters-exciting-macaron",
+      "title": "Labubu Exciting Macaron Series Unboxing 🍬",
+      "caption": "Which macaron Labubu would YOU pull? 🤍 Full series breakdown at BlindBoxAI — link in bio.\n\n#ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "hashtags": [
+        "#Labubu",
+        "#LabubuUnboxing",
+        "#TheMonsters",
+        "#POPMART",
+        "#BlindBox",
+        "#BlindBoxAI",
+        "#CollectibleToys",
+        "#UnboxingVideo"
+      ],
+      "cta": "Check the full guide at BlindBoxAI — link in bio.",
+      "targetChannels": ["tiktok", "instagram"],
+      "_targetChannelsNote": "youtube_shorts requires separate Buffer API publishing with correct MP4 specs. Do not add YouTube to a CSV bulk-upload pipeline.",
+      "videoSpec": {
+        "format": "MP4",
+        "codec": "H.264",
+        "audio": "AAC",
+        "requirement": "URL must be publicly fetchable at time of publishing"
+      },
+      "scheduledTime": null
+    },
+    {
+      "id": "labubu-sanrio-collab-intro",
+      "videoUrl": "REPLACE_WITH_HOSTED_VIDEO_URL",
+      "_videoUrlNote": "Set this to a stable public https:// URL for the BlindBoxAI Sanrio Collab MP4. The URL must remain accessible through the time of publishing. Do not use a local file path.",
+      "seriesSlug": "labubu-sanrio-collaboration",
+      "title": "Sanrio x Labubu Collab — The Cutest Crossover 🎀",
+      "caption": "Hello Kitty meets Labubu and honestly we are NOT okay 🥹 Full collab breakdown at BlindBoxAI — link in bio.\n\n#ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "hashtags": [
+        "#Labubu",
+        "#SanrioXLabubu",
+        "#HelloKitty",
+        "#POPMART",
+        "#BlindBox",
+        "#BlindBoxAI",
+        "#CollectibleToys",
+        "#SanrioCollabs"
+      ],
+      "cta": "Full collab breakdown at BlindBoxAI — link in bio.",
+      "targetChannels": ["tiktok", "instagram"],
+      "_targetChannelsNote": "youtube_shorts requires separate Buffer API publishing with correct MP4 specs. Do not add YouTube to a CSV bulk-upload pipeline.",
+      "videoSpec": {
+        "format": "MP4",
+        "codec": "H.264",
+        "audio": "AAC",
+        "requirement": "URL must be publicly fetchable at time of publishing"
+      },
+      "scheduledTime": null
+    }
+  ]
+}

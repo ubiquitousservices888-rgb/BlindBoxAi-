@@ -1,0 +1,98 @@
+{
+  "slug": "labubu-the-monsters-hair-salon",
+  "name": "The Monsters: Hair Salon",
+  "brand": "POPMART (Labubu)",
+  "retailUSD": 24,
+  "pullOdds": {
+    "secret": "1/144",
+    "source": "community"
+  },
+  "checklist": [
+    "Authentic boxes have sharp, consistent print quality \u2014 blurred or off-color printing is a red flag.",
+    "Check the POPMART holographic authentication seal on the base of the figure.",
+    "Legitimate Labubu teeth are cleanly sculpted; bootlegs often have uneven or smeared teeth paint.",
+    "Purchase from authorized POPMART retailers or established secondary market platforms."
+  ],
+  "figures": [
+    {
+      "name": "Blow Dry",
+      "rarity": "common",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    },
+    {
+      "name": "Curlers",
+      "rarity": "common",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    },
+    {
+      "name": "Braids",
+      "rarity": "common",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    },
+    {
+      "name": "Highlights",
+      "rarity": "common",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    },
+    {
+      "name": "Shampoo Cape",
+      "rarity": "rare",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    },
+    {
+      "name": "Scissors Pose",
+      "rarity": "rare",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    },
+    {
+      "name": "Secret Stylist",
+      "rarity": "secret",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Seed data \u2014 market comps pending"
+    }
+  ],
+  "marketPricing": {
+    "_status": "STALE_SEED_DATA \u2014 do not cite as current market prices",
+    "_note": "Values below are placeholder estimates only. Update via contribute workflow before publishing pricing claims.",
+    "checkedAt": null,
+    "source": null,
+    "sampleSize": 0,
+    "variants": []
+  },
+  "seriesPageUrl": "https://www.blindboxai.com/series/labubu-the-monsters-hair-salon",
+  "_dataQuality": {
+    "_note": "Factual fields require source, checked_at, and status before emitting in published content.",
+    "retailUSD": {
+      "source": "POPMART official product listing",
+      "checked_at": null,
+      "status": "unverified",
+      "_note": "Set status to 'verified' and populate source/checked_at after confirming against POPMART official catalog."
+    },
+    "pullOdds": {
+      "source": null,
+      "checked_at": null,
+      "status": "unverified",
+      "_note": "Pull odds have not been confirmed from an official POPMART primary source. Do not publish odds claims until verified."
+    }
+  }
+}

@@ -11,3 +11,7 @@ reports/affiliate/*.csv
 .affiliate-link-backup-*
 *.bak
 *.before*
+
+# Labubu automation generated output
+output/labubu/
+media/*.mp4

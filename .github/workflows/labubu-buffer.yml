@@ -1,0 +1,95 @@
+name: Labubu Buffer Automation
+
+on:
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run without uploading artifacts (for testing)"
+        required: false
+        default: "false"
+        type: string
+  schedule:
+    # Every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+
+jobs:
+  generate:
+    name: Generate Labubu Social Content
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Step 1: Run Labubu unit tests ──────────────────────────────────────────
+      - name: Run Labubu tests
+        run: node --test scripts/labubu-test.mjs
+
+      # ── Step 2: Validate source data ──────────────────────────────────────────
+      - name: Validate Labubu series data files
+        run: node scripts/labubu-validate.mjs --skip-url-check --output-dir output/labubu
+        # Missing channel CSVs produce warnings (not errors) at this stage;
+        # they are validated properly in step 4 after the generator runs.
+
+      # ── Step 3: Generate social posts + per-channel Buffer CSVs ──────────────
+      - name: Generate social posts and Buffer CSVs
+        run: node scripts/labubu-post-generator.mjs --skip-url-check
+
+      # ── Step 4: Validate generated output ─────────────────────────────────────
+      - name: Validate generated output
+        run: node scripts/labubu-validate.mjs --output-dir output/labubu --skip-url-check
+
+      # ── Step 5: Repository build ───────────────────────────────────────────────
+      - name: Build repository
+        run: npm run build
+        env:
+          # Next.js build — no secrets required for static build
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      # ── Step 6: Upload artifacts (skip on pull_request and dry_run) ───────────
+      - name: Upload Buffer CSV artifacts
+        if: ${{ github.event_name != 'pull_request' && github.event.inputs.dry_run != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: labubu-buffer-schedule-${{ github.run_id }}
+          path: output/labubu/
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          echo "## Labubu Buffer Automation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Run completed at: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          TOTAL=0
+          for f in output/labubu/buffer-*.csv; do
+            if [ -f "$f" ]; then
+              ROWS=$(tail -n +2 "$f" | wc -l | tr -d ' ')
+              CHANNEL=$(basename "$f" .csv | sed 's/buffer-//')
+              echo "- **${CHANNEL}**: ${ROWS} posts" >> $GITHUB_STEP_SUMMARY
+              TOTAL=$((TOTAL + ROWS))
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total posts generated: ${TOTAL}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Upload instructions" >> $GITHUB_STEP_SUMMARY
+          echo "Download the \`labubu-buffer-schedule-${{ github.run_id }}\` artifact." >> $GITHUB_STEP_SUMMARY
+          echo "Upload each channel CSV separately to [Buffer Bulk Scheduler](https://buffer.com/guides/bulk-schedule)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Buffer CSV bulk upload supports **text + single-image posts only**." >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Videos/Reels cannot be bulk-uploaded via CSV.** Use the Buffer API. See docs for details." >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ Buffer publishing is **not** automated. Manual upload required." >> $GITHUB_STEP_SUMMARY
