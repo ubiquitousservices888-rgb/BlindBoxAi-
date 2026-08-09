@@ -1,0 +1,118 @@
+name: Autonomous verified video pipeline
+
+on:
+  schedule:
+    - cron: "17 14 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "daily, approve, reject, or publish"
+        required: true
+        default: daily
+        type: choice
+        options: [daily, approve, reject, publish]
+      rejection_reason:
+        description: "Required for reject"
+        required: false
+        type: string
+      state_run_id:
+        description: "Run ID that produced the READY_FOR_REVIEW artifact (required for reject/publish)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run validate
+      - run: npm run build
+      - run: npm audit --audit-level=high
+
+  daily-render:
+    if: github.event_name == 'schedule' || inputs.action == 'daily'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run video:daily
+        env:
+          CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
+          CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ready-for-review-${{ github.run_id }}
+          path: output/video-pipeline/state.json
+          retention-days: 30
+
+  publish-after-approval:
+    if: inputs.action == 'publish'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: video-publish-approval
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Restore reviewed state
+        uses: actions/download-artifact@v4
+        with:
+          name: ready-for-review-${{ inputs.state_run_id }}
+          path: output/video-pipeline
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.state_run_id }}
+      - run: npm run video:approve
+      - run: npm run video:publish
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_CHANNEL_PROFILES: ${{ secrets.BUFFER_CHANNEL_PROFILES }}
+
+  reject:
+    if: inputs.action == 'reject'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: ready-for-review-${{ inputs.state_run_id }}
+          path: output/video-pipeline
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.state_run_id }}
+      - run: npm run video:reject -- --reason "$REJECTION_REASON"
+        env:
+          REJECTION_REASON: ${{ inputs.rejection_reason }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rejected-${{ inputs.state_run_id }}
+          path: output/video-pipeline/state.json
+          retention-days: 30
