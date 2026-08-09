@@ -1,0 +1,36 @@
+{
+  "brand": "BlindBoxAI",
+  "theme": {
+    "font_display": "Fraunces",
+    "font_body": "Inter",
+    "font_mono": "Spline Sans Mono",
+    "palette": {
+      "ink": "#16181C",
+      "muted": "#5E635C",
+      "panel": "#FBFCFA",
+      "line": "#D7DAD1",
+      "accent": "#0E7C66",
+      "accent_dark": "#0A5C4B"
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 12,
+      "lg": 16,
+      "xl": 24,
+      "xxl": 32
+    },
+    "radius": {
+      "sm": 6,
+      "md": 12,
+      "lg": 16
+    }
+  },
+  "social_template": {
+    "name": "blindboxai-premium-labubu-v1",
+    "headline_pattern": "{seriesName} Collector Brief",
+    "subhead": "Verification-first sourcing insights",
+    "overlay_style": "soft-gradient-panel",
+    "thumbnail_ratio": "4:5"
+  }
+}

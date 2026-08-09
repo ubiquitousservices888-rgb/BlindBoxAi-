@@ -1,0 +1,69 @@
+name: labubu-buffer-automation
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches:
+      - "copilot/**"
+  schedule:
+    - cron: "17 14 * * 1,3,5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Buffer outputs
+        run: npm run labubu:generate
+
+      - name: Run Labubu tests
+        run: npm run labubu:test
+
+      - name: Run Labubu validation (CI mode)
+        run: npm run labubu:validate -- --ci
+
+      - name: Run lint (if defined)
+        run: npm run lint --if-present
+
+      - name: Run production build
+        run: npm run build
+
+      - name: Publish check summary
+        run: |
+          {
+            echo "## BlindBoxAI Labubu CI";
+            echo "- ✅ npm ci";
+            echo "- ✅ npm run labubu:generate";
+            echo "- ✅ npm run labubu:test";
+            echo "- ✅ npm run labubu:validate -- --ci";
+            echo "- ✅ npm run lint --if-present";
+            echo "- ✅ npm run build";
+            echo "- ℹ️ Buffer CSV covers TikTok, Instagram, Facebook, X, Pinterest only.";
+            echo "- ℹ️ Video publishing is separated into Buffer API payloads; no CSV video upload.";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload generated output artifact (non-PR only)
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: labubu-buffer-generated
+          path: data/labubu/generated
+          if-no-files-found: error

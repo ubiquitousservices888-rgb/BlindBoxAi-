@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-08-09T05:21:44.954Z",
+  "design_template": "blindboxai-premium-labubu-v1",
+  "publish_path": "buffer_api_video",
+  "note": "CSV upload is text+image only. Video publishing uses Buffer API payloads.",
+  "payloads": [
+    {
+      "slug": "labubu-have-a-seat",
+      "text": "labubu have a seat #ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "cta_url": "https://blindboxai.app/series/labubu-have-a-seat",
+      "video_url": null,
+      "buffer_api_ready": false
+    },
+    {
+      "slug": "labubu-coca-cola",
+      "text": "labubu coca cola #ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "cta_url": "https://blindboxai.app/series/labubu-coca-cola",
+      "video_url": null,
+      "buffer_api_ready": false
+    },
+    {
+      "slug": "labubu-macaron",
+      "text": "labubu macaron #ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "cta_url": "https://blindboxai.app/series/labubu-macaron",
+      "video_url": null,
+      "buffer_api_ready": false
+    },
+    {
+      "slug": "labubu-fall-in-wild",
+      "text": "labubu fall in wild #ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "cta_url": "https://blindboxai.app/series/labubu-fall-in-wild",
+      "video_url": null,
+      "buffer_api_ready": false
+    },
+    {
+      "slug": "labubu-forest-concert",
+      "text": "labubu forest concert #ad BlindBoxAI may earn a commission from qualifying purchases.",
+      "cta_url": "https://blindboxai.app/series/labubu-forest-concert",
+      "video_url": null,
+      "buffer_api_ready": false
+    }
+  ]
+}

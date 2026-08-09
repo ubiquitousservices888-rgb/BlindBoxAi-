@@ -1,0 +1,16 @@
+{
+  "status": "ready_for_api_workflow",
+  "source": {
+    "name": "BlindBoxAI media pipeline",
+    "url": "https://blindboxai.app/docs/labubu-buffer-automation"
+  },
+  "checked_at": "2026-08-08T13:50:00.000Z",
+  "video_base_url_env": "BLINDBOXAI_VIDEO_BASE_URL",
+  "entries": [
+    {"slug": "labubu-have-a-seat", "video_path": "labubu-have-a-seat.mp4", "status": "verified"},
+    {"slug": "labubu-coca-cola", "video_path": "labubu-coca-cola.mp4", "status": "verified"},
+    {"slug": "labubu-macaron", "video_path": "labubu-macaron.mp4", "status": "verified"},
+    {"slug": "labubu-fall-in-wild", "video_path": "labubu-fall-in-wild.mp4", "status": "verified"},
+    {"slug": "labubu-forest-concert", "video_path": "labubu-forest-concert.mp4", "status": "verified"}
+  ]
+}

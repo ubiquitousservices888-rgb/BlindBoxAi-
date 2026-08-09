@@ -1,0 +1,25 @@
+{
+  "slug": "labubu-coca-cola",
+  "name": "LABUBU × Coca-Cola",
+  "brand": "POP MART",
+  "status": "verified",
+  "source": {
+    "name": "BlindBoxAI editorial verification",
+    "url": "https://blindboxai.app/series/labubu-coca-cola"
+  },
+  "checked_at": "2026-08-08T13:32:00.000Z",
+  "series_page_url": "https://blindboxai.app/series/labubu-coca-cola",
+  "cta_url": "https://blindboxai.app/series/labubu-coca-cola",
+  "board_name": "Blind Box Collecting",
+  "media": {
+    "image_url": "https://blindboxai.app/assets/social/labubu-coca-cola-card.jpg",
+    "thumbnail_url": "https://blindboxai.app/assets/social/labubu-coca-cola-thumb.jpg",
+    "video_path": "labubu-coca-cola.mp4"
+  },
+  "copy_points": [
+    "Cross-check packaging details against verified references.",
+    "Scan trend movement with confidence flags before you buy.",
+    "Keep your purchase notes organized in one collector workflow."
+  ],
+  "tags": ["Labubu", "BlindBoxAI", "BlindBox", "Collectibles"]
+}

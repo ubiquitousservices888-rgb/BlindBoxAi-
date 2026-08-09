@@ -1,0 +1,25 @@
+{
+  "slug": "labubu-forest-concert",
+  "name": "LABUBU Forest Concert",
+  "brand": "POP MART",
+  "status": "verified",
+  "source": {
+    "name": "BlindBoxAI editorial verification",
+    "url": "https://blindboxai.app/series/labubu-forest-concert"
+  },
+  "checked_at": "2026-08-08T13:39:00.000Z",
+  "series_page_url": "https://blindboxai.app/series/labubu-forest-concert",
+  "cta_url": "https://blindboxai.app/series/labubu-forest-concert",
+  "board_name": "Blind Box Collecting",
+  "media": {
+    "image_url": "https://blindboxai.app/assets/social/labubu-forest-concert-card.jpg",
+    "thumbnail_url": "https://blindboxai.app/assets/social/labubu-forest-concert-thumb.jpg",
+    "video_path": "labubu-forest-concert.mp4"
+  },
+  "copy_points": [
+    "Get verification-first notes tailored for active collectors.",
+    "Open trusted series guidance before your next checkout.",
+    "Use BlindBoxAI to keep authenticity decisions evidence-led."
+  ],
+  "tags": ["Labubu", "BlindBoxAI", "BlindBox", "Collectibles"]
+}

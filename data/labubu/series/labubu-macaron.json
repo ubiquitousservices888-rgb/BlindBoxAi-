@@ -1,0 +1,25 @@
+{
+  "slug": "labubu-macaron",
+  "name": "LABUBU Exciting Macaron",
+  "brand": "POP MART",
+  "status": "verified",
+  "source": {
+    "name": "BlindBoxAI editorial verification",
+    "url": "https://blindboxai.app/series/labubu-macaron"
+  },
+  "checked_at": "2026-08-08T13:35:00.000Z",
+  "series_page_url": "https://blindboxai.app/series/labubu-macaron",
+  "cta_url": "https://blindboxai.app/series/labubu-macaron",
+  "board_name": "Blind Box Collecting",
+  "media": {
+    "image_url": "https://blindboxai.app/assets/social/labubu-macaron-card.jpg",
+    "thumbnail_url": "https://blindboxai.app/assets/social/labubu-macaron-thumb.jpg",
+    "video_path": "labubu-macaron.mp4"
+  },
+  "copy_points": [
+    "Check verified details before making fast marketplace decisions.",
+    "Review trusted collector references from one clean dashboard.",
+    "Use authenticity checkpoints to reduce counterfeit risk."
+  ],
+  "tags": ["Labubu", "BlindBoxAI", "BlindBox", "Collectibles"]
+}

@@ -1,0 +1,15 @@
+{
+  "status": "stale_seed_data",
+  "checked_at": "2026-08-08T13:45:00.000Z",
+  "source": {
+    "name": "Internal seed file",
+    "url": "https://blindboxai.app/docs/labubu-buffer-automation"
+  },
+  "notes": "Market pricing and pull-odds records are withheld from publishable output until independently verified.",
+  "pull_odds": {
+    "status": "unverified",
+    "source": null,
+    "checked_at": null
+  },
+  "series": []
+}

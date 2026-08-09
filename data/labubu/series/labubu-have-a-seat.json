@@ -1,0 +1,25 @@
+{
+  "slug": "labubu-have-a-seat",
+  "name": "LABUBU Have A Seat",
+  "brand": "POP MART",
+  "status": "verified",
+  "source": {
+    "name": "BlindBoxAI editorial verification",
+    "url": "https://blindboxai.app/series/labubu-have-a-seat"
+  },
+  "checked_at": "2026-08-08T13:30:00.000Z",
+  "series_page_url": "https://blindboxai.app/series/labubu-have-a-seat",
+  "cta_url": "https://blindboxai.app/series/labubu-have-a-seat",
+  "board_name": "Blind Box Collecting",
+  "media": {
+    "image_url": "https://blindboxai.app/assets/social/labubu-have-a-seat-card.jpg",
+    "thumbnail_url": "https://blindboxai.app/assets/social/labubu-have-a-seat-thumb.jpg",
+    "video_path": "labubu-have-a-seat.mp4"
+  },
+  "copy_points": [
+    "Compare verified product photos before checkout.",
+    "Use the BlindBoxAI fake-check rubric for seals, paint, and molding.",
+    "Review the latest collector notes before buying."
+  ],
+  "tags": ["Labubu", "BlindBoxAI", "BlindBox", "Collectibles"]
+}
