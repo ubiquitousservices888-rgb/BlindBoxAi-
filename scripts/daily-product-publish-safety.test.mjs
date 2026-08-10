@@ -32,7 +32,7 @@ describe("Buffer organization scope", () => {
     assert.equal(assertBufferOrganizationId("org-b"), "org-b");
   });
 
-  it("queries channels only for the configured organization and excludes Pinterest", async () => {
+  it("queries channels only for the configured organization and excludes Pinterest and paused queues", async () => {
     const channelOrgIds = [];
     const fetchImpl = async (_url, options) => {
       const request = JSON.parse(options.body);
@@ -44,8 +44,9 @@ describe("Buffer organization scope", () => {
       }
       channelOrgIds.push(request.variables.organizationId);
       return jsonResponse({ data: { channels: [
-        { id: "x", name: "X", displayName: "X", service: "twitter", isDisconnected: false, isLocked: false },
-        { id: "p", name: "Pinterest", displayName: "Pinterest", service: "pinterest", isDisconnected: false, isLocked: false },
+        { id: "x", name: "X", displayName: "X", service: "twitter", isQueuePaused: false, isDisconnected: false, isLocked: false },
+        { id: "paused", name: "Paused X", displayName: "Paused X", service: "twitter", isQueuePaused: true, isDisconnected: false, isLocked: false },
+        { id: "p", name: "Pinterest", displayName: "Pinterest", service: "pinterest", isQueuePaused: false, isDisconnected: false, isLocked: false },
       ] } });
     };
 
@@ -58,6 +59,7 @@ describe("Buffer organization scope", () => {
     assert.deepEqual(channelOrgIds, ["org-b"]);
     assert.deepEqual(channels.map((channel) => channel.id), ["x"]);
     assert.ok(channels.every((channel) => channel.organizationId === "org-b"));
+    assert.ok(channels.every((channel) => channel.isQueuePaused === false));
   });
 
   it("fails if the configured organization is not available to the token", async () => {
