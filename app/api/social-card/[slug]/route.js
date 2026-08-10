@@ -9,6 +9,12 @@ const paper = "#F1F3EE";
 const verify = "#0E7C66";
 const muted = "#5E635C";
 const line = "#C9CEC3";
+const seriesCache = new Map();
+
+function cachedSeries(slug) {
+  if (!seriesCache.has(slug)) seriesCache.set(slug, getSeries(slug) ?? null);
+  return seriesCache.get(slug);
+}
 
 function Curve({ y, opacity = 0.18 }) {
   return jsx("svg", {
@@ -27,7 +33,7 @@ function Curve({ y, opacity = 0.18 }) {
 
 export async function GET(_request, context) {
   const { slug } = await context.params;
-  const series = getSeries(slug);
+  const series = cachedSeries(slug);
   if (!series?.name || !series?.brand) return new Response("Series not found", { status: 404 });
 
   return new ImageResponse(
