@@ -132,6 +132,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
           PRODUCTION_ENVIRONMENT: social-production
           PRODUCTION_REVIEWER: ubiquitousservices888-rgb
 
