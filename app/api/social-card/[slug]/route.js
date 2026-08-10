@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og.js";
 import { jsxs, jsx } from "react/jsx-runtime";
-import { getSeries } from "../../../../lib/data";
+import { getSeries } from "../../../../lib/data.js";
 
 export const runtime = "nodejs";
 
