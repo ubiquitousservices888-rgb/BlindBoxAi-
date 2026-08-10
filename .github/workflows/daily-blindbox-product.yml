@@ -52,8 +52,6 @@ jobs:
       cancel-in-progress: false
     outputs:
       has_candidate: ${{ steps.stage.outputs.has_candidate }}
-      product_id: ${{ steps.stage.outputs.product_id }}
-      candidate_hash: ${{ steps.stage.outputs.candidate_hash }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
