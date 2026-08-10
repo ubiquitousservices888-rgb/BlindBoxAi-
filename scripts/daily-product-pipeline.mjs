@@ -8,9 +8,7 @@ import {
   candidatePreview,
   createBufferImagePost,
   createCandidate,
-  discoverBufferChannels,
   finalizeProductState,
-  findExistingBufferPost,
   loadGithubState,
   markFailedIfStaged,
   markStaged,
@@ -23,6 +21,13 @@ import {
   verifyEnvironmentGate,
   verifyLiveUrl,
 } from "../lib/daily-product-pipeline.mjs";
+import {
+  assertBufferOrganizationId,
+  assertCandidateCtas,
+  discoverScopedBufferChannels,
+  findExistingBufferPostPaginated,
+  hardenCandidateForPublishing,
+} from "../lib/daily-product-publish-safety.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -57,6 +62,7 @@ function readCandidate() {
   const candidate = JSON.parse(fs.readFileSync(CANDIDATE_FILE, "utf8"));
   validateCandidateHash(candidate);
   assertArtifactIsSecretFree(candidate);
+  assertCandidateCtas(candidate);
   for (const caption of Object.values(candidate.captions ?? {})) validatePublishableText(caption);
   return candidate;
 }
@@ -83,8 +89,9 @@ async function stage() {
   }
   await verifyLiveUrl(product.ctaUrl);
   await verifyLiveUrl(product.graphicUrl, { requireImage: true });
-  const candidate = createCandidate(product, { runId, sourceCommit });
+  const candidate = hardenCandidateForPublishing(createCandidate(product, { runId, sourceCommit }));
   assertArtifactIsSecretFree(candidate);
+  assertCandidateCtas(candidate);
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.writeFileSync(CANDIDATE_FILE, JSON.stringify(candidate, null, 2) + "\n");
   fs.writeFileSync(PREVIEW_FILE, candidatePreview(candidate));
@@ -118,6 +125,7 @@ async function preflight() {
   await verifyLiveUrl(candidate.ctaUrl);
   await verifyLiveUrl(candidate.graphicUrl, { requireImage: true });
   if (!candidate.captions || !Object.keys(candidate.captions).length) throw new Error("Candidate has no captions");
+  assertCandidateCtas(candidate);
   for (const text of Object.values(candidate.captions)) {
     validatePublishableText(text);
     if (!text.includes(DISCLOSURE)) throw new Error("Disclosure missing");
@@ -128,6 +136,7 @@ async function preflight() {
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 async function publish() {
+  const organizationId = assertBufferOrganizationId(env.BUFFER_ORGANIZATION_ID);
   assertProductionContext({ token: env.BUFFER_API_TOKEN, environmentName: env.PRODUCTION_ENVIRONMENT });
   if (!repo || !githubToken) throw new Error("Publish requires GITHUB_REPOSITORY and GITHUB_TOKEN");
   await verifyEnvironmentGate({
@@ -142,12 +151,14 @@ async function publish() {
   if (!stateEntry || !["STAGED", "PARTIAL"].includes(stateEntry.status) || stateEntry.candidateHash !== candidate.candidateHash) {
     throw new Error("Approved artifact does not match persistent STAGED/PARTIAL state");
   }
-  const channels = (await discoverBufferChannels(env.BUFFER_API_TOKEN))
-    .filter((channel) => candidate.captions[channel.service]);
+  const channels = (await discoverScopedBufferChannels({
+    token: env.BUFFER_API_TOKEN,
+    organizationId,
+  })).filter((channel) => candidate.captions[channel.service]);
   if (!channels.length) {
     state = finalizeProductState(state, candidate, []);
     await saveGithubState({ repo, token: githubToken, issue: loaded.issue, state });
-    throw new Error("No compatible connected Buffer channels found");
+    throw new Error("No compatible connected Buffer channels found in configured organization");
   }
 
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -155,9 +166,9 @@ async function publish() {
       if (publicationIsComplete(state, candidate, channel)) continue;
       const text = candidate.captions[channel.service];
       try {
-        const existing = await findExistingBufferPost({
+        const existing = await findExistingBufferPostPaginated({
           token: env.BUFFER_API_TOKEN,
-          organizationId: channel.organizationId,
+          organizationId,
           channelId: channel.id,
           text,
         });
@@ -203,8 +214,9 @@ async function localValidate() {
     try {
       const product = selectNextProduct([series], { products: {} }, { siteUrl });
       if (product) {
-        const candidate = createCandidate(product, { runId: "validation", sourceCommit: sourceCommit ?? "local" });
+        const candidate = hardenCandidateForPublishing(createCandidate(product, { runId: "validation", sourceCommit: sourceCommit ?? "local" }));
         assertArtifactIsSecretFree(candidate);
+        assertCandidateCtas(candidate);
         eligible++;
       }
     } catch {}
