@@ -9,11 +9,32 @@ const paper = "#F1F3EE";
 const verify = "#0E7C66";
 const muted = "#5E635C";
 const line = "#C9CEC3";
+const SERIES_CACHE_TTL_MS = 5 * 60 * 1000;
+const SERIES_CACHE_MAX_ENTRIES = 128;
 const seriesCache = new Map();
 
 function cachedSeries(slug) {
-  if (!seriesCache.has(slug)) seriesCache.set(slug, getSeries(slug) ?? null);
-  return seriesCache.get(slug);
+  const now = Date.now();
+  const cached = seriesCache.get(slug);
+  if (cached && now - cached.cachedAt < SERIES_CACHE_TTL_MS) {
+    // Refresh recency so the cap behaves like a small LRU cache.
+    seriesCache.delete(slug);
+    seriesCache.set(slug, cached);
+    return cached.series;
+  }
+  if (cached) seriesCache.delete(slug);
+
+  const series = getSeries(slug);
+  // Never negative-cache misses: a newly added series becomes visible on the
+  // next request without waiting for a process restart or cache expiry.
+  if (!series) return null;
+
+  seriesCache.set(slug, { series, cachedAt: now });
+  while (seriesCache.size > SERIES_CACHE_MAX_ENTRIES) {
+    const oldestKey = seriesCache.keys().next().value;
+    seriesCache.delete(oldestKey);
+  }
+  return series;
 }
 
 function Curve({ y, opacity = 0.18 }) {
@@ -91,7 +112,7 @@ export async function GET(_request, context) {
     {
       width: 1080,
       height: 1350,
-      headers: { "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800" },
+      headers: { "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=60" },
     },
   );
 }
