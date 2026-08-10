@@ -2,8 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   DISCLOSURE,
+  STATE_TITLE,
   buildEligibleProduct,
   createCandidate,
+  renderStateIssue,
   validateCandidateHash,
 } from "../lib/daily-product-pipeline.mjs";
 import {
@@ -12,11 +14,13 @@ import {
   discoverScopedBufferChannels,
   findExistingBufferPostPaginated,
   hardenCandidateForPublishing,
+  loadGithubStatePaginated,
+  verifyExclusiveEnvironmentGate,
 } from "../lib/daily-product-publish-safety.mjs";
 
-function jsonResponse(payload) {
+function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
-    status: 200,
+    status,
     headers: { "content-type": "application/json" },
   });
 }
@@ -131,5 +135,104 @@ describe("approval artifact CTA integrity", () => {
     assert.ok(Object.values(hardened.captions).every((text) => text.includes(DISCLOSURE)));
     assert.ok(hardened.captions.twitter.length <= 280);
     assert.equal(validateCandidateHash(hardened), true);
+  });
+});
+
+describe("exclusive production approval gate", () => {
+  function environmentPayload(reviewers) {
+    return {
+      protection_rules: [{
+        type: "required_reviewers",
+        prevent_self_review: false,
+        reviewers,
+      }],
+      deployment_branch_policy: {
+        protected_branches: false,
+        custom_branch_policies: true,
+      },
+    };
+  }
+
+  it("requires the owner as the sole reviewer and main as the sole deployment branch", async () => {
+    const fetchImpl = async (url) => {
+      if (String(url).includes("deployment-branch-policies")) {
+        return jsonResponse({ total_count: 1, branch_policies: [{ id: 1, name: "main" }] });
+      }
+      return jsonResponse(environmentPayload([
+        { type: "User", reviewer: { login: "ubiquitousservices888-rgb" } },
+      ]));
+    };
+    assert.equal(await verifyExclusiveEnvironmentGate({
+      repo: "owner/repo",
+      token: "github-token",
+      expectedReviewer: "ubiquitousservices888-rgb",
+      fetchImpl,
+    }), true);
+  });
+
+  it("rejects an environment where any second reviewer could approve", async () => {
+    const fetchImpl = async () => jsonResponse(environmentPayload([
+      { type: "User", reviewer: { login: "ubiquitousservices888-rgb" } },
+      { type: "User", reviewer: { login: "someone-else" } },
+    ]));
+    await assert.rejects(() => verifyExclusiveEnvironmentGate({
+      repo: "owner/repo",
+      token: "github-token",
+      expectedReviewer: "ubiquitousservices888-rgb",
+      fetchImpl,
+    }), /exactly one required reviewer/i);
+  });
+
+  it("rejects an environment that can deploy from anything other than main", async () => {
+    const fetchImpl = async (url) => {
+      if (String(url).includes("deployment-branch-policies")) {
+        return jsonResponse({ total_count: 2, branch_policies: [{ id: 1, name: "main" }, { id: 2, name: "release/*" }] });
+      }
+      return jsonResponse(environmentPayload([
+        { type: "User", reviewer: { login: "ubiquitousservices888-rgb" } },
+      ]));
+    };
+    await assert.rejects(() => verifyExclusiveEnvironmentGate({
+      repo: "owner/repo",
+      token: "github-token",
+      expectedReviewer: "ubiquitousservices888-rgb",
+      fetchImpl,
+    }), /exactly one deployment branch: main/i);
+  });
+});
+
+describe("persistent GitHub state pagination", () => {
+  it("finds the machine state issue even when it is beyond the first 100 open issues", async () => {
+    const stateBody = renderStateIssue({
+      schema: "blindboxai.daily-product-state/v1",
+      products: { already: { status: "PUBLISHED" } },
+      updatedAt: null,
+    });
+    const fetchImpl = async (url) => {
+      const parsed = new URL(url);
+      const page = Number(parsed.searchParams.get("page"));
+      if (page === 1) {
+        return jsonResponse(Array.from({ length: 100 }, (_, i) => ({
+          id: i + 1,
+          number: i + 1,
+          title: `Other issue ${i + 1}`,
+          body: "",
+        })));
+      }
+      return jsonResponse([{
+        id: 1001,
+        number: 101,
+        title: STATE_TITLE,
+        body: stateBody,
+      }]);
+    };
+
+    const loaded = await loadGithubStatePaginated({
+      repo: "owner/repo",
+      token: "github-token",
+      fetchImpl,
+    });
+    assert.equal(loaded.issue.number, 101);
+    assert.equal(loaded.state.products.already.status, "PUBLISHED");
   });
 });
