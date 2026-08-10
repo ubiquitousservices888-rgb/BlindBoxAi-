@@ -18,11 +18,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
@@ -56,11 +56,11 @@ jobs:
       candidate_hash: ${{ steps.stage.outputs.candidate_hash }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
@@ -74,7 +74,7 @@ jobs:
           BLINDBOXAI_SITE_URL: https://www.blindboxai.com
       - name: Upload exact approval artifact
         if: steps.stage.outputs.has_candidate == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: daily-product-${{ github.run_id }}
           path: output/daily-product/
@@ -108,18 +108,20 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Enforce production branch
+        run: test "$GITHUB_REF" = "refs/heads/main"
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Download the exact staged artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: daily-product-${{ github.run_id }}
           path: output/daily-product
@@ -143,18 +145,18 @@ jobs:
       issues: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Restore staged artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: daily-product-${{ github.run_id }}
           path: output/daily-product

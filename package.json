@@ -20,7 +20,7 @@
     "daily:preflight": "node scripts/daily-product-pipeline.mjs preflight",
     "daily:publish": "node scripts/daily-product-pipeline.mjs publish",
     "daily:validate": "node scripts/daily-product-pipeline.mjs validate",
-    "daily:test": "node --test scripts/daily-product-pipeline.test.mjs",
+    "daily:test": "node --test scripts/daily-product-pipeline.test.mjs scripts/social-card.test.mjs",
     "test": "npm run labubu:test && npm run video:test && npm run daily:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate"
   },
