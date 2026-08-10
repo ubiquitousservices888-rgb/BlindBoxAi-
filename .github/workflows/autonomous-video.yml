@@ -4,21 +4,6 @@ on:
   schedule:
     - cron: "17 14 * * *"
   workflow_dispatch:
-    inputs:
-      action:
-        description: "daily, approve, reject, or publish"
-        required: true
-        default: daily
-        type: choice
-        options: [daily, approve, reject, publish]
-      rejection_reason:
-        description: "Required for reject"
-        required: false
-        type: string
-      state_run_id:
-        description: "Run ID that produced the READY_FOR_REVIEW artifact (required for reject/publish)"
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -26,14 +11,15 @@ permissions:
 
 jobs:
   validate:
+    name: Validate video pipeline
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
@@ -42,77 +28,100 @@ jobs:
       - run: npm audit --audit-level=high
 
   daily-render:
-    if: github.event_name == 'schedule' || inputs.action == 'daily'
+    name: Render one video for review
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     needs: validate
     runs-on: ubuntu-latest
+    outputs:
+      video_url: ${{ steps.review.outputs.video_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run video:daily
+      - name: Render verified video
+        run: npm run video:daily
         env:
           CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
           CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
-      - uses: actions/upload-artifact@v4
+          VIDEO_CHANNELS: twitter,tiktok
+      - name: Create one-tap review link
+        id: review
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const state = JSON.parse(fs.readFileSync("output/video-pipeline/state.json", "utf8"));
+          const videoUrl = state?.render?.videoUrl;
+          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Video is not READY_FOR_REVIEW");
+          if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(videoUrl ?? "")) throw new Error("Review URL must be a hosted HTTPS MP4");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${videoUrl}\n`);
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## Video ready for review\n\n[▶ Watch video](${videoUrl})\n\nApprove the protected deployment to send this exact video to Buffer. Reject it to stop publishing.\n`,
+          );
+          NODE
+      - uses: actions/upload-artifact@v6
         with:
           name: ready-for-review-${{ github.run_id }}
           path: output/video-pipeline/state.json
+          if-no-files-found: error
           retention-days: 30
 
   publish-after-approval:
-    if: inputs.action == 'publish'
-    needs: validate
+    name: Approve → send video to Buffer
+    if: needs.daily-render.result == 'success' && github.ref == 'refs/heads/main'
+    needs: [validate, daily-render]
     runs-on: ubuntu-latest
-    environment: video-publish-approval
+    environment:
+      name: social-production
+      url: ${{ needs.daily-render.outputs.video_url }}
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: autonomous-video-publish
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
+          cache: npm
       - run: npm ci
-      - name: Restore reviewed state
-        uses: actions/download-artifact@v4
+      - name: Restore exact reviewed video state
+        uses: actions/download-artifact@v7
         with:
-          name: ready-for-review-${{ inputs.state_run_id }}
+          name: ready-for-review-${{ github.run_id }}
           path: output/video-pipeline
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.state_run_id }}
-      - run: npm run video:approve
-      - run: npm run video:publish
+      - name: Verify the approved artifact matches the watched video
+        env:
+          REVIEWED_VIDEO_URL: ${{ needs.daily-render.outputs.video_url }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const state = JSON.parse(fs.readFileSync("output/video-pipeline/state.json", "utf8"));
+          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Artifact is no longer READY_FOR_REVIEW");
+          if (state?.render?.videoUrl !== process.env.REVIEWED_VIDEO_URL) throw new Error("Reviewed video URL does not match the staged artifact");
+          NODE
+      - name: Record manual approval
+        run: npm run video:approve
+      - name: Send approved video to Buffer
+        run: npm run video:publish
         env:
           BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-          BUFFER_CHANNEL_PROFILES: ${{ secrets.BUFFER_CHANNEL_PROFILES }}
-
-  reject:
-    if: inputs.action == 'reject'
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+      - name: Save publication result
+        if: always()
+        uses: actions/upload-artifact@v6
         with:
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: ready-for-review-${{ inputs.state_run_id }}
-          path: output/video-pipeline
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.state_run_id }}
-      - run: npm run video:reject -- --reason "$REJECTION_REASON"
-        env:
-          REJECTION_REASON: ${{ inputs.rejection_reason }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: rejected-${{ inputs.state_run_id }}
+          name: video-publication-${{ github.run_id }}
           path: output/video-pipeline/state.json
+          if-no-files-found: error
           retention-days: 30
