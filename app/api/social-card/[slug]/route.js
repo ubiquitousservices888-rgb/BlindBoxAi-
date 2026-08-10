@@ -1,4 +1,4 @@
-import { ImageResponse } from "next/og";
+import { ImageResponse } from "next/og.js";
 import { jsxs, jsx } from "react/jsx-runtime";
 import { getSeries } from "../../../../lib/data";
 
@@ -43,7 +43,6 @@ export async function GET(_request, context) {
         color: ink,
         padding: "86px 84px 76px",
         overflow: "hidden",
-        fontFamily: "Inter, Arial, sans-serif",
       },
       children: [
         jsx("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 20, background: verify } }),
