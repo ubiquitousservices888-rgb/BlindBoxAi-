@@ -1,0 +1,166 @@
+name: Daily BlindBox product pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "23 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate daily product pipeline
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Block high-severity dependency vulnerabilities
+        run: npm audit --audit-level=high
+      - name: Run all tests
+        run: npm test
+      - name: Validate daily pipeline schemas
+        run: npm run daily:validate
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  stage:
+    name: Stage one new product
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: daily-blindbox-stage
+      cancel-in-progress: false
+    outputs:
+      has_candidate: ${{ steps.stage.outputs.has_candidate }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Select, verify, and stage one product
+        id: stage
+        run: npm run daily:stage
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BLINDBOXAI_SITE_URL: https://www.blindboxai.com
+      - name: Upload exact approval artifact
+        if: steps.stage.outputs.has_candidate == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: daily-product-${{ github.run_id }}
+          path: output/daily-product/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Persist STAGED state after artifact upload
+        if: steps.stage.outputs.has_candidate == 'true'
+        run: npm run daily:mark-staged
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: No candidate summary
+        if: steps.stage.outputs.has_candidate != 'true'
+        run: |
+          echo "## Daily BlindBox product pipeline" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "No new product was staged. Reason: ${{ steps.stage.outputs.reason }}" >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish approved daily product
+    if: needs.stage.outputs.has_candidate == 'true'
+    needs: stage
+    runs-on: ubuntu-latest
+    environment:
+      name: social-production
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    concurrency:
+      group: daily-blindbox-publish
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Enforce production branch
+        run: test "$GITHUB_REF" = "refs/heads/main"
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Download the exact staged artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: daily-product-${{ github.run_id }}
+          path: output/daily-product
+      - name: Strict live preflight
+        run: npm run daily:preflight
+      - name: Publish through Buffer GraphQL
+        run: npm run daily:publish
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+          PRODUCTION_ENVIRONMENT: social-production
+          PRODUCTION_REVIEWER: ubiquitousservices888-rgb
+
+  record-incomplete-publish:
+    name: Record rejected or incomplete publish
+    if: always() && needs.stage.outputs.has_candidate == 'true' && needs.publish.result != 'success'
+    needs: [stage, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Restore staged artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: daily-product-${{ github.run_id }}
+          path: output/daily-product
+      - name: Mark STAGED item failed without overwriting PARTIAL publication state
+        run: npm run daily:mark-failed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FAILURE_REASON: "Publish job was rejected, timed out, or failed before completing."
