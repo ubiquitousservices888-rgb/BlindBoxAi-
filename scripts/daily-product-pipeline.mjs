@@ -9,7 +9,6 @@ import {
   createBufferImagePost,
   createCandidate,
   finalizeProductState,
-  loadGithubState,
   markFailedIfStaged,
   markStaged,
   publicationIsComplete,
@@ -18,7 +17,6 @@ import {
   updatePublicationState,
   validateCandidateHash,
   validatePublishableText,
-  verifyEnvironmentGate,
   verifyLiveUrl,
 } from "../lib/daily-product-pipeline.mjs";
 import {
@@ -27,6 +25,8 @@ import {
   discoverScopedBufferChannels,
   findExistingBufferPostPaginated,
   hardenCandidateForPublishing,
+  loadGithubStatePaginated,
+  verifyExclusiveEnvironmentGate,
 } from "../lib/daily-product-publish-safety.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -66,16 +66,16 @@ function readCandidate() {
   for (const caption of Object.values(candidate.captions ?? {})) validatePublishableText(caption);
   return candidate;
 }
-function hasActiveCandidate(state) {
-  return Object.entries(state.products ?? {}).find(([, value]) => ["STAGED", "PARTIAL"].includes(value?.status));
+function stagedAwaitingApproval(state) {
+  return Object.entries(state.products ?? {}).find(([, value]) => value?.status === "STAGED");
 }
 
 async function stage() {
   if (!repo || !githubToken) throw new Error("Stage requires GITHUB_REPOSITORY and GITHUB_TOKEN");
-  const { state } = await loadGithubState({ repo, token: githubToken });
-  const active = hasActiveCandidate(state);
-  if (active) {
-    console.log(`WAITING_FOR_APPROVAL: ${active[0]} (${active[1].status})`);
+  const { state } = await loadGithubStatePaginated({ repo, token: githubToken });
+  const staged = stagedAwaitingApproval(state);
+  if (staged) {
+    console.log(`WAITING_FOR_APPROVAL: ${staged[0]} (${staged[1].status})`);
     writeOutput("has_candidate", "false");
     writeOutput("reason", "waiting_for_existing_candidate");
     return;
@@ -96,15 +96,13 @@ async function stage() {
   fs.writeFileSync(CANDIDATE_FILE, JSON.stringify(candidate, null, 2) + "\n");
   fs.writeFileSync(PREVIEW_FILE, candidatePreview(candidate));
   writeOutput("has_candidate", "true");
-  writeOutput("product_id", candidate.productId);
-  writeOutput("candidate_hash", candidate.candidateHash);
   console.log(`STAGED_ARTIFACT_READY: ${candidate.productId}`);
 }
 
 async function markCandidateStaged() {
   if (!repo || !githubToken) throw new Error("mark-staged requires GITHUB_REPOSITORY and GITHUB_TOKEN");
   const candidate = readCandidate();
-  const loaded = await loadGithubState({ repo, token: githubToken });
+  const loaded = await loadGithubStatePaginated({ repo, token: githubToken });
   const nextState = markStaged(loaded.state, candidate);
   await saveGithubState({ repo, token: githubToken, issue: loaded.issue, state: nextState });
   console.log(`STAGED: ${candidate.productId}`);
@@ -114,7 +112,7 @@ async function markCandidateStaged() {
 async function markFailed() {
   if (!repo || !githubToken) throw new Error("mark-failed requires GITHUB_REPOSITORY and GITHUB_TOKEN");
   const candidate = readCandidate();
-  const loaded = await loadGithubState({ repo, token: githubToken });
+  const loaded = await loadGithubStatePaginated({ repo, token: githubToken });
   const nextState = markFailedIfStaged(loaded.state, candidate, env.FAILURE_REASON ?? "publish job did not complete");
   await saveGithubState({ repo, token: githubToken, issue: loaded.issue, state: nextState });
   console.log(`FAILURE_STATE_RECORDED: ${candidate.productId}`);
@@ -139,13 +137,13 @@ async function publish() {
   const organizationId = assertBufferOrganizationId(env.BUFFER_ORGANIZATION_ID);
   assertProductionContext({ token: env.BUFFER_API_TOKEN, environmentName: env.PRODUCTION_ENVIRONMENT });
   if (!repo || !githubToken) throw new Error("Publish requires GITHUB_REPOSITORY and GITHUB_TOKEN");
-  await verifyEnvironmentGate({
+  await verifyExclusiveEnvironmentGate({
     repo,
     token: githubToken,
     expectedReviewer: env.PRODUCTION_REVIEWER ?? "ubiquitousservices888-rgb",
   });
   const candidate = await preflight();
-  const loaded = await loadGithubState({ repo, token: githubToken });
+  const loaded = await loadGithubStatePaginated({ repo, token: githubToken });
   let state = loaded.state;
   const stateEntry = state.products?.[candidate.productId];
   if (!stateEntry || !["STAGED", "PARTIAL"].includes(stateEntry.status) || stateEntry.candidateHash !== candidate.candidateHash) {
@@ -209,17 +207,24 @@ async function publish() {
 }
 
 async function localValidate() {
+  const failures = [];
   let eligible = 0;
   for (const series of loadSeries()) {
+    const identity = series?.slug ?? series?.__invalidFile ?? "unknown-series";
     try {
+      if (series?.__error) throw new Error(series.__error);
       const product = selectNextProduct([series], { products: {} }, { siteUrl });
-      if (product) {
-        const candidate = hardenCandidateForPublishing(createCandidate(product, { runId: "validation", sourceCommit: sourceCommit ?? "local" }));
-        assertArtifactIsSecretFree(candidate);
-        assertCandidateCtas(candidate);
-        eligible++;
-      }
-    } catch {}
+      if (!product) throw new Error("series is not baseline-eligible");
+      const candidate = hardenCandidateForPublishing(createCandidate(product, { runId: "validation", sourceCommit: sourceCommit ?? "local" }));
+      assertArtifactIsSecretFree(candidate);
+      assertCandidateCtas(candidate);
+      eligible++;
+    } catch (error) {
+      failures.push(`${identity}: ${String(error.message ?? error)}`);
+    }
+  }
+  if (failures.length) {
+    throw new Error(`Daily product schema validation failed for ${failures.length} file(s):\n- ${failures.join("\n- ")}`);
   }
   console.log(`Daily product pipeline schema validation complete: ${eligible} baseline-eligible series file(s).`);
 }
