@@ -1,5 +1,39 @@
 {
   "_schema": "blindboxai/verified-video-products/v1",
-  "_note": "Intentionally empty. Add a product only after every claim has a primary HTTPS source checked within 30 days. The daily job fails closed when no product qualifies.",
-  "products": []
+  "_note": "Verified-only products for the autonomous video pipeline. Every published claim must cite a primary HTTPS source checked within 30 days.",
+  "products": [
+    {
+      "id": "labubu-hair-salon-vinyl-plush-pendant",
+      "name": "THE MONSTERS Hair Salon Series - Vinyl Plush Pendant Blind Box",
+      "productUrl": "https://www.blindboxai.com/series/labubu-the-monsters-hair-salon",
+      "sources": [
+        {
+          "id": "popmart-product-7890",
+          "status": "verified",
+          "url": "https://www.popmart.com/us/products/7890/the-monsters-hair-salon-series-vinyl-plush-pendant-blind-box",
+          "checkedAt": "2026-08-11T05:26:00Z"
+        },
+        {
+          "id": "popmart-monsters-collection",
+          "status": "verified",
+          "url": "https://www.popmart.com/us/collection/11/the-monsters",
+          "checkedAt": "2026-08-11T05:26:00Z"
+        }
+      ],
+      "claims": [
+        {
+          "text": "POP MART lists the Hair Salon Vinyl Plush Pendant Blind Box at $39.99 in its US THE MONSTERS collection.",
+          "sourceId": "popmart-monsters-collection"
+        },
+        {
+          "text": "POP MART lists the official online release as June 25, 2026 at 7:00 PM PST.",
+          "sourceId": "popmart-product-7890"
+        },
+        {
+          "text": "The official product page lists the size as 9.5 × 8 × 17.5 cm and materials as polyester, nylon, PVC and ABS, with polyester-fiber stuffing.",
+          "sourceId": "popmart-product-7890"
+        }
+      ]
+    }
+  ]
 }
