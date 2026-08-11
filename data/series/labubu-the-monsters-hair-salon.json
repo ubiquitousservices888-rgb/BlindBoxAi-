@@ -2,13 +2,13 @@
   "slug": "labubu-the-monsters-hair-salon",
   "name": "The Monsters: Hair Salon",
   "brand": "POPMART (Labubu)",
-  "retailUSD": 24,
+  "retailUSD": 39.99,
   "pullOdds": {
-    "secret": "1/144",
-    "source": "community"
+    "secret": null,
+    "source": null
   },
   "checklist": [
-    "Authentic boxes have sharp, consistent print quality \u2014 blurred or off-color printing is a red flag.",
+    "Authentic boxes have sharp, consistent print quality — blurred or off-color printing is a red flag.",
     "Check the POPMART holographic authentication seal on the base of the figure.",
     "Legitimate Labubu teeth are cleanly sculpted; bootlegs often have uneven or smeared teeth paint.",
     "Purchase from authorized POPMART retailers or established secondary market platforms."
@@ -20,7 +20,7 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     },
     {
       "name": "Curlers",
@@ -28,7 +28,7 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     },
     {
       "name": "Braids",
@@ -36,7 +36,7 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     },
     {
       "name": "Highlights",
@@ -44,7 +44,7 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     },
     {
       "name": "Shampoo Cape",
@@ -52,7 +52,7 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     },
     {
       "name": "Scissors Pose",
@@ -60,7 +60,7 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     },
     {
       "name": "Secret Stylist",
@@ -68,11 +68,11 @@
       "resaleLow": null,
       "resaleHigh": null,
       "needsReview": true,
-      "evidence": "Seed data \u2014 market comps pending"
+      "evidence": "Seed data — market comps pending"
     }
   ],
   "marketPricing": {
-    "_status": "STALE_SEED_DATA \u2014 do not cite as current market prices",
+    "_status": "STALE_SEED_DATA — do not cite as current market prices",
     "_note": "Values below are placeholder estimates only. Update via contribute workflow before publishing pricing claims.",
     "checkedAt": null,
     "source": null,
@@ -83,16 +83,16 @@
   "_dataQuality": {
     "_note": "Factual fields require source, checked_at, and status before emitting in published content.",
     "retailUSD": {
-      "source": "POPMART official product listing",
-      "checked_at": null,
-      "status": "unverified",
-      "_note": "Set status to 'verified' and populate source/checked_at after confirming against POPMART official catalog."
+      "source": "https://www.popmart.com/us/collection/11/the-monsters",
+      "checked_at": "2026-08-11T05:26:00Z",
+      "status": "verified",
+      "_note": "Verified against POP MART's US THE MONSTERS collection on 2026-08-11."
     },
     "pullOdds": {
       "source": null,
       "checked_at": null,
       "status": "unverified",
-      "_note": "Pull odds have not been confirmed from an official POPMART primary source. Do not publish odds claims until verified."
+      "_note": "No official POP MART primary source was verified for secret pull odds, so the public odds value is intentionally omitted."
     }
   }
 }
