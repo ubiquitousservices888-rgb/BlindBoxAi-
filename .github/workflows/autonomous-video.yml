@@ -15,6 +15,9 @@ permissions:
   contents: read
   actions: read
 
+env:
+  CREATOMATE_TEMPLATE_ID: 8b360817-3e33-40e3-bbb4-55a8b508f06e
+
 jobs:
   validate:
     name: Validate video pipeline
@@ -53,17 +56,15 @@ jobs:
         shell: bash
         env:
           CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
-          CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
         run: |
-          if [ -z "$CREATOMATE_API_KEY" ] || [ -z "$CREATOMATE_TEMPLATE_ID" ]; then
-            echo "::error::Creatomate is not configured. Add repository Actions secrets CREATOMATE_API_KEY and CREATOMATE_TEMPLATE_ID."
+          if [ -z "$CREATOMATE_API_KEY" ]; then
+            echo "::error::Creatomate is not configured. Add repository Actions secret CREATOMATE_API_KEY."
             exit 1
           fi
       - name: Render verified video
         run: npm run video:daily
         env:
           CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
-          CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
           VIDEO_CHANNELS: twitter,tiktok
       - name: Create one-tap review link
         id: review
