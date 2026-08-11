@@ -1,6 +1,11 @@
 name: Autonomous verified video pipeline
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - data/verified-video-products.json
+      - .github/workflows/autonomous-video.yml
   schedule:
     - cron: "17 14 * * *"
   workflow_dispatch:
@@ -29,7 +34,7 @@ jobs:
 
   daily-render:
     name: Render one video for review
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     needs: validate
     runs-on: ubuntu-latest
     outputs:
@@ -43,6 +48,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Verify Creatomate configuration
+        shell: bash
+        env:
+          CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
+          CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
+        run: |
+          if [ -z "$CREATOMATE_API_KEY" ] || [ -z "$CREATOMATE_TEMPLATE_ID" ]; then
+            echo "::error::Creatomate is not configured. Add repository Actions secrets CREATOMATE_API_KEY and CREATOMATE_TEMPLATE_ID."
+            exit 1
+          fi
       - name: Render verified video
         run: npm run video:daily
         env:
