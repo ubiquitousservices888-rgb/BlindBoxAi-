@@ -29,6 +29,27 @@ describe("safe publishing", () => {
   it("requires manual approval", async () => await assert.rejects(() => publishApproved(ready(), async () => ({ id: "x" }), now)));
   it("prevents duplicates and retries only failed channels", async () => { let calls = []; let first = true; const publisher = async ({ channel }) => { calls.push(channel); if (channel === "instagram" && first) throw new Error("temporary"); return { id: `${channel}-1` }; }; let state = await publishApproved(approve(ready(), now), publisher, now); assert.equal(state.state, STATES.PARTIAL); assert.deepEqual(calls, ["tiktok", "instagram"]); first = false; calls = []; state = await publishApproved(state, publisher, now); assert.equal(state.state, STATES.PUBLISHED); assert.deepEqual(calls, ["instagram"]); assert.equal(state.publications.tiktok.externalId, "tiktok-1"); });
 
+  it("compacts Twitter captions without dropping the CTA or disclosure", async () => {
+    const longProduct = {
+      ...product,
+      claims: [{ text: `Verified collector detail ${"x".repeat(320)}`, sourceId: "official" }],
+    };
+    const record = markRendered(
+      createRenderRecord(longProduct, generateVideoScript(longProduct, now), ["twitter"], now),
+      { id: "render-long", videoUrl: "https://cdn.example/long.mp4" },
+      now,
+    );
+    let sentCaption = null;
+    const state = await publishApproved(approve(record, now), async ({ caption }) => {
+      sentCaption = caption;
+      return { id: "twitter-1" };
+    }, now);
+    assert.equal(state.state, STATES.PUBLISHED);
+    assert.ok(sentCaption.length <= 280);
+    assert.match(sentCaption, /https:\/\/blindboxai\.com\/series\/verified-one/);
+    assert.ok(sentCaption.includes(DISCLOSURE));
+  });
+
   it("uses the current Buffer GraphQL endpoint and video assets", async () => {
     const calls = [];
     const fetchImpl = async (url, options) => {
