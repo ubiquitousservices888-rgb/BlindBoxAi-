@@ -1,4 +1,3 @@
-# Trigger fresh verified-video run
 name: Autonomous verified video pipeline
 
 on:
@@ -6,6 +5,8 @@ on:
     branches: [main]
     paths:
       - data/verified-video-products.json
+      - scripts/zapier-video-payload.mjs
+      - package.json
       - .github/workflows/autonomous-video.yml
   schedule:
     - cron: "17 14 * * *"
@@ -17,6 +18,7 @@ permissions:
 
 env:
   CREATOMATE_TEMPLATE_ID: 8b360817-3e33-40e3-bbb4-55a8b508f06e
+  VIDEO_CHANNELS: twitter,tiktok
 
 jobs:
   validate:
@@ -36,13 +38,10 @@ jobs:
       - run: npm run build
       - run: npm audit --audit-level=high
 
-  daily-render:
-    name: Render one video for review
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+  prepare-zapier:
+    name: Prepare verified Zapier video request
     needs: validate
     runs-on: ubuntu-latest
-    outputs:
-      video_url: ${{ steps.review.outputs.video_url }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -52,93 +51,28 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Verify Creatomate configuration
-        shell: bash
+      - name: Build verified Zapier payload
+        run: npm run video:zapier
         env:
-          CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
-        run: |
-          if [ -z "$CREATOMATE_API_KEY" ]; then
-            echo "::error::Creatomate is not configured. Add repository Actions secret CREATOMATE_API_KEY."
-            exit 1
-          fi
-      - name: Render verified video
-        run: npm run video:daily
-        env:
-          CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
-          VIDEO_CHANNELS: twitter,tiktok
-      - name: Create one-tap review link
-        id: review
+          ZAPIER_VIDEO_WEBHOOK_URL: ${{ secrets.ZAPIER_VIDEO_WEBHOOK_URL }}
+      - name: Add handoff summary
         shell: bash
         run: |
           node --input-type=module <<'NODE'
           import fs from "node:fs";
-          const state = JSON.parse(fs.readFileSync("output/video-pipeline/state.json", "utf8"));
-          const videoUrl = state?.render?.videoUrl;
-          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Video is not READY_FOR_REVIEW");
-          if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(videoUrl ?? "")) throw new Error("Review URL must be a hosted HTTPS MP4");
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${videoUrl}\n`);
+          const payload = JSON.parse(fs.readFileSync("output/zapier/video-request.json", "utf8"));
           fs.appendFileSync(
             process.env.GITHUB_STEP_SUMMARY,
-            `## Video ready for review\n\n[▶ Watch video](${videoUrl})\n\nApprove the protected deployment to send this exact video to Buffer. Reject it to stop publishing.\n`,
+            `## Verified video request ready for Zapier\n\n` +
+            `**Request:** ${payload.id}\n\n` +
+            `**Product:** ${payload.product.name}\n\n` +
+            `**Approval required:** yes\n\n` +
+            `GitHub no longer calls Creatomate or Buffer directly. Zapier owns render, approval, and publishing.\n`,
           );
           NODE
       - uses: actions/upload-artifact@v6
         with:
-          name: ready-for-review-${{ github.run_id }}
-          path: output/video-pipeline/state.json
-          if-no-files-found: error
-          retention-days: 30
-
-  publish-after-approval:
-    name: Approve → send video to Buffer
-    if: needs.daily-render.result == 'success' && github.ref == 'refs/heads/main'
-    needs: [validate, daily-render]
-    runs-on: ubuntu-latest
-    environment:
-      name: social-production
-      url: ${{ needs.daily-render.outputs.video_url }}
-    permissions:
-      contents: read
-      actions: read
-    concurrency:
-      group: autonomous-video-publish
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Restore exact reviewed video state
-        uses: actions/download-artifact@v7
-        with:
-          name: ready-for-review-${{ github.run_id }}
-          path: output/video-pipeline
-      - name: Verify the approved artifact matches the watched video
-        env:
-          REVIEWED_VIDEO_URL: ${{ needs.daily-render.outputs.video_url }}
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from "node:fs";
-          const state = JSON.parse(fs.readFileSync("output/video-pipeline/state.json", "utf8"));
-          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Artifact is no longer READY_FOR_REVIEW");
-          if (state?.render?.videoUrl !== process.env.REVIEWED_VIDEO_URL) throw new Error("Reviewed video URL does not match the staged artifact");
-          NODE
-      - name: Record manual approval
-        run: npm run video:approve
-      - name: Send approved video to Buffer
-        run: npm run video:publish
-        env:
-          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
-      - name: Save publication result
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: video-publication-${{ github.run_id }}
-          path: output/video-pipeline/state.json
+          name: zapier-video-request-${{ github.run_id }}
+          path: output/zapier/video-request.json
           if-no-files-found: error
           retention-days: 30
