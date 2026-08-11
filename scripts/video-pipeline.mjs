@@ -18,7 +18,9 @@ if (command === "validate") {
   const now = new Date();
   const products = read(dataFile).products ?? [];
   const product = selectDailyProduct(products, now);
-  const record = createRenderRecord(product, generateVideoScript(product, now), (process.env.VIDEO_CHANNELS ?? "tiktok,instagram").split(","), now);
+  const channels = (process.env.VIDEO_CHANNELS ?? "twitter,tiktok").split(",").map((value) => value.trim()).filter(Boolean);
+  if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one Buffer service");
+  const record = createRenderRecord(product, generateVideoScript(product, now), channels, now);
   const rendered = await renderCreatomate({ apiKey: process.env.CREATOMATE_API_KEY, templateId: process.env.CREATOMATE_TEMPLATE_ID, record });
   write(markRendered(record, rendered));
   console.log(`READY_FOR_REVIEW: ${record.id}`);
@@ -27,8 +29,10 @@ if (command === "validate") {
 } else if (command === "reject") {
   const record = reject(read(stateFile), arg("reason")); write(record); console.log(`REJECTED: ${record.id}`);
 } else if (command === "publish") {
-  const profiles = JSON.parse(process.env.BUFFER_CHANNEL_PROFILES ?? "{}");
-  const publisher = createBufferPublisher({ token: process.env.BUFFER_API_TOKEN, channelProfiles: profiles });
+  const publisher = createBufferPublisher({
+    token: process.env.BUFFER_API_TOKEN,
+    organizationId: process.env.BUFFER_ORGANIZATION_ID,
+  });
   const record = await publishApproved(read(stateFile), publisher); write(record); console.log(`${record.state}: ${record.id}`);
   if (record.state !== "PUBLISHED") process.exitCode = 2;
 } else throw new Error(`Unknown command: ${command}`);
