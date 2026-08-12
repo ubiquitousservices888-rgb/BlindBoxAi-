@@ -16,7 +16,7 @@
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node --env-file-if-exists=.env.local scripts/video-pipeline.mjs publish",
     "video:zapier": "node scripts/zapier-video-payload.mjs",
-    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/notebooklm-video-ingest.test.mjs",
+    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/notebooklm-video-ingest.test.mjs scripts/gemini-tts-disclosure.test.mjs",
     "daily:stage": "node scripts/daily-product-pipeline.mjs stage",
     "daily:mark-staged": "node scripts/daily-product-pipeline.mjs mark-staged",
     "daily:mark-failed": "node scripts/daily-product-pipeline.mjs mark-failed",
