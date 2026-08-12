@@ -10,6 +10,7 @@
     "labubu:validate": "node scripts/labubu-validate.mjs",
     "labubu:test": "node --test scripts/labubu-test.mjs",
     "video:daily": "node scripts/video-pipeline.mjs daily",
+    "video:notebooklm": "node scripts/notebooklm-video-ingest.mjs",
     "video:approve": "node scripts/video-pipeline.mjs approve",
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node scripts/video-pipeline.mjs publish",
