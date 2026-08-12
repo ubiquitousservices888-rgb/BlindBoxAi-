@@ -1,0 +1,26 @@
+# BlindBoxAI NotebookLM mobile quickstart
+# Run from Termux after downloading a NotebookLM MP4.
+
+cd "$HOME/BlindBoxAi-" 2>/dev/null || cd "$HOME/BlindBoxAI" 2>/dev/null || exit 1
+git fetch origin
+git switch feat/notebooklm-mobile-video-ingest
+git pull --ff-only
+npm install
+npx vercel@latest link
+npx vercel@latest blob create-store blindboxai-videos --access public
+npx vercel@latest env pull .env.local
+
+# Show newest MP4 downloads:
+find /storage/emulated/0/Download -maxdepth 1 -type f -iname '*.mp4' -printf '%T@ %p\n' | sort -nr | head -10
+
+# Replace YOUR_VIDEO.mp4 below:
+npm run video:notebooklm -- --file "/storage/emulated/0/Download/YOUR_VIDEO.mp4"
+
+# Review the hosted MP4 URL printed above. If correct:
+npm run video:approve
+npm run video:publish
+
+# Validate/tests:
+npm test
+npm run validate
+npm audit --audit-level=high
