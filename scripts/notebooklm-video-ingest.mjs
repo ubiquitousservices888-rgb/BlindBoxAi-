@@ -20,10 +20,10 @@ const arg = (name) => {
 
 const filePath = arg("file");
 const requestedProductId = arg("product");
-const token = process.env.BLOB_READ_WRITE_TOKEN;
+const token = process.env.VIDEO_BLOB_READ_WRITE_TOKEN ?? process.env.BLOB_READ_WRITE_TOKEN;
 
 if (!filePath) throw new Error("Usage: npm run video:notebooklm -- --file /path/to/video.mp4 [--product PRODUCT_ID]");
-if (!token) throw new Error("BLOB_READ_WRITE_TOKEN is required. Run: vercel env pull .env.local && set/export the token before ingest.");
+if (!token) throw new Error("VIDEO_BLOB_READ_WRITE_TOKEN (preferred) or BLOB_READ_WRITE_TOKEN is required. Pull it into .env.local before ingest.");
 
 const absoluteFile = path.resolve(filePath);
 if (!fs.existsSync(absoluteFile)) throw new Error(`Video not found: ${absoluteFile}`);
