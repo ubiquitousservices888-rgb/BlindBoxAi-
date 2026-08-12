@@ -13,6 +13,14 @@ command -v ffmpeg >/dev/null 2>&1 || {
   echo "ffmpeg is required. In Termux: pkg install ffmpeg" >&2
   exit 1
 }
+command -v ffprobe >/dev/null 2>&1 || {
+  echo "ffprobe is required. In Termux: pkg install ffmpeg" >&2
+  exit 1
+}
+command -v espeak >/dev/null 2>&1 || {
+  echo "espeak is required for audible affiliate disclosure. In Termux: pkg install espeak" >&2
+  exit 1
+}
 
 [[ -f "$INPUT" ]] || { echo "Video not found: $INPUT" >&2; exit 1; }
 [[ "$INPUT" =~ \.mp4$ ]] || { echo "Only MP4 input is supported." >&2; exit 1; }
@@ -20,17 +28,13 @@ command -v ffmpeg >/dev/null 2>&1 || {
 BASE="${INPUT%.*}"
 OUTPUT="${BASE} - EPN Ready.mp4"
 FONT="/system/fonts/Roboto-Bold.ttf"
-if [[ ! -f "$FONT" ]]; then
-  FONT="/system/fonts/Roboto-Regular.ttf"
-fi
+if [[ ! -f "$FONT" ]]; then FONT="/system/fonts/Roboto-Regular.ttf"; fi
+[[ -f "$FONT" ]] || { echo "Android Roboto font not found." >&2; exit 1; }
 
-FILTER="drawbox=x=28:y=30:w=664:h=190:color=black@0.80:t=fill:enable='between(t,0,5.8)',drawtext=fontfile=${FONT}:text='#ad  As an eBay Partner,':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=55:enable='between(t,0,5.8)',drawtext=fontfile=${FONT}:text='I may earn a commission from':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=105:enable='between(t,0,5.8)',drawtext=fontfile=${FONT}:text='qualifying purchases.':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=155:enable='between(t,0,5.8)',drawbox=x=28:y=h-195:w=664:h=145:color=black@0.78:t=fill:enable='gte(t,duration-5.5)',drawtext=fontfile=${FONT}:text='Full collector guide + current listings':fontcolor=white:fontsize=27:x=(w-text_w)/2:y=h-170:enable='gte(t,duration-5.5)',drawtext=fontfile=${FONT}:text='BlindBoxAI.com':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=h-125:enable='gte(t,duration-5.5)'"
+DURATION="$(ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "$INPUT")"
+CTA_START="$(awk -v d="$DURATION" 'BEGIN { s=d-5.5; if (s < 6) s=6; printf "%.3f", s }')"
 
-# Generate a short spoken disclosure if Termux has espeak; otherwise fail closed.
-command -v espeak >/dev/null 2>&1 || {
-  echo "espeak is required for audible affiliate disclosure. In Termux: pkg install espeak" >&2
-  exit 1
-}
+FILTER="drawbox=x=28:y=30:w=w-56:h=190:color=black@0.80:t=fill:enable='between(t,0,5.8)',drawtext=fontfile=${FONT}:text='#ad  As an eBay Partner,':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=55:enable='between(t,0,5.8)',drawtext=fontfile=${FONT}:text='I may earn a commission from':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=105:enable='between(t,0,5.8)',drawtext=fontfile=${FONT}:text='qualifying purchases.':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=155:enable='between(t,0,5.8)',drawbox=x=28:y=h-195:w=w-56:h=145:color=black@0.78:t=fill:enable='gte(t,${CTA_START})',drawtext=fontfile=${FONT}:text='Full collector guide + current listings':fontcolor=white:fontsize=27:x=(w-text_w)/2:y=h-170:enable='gte(t,${CTA_START})',drawtext=fontfile=${FONT}:text='BlindBoxAI.com':fontcolor=white:fontsize=38:x=(w-text_w)/2:y=h-125:enable='gte(t,${CTA_START})'"
 
 TMP_WAV="$(mktemp --suffix=.wav)"
 trap 'rm -f "$TMP_WAV"' EXIT
@@ -50,7 +54,5 @@ ffprobe -v error \
 echo "Prepared: $OUTPUT"
 
 ARGS=(--file "$OUTPUT")
-if [[ -n "$PRODUCT_ID" ]]; then
-  ARGS+=(--product "$PRODUCT_ID")
-fi
+if [[ -n "$PRODUCT_ID" ]]; then ARGS+=(--product "$PRODUCT_ID"); fi
 npm run video:notebooklm -- "${ARGS[@]}"
