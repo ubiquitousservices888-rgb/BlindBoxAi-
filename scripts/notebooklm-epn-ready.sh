@@ -9,18 +9,12 @@ if [[ -z "$INPUT" ]]; then
   exit 2
 fi
 
-command -v ffmpeg >/dev/null 2>&1 || {
-  echo "ffmpeg is required. In Termux: pkg install ffmpeg" >&2
-  exit 1
-}
-command -v ffprobe >/dev/null 2>&1 || {
-  echo "ffprobe is required. In Termux: pkg install ffmpeg" >&2
-  exit 1
-}
-command -v espeak >/dev/null 2>&1 || {
-  echo "espeak is required for audible affiliate disclosure. In Termux: pkg install espeak" >&2
-  exit 1
-}
+for cmd in ffmpeg ffprobe node; do
+  command -v "$cmd" >/dev/null 2>&1 || {
+    echo "$cmd is required. In Termux: pkg install ffmpeg nodejs-lts" >&2
+    exit 1
+  }
+done
 
 [[ -f "$INPUT" ]] || { echo "Video not found: $INPUT" >&2; exit 1; }
 [[ "$INPUT" =~ \.mp4$ ]] || { echo "Only MP4 input is supported." >&2; exit 1; }
@@ -38,20 +32,36 @@ FILTER="drawbox=x=28:y=30:w=w-56:h=190:color=black@0.80:t=fill:enable='between(t
 
 TMP_WAV="$(mktemp --suffix=.wav)"
 trap 'rm -f "$TMP_WAV"' EXIT
-espeak -w "$TMP_WAV" "As an eBay Partner, I may earn a commission from qualifying purchases."
 
-ffmpeg -y -hide_banner -loglevel error \
-  -i "$INPUT" -i "$TMP_WAV" \
-  -filter_complex "[0:v]${FILTER}[v];[0:a]volume='if(lt(t,5.8),0.22,1)'[orig];[1:a]aresample=44100,volume=1.15[disc];[orig][disc]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]" \
-  -map '[v]' -map '[a]' \
-  -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p \
-  -c:a aac -b:a 160k -movflags +faststart "$OUTPUT"
+# Quality gate: natural Gemini TTS only. Never fall back to eSpeak/robotic TTS.
+node --env-file-if-exists=.env.local scripts/gemini-tts-disclosure.mjs "$TMP_WAV"
+
+DISCLOSURE_DURATION="$(ffprobe -v error -show_entries format=duration -of default=nk=1:nw=1 "$TMP_WAV")"
+awk -v d="$DISCLOSURE_DURATION" 'BEGIN { if (d > 5.8) { printf "Natural disclosure is %.2fs; expected <= 5.8s. Refusing to render.\n", d > "/dev/stderr"; exit 1 } }'
+
+AUDIO_STREAMS="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$INPUT" | wc -l | tr -d ' ')"
+
+if [[ "$AUDIO_STREAMS" -gt 0 ]]; then
+  ffmpeg -y -hide_banner -loglevel error \
+    -i "$INPUT" -i "$TMP_WAV" \
+    -filter_complex "[0:v]${FILTER}[v];[0:a]volume='if(lt(t,5.8),0.22,1)'[orig];[1:a]aresample=48000,volume=1.05[disc];[orig][disc]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]" \
+    -map '[v]' -map '[a]' \
+    -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p \
+    -c:a aac -b:a 160k -movflags +faststart "$OUTPUT"
+else
+  ffmpeg -y -hide_banner -loglevel error \
+    -i "$INPUT" -i "$TMP_WAV" -f lavfi -t "$DURATION" -i anullsrc=r=48000:cl=stereo \
+    -filter_complex "[0:v]${FILTER}[v];[1:a]aresample=48000,volume=1.05[disc];[2:a][disc]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]" \
+    -map '[v]' -map '[a]' \
+    -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p \
+    -c:a aac -b:a 160k -movflags +faststart "$OUTPUT"
+fi
 
 ffprobe -v error \
   -show_entries format=duration,size:stream=codec_name,codec_type,width,height,sample_rate,channels \
   -of json "$OUTPUT"
 
-echo "Prepared: $OUTPUT"
+echo "Prepared with natural Gemini disclosure: $OUTPUT"
 
 ARGS=(--file "$OUTPUT")
 if [[ -n "$PRODUCT_ID" ]]; then ARGS+=(--product "$PRODUCT_ID"); fi
