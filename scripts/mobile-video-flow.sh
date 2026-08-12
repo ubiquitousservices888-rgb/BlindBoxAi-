@@ -10,19 +10,49 @@ SCOPE="${VERCEL_SCOPE:-ubiquitious-enlightened-services-projects}"
 PROJECT="${VERCEL_PROJECT:-blindboxai}"
 PICKED="$HOME/blindboxai-incoming.mp4"
 
+find_download_video() {
+  local dirs=(
+    "$HOME/storage/downloads"
+    "/storage/emulated/0/Download"
+    "/sdcard/Download"
+  )
+  local found=""
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    found="$(find "$dir" -maxdepth 1 -type f \
+      \( -iname '*BlindBoxAI*Hair*Salon*.mp4' -o -iname '*Hair*Salon*.mp4' -o -iname '*.mp4' \) \
+      -printf '%T@\t%p\n' 2>/dev/null | sort -nr | head -n 1 | cut -f2-)"
+    [[ -n "$found" ]] && { printf '%s\n' "$found"; return 0; }
+  done
+  return 1
+}
+
 if [[ -z "$INPUT" ]]; then
-  command -v termux-storage-get >/dev/null 2>&1 || {
-    echo "No video path supplied and termux-storage-get is unavailable." >&2
-    echo "Install Termux:API app + package, or pass the MP4 path as argument 1." >&2
-    exit 1
-  }
-  rm -f "$PICKED"
-  echo "Select the NotebookLM MP4 in Android's file picker..."
-  termux-storage-get "$PICKED"
-  INPUT="$PICKED"
+  INPUT="$(find_download_video || true)"
+
+  if [[ -z "$INPUT" && -x "$(command -v termux-storage-get 2>/dev/null || true)" ]]; then
+    rm -f "$PICKED"
+    echo "No MP4 found in Android Downloads. Opening file picker as fallback..."
+    termux-storage-get "$PICKED" || true
+    [[ -f "$PICKED" ]] && INPUT="$PICKED"
+  fi
 fi
 
-[[ -f "$INPUT" ]] || { echo "Video not found: $INPUT" >&2; exit 1; }
+if [[ -z "$INPUT" || ! -f "$INPUT" ]]; then
+  cat >&2 <<'EOF'
+No usable MP4 was found.
+
+Fastest route:
+1. Save the ORIGINAL NotebookLM MP4 to Android's Download folder.
+2. If Termux has not been granted shared-storage access yet, run: termux-setup-storage
+3. Re-run: npm run video:mobile-flow
+
+The workflow intentionally refuses to use the rejected robotic EPN-ready render.
+EOF
+  exit 1
+fi
+
+echo "Using video: $INPUT"
 
 if [[ ! -d node_modules ]]; then
   npm ci
