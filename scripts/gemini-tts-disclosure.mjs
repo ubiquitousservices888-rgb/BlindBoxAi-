@@ -9,7 +9,7 @@ if (!apiKey) throw new Error("GEMINI_API_KEY is required for natural disclosure 
 if (!output) throw new Error("Usage: node scripts/gemini-tts-disclosure.mjs /path/to/output.wav");
 
 const transcript = "As an eBay Partner, I may earn a commission from qualifying purchases.";
-const prompt = `Synthesize only the spoken transcript below. Do not read these directions aloud.\n\nDelivery: warm, natural, relaxed, conversational American English. Sound like a real creator speaking to viewers, not an announcer or robot. Use subtle human pacing, gentle confidence, and natural prosody. Keep it clear and concise.\n\nSpoken transcript:\n${transcript}`;
+const prompt = `Synthesize only the spoken transcript below. Do not read these directions aloud.\n\nDelivery: warm, organic, relaxed, conversational American English. Sound like a real collector/creator speaking naturally to viewers, not a commercial announcer and never robotic. Use subtle human pacing, gentle confidence, natural breath and prosody. Complete the sentence in about 4.5 seconds without sounding rushed.\n\nSpoken transcript:\n${transcript}`;
 
 function writeWav(filename, pcm, sampleRate = 24000, channels = 1, bitsPerSample = 16) {
   const blockAlign = channels * bitsPerSample / 8;
