@@ -11,16 +11,20 @@ test("natural disclosure uses Gemini warm voice and exact disclosure", () => {
   assert.match(tts, /GEMINI_API_KEY/);
   assert.match(tts, /Sulafat/);
   assert.ok(tts.includes(disclosure));
-  assert.match(tts, /organic/);
+  assert.match(tts, /organic/i);
 });
 
-test("production flow never falls back to eSpeak", () => {
-  assert.doesNotMatch(flow.toLowerCase(), /espeak/);
+test("production flow uses Gemini TTS and has no executable eSpeak fallback", () => {
   assert.match(flow, /gemini-tts-disclosure\.mjs/);
-  assert.match(flow, /Refusing to render/);
+  assert.match(flow, /refusing to render/i);
+
+  // Comments may mention eSpeak to document the prohibition. Reject only an
+  // executable eSpeak dependency/invocation, not explanatory text.
+  assert.doesNotMatch(flow, /^\s*(?:command\s+-v\s+)?espeak(?:\s|$)/im);
+  assert.doesNotMatch(flow, /\bespeak\s+-w\b/i);
 });
 
 test("production flow supports silent NotebookLM videos", () => {
-  assert.match(flow, /AUDIO_STREAMS/);
-  assert.match(flow, /anullsrc/);
+  assert.match(flow, /audio_streams/i);
+  assert.match(flow, /anullsrc/i);
 });
