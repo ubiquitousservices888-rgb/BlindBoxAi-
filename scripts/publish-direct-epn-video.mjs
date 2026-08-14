@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { put } from "@vercel/blob";
 import { bufferGraphQL } from "../lib/daily-product-pipeline.mjs";
 
 const args = process.argv.slice(2);
@@ -10,16 +9,18 @@ const arg = (name, fallback = "") => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 
-const input = path.resolve(arg("file"));
+const inputArg = arg("file");
+if (!inputArg) throw new Error("--file is required");
+const input = path.resolve(inputArg);
 const query = arg("query", "Labubu authentic nine teeth");
 const hook = arg("hook", "The nine-teeth rule can help flag suspicious Labubu figures.");
 const channelId = arg("channel-id", "6a79f6b2b2d9d577434f3e44");
-const output = input.replace(/\.mp4$/i, " - EPN Ready.mp4");
+const publicBase = String(process.env.VIDEO_PUBLIC_BASE_URL || "https://www.blindboxai.com").replace(/\/$/, "");
 
-for (const key of ["BLOB_READ_WRITE_TOKEN", "BUFFER_API_TOKEN", "BUFFER_ORGANIZATION_ID", "NEXT_PUBLIC_EPN_CAMPID"]) {
+for (const key of ["BUFFER_API_TOKEN", "NEXT_PUBLIC_EPN_CAMPID"]) {
   if (!String(process.env[key] ?? "").trim()) throw new Error(`${key} is required`);
 }
-if (!input || !fs.existsSync(input)) throw new Error(`Video not found: ${input}`);
+if (!fs.existsSync(input)) throw new Error(`Video not found: ${input}`);
 if (!/\.mp4$/i.test(input)) throw new Error("Only MP4 input is supported");
 
 const ffprobeJson = (file) => JSON.parse(execFileSync("ffprobe", [
@@ -45,6 +46,12 @@ const font = fontCandidates.find((f) => fs.existsSync(f));
 if (!font) throw new Error("No supported font found for the disclosure overlay");
 const boxWidth = Math.max(240, video.width - 48);
 
+const customId = `bb1-nine-teeth-${new Date().toISOString().slice(0,10).replaceAll("-", "")}`;
+const publishedName = `${customId}.mp4`;
+const publicDir = path.join(process.cwd(), "public", "published-videos");
+fs.mkdirSync(publicDir, { recursive: true });
+const output = path.join(publicDir, publishedName);
+
 const filter = [
   `drawbox=x=24:y=24:w=${boxWidth}:h=150:color=black@0.72:t=fill:enable='between(t,0,5.5)'`,
   `drawtext=fontfile='${font}':text='#ad - As an eBay Partner,':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=48:enable='between(t,0,5.5)'`,
@@ -52,6 +59,7 @@ const filter = [
   `drawtext=fontfile='${font}':text='qualifying purchases.':fontcolor=white:fontsize=26:x=(w-text_w)/2:y=126:enable='between(t,0,5.5)'`,
 ].join(",");
 
+console.log("Rendering visual disclosure; source audio will be stream-copied unchanged...");
 execFileSync("ffmpeg", [
   "-y", "-hide_banner", "-loglevel", "error",
   "-i", input,
@@ -64,9 +72,10 @@ execFileSync("ffmpeg", [
 ], { stdio: "inherit" });
 
 const rendered = ffprobeJson(output);
-if (!(rendered.streams ?? []).some((s) => s.codec_type === "audio")) throw new Error("Rendered video lost its audio track");
+const sourceAudio = (source.streams ?? []).find((s) => s.codec_type === "audio")?.codec_name;
+const renderedAudio = (rendered.streams ?? []).find((s) => s.codec_type === "audio")?.codec_name;
+if (!renderedAudio || renderedAudio !== sourceAudio) throw new Error("Audio preservation check failed");
 
-const customId = `bb1-nine-teeth-${new Date().toISOString().slice(0,10).replaceAll("-", "")}`;
 const epn = new URL("https://www.ebay.com/sch/i.html");
 epn.searchParams.set("_nkw", query);
 epn.searchParams.set("mkcid", "1");
@@ -78,16 +87,26 @@ epn.searchParams.set("mkevt", "1");
 epn.searchParams.set("customid", customId);
 
 const caption = `#ad As an eBay Partner, I may earn a commission from qualifying purchases.\n\n${hook}\n\n${epn.toString()}`;
+const videoUrl = `${publicBase}/published-videos/${encodeURIComponent(publishedName)}`;
 
-const blob = await put(`videos/${path.basename(output)}`, fs.readFileSync(output), {
-  access: "public",
-  addRandomSuffix: true,
-  multipart: true,
-  contentType: "video/mp4",
-  token: process.env.BLOB_READ_WRITE_TOKEN,
+console.log("Deploying public video with the linked BlindBoxAI Vercel project...");
+execFileSync("npx", ["--yes", "vercel@latest", "deploy", "--prod", "--yes"], {
+  cwd: process.cwd(),
+  stdio: "inherit",
+  env: process.env,
 });
 
-console.log(`Hosted MP4: ${blob.url}`);
+let reachable = false;
+for (let i = 0; i < 12; i++) {
+  try {
+    const response = await fetch(videoUrl, { method: "HEAD", redirect: "follow" });
+    if (response.ok) { reachable = true; break; }
+  } catch {}
+  await new Promise((resolve) => setTimeout(resolve, 2500));
+}
+if (!reachable) throw new Error(`Deployed video is not publicly reachable: ${videoUrl}`);
+
+console.log(`Hosted MP4: ${videoUrl}`);
 console.log(`EPN URL: ${epn.toString()}`);
 
 const data = await bufferGraphQL(
@@ -104,7 +123,7 @@ const data = await bufferGraphQL(
       ... on MutationError { message }
     }
   }`,
-  { text: caption, channelId, videoUrl: blob.url },
+  { text: caption, channelId, videoUrl },
 );
 
 if (data?.createPost?.message) throw new Error(`Buffer publish failed: ${data.createPost.message}`);
