@@ -3,7 +3,10 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { put } from "@vercel/blob";
 import {
+  approve,
+  createBufferPublisher,
   createRenderRecord,
+  publishApproved,
   validateVerifiedProduct,
   STATES,
 } from "../lib/video-pipeline.mjs";
@@ -20,7 +23,12 @@ const absolute = path.resolve(input);
 if (!fs.existsSync(absolute)) throw new Error(`Video not found: ${absolute}`);
 if (!/\.mp4$/i.test(absolute)) throw new Error("Only MP4 input is supported");
 
-for (const key of ["BLOB_READ_WRITE_TOKEN", "NEXT_PUBLIC_EPN_CAMPID"]) {
+for (const key of [
+  "BLOB_READ_WRITE_TOKEN",
+  "NEXT_PUBLIC_EPN_CAMPID",
+  "BUFFER_API_TOKEN",
+  "BUFFER_ORGANIZATION_ID",
+]) {
   if (!String(process.env[key] ?? "").trim()) throw new Error(`${key} is required`);
 }
 
@@ -119,8 +127,21 @@ const ready = {
   updatedAt: new Date().toISOString(),
 };
 
-fs.writeFileSync(stateFile, JSON.stringify(ready, null, 2) + "\n");
-console.log(`READY_FOR_REVIEW: ${ready.id}`);
-console.log(`Hosted MP4: ${ready.render.videoUrl}`);
-console.log(`EPN click link: ${ready.script.productUrl}`);
+// User policy: supplying/uploading the source video is the approval action.
+// There is intentionally no second review prompt or approve command in this flow.
+const approved = approve(ready, new Date());
+const publisher = createBufferPublisher({
+  token: process.env.BUFFER_API_TOKEN,
+  organizationId: process.env.BUFFER_ORGANIZATION_ID,
+});
+const published = await publishApproved(approved, publisher, new Date());
+fs.writeFileSync(stateFile, JSON.stringify(published, null, 2) + "\n");
+
+console.log(`FINAL_STATE: ${published.state}`);
+console.log(`Hosted MP4: ${published.render.videoUrl}`);
+console.log(`EPN click link: ${published.script.productUrl}`);
 console.log("Audio: preserved unchanged from source");
+for (const [channel, result] of Object.entries(published.publications ?? {})) {
+  console.log(`${channel}: ${result.status}${result.externalId ? ` (${result.externalId})` : ""}${result.error ? ` - ${result.error}` : ""}`);
+}
+if (published.state !== STATES.PUBLISHED) process.exitCode = 2;
