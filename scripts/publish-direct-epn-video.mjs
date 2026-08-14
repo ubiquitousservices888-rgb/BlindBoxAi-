@@ -20,7 +20,8 @@ if (!inputArg) throw new Error("--file is required");
 const input = path.resolve(inputArg);
 const query = arg("query", path.basename(input, path.extname(input)));
 const hook = arg("hook", "Check current related listings on eBay.");
-const shareMode = args.includes("--now") ? "shareNow" : "addToQueue";
+const publishNow = args.includes("--now");
+const shareMode = publishNow ? "shareNow" : "addToQueue";
 const publicBase = String(process.env.VIDEO_PUBLIC_BASE_URL || "https://www.blindboxai.com").replace(/\/$/, "");
 const services = (process.env.VIDEO_CHANNELS || "youtube,tiktok,twitter")
   .split(",")
@@ -138,6 +139,7 @@ for (const service of services) {
 
 const disclosure = "#ad As an eBay Partner, I may earn a commission from qualifying purchases.";
 const results = [];
+const youtubeTitle = path.basename(input, path.extname(input)).slice(0, 100);
 
 for (const target of targets) {
   const channelCustomId = `${videoId}-${slugify(target.service)}`.slice(0, 240);
@@ -154,21 +156,51 @@ for (const target of targets) {
   const caption = `${disclosure}\n\n${hook}\n\n${epn.toString()}`;
 
   try {
+    const mutation = target.service === "youtube"
+      ? `mutation CreateVideo($text: String!, $channelId: ChannelId!, $videoUrl: String!, $youtubeTitle: String!, $mode: ShareMode!) {
+          createPost(input: {
+            text: $text
+            channelId: $channelId
+            schedulingType: automatic
+            mode: $mode
+            metadata: { youtube: {
+              title: $youtubeTitle
+              categoryId: "27"
+              isAiGenerated: true
+              madeForKids: false
+              privacy: public
+            } }
+            assets: [{ video: { url: $videoUrl } }]
+          }) {
+            ... on PostActionSuccess { post { id text status channelId } }
+            ... on MutationError { message }
+          }
+        }`
+      : `mutation CreateVideo($text: String!, $channelId: ChannelId!, $videoUrl: String!, $mode: ShareMode!) {
+          createPost(input: {
+            text: $text
+            channelId: $channelId
+            schedulingType: automatic
+            mode: $mode
+            assets: [{ video: { url: $videoUrl } }]
+          }) {
+            ... on PostActionSuccess { post { id text status channelId } }
+            ... on MutationError { message }
+          }
+        }`;
+
+    const variables = {
+      text: caption,
+      channelId: target.id,
+      videoUrl,
+      mode: shareMode,
+      ...(target.service === "youtube" ? { youtubeTitle } : {}),
+    };
+
     const data = await bufferGraphQL(
       process.env.BUFFER_API_TOKEN,
-      `mutation CreateVideo($text: String!, $channelId: ChannelId!, $videoUrl: String!, $mode: ShareMode!) {
-        createPost(input: {
-          text: $text
-          channelId: $channelId
-          schedulingType: automatic
-          mode: $mode
-          assets: [{ video: { url: $videoUrl } }]
-        }) {
-          ... on PostActionSuccess { post { id text status channelId } }
-          ... on MutationError { message }
-        }
-      }`,
-      { text: caption, channelId: target.id, videoUrl, mode: shareMode },
+      mutation,
+      variables,
     );
 
     if (data?.createPost?.message) throw new Error(data.createPost.message);
