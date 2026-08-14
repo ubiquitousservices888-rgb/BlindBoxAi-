@@ -13,6 +13,7 @@
     "video:notebooklm": "node --env-file-if-exists=.env.local scripts/notebooklm-video-ingest.mjs",
     "video:notebooklm-ready": "bash scripts/notebooklm-epn-ready.sh",
     "video:mobile-flow": "bash scripts/mobile-video-flow.sh",
+    "video:link-only": "node --env-file-if-exists=.env.local scripts/link-only-video-flow.mjs",
     "video:approve": "node scripts/video-pipeline.mjs approve",
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node --env-file-if-exists=.env.local scripts/video-pipeline.mjs publish",
