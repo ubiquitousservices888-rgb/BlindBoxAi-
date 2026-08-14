@@ -20,6 +20,7 @@ if (!inputArg) throw new Error("--file is required");
 const input = path.resolve(inputArg);
 const query = arg("query", path.basename(input, path.extname(input)));
 const hook = arg("hook", "Check current related listings on eBay.");
+const shareMode = args.includes("--now") ? "shareNow" : "addToQueue";
 const publicBase = String(process.env.VIDEO_PUBLIC_BASE_URL || "https://www.blindboxai.com").replace(/\/$/, "");
 const services = (process.env.VIDEO_CHANNELS || "youtube,tiktok,twitter")
   .split(",")
@@ -91,6 +92,7 @@ if (!renderedAudio || renderedAudio !== sourceAudio) throw new Error("Audio pres
 
 const videoUrl = `${publicBase}/published-videos/${encodeURIComponent(publishedName)}`;
 console.log(`Unique video ID: ${videoId}`);
+console.log(`Buffer mode: ${shareMode}`);
 console.log("Deploying public video with the linked BlindBoxAI Vercel project...");
 execFileSync("npx", ["--yes", "vercel@latest", "deploy", "--prod", "--yes"], {
   cwd: process.cwd(),
@@ -154,19 +156,19 @@ for (const target of targets) {
   try {
     const data = await bufferGraphQL(
       process.env.BUFFER_API_TOKEN,
-      `mutation CreateVideo($text: String!, $channelId: ChannelId!, $videoUrl: String!) {
+      `mutation CreateVideo($text: String!, $channelId: ChannelId!, $videoUrl: String!, $mode: ShareMode!) {
         createPost(input: {
           text: $text
           channelId: $channelId
           schedulingType: automatic
-          mode: addToQueue
+          mode: $mode
           assets: [{ video: { url: $videoUrl } }]
         }) {
           ... on PostActionSuccess { post { id text status channelId } }
           ... on MutationError { message }
         }
       }`,
-      { text: caption, channelId: target.id, videoUrl },
+      { text: caption, channelId: target.id, videoUrl, mode: shareMode },
     );
 
     if (data?.createPost?.message) throw new Error(data.createPost.message);
