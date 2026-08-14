@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { bufferGraphQL } from "../lib/daily-product-pipeline.mjs";
 
@@ -8,12 +9,17 @@ const arg = (name, fallback = "") => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : fallback;
 };
+const slugify = (value) => String(value || "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "")
+  .slice(0, 60) || "video";
 
 const inputArg = arg("file");
 if (!inputArg) throw new Error("--file is required");
 const input = path.resolve(inputArg);
-const query = arg("query", "Labubu authentic nine teeth");
-const hook = arg("hook", "The nine-teeth rule can help flag suspicious Labubu figures.");
+const query = arg("query", path.basename(input, path.extname(input)));
+const hook = arg("hook", "Check current related listings on eBay.");
 const channelId = arg("channel-id", "6a79f6b2b2d9d577434f3e44");
 const publicBase = String(process.env.VIDEO_PUBLIC_BASE_URL || "https://www.blindboxai.com").replace(/\/$/, "");
 
@@ -46,7 +52,10 @@ const font = fontCandidates.find((f) => fs.existsSync(f));
 if (!font) throw new Error("No supported font found for the disclosure overlay");
 const boxWidth = Math.max(240, video.width - 48);
 
-const customId = `bb1-nine-teeth-${new Date().toISOString().slice(0,10).replaceAll("-", "")}`;
+const fileHash = crypto.createHash("sha256").update(fs.readFileSync(input)).digest("hex").slice(0, 8);
+const querySlug = slugify(query);
+const dateSlug = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+const customId = `bb1-${querySlug}-${dateSlug}-${fileHash}`.slice(0, 240);
 const publishedName = `${customId}.mp4`;
 const publicDir = path.join(process.cwd(), "public", "published-videos");
 fs.mkdirSync(publicDir, { recursive: true });
@@ -89,6 +98,7 @@ epn.searchParams.set("customid", customId);
 const caption = `#ad As an eBay Partner, I may earn a commission from qualifying purchases.\n\n${hook}\n\n${epn.toString()}`;
 const videoUrl = `${publicBase}/published-videos/${encodeURIComponent(publishedName)}`;
 
+console.log(`Unique video ID: ${customId}`);
 console.log("Deploying public video with the linked BlindBoxAI Vercel project...");
 execFileSync("npx", ["--yes", "vercel@latest", "deploy", "--prod", "--yes"], {
   cwd: process.cwd(),
