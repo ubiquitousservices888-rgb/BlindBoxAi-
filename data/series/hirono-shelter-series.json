@@ -1,0 +1,162 @@
+{
+  "slug": "hirono-shelter-series",
+  "name": "HIRONO Shelter Series",
+  "brand": "POP MART HIRONO",
+  "retailUSD": 19.99,
+  "pullOdds": {
+    "secret": null,
+    "source": null
+  },
+  "checklist": [
+    "Compare the exact figure, packaging, condition, and included accessories with POP MART's official Shelter Series product page.",
+    "Treat seller claims of authenticity as unverified until the item and packaging are independently checked.",
+    "Use multiple comparable completed sales; one displayed result is not a reliable market average.",
+    "For shopping, use active listings and review seller history, photographs, returns, and item condition before purchasing."
+  ],
+  "figures": [
+    {
+      "name": "Candleholder",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Mantel Clock",
+      "rarity": "standard",
+      "resaleLow": 1399,
+      "resaleHigh": 1399,
+      "needsReview": true,
+      "evidence": "One eBay US sold-result screenshot displayed $1,399 with free shipping on 2026-06-27. Single-observation outlier; authenticity and repeatability not independently verified."
+    },
+    {
+      "name": "Poet",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Traffic Cone",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Fort",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Circus",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Cabin",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Birdy",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Alien",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Warrior",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Sunny Doll",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Birdcage",
+      "rarity": "standard",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "No verified US sold-price sample recorded."
+    },
+    {
+      "name": "Stuffed Bear",
+      "rarity": "secret",
+      "resaleLow": null,
+      "resaleHigh": null,
+      "needsReview": true,
+      "evidence": "Official series page identifies this as the secret; no verified US sold-price sample recorded."
+    }
+  ],
+  "marketPricing": {
+    "_status": "LIMITED_EVIDENCE — do not present as a market average",
+    "_note": "Mantel Clock has one user-supplied US eBay sold-result observation. The displayed $1,399 result is an outlier lead, not an established value.",
+    "checkedAt": "2026-08-15T04:00:00Z",
+    "source": "https://www.ebay.com/sch/i.html?_nkw=HIRONO+Shelter+Mantel+Clock&LH_Complete=1&LH_Sold=1",
+    "sampleSize": 1,
+    "conditionCaveat": "Listing described the item as brand new; authenticity was not independently verified.",
+    "variants": [
+      {
+        "name": "Mantel Clock",
+        "lowUSD": 1399,
+        "highUSD": 1399,
+        "sampleSize": 1,
+        "soldWindow": "2026-06-27",
+        "shipping": "free"
+      }
+    ]
+  },
+  "seriesPageUrl": "https://www.blindboxai.com/series/hirono-shelter-series",
+  "_dataQuality": {
+    "_note": "Official product facts and secondary-market evidence are kept separate. One sold result cannot establish normal market value.",
+    "retailUSD": {
+      "source": "https://www.popmart.com/us/products/1385/Hirono-Shelter-Series-Figures",
+      "checked_at": "2026-08-15T04:00:00Z",
+      "status": "verified",
+      "_note": "Official US product page displayed $19.99 when checked."
+    },
+    "seriesMetadata": {
+      "source": "https://www.popmart.com/us/products/1385/Hirono-Shelter-Series-Figures",
+      "checked_at": "2026-08-15T04:00:00Z",
+      "status": "verified"
+    },
+    "soldEvidence": {
+      "source": "https://www.ebay.com/sch/i.html?_nkw=HIRONO+Shelter+Mantel+Clock&LH_Complete=1&LH_Sold=1",
+      "checked_at": "2026-08-15T04:00:00Z",
+      "status": "limited",
+      "sampleSize": 1,
+      "_note": "Displayed sold result only; not a market average or authenticity determination."
+    }
+  }
+}
