@@ -77,7 +77,7 @@ describe("fact safety and candidate integrity", () => {
   it("keeps secret-like values out of artifacts", () => {
     const candidate = createCandidate(buildEligibleProduct(series("secret-test")), { runId: "3" });
     assert.equal(assertArtifactIsSecretFree(candidate), true);
-    assert.throws(() => assertArtifactIsSecretFree({ token: "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890" }), /secret/i);
+    assert.throws(() => assertArtifactIsSecretFree({ token: `ghp_${"1234567890".repeat(4).slice(0, 36)}` }), /secret/i);
   });
 });
 
