@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { runResearchCycle } from "../lib/mr-know-it-all-agent.mjs";
+import { buildDeterministicDemandInput } from "../lib/deterministic-demand-research.mjs";
 import {
   buildResearchArtifact,
   assertResearchArtifact,
@@ -100,8 +100,11 @@ if (command === "validate") {
   const encryptionKey = String(process.env.MR_RESEARCH_ENCRYPTION_KEY ?? "").trim();
   if (!encryptionKey) throw new Error("MR_RESEARCH_ENCRYPTION_KEY is required; plaintext research is never written");
   const demand = await loadPrivateQuestionEvents({ encryptionKey });
-  const artifact = await runResearchCycle({
-    questions: demand.events.map((event) => event.question),
+  const now = new Date();
+  const raw = buildDeterministicDemandInput(demand.events.map((event) => event.question));
+  const artifact = buildResearchArtifact(raw, now, {
+    model: "deterministic-local-v1",
+    questionCount: demand.events.length,
     questionLookbackDays: demand.lookbackDays,
     skippedQuestionEvents: demand.skipped,
   });
@@ -112,7 +115,7 @@ if (command === "validate") {
   const outputFile = path.join(outputDirectory, `private-research-${stamp}.json.enc`);
   fs.writeFileSync(outputFile, `${encrypted}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
   console.log("ENCRYPTED_PRIVATE_RESEARCH_READY");
-  console.log("No purchases, payments, enrollments, outreach, rendering, or publishing occurred.");
+  console.log("No hosted AI agent, paid model call, purchase, payment, enrollment, outreach, rendering, or publishing occurred.");
 } else if (command === "decrypt") {
   const encryptionKey = String(process.env.MR_RESEARCH_ENCRYPTION_KEY ?? "").trim();
   if (!encryptionKey) throw new Error("MR_RESEARCH_ENCRYPTION_KEY is required");
