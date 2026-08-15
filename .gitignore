@@ -12,8 +12,9 @@ reports/affiliate/*.csv
 *.bak
 *.before*
 
-# Labubu automation generated output
+# Generated automation output
 output/labubu/
 media/*.mp4
 output/video-pipeline/
 output/daily-product/
+output/mr-know-it-all/

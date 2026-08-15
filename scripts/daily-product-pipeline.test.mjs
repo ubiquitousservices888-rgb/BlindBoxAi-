@@ -19,6 +19,19 @@ import {
   verifyEnvironmentGate,
   verifyLiveUrl,
 } from "../lib/daily-product-pipeline.mjs";
+import { evaluateAffiliateEligibility } from "../lib/market-eligibility.mjs";
+
+function marketFigure(name = "VERIFIED MARKET FIGURE", overrides = {}) {
+  return {
+    name,
+    rarity: "common",
+    resaleLow: 20,
+    resaleHigh: 30,
+    needsReview: false,
+    evidence: "Two reviewed US sold transactions at positive USD prices.",
+    ...overrides,
+  };
+}
 
 function series(slug, overrides = {}) {
   return {
@@ -27,7 +40,10 @@ function series(slug, overrides = {}) {
     brand: "POP MART",
     retailUSD: 999,
     pullOdds: { secret: "1/1" },
-    figures: [{ name: "UNVERIFIED SECRET", rarity: "secret", needsReview: true }],
+    figures: [
+      marketFigure(),
+      { name: "UNVERIFIED SECRET", rarity: "secret", resaleLow: 999, resaleHigh: 999, needsReview: true },
+    ],
     checklist: ["UNVERIFIED AUTH CLAIM"],
     _dataQuality: {
       retailUSD: { status: "unverified", source: null, checked_at: null },
@@ -49,6 +65,35 @@ describe("daily product selection", () => {
   });
   it("rejects placeholder identity fields", () => {
     assert.throws(() => buildEligibleProduct(series("x", { name: "REPLACE_PRODUCT" })), /placeholder/i);
+  });
+  it("qualifies evidence-backed collectibles without a brand allowlist", () => {
+    for (const [slug, brand] of [
+      ["hirono-proof", "POP MART HIRONO"],
+      ["skullpanda-proof", "POP MART SKULLPANDA"],
+      ["smiski-proof", "SMISKI (Dreams)"],
+      ["unicorno-proof", "tokidoki"],
+      ["labubu-proof", "POP MART Labubu"],
+    ]) {
+      const product = buildEligibleProduct(series(slug, { brand }));
+      assert.equal(product.affiliateEligibility.status, "eligible");
+      assert.equal(product.affiliateEligibility.scope, "all-blind-box-collectibles");
+      assert.equal(product.affiliateEligibility.currency, "USD");
+      assert.ok(product.affiliateEligibility.verifiedMarketRecords.every((record) => record.reviewStatus === "verified"));
+    }
+  });
+  it("rejects every brand when positive transaction evidence is absent or unreviewed", () => {
+    const noProof = series("labubu-no-proof", {
+      brand: "POP MART Labubu",
+      figures: [marketFigure("UNREVIEWED", { needsReview: true })],
+    });
+    const invalidRange = series("smiski-invalid-range", {
+      brand: "SMISKI (Dreams)",
+      figures: [marketFigure("BAD RANGE", { resaleLow: 30, resaleHigh: 20 })],
+    });
+    assert.equal(evaluateAffiliateEligibility(noProof).eligible, false);
+    assert.equal(evaluateAffiliateEligibility(invalidRange).eligible, false);
+    assert.throws(() => buildEligibleProduct(noProof), /positive USD resale range/i);
+    assert.throws(() => buildEligibleProduct(invalidRange), /positive USD resale range/i);
   });
 });
 
@@ -77,7 +122,7 @@ describe("fact safety and candidate integrity", () => {
   it("keeps secret-like values out of artifacts", () => {
     const candidate = createCandidate(buildEligibleProduct(series("secret-test")), { runId: "3" });
     assert.equal(assertArtifactIsSecretFree(candidate), true);
-    assert.throws(() => assertArtifactIsSecretFree({ token: "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890" }), /secret/i);
+    assert.throws(() => assertArtifactIsSecretFree({ token: `ghp_${"1234567890".repeat(4).slice(0, 36)}` }), /secret/i);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   DISCLOSURE,
   assertArtifactIsSecretFree,
   assertProductionContext,
+  buildSeriesIdentity,
   candidatePreview,
   createBufferImagePost,
   createCandidate,
@@ -19,6 +20,7 @@ import {
   validatePublishableText,
   verifyLiveUrl,
 } from "../lib/daily-product-pipeline.mjs";
+import { evaluateAffiliateEligibility } from "../lib/market-eligibility.mjs";
 import {
   assertBufferOrganizationId,
   assertCandidateCtas,
@@ -209,12 +211,19 @@ async function publish() {
 async function localValidate() {
   const failures = [];
   let eligible = 0;
+  let researchOnly = 0;
   for (const series of loadSeries()) {
     const identity = series?.slug ?? series?.__invalidFile ?? "unknown-series";
     try {
       if (series?.__error) throw new Error(series.__error);
+      buildSeriesIdentity(series, { siteUrl });
+      const eligibility = evaluateAffiliateEligibility(series);
+      if (!eligibility.eligible) {
+        researchOnly++;
+        continue;
+      }
       const product = selectNextProduct([series], { products: {} }, { siteUrl });
-      if (!product) throw new Error("series is not baseline-eligible");
+      if (!product) throw new Error("affiliate-eligible series was not selectable");
       const candidate = hardenCandidateForPublishing(createCandidate(product, { runId: "validation", sourceCommit: sourceCommit ?? "local" }));
       assertArtifactIsSecretFree(candidate);
       assertCandidateCtas(candidate);
@@ -226,7 +235,8 @@ async function localValidate() {
   if (failures.length) {
     throw new Error(`Daily product schema validation failed for ${failures.length} file(s):\n- ${failures.join("\n- ")}`);
   }
-  console.log(`Daily product pipeline schema validation complete: ${eligible} baseline-eligible series file(s).`);
+  if (!eligible) throw new Error("No affiliate-eligible blind-box collectible has verified positive-USD transaction evidence");
+  console.log(`Daily product pipeline validation complete: ${eligible} affiliate-eligible series; ${researchOnly} research-only series.`);
 }
 
 if (command === "stage") await stage();

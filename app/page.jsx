@@ -17,11 +17,14 @@ export default function Home() {
     <main>
       <section className="hero">
         <Guilloche />
-        <p className="eyebrow">Independent reseller reference</p>
+        <p className="eyebrow">Independent collector intelligence</p>
         <h1>Know the odds.<br/>Spot the fakes.</h1>
-        <p>US-sold resale ranges, manufacturer-published pull odds, and a per-series
-          counterfeit inspection guide. One page per series. No account needed.</p>
-        <Link className="cta" href="/pro">Reseller tools →</Link>
+        <p>Ask about blind-box brands and series across the collectible category, then check
+          reviewed US-sold observations and counterfeit warning signs. No account needed.</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          <Link className="cta" href="/ask">Ask Mr. Know It All →</Link>
+          <Link className="cta" href="/pro">Reseller tools →</Link>
+        </div>
       </section>
 
       <div className="shead">

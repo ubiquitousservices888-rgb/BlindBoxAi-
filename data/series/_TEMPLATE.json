@@ -11,6 +11,7 @@
   ],
   "figures": [
     { "name": "Figure Name", "rarity": "common | rare | secret",
-      "resaleLow": null, "resaleHigh": null, "needsReview": true }
+      "resaleLow": null, "resaleHigh": null, "needsReview": true,
+      "evidence": "ADD_REVIEWED_USD_TRANSACTION_EVIDENCE" }
   ]
 }

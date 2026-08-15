@@ -125,7 +125,17 @@ describe("approval artifact CTA integrity", () => {
       slug: "long-name",
       name: "Collector Series ".repeat(40),
       brand: "POP MART",
+      figures: [{
+        name: "Reviewed Test Figure",
+        rarity: "standard",
+        resaleLow: 18,
+        resaleHigh: 24,
+        evidence: "Test fixture reviewed sold transaction TX-USD-001",
+        needsReview: false,
+      }],
     });
+    assert.equal(product.affiliateEligibility.verifiedMarketRecordCount, 1);
+    assert.equal(product.affiliateEligibility.verifiedMarketRecords[0].reviewStatus, "verified");
     const original = createCandidate(product, { runId: "cta-test", sourceCommit: "abc" });
     assert.ok(!original.captions.twitter.includes(product.ctaUrl));
 
