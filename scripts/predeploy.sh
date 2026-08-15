@@ -82,7 +82,7 @@ fi
 if node --input-type=module <<'NODE'
 import { shouldUseSkimlinks } from "./lib/affiliate-policy.mjs";
 
-if (shouldUseSkimlinks("https://www.ebay.com/sch/i.html?_nkw=labubu")) process.exit(1);
+if (shouldUseSkimlinks("https://www.ebay.com/sch/i.html?_nkw=blind+box+collectible")) process.exit(1);
 if (shouldUseSkimlinks("https://deals.ebay.com/item")) process.exit(1);
 if (!shouldUseSkimlinks("https://ebay.com.example.org/item")) process.exit(1);
 NODE
@@ -94,4 +94,3 @@ else
 fi
 
 exit "$fail"
-
