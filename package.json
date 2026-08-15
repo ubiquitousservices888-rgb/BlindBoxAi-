@@ -15,6 +15,11 @@
     "video:publish": "node scripts/video-pipeline.mjs publish",
     "video:zapier": "node scripts/zapier-video-payload.mjs",
     "video:test": "node --test scripts/video-pipeline.test.mjs",
+    "mr:ask": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-cli.mjs",
+    "mr:research": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs research",
+    "mr:decrypt": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs decrypt",
+    "mr:validate": "node scripts/mr-know-it-all-research.mjs validate",
+    "mr:test": "node --test scripts/mr-know-it-all.test.mjs",
     "daily:stage": "node scripts/daily-product-pipeline.mjs stage",
     "daily:mark-staged": "node scripts/daily-product-pipeline.mjs mark-staged",
     "daily:mark-failed": "node scripts/daily-product-pipeline.mjs mark-failed",
@@ -26,15 +31,16 @@
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
-    "test": "npm run labubu:test && npm run video:test && npm run daily:test && npm run release:test",
-    "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate"
+    "test": "npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test",
+    "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate"
   },
   "dependencies": {
+    "@openai/agents": "0.16.0",
     "@vercel/blob": "2.6.1",
     "next": "16.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sharp": "0.35.3"
+    "sharp": "0.35.3",
+    "zod": "4.2.0"
   }
 }
-

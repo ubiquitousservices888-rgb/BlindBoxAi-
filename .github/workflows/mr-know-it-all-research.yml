@@ -1,0 +1,59 @@
+name: Private Mr. Know It All research
+
+on:
+  schedule:
+    - cron: "17 2,14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mr-know-it-all-private-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    name: Research and encrypt owner review artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate research and encryption policy
+        run: npm run mr:test && npm run mr:validate
+      - name: Fail closed unless private server secrets exist
+        shell: bash
+        env:
+          MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ${{ secrets.MR_PRIVATE_BLOB_READ_WRITE_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MR_RESEARCH_ENCRYPTION_KEY: ${{ secrets.MR_RESEARCH_ENCRYPTION_KEY }}
+        run: |
+          test -n "$MR_PRIVATE_BLOB_READ_WRITE_TOKEN"
+          test -n "$OPENAI_API_KEY"
+          test -n "$MR_RESEARCH_ENCRYPTION_KEY"
+      - name: Run read-only research and write encrypted output only
+        run: npm run mr:research
+        env:
+          MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ${{ secrets.MR_PRIVATE_BLOB_READ_WRITE_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL || 'gpt-5.6-terra' }}
+          MR_RESEARCH_ENCRYPTION_KEY: ${{ secrets.MR_RESEARCH_ENCRYPTION_KEY }}
+          MR_KNOW_IT_ALL_OUTPUT_DIR: output/mr-know-it-all
+      - name: Upload owner-encrypted artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: private-mr-know-it-all-${{ github.run_id }}
+          path: output/mr-know-it-all/*.json.enc
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
