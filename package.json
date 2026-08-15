@@ -19,7 +19,7 @@
     "mr:research": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs research",
     "mr:decrypt": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs decrypt",
     "mr:validate": "node scripts/mr-know-it-all-research.mjs validate",
-    "mr:test": "node --test scripts/mr-know-it-all.test.mjs",
+    "mr:test": "node --test scripts/mr-know-it-all.test.mjs scripts/deterministic-demand-research.test.mjs",
     "daily:stage": "node scripts/daily-product-pipeline.mjs stage",
     "daily:mark-staged": "node scripts/daily-product-pipeline.mjs mark-staged",
     "daily:mark-failed": "node scripts/daily-product-pipeline.mjs mark-failed",
