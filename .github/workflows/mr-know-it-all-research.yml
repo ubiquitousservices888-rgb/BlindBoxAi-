@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   research:
-    name: Research and encrypt owner review artifact
+    name: Analyze private demand and encrypt owner artifact
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -31,22 +31,18 @@ jobs:
         run: npm ci
       - name: Validate research and encryption policy
         run: npm run mr:test && npm run mr:validate
-      - name: Fail closed unless private server secrets exist
+      - name: Fail closed unless private storage secrets exist
         shell: bash
         env:
           MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ${{ secrets.MR_PRIVATE_BLOB_READ_WRITE_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MR_RESEARCH_ENCRYPTION_KEY: ${{ secrets.MR_RESEARCH_ENCRYPTION_KEY }}
         run: |
           test -n "$MR_PRIVATE_BLOB_READ_WRITE_TOKEN"
-          test -n "$OPENAI_API_KEY"
           test -n "$MR_RESEARCH_ENCRYPTION_KEY"
-      - name: Run read-only research and write encrypted output only
+      - name: Run deterministic private demand analysis and write encrypted output only
         run: npm run mr:research
         env:
           MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ${{ secrets.MR_PRIVATE_BLOB_READ_WRITE_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_RESEARCH_MODEL: ${{ vars.OPENAI_RESEARCH_MODEL || 'gpt-5.6-terra' }}
           MR_RESEARCH_ENCRYPTION_KEY: ${{ secrets.MR_RESEARCH_ENCRYPTION_KEY }}
           MR_KNOW_IT_ALL_OUTPUT_DIR: output/mr-know-it-all
       - name: Upload owner-encrypted artifact
