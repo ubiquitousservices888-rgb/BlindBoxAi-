@@ -28,6 +28,15 @@ function isApprovedDiscoverySource(url) {
   }
 }
 
+function matchConfidenceForSource(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname.includes("/products/") ? "candidate-exact" : "candidate-unverified";
+  } catch {
+    return "candidate-unverified";
+  }
+}
+
 export async function discoverProductVisual(product, fetchImpl = fetch) {
   const candidates = [];
   for (const source of product.sources ?? []) {
@@ -57,18 +66,21 @@ export async function discoverProductVisual(product, fetchImpl = fetch) {
         });
         continue;
       }
+      const productMatch = matchConfidenceForSource(source.url);
       candidates.push({
         productId: product.id,
         productName: product.name,
         url: imageUrl,
         sourcePage: source.url,
         sourceType: "official-product-image",
-        productMatch: "candidate-exact",
+        productMatch,
         reuseRights: "unverified",
         aiUseAllowed: false,
         state: "REFERENCE_ONLY",
         discoveredAt: new Date().toISOString(),
-        note: "Real official-source image candidate. Reuse rights must be established before render approval.",
+        note: productMatch === "candidate-exact"
+          ? "Official product-page image candidate. Exact visual identity still requires review and reuse rights must be established before render approval."
+          : "Official collection/source image candidate. Exact product match and reuse rights must both be established before render approval.",
       });
       break;
     } catch (error) {

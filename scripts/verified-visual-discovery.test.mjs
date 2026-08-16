@@ -19,8 +19,16 @@ const candidates = await discoverProductVisual(product, okFetch);
 assert.equal(candidates.length, 1);
 assert.equal(candidates[0].state, "REFERENCE_ONLY");
 assert.equal(candidates[0].url, "https://cdn-global.popmart.com/test.jpg");
+assert.equal(candidates[0].productMatch, "candidate-exact");
 assert.equal(candidates[0].reuseRights, "unverified");
 assert.equal(candidates[0].aiUseAllowed, false);
+
+const collectionCandidates = await discoverProductVisual({
+  ...product,
+  sources: [{ status: "verified", url: "https://www.popmart.com/us/collection/11/the-monsters" }],
+}, okFetch);
+assert.equal(collectionCandidates[0].productMatch, "candidate-unverified");
+assert.match(collectionCandidates[0].note, /Exact product match/);
 
 const blocked = await discoverProductVisual({
   ...product,
