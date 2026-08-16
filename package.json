@@ -18,6 +18,7 @@
     "owner:test": "node --test scripts/owner-dashboard.test.mjs",
     "campaign:test": "node --test scripts/campaign-attribution.test.mjs",
     "opportunity:test": "node --test scripts/opportunity-gate.test.mjs",
+    "visual:test": "node --test scripts/verified-visual-asset.test.mjs",
     "mr:ask": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-cli.mjs",
     "mr:research": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs research",
     "mr:decrypt": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs decrypt",
@@ -34,7 +35,7 @@
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
-    "test": "npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run campaign:test && npm run opportunity:test",
+    "test": "npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run campaign:test && npm run opportunity:test && npm run visual:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate"
   },
   "dependencies": {
