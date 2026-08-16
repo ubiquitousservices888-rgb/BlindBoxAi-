@@ -1,4 +1,6 @@
+import { put } from "@vercel/blob";
 import { handleUpload } from "@vercel/blob/client";
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { assertUploadCode } from "../../../../lib/evidence";
@@ -43,9 +45,38 @@ export async function POST(request) {
           tokenPayload: JSON.stringify({ kind: "approved-social-video" }),
         };
       },
-      onUploadCompleted: async () => {
-        // Upload completion does not publish anything. Buffer still requires
-        // the explicit approval/publish gate in the video pipeline.
+      onUploadCompleted: async ({ blob }) => {
+        const createdAt = new Date().toISOString();
+        const event = {
+          schemaVersion: 1,
+          event: "approved_media_upload_completed",
+          createdAt,
+          message: "Approved social video finished uploading and is ready for the publish gate.",
+          mediaUrl: blob.url,
+          pathname: blob.pathname,
+          contentType: blob.contentType || "video/mp4",
+          piiStored: false,
+        };
+
+        try {
+          const date = createdAt.slice(0, 10);
+          const id = `${Date.now().toString(36)}-${randomUUID().replaceAll("-", "")}`;
+          await put(
+            `owner/notifications/${date}/${id}.json`,
+            JSON.stringify(event, null, 2),
+            {
+              access: "private",
+              contentType: "application/json",
+              addRandomSuffix: false,
+              allowOverwrite: false,
+            },
+          );
+        } catch (cause) {
+          console.error("owner_upload_notification_failed", {
+            pathname: blob.pathname,
+            message: cause instanceof Error ? cause.message : "Unknown notification error",
+          });
+        }
       },
     });
 
