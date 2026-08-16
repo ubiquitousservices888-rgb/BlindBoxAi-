@@ -6,6 +6,7 @@ import { assertUploadCode } from "../../../../lib/evidence";
 export const runtime = "nodejs";
 
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+const CLIENT_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
 
 export async function POST(request) {
   let body;
@@ -38,7 +39,9 @@ export async function POST(request) {
           maximumSizeInBytes: MAX_VIDEO_SIZE,
           addRandomSuffix: true,
           allowOverwrite: false,
-          validUntil: Date.now() + 10 * 60 * 1000,
+          // Vercel supports signed Blob tokens up to 7 days. Two hours gives
+          // mobile uploads enough time to finish while keeping the token short-lived.
+          validUntil: Date.now() + CLIENT_TOKEN_TTL_MS,
           cacheControlMaxAge: 31536000,
           tokenPayload: JSON.stringify({ kind: "approved-social-video" }),
         };
