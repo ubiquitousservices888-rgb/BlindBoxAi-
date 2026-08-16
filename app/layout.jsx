@@ -1,3 +1,5 @@
+import { Analytics } from '@vercel/analytics/next';
+
 export const metadata = {
   title: "BlindBoxAI — resale prices, pull odds & fake checks",
   description:
@@ -20,6 +22,7 @@ export default function RootLayout({ children }) {
           to identify the products they refer to. Prices are US-sold estimates, not offers.
           Not financial advice.
         </footer>
+        <Analytics />
       </body>
     </html>
   );
