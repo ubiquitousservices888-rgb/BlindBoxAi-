@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { approve, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { assertBufferPublishReady } from "../lib/buffer-media-safety.mjs";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const dataFile = process.env.VIDEO_PRODUCTS_FILE ?? path.join(root, "data/verified-video-products.json");
@@ -29,10 +30,12 @@ if (command === "validate") {
 } else if (command === "reject") {
   const record = reject(read(stateFile), arg("reason")); write(record); console.log(`REJECTED: ${record.id}`);
 } else if (command === "publish") {
+  const current = read(stateFile);
+  await assertBufferPublishReady(current);
   const publisher = createBufferPublisher({
     token: process.env.BUFFER_API_TOKEN,
     organizationId: process.env.BUFFER_ORGANIZATION_ID,
   });
-  const record = await publishApproved(read(stateFile), publisher); write(record); console.log(`${record.state}: ${record.id}`);
+  const record = await publishApproved(current, publisher); write(record); console.log(`${record.state}: ${record.id}`);
   if (record.state !== "PUBLISHED") process.exitCode = 2;
 } else throw new Error(`Unknown command: ${command}`);
