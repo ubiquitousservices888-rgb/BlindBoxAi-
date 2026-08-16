@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const REFRESH_INTERVAL_MS = 30_000;
+
 function when(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -15,20 +17,41 @@ export default function DashboardClient() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const seen = useRef(new Set());
+  const snapshotRef = useRef(null);
+  const etagRef = useRef("");
+  const requestInFlight = useRef(false);
 
   async function load(token, announce = false) {
-    if (!token) return;
+    if (!token || requestInFlight.current) return false;
+
+    requestInFlight.current = true;
     setBusy(true);
     setError("");
     try {
+      const headers = { Authorization: `Bearer ${token}` };
+      if (etagRef.current) headers["If-None-Match"] = etagRef.current;
+
       const response = await fetch("/api/owner/dashboard", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
         cache: "no-store",
       });
-      if (!response.ok) throw new Error(response.status === 401 ? "Invalid owner code." : "Dashboard unavailable.");
+
+      if (response.status === 304) return true;
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          etagRef.current = "";
+          snapshotRef.current = null;
+          seen.current = new Set();
+          setSnapshot(null);
+          setActiveCode("");
+        }
+        throw new Error(response.status === 401 ? "Invalid owner code." : "Dashboard unavailable.");
+      }
+
       const data = await response.json();
 
-      if (announce && snapshot && "Notification" in window && Notification.permission === "granted") {
+      if (announce && snapshotRef.current && "Notification" in window && Notification.permission === "granted") {
         const fresh = [];
         for (const item of data.epnClicks || []) {
           const key = `click:${item.pathname}`;
@@ -45,24 +68,33 @@ export default function DashboardClient() {
       (data.epnClicks || []).forEach((item) => nextSeen.add(`click:${item.pathname}`));
       (data.notifications || []).forEach((item) => nextSeen.add(`note:${item.pathname}`));
       seen.current = nextSeen;
+      etagRef.current = response.headers.get("etag") || "";
+      snapshotRef.current = data;
       setSnapshot(data);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Dashboard unavailable.");
+      return false;
     } finally {
+      requestInFlight.current = false;
       setBusy(false);
     }
   }
 
-  function unlock(event) {
+  async function unlock(event) {
     event.preventDefault();
     const token = code.trim();
-    setActiveCode(token);
-    load(token, false);
+
+    etagRef.current = "";
+    snapshotRef.current = null;
+    seen.current = new Set();
+    const loaded = await load(token, false);
+    if (loaded) setActiveCode(token);
   }
 
   useEffect(() => {
-    if (!activeCode) return undefined;
-    const timer = setInterval(() => load(activeCode, true), 15000);
+    if (!activeCode || !snapshotRef.current) return undefined;
+    const timer = setInterval(() => load(activeCode, true), REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [activeCode]);
 
@@ -71,7 +103,10 @@ export default function DashboardClient() {
       setError("Browser notifications are not supported on this device/browser.");
       return;
     }
-    await Notification.requestPermission();
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setError("Browser notifications were not enabled.");
+    }
   }
 
   if (!snapshot) {
@@ -95,7 +130,7 @@ export default function DashboardClient() {
       </div>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-        <Stat label="EPN clicks loaded" value={snapshot.totals?.epnClicksLoaded ?? 0} />
+        <Stat label="EPN click records" value={snapshot.totals?.epnClicksLoaded ?? 0} />
         <Stat label="Clicks last 24h" value={snapshot.totals?.epnClicksLast24h ?? 0} />
         <Stat label="Finish notices" value={snapshot.totals?.notificationsLoaded ?? 0} />
       </section>
@@ -108,7 +143,7 @@ export default function DashboardClient() {
             <div style={{ opacity: 0.75, marginTop: 5 }}>{when(item.createdAt)}</div>
             {item.mediaUrl ? <div style={{ marginTop: 6, overflowWrap: "anywhere" }}>{item.mediaUrl}</div> : null}
           </article>
-        )) : <p>No finish notifications yet.</p>}
+        )) : <p>No finish notifications in the current dashboard window.</p>}
       </section>
 
       <section>
@@ -120,11 +155,13 @@ export default function DashboardClient() {
             <div style={{ opacity: 0.75, marginTop: 5 }}>{when(item.clickedAt)} · {item.kind || "active"} · {item.placement || "unknown"}</div>
             <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 5, overflowWrap: "anywhere" }}>customid: {item.customId}</div>
           </article>
-        )) : <p>No EPN clicks logged yet.</p>}
+        )) : <p>No EPN clicks in the current dashboard window.</p>}
       </section>
 
       {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
-      <p style={{ opacity: 0.65, fontSize: 13 }}>Auto-refresh: every 15 seconds. No IP address, email, cookie, referrer, or user-agent is stored in affiliate click events.</p>
+      <p style={{ opacity: 0.65, fontSize: 13 }}>
+        Auto-refresh: every 30 seconds. Unchanged data avoids private Blob downloads. The dashboard scans {snapshot.window?.lookbackDays ?? 2} UTC dates and stores no IP address, email, cookie, referrer, or user-agent in affiliate click events.
+      </p>
     </div>
   );
 }
