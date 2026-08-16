@@ -6,12 +6,13 @@ import {
   selectDailyProduct,
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
+import { requireApprovedVisualManifest } from "../lib/verified-visual-asset.mjs";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const productsFile = process.env.VIDEO_PRODUCTS_FILE ?? path.join(root, "data/verified-video-products.json");
 const outputFile = process.env.ZAPIER_VIDEO_PAYLOAD_FILE ?? path.join(root, "output/zapier/video-request.json");
 const templateId = process.env.CREATOMATE_TEMPLATE_ID ?? "8b360817-3e33-40e3-bbb4-55a8b508f06e";
-const channels = [...new Set((process.env.VIDEO_CHANNELS ?? "twitter,tiktok")
+const channels = [...new Set((process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean))];
@@ -21,11 +22,15 @@ if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one 
 const now = new Date();
 const data = JSON.parse(fs.readFileSync(productsFile, "utf8"));
 const product = selectDailyProduct(data.products ?? [], now);
+const visualManifest = requireApprovedVisualManifest({
+  productId: product.id,
+  assets: product.visualAssets ?? [],
+});
 const script = generateVideoScript(product, now);
 const id = `${now.toISOString().slice(0, 10)}-${product.id}`;
 
 const payload = {
-  schema: "blindboxai/zapier-video-request/v1",
+  schema: "blindboxai/zapier-video-request/v2",
   id,
   state: "READY_FOR_ZAPIER",
   generatedAt: now.toISOString(),
@@ -42,6 +47,10 @@ const payload = {
     name: product.name,
     productUrl: product.productUrl,
   },
+  visuals: {
+    gate: visualManifest.status,
+    assets: visualManifest.renderableAssets,
+  },
   verifiedClaims: product.claims.map((claim) => ({ ...claim })),
   sourceUrls: product.sources.map((source) => source.url),
   social: {
@@ -52,7 +61,8 @@ const payload = {
   },
   safety: {
     verifiedDataOnly: true,
-    manualApprovalBeforeBuffer: true,
+    approvedVisualsOnly: true,
+    manualApprovalBeforePublish: true,
     duplicatePublishPreventionRequired: true,
   },
 };
@@ -60,6 +70,7 @@ const payload = {
 fs.mkdirSync(path.dirname(outputFile), { recursive: true });
 fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2) + "\n");
 console.log(`READY_FOR_ZAPIER: ${id}`);
+console.log(`VISUAL_GATE: ${visualManifest.status}`);
 console.log(`Payload: ${outputFile}`);
 
 const webhookUrl = String(process.env.ZAPIER_VIDEO_WEBHOOK_URL ?? "").trim();
