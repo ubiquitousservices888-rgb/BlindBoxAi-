@@ -14,7 +14,7 @@
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node scripts/video-pipeline.mjs publish",
     "video:zapier": "node scripts/zapier-video-payload.mjs",
-    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/buffer-media-safety.test.mjs",
+    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs",
     "mr:ask": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-cli.mjs",
     "mr:research": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs research",
     "mr:decrypt": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs decrypt",
