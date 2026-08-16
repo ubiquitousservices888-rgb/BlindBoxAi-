@@ -14,7 +14,7 @@
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node scripts/video-pipeline.mjs publish",
     "video:zapier": "node scripts/zapier-video-payload.mjs",
-    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs",
+    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs",
     "owner:test": "node --test scripts/owner-dashboard.test.mjs",
     "campaign:test": "node --test scripts/campaign-attribution.test.mjs",
     "opportunity:test": "node --test scripts/opportunity-gate.test.mjs",

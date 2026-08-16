@@ -7,6 +7,11 @@ import {
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
 import { requireApprovedVisualManifest } from "../lib/verified-visual-asset.mjs";
+import {
+  disclosureFirstCaption,
+  hardenGenerativeVideoScript,
+  sanitizeProductForGenerativeVideo,
+} from "../lib/epn-genai-safety.mjs";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const productsFile = process.env.VIDEO_PRODUCTS_FILE ?? path.join(root, "data/verified-video-products.json");
@@ -26,11 +31,13 @@ const visualManifest = requireApprovedVisualManifest({
   productId: product.id,
   assets: product.visualAssets ?? [],
 });
-const script = generateVideoScript(product, now);
+const genAiProduct = sanitizeProductForGenerativeVideo(product);
+const baseScript = generateVideoScript(genAiProduct, now);
+const script = hardenGenerativeVideoScript(baseScript, DISCLOSURE);
 const id = `${now.toISOString().slice(0, 10)}-${product.id}`;
 
 const payload = {
-  schema: "blindboxai/zapier-video-request/v2",
+  schema: "blindboxai/zapier-video-request/v3",
   id,
   state: "READY_FOR_ZAPIER",
   generatedAt: now.toISOString(),
@@ -38,7 +45,7 @@ const payload = {
   creatomate: {
     templateId,
     modifications: {
-      Title: script.title,
+      Title: script.displayTitle,
       Narration: script.narration,
     },
   },
@@ -51,16 +58,22 @@ const payload = {
     gate: visualManifest.status,
     assets: visualManifest.renderableAssets,
   },
-  verifiedClaims: product.claims.map((claim) => ({ ...claim })),
-  sourceUrls: product.sources.map((source) => source.url),
+  verifiedClaims: genAiProduct.claims.map((claim) => ({ ...claim })),
+  sourceUrls: genAiProduct.sources.map((source) => source.url),
   social: {
     channels,
     caption: script.caption,
-    captions: Object.fromEntries(channels.map((channel) => [channel, videoCaptionForService(script, channel)])),
+    captions: Object.fromEntries(channels.map((channel) => [
+      channel,
+      disclosureFirstCaption(videoCaptionForService(script, channel), DISCLOSURE),
+    ])),
     disclosure: DISCLOSURE,
   },
   safety: {
     verifiedDataOnly: true,
+    ebayDataExcludedFromGenerativePath: true,
+    audibleAffiliateDisclosureFirst: true,
+    visualAffiliateDisclosureAtOpening: true,
     approvedVisualsOnly: true,
     manualApprovalBeforePublish: true,
     duplicatePublishPreventionRequired: true,
@@ -71,6 +84,7 @@ fs.mkdirSync(path.dirname(outputFile), { recursive: true });
 fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2) + "\n");
 console.log(`READY_FOR_ZAPIER: ${id}`);
 console.log(`VISUAL_GATE: ${visualManifest.status}`);
+console.log(`GENAI_EBAY_DATA_EXCLUDED: true`);
 console.log(`Payload: ${outputFile}`);
 
 const webhookUrl = String(process.env.ZAPIER_VIDEO_WEBHOOK_URL ?? "").trim();
