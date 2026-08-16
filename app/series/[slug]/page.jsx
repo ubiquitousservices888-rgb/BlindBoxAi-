@@ -1,19 +1,26 @@
 import Link from "next/link";
 import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
+import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
 
 export const revalidate = 86400;
 export function generateStaticParams() { return allSeries().map(s => ({ slug: s.slug })); }
-export function generateMetadata({ params }) {
-  const s = getSeries(params.slug);
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const s = getSeries(slug);
   return s ? {
     title: `${s.name} — prices, pull odds & fake check | BlindBoxAI`,
     description: `${s.name} (${s.brand}): US-sold resale ranges, pull odds, and how to spot counterfeits.`,
   } : {};
 }
 
-export default function SeriesPage({ params }) {
-  const s = getSeries(params.slug);
+export default async function SeriesPage({ params, searchParams }) {
+  const { slug } = await params;
+  const query = await searchParams;
+  const campaignId = normalizeCampaignId(query?.campaign);
+  const source = normalizeSource(query?.source);
+  const attribution = { campaignId, source };
+  const s = getSeries(slug);
   if (!s) return <main><h1>Series not found</h1><p><Link href="/">← All series</Link></p></main>;
   return (
     <main>
@@ -54,7 +61,7 @@ export default function SeriesPage({ params }) {
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     <a
                       className="ebay"
-                      href={ebayOutboundPath(s.slug, f.name, "sold")}
+                      href={ebayOutboundPath(s.slug, f.name, "sold", attribution)}
                       target="_blank"
                       rel="sponsored nofollow noopener noreferrer"
                     >
@@ -62,7 +69,7 @@ export default function SeriesPage({ params }) {
                     </a>
                     <a
                       className="ebay"
-                      href={ebayOutboundPath(s.slug, f.name, "active")}
+                      href={ebayOutboundPath(s.slug, f.name, "active", attribution)}
                       target="_blank"
                       rel="sponsored nofollow noopener noreferrer"
                     >
