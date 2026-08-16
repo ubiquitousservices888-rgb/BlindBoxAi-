@@ -4,8 +4,8 @@ import test from "node:test";
 
 const workflow = fs.readFileSync(new URL("../.github/workflows/autonomous-video.yml", import.meta.url), "utf8");
 
-test("video workflow targets the three intended Buffer services", () => {
-  assert.match(workflow, /VIDEO_CHANNELS:\s*twitter,pinterest,facebook/);
+test("video workflow targets YouTube and TikTok", () => {
+  assert.match(workflow, /VIDEO_CHANNELS:\s*youtube,tiktok/);
 });
 
 test("video workflow fails closed when Zapier webhook is missing", () => {
