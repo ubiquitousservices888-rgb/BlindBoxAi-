@@ -8,6 +8,7 @@ import {
   epnCustomId,
   getSeries,
 } from "../../../../lib/data";
+import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,17 +31,12 @@ function error(message, status = 400) {
 export async function GET(request) {
   const url = new URL(request.url);
 
-  const seriesSlug =
-    url.searchParams.get("series")?.trim() || "";
-
-  const figureName =
-    url.searchParams.get("figure")?.trim() || "";
-
-  const kind =
-    url.searchParams.get("kind")?.trim() || "";
-
-  const placement =
-    url.searchParams.get("placement")?.trim() || "";
+  const seriesSlug = url.searchParams.get("series")?.trim() || "";
+  const figureName = url.searchParams.get("figure")?.trim() || "";
+  const kind = url.searchParams.get("kind")?.trim() || "";
+  const placement = url.searchParams.get("placement")?.trim() || "";
+  const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
+  const source = normalizeSource(url.searchParams.get("source"));
 
   if (!VALID_KINDS.has(kind)) {
     return error("Invalid affiliate link type.");
@@ -56,9 +52,7 @@ export async function GET(request) {
     return error("Series not found.", 404);
   }
 
-  const figure = series.figures.find(
-    item => item.name === figureName,
-  );
+  const figure = series.figures.find(item => item.name === figureName);
 
   if (!figure) {
     return error("Figure not found.", 404);
@@ -69,10 +63,11 @@ export async function GET(request) {
     figure: figure.name,
     kind,
     placement,
+    campaignId,
+    source,
   });
 
-  const query =
-    `${series.brand} ${series.name} ${figure.name}`;
+  const query = `${series.brand} ${series.name} ${figure.name}`;
 
   const target =
     kind === "sold"
@@ -82,12 +77,14 @@ export async function GET(request) {
   const clickedAt = new Date().toISOString();
 
   const event = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     event: "affiliate_click",
     provider: "ebay_epn",
 
     clickedAt,
     customId,
+    campaignId: campaignId || null,
+    source,
 
     seriesSlug: series.slug,
     seriesName: series.name,
