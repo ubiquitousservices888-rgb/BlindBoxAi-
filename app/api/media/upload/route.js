@@ -1,4 +1,6 @@
+import { put } from "@vercel/blob";
 import { handleUpload } from "@vercel/blob/client";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { assertUploadCode } from "../../../../lib/evidence";
@@ -46,9 +48,46 @@ export async function POST(request) {
           tokenPayload: JSON.stringify({ kind: "approved-social-video" }),
         };
       },
-      onUploadCompleted: async () => {
-        // Upload completion does not publish anything. Buffer still requires
-        // the explicit approval/publish gate in the video pipeline.
+      onUploadCompleted: async ({ blob }) => {
+        const createdAt = new Date().toISOString();
+        const uploadTimestamp = /^media\/approved\/(\d{13})-/.exec(blob.pathname)?.[1];
+        const uploadDate = uploadTimestamp
+          ? new Date(Number(uploadTimestamp)).toISOString().slice(0, 10)
+          : createdAt.slice(0, 10);
+        const id = createHash("sha256").update(blob.pathname).digest("hex");
+        const event = {
+          schemaVersion: 1,
+          event: "approved_media_upload_completed",
+          createdAt,
+          message: "Approved social video finished uploading and is ready for the publish gate.",
+          mediaUrl: blob.url,
+          pathname: blob.pathname,
+          contentType: blob.contentType || "video/mp4",
+          piiStored: false,
+        };
+
+        try {
+          await put(
+            `owner/notifications/${uploadDate}/${id}.json`,
+            JSON.stringify(event, null, 2),
+            {
+              access: "private",
+              contentType: "application/json",
+              addRandomSuffix: false,
+              // Callback retries replace the same media-specific notice
+              // instead of creating duplicates or failing on a conflict.
+              allowOverwrite: true,
+            },
+          );
+        } catch (cause) {
+          console.error("owner_upload_notification_failed", {
+            pathname: blob.pathname,
+            message: cause instanceof Error ? cause.message : "Unknown notification error",
+          });
+          // A non-success callback response lets Vercel retry instead of
+          // permanently acknowledging an upload whose owner notice was lost.
+          throw cause;
+        }
       },
     });
 
