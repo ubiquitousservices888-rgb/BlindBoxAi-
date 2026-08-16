@@ -18,7 +18,7 @@ permissions:
 
 env:
   CREATOMATE_TEMPLATE_ID: 8b360817-3e33-40e3-bbb4-55a8b508f06e
-  VIDEO_CHANNELS: twitter,pinterest,facebook
+  VIDEO_CHANNELS: youtube,tiktok
 
 jobs:
   validate:
@@ -77,7 +77,7 @@ jobs:
             `**Product:** ${payload.product.name}\n\n` +
             `**Channels:** ${payload.social.channels.join(", ")}\n\n` +
             `**Approval required:** yes\n\n` +
-            `Zapier owns render, approval, and Buffer publishing after this accepted webhook handoff.\n`,
+            `Zapier owns render, approval, and publishing after this accepted webhook handoff.\n`,
           );
           NODE
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
