@@ -18,6 +18,17 @@ export default function Waitlist({ endpoint }) {
       });
       if (res.ok) {
         track("waitlist_signup", { source: "blindboxai-pro-waitlist" });
+        fetch("/api/funnel/event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "waitlist_signup",
+            source: "blindboxai-pro-waitlist",
+            path: window.location.pathname,
+          }),
+          keepalive: true,
+          credentials: "same-origin",
+        }).catch(() => {});
         setStatus("done");
       } else {
         setStatus("error");
@@ -27,29 +38,15 @@ export default function Waitlist({ endpoint }) {
     }
   }
 
-  if (status === "done") {
-    return <p className="nodata">You're on the list — we'll email you once alerts go live.</p>;
-  }
+  if (status === "done") return <p className="nodata">You're on the list — we'll email you once alerts go live.</p>;
 
   return (
     <form onSubmit={submit} style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-      <input
-        type="email"
-        required
-        aria-label="Email address"
-        placeholder="you@email.com"
-        value={email}
+      <input type="email" required aria-label="Email address" placeholder="you@email.com" value={email}
         onChange={(e) => setEmail(e.target.value)}
-        style={{ flex: "1 1 200px", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--line, #ccc)", background: "transparent", color: "inherit" }}
-      />
-      <button className="cta" type="submit" disabled={status === "sending"}>
-        {status === "sending" ? "Joining…" : "Join the waitlist →"}
-      </button>
-      {status === "error" && (
-        <p className="fine" style={{ color: "crimson", flexBasis: "100%" }}>
-          Something went wrong — please try again.
-        </p>
-      )}
+        style={{ flex: "1 1 200px", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--line, #ccc)", background: "transparent", color: "inherit" }} />
+      <button className="cta" type="submit" disabled={status === "sending"}>{status === "sending" ? "Joining…" : "Join the waitlist →"}</button>
+      {status === "error" && <p className="fine" style={{ color: "crimson", flexBasis: "100%" }}>Something went wrong — please try again.</p>}
     </form>
   );
 }
