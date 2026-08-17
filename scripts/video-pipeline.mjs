@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { approve, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { approve, createBufferPublisher, createRenderRecord, DISCLOSURE, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 import { assertBufferPublishReady } from "../lib/buffer-media-safety.mjs";
+import { hardenGenerativeVideoScript } from "../lib/epn-genai-safety.mjs";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const dataFile = process.env.VIDEO_PRODUCTS_FILE ?? path.join(root, "data/verified-video-products.json");
@@ -16,12 +17,16 @@ if (command === "validate") {
   for (const product of products) validateVerifiedProduct(product);
   console.log(`Validated ${products.length} verified video product(s).`);
 } else if (command === "daily") {
+  if (process.env.ALLOW_MANUAL_VIDEO_RENDER !== "true") {
+    throw new Error("Video rendering is paused. Set ALLOW_MANUAL_VIDEO_RENDER=true only for an owner-reviewed manual run.");
+  }
   const now = new Date();
   const products = read(dataFile).products ?? [];
   const product = selectDailyProduct(products, now);
   const channels = (process.env.VIDEO_CHANNELS ?? "twitter,tiktok").split(",").map((value) => value.trim()).filter(Boolean);
   if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one Buffer service");
-  const record = createRenderRecord(product, generateVideoScript(product, now), channels, now);
+  const script = hardenGenerativeVideoScript(generateVideoScript(product, now), DISCLOSURE);
+  const record = createRenderRecord(product, script, channels, now);
   const rendered = await renderCreatomate({ apiKey: process.env.CREATOMATE_API_KEY, templateId: process.env.CREATOMATE_TEMPLATE_ID, record });
   write(markRendered(record, rendered));
   console.log(`READY_FOR_REVIEW: ${record.id}`);
@@ -30,6 +35,9 @@ if (command === "validate") {
 } else if (command === "reject") {
   const record = reject(read(stateFile), arg("reason")); write(record); console.log(`REJECTED: ${record.id}`);
 } else if (command === "publish") {
+  if (process.env.ALLOW_MANUAL_VIDEO_PUBLISH !== "true") {
+    throw new Error("Video publishing is paused. Set ALLOW_MANUAL_VIDEO_PUBLISH=true only after owner review.");
+  }
   const current = read(stateFile);
   await assertBufferPublishReady(current);
   const publisher = createBufferPublisher({
