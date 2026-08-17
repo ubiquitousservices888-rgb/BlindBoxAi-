@@ -77,8 +77,8 @@ export async function GET(request) {
   const clickedAt = new Date().toISOString();
 
   const event = {
-    schemaVersion: 2,
-    event: "affiliate_click",
+    schemaVersion: 3,
+    event: "outbound_affiliate_click",
     provider: "ebay_epn",
 
     clickedAt,
@@ -95,8 +95,6 @@ export async function GET(request) {
     placement,
     sourcePath: `/series/${series.slug}`,
 
-    // Deliberately no IP address, cookie, email,
-    // user ID, referrer, or user-agent storage.
     piiStored: false,
   };
 
@@ -120,7 +118,7 @@ export async function GET(request) {
         },
       );
     } catch (cause) {
-      console.error("affiliate_click_log_failed", {
+      console.error("outbound_affiliate_click_log_failed", {
         customId,
         message:
           cause instanceof Error
