@@ -130,7 +130,8 @@ test("notification write failures are rethrown for callback retry", () => {
 });
 
 test("dashboard polling starts only after authenticated data loads", () => {
-  assert.match(dashboardClient, /const loaded = await load\(token, false\);[\s\S]*if \(loaded\) setActiveCode\(token\);/);
+  assert.match(dashboardClient, /const loaded = await load\(token, false, days\);\s*if \(loaded\) setActiveCode\(token\);/);
   assert.match(dashboardClient, /if \(!activeCode \|\| !snapshotRef\.current\) return undefined;/);
+  assert.match(dashboardClient, /setInterval\(\(\) => load\(activeCode, true, days\), REFRESH_INTERVAL_MS\)/);
   assert.match(dashboardClient, /If-None-Match/);
 });
