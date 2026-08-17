@@ -25,8 +25,8 @@ jobs:
         run: npm ci
       - name: Run deterministic comp tests
         run: node --test scripts/deterministic-comp-lookup.test.mjs
-      - name: Enforce no public LLM dependency
+      - name: Enforce no public agent dependency
         shell: bash
         run: |
-          ! grep -q "askMrKnowItAll\|OPENAI_API_KEY" app/api/mr-know-it-all/route.js
+          ! grep -Eq "askMrKnowItAll|@openai/agents|webSearchTool" app/api/mr-know-it-all/route.js
           echo "Public Mr. Know It All is deterministic. No scheduled AI research is enabled."
