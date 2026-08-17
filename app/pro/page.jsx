@@ -4,7 +4,7 @@ import Waitlist from "./waitlist";
 export const metadata = { title: "Reseller tools | BlindBoxAI" };
 
 export default function Pro() {
-  const endpoint = process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT;
+  const endpointConfigured = Boolean(String(process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT ?? "").trim());
   return (
     <main>
       <Link className="crumb" href="/">← All series</Link>
@@ -27,8 +27,8 @@ export default function Pro() {
           <li>CSV export of every range</li>
           <li>Saved set-completion tracking</li>
         </ul>
-        {endpoint
-          ? <Waitlist endpoint={endpoint} />
+        {endpointConfigured
+          ? <Waitlist />
           : <p className="nodata">Waitlist opening soon — configure NEXT_PUBLIC_WAITLIST_ENDPOINT.</p>}
         <p className="fine" style={{ marginTop: "14px" }}>
           No charge now, and no spam — one email when it launches. This tool helps you
