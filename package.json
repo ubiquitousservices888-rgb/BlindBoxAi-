@@ -17,6 +17,7 @@
     "video:test": "node --test scripts/video-pipeline.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs",
     "owner:test": "node --test scripts/owner-dashboard.test.mjs",
     "security:test": "node --test scripts/security-hardening.test.mjs",
+    "funnel:test": "node --test scripts/funnel-dashboard.test.mjs",
     "campaign:test": "node --test scripts/campaign-attribution.test.mjs",
     "opportunity:test": "node --test scripts/opportunity-gate.test.mjs",
     "visual:discover": "node scripts/verified-visual-discovery.mjs",
@@ -38,11 +39,10 @@
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
-    "test": "npm run p0:test && npm run comp:test && npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run security:test && npm run campaign:test && npm run opportunity:test && npm run visual:test",
+    "test": "npm run p0:test && npm run comp:test && npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run security:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate"
   },
   "dependencies": {
-    "@openai/agents": "0.16.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "2.6.1",
     "next": "16.3.0",
