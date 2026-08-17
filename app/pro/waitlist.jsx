@@ -1,4 +1,5 @@
 "use client";
+import { track } from "@vercel/analytics";
 import { useState } from "react";
 
 export default function Waitlist({ endpoint }) {
@@ -15,7 +16,12 @@ export default function Waitlist({ endpoint }) {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ email, source: "blindboxai-pro-waitlist" }),
       });
-      setStatus(res.ok ? "done" : "error");
+      if (res.ok) {
+        track("waitlist_signup", { source: "blindboxai-pro-waitlist" });
+        setStatus("done");
+      } else {
+        setStatus("error");
+      }
     } catch {
       setStatus("error");
     }
