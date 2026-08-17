@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildCampaignId,
   campaignCustomIdSuffix,
   normalizeCampaignId,
   normalizeSource,
@@ -12,6 +13,18 @@ import { epnCustomId, ebayOutboundPath } from "../lib/data.js";
 test("campaign ids reject unsafe input", () => {
   assert.equal(normalizeCampaignId("HIRONO-20260816-A"), "hirono-20260816-a");
   assert.equal(normalizeCampaignId("bad campaign?"), "");
+});
+
+test("deterministic campaign builder follows platform-content-series-date scheme", () => {
+  assert.equal(
+    buildCampaignId({
+      platform: "TikTok",
+      contentType: "price",
+      seriesSlug: "hirono",
+      date: new Date("2026-07-31T12:00:00Z"),
+    }),
+    "tiktok-price-hirono-0731",
+  );
 });
 
 test("source is normalized without carrying arbitrary text", () => {
