@@ -21,9 +21,7 @@ test("test and demo events never enter production KPIs", () => {
 });
 
 test("an outbound click is never counted as a conversion", () => {
-  const result = aggregateFunnel([
-    production("outbound_affiliate_click", { customId: "tiktok-price-hirono-0817" }),
-  ]);
+  const result = aggregateFunnel([production("outbound_affiliate_click", { customId: "tiktok-price-hirono-0817" })]);
   assert.equal(result.outboundClicks, 1);
   assert.equal(result.providerConfirmedConversions, 0);
   assert.equal(result.confirmedRevenueUSD, 0);
@@ -92,8 +90,17 @@ test("conversion intake is owner-only and requires provider evidence fields", ()
   assert.doesNotMatch(source, /estimatedRevenue|estimatedConversion|assumedSale/i);
 });
 
-test("public funnel intake cannot submit conversion events", () => {
+test("public funnel intake cannot submit commercial-outcome events", () => {
   const source = fs.readFileSync(new URL("../app/api/funnel/event/route.js", import.meta.url), "utf8");
+  const publicBlock = source.match(/const PUBLIC_EVENTS[\s\S]*?\];/)?.[0] || "";
   assert.match(source, /PUBLIC_EVENTS/);
-  assert.doesNotMatch(source.match(/const PUBLIC_EVENTS[\s\S]*?\];/)?.[0] || "", /PROVIDER_CONVERSION|OUTBOUND_AFFILIATE_CLICK/);
+  assert.doesNotMatch(publicBlock, /PROVIDER_CONVERSION|OUTBOUND_AFFILIATE_CLICK|WAITLIST_SIGNUP/);
+});
+
+test("waitlist KPI is written only after upstream provider success", () => {
+  const route = fs.readFileSync(new URL("../app/api/waitlist/route.js", import.meta.url), "utf8");
+  const failedCheck = route.indexOf("if (!upstream.ok)");
+  const ledgerWrite = route.indexOf('event: "waitlist_signup"');
+  assert.ok(failedCheck >= 0 && ledgerWrite > failedCheck);
+  assert.match(route, /emailStored:\s*false/);
 });
