@@ -1,0 +1,3 @@
+BlindBoxAI production deployment marker.
+Purpose: trigger the Vercel Git integration after the green P0 compliance release gate and PR #25 merge.
+No runtime behavior is changed by this file.
