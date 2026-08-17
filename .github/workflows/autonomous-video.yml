@@ -1,28 +1,15 @@
-name: Autonomous verified video pipeline
+name: Video pipeline compliance gate (publishing paused)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - data/verified-video-products.json
-      - scripts/zapier-video-payload.mjs
-      - package.json
-      - .github/workflows/autonomous-video.yml
-  schedule:
-    - cron: "17 14 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
   actions: read
 
-env:
-  CREATOMATE_TEMPLATE_ID: 8b360817-3e33-40e3-bbb4-55a8b508f06e
-  VIDEO_CHANNELS: youtube,tiktok
-
 jobs:
-  validate:
-    name: Validate video pipeline
+  validate-only:
+    name: Validate deterministic video assets only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -33,62 +20,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run validate
-      - run: npm run build
-      - run: npm audit --audit-level=high
-
-  prepare-zapier:
-    name: Prepare verified video handoff
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Require Zapier publishing handoff
-        shell: bash
-        env:
-          ZAPIER_VIDEO_WEBHOOK_URL: ${{ secrets.ZAPIER_VIDEO_WEBHOOK_URL }}
+      - run: npm run video:test
+      - run: node scripts/video-pipeline.mjs validate
+      - name: Confirm publishing is intentionally disabled
         run: |
-          if [ -z "$ZAPIER_VIDEO_WEBHOOK_URL" ]; then
-            echo "ERROR: ZAPIER_VIDEO_WEBHOOK_URL is not configured. No video can be rendered or published."
-            exit 1
-          fi
-      - name: Send verified Zapier payload
-        run: npm run video:zapier
-        env:
-          ZAPIER_VIDEO_WEBHOOK_URL: ${{ secrets.ZAPIER_VIDEO_WEBHOOK_URL }}
-      - name: Add handoff summary
-        shell: bash
-        run: |
-          node --input-type=module <<'NODE'
-          import fs from "node:fs";
-          const payload = JSON.parse(fs.readFileSync("output/zapier/video-request.json", "utf8"));
-          const held = payload.state === "HOLD_FOR_VISUAL";
-          const heading = held ? "Video held for approved visuals" : "Verified video request sent to Zapier";
-          const status = held
-            ? `No webhook was sent. Hold reasons: ${(payload.visuals?.reasons ?? []).join(", ") || "visual approval required"}.`
-            : "Zapier owns render, approval, and publishing after this accepted webhook handoff.";
-          fs.appendFileSync(
-            process.env.GITHUB_STEP_SUMMARY,
-            `## ${heading}\n\n` +
-            `**Request:** ${payload.id}\n\n` +
-            `**Product:** ${payload.product.name}\n\n` +
-            `**Channels:** ${payload.social.channels.join(", ")}\n\n` +
-            `**State:** ${payload.state}\n\n` +
-            `**Approval required:** yes\n\n` +
-            `${status}\n`,
-          );
-          NODE
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: zapier-video-request-${{ github.run_id }}
-          path: output/zapier/video-request.json
-          if-no-files-found: error
-          retention-days: 30
+          echo "P0 compliance hold: this workflow validates only."
+          echo "No Zapier webhook, renderer, Buffer publisher, TikTok API, YouTube API, or generative AI is invoked."
