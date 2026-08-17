@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertOwnerDashboardCode } from "../../../../lib/owner-auth.mjs";
 import { EVENT_STATUS } from "../../../../lib/funnel-events.mjs";
-import { recordFunnelEvent } from "../../../../lib/funnel-event-store.js";
+import { recordProviderEvidence } from "../../../../lib/provider-evidence-store.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,37 +34,30 @@ export async function POST(request) {
   const customId = clean(body?.customId, 180);
   const occurredAt = String(body?.occurredAt ?? "").trim();
   const confirmedRevenueUSD = Number(body?.confirmedRevenueUSD);
-  const status = body?.status === EVENT_STATUS.RECONCILED
-    ? EVENT_STATUS.RECONCILED
-    : EVENT_STATUS.PROVIDER_CONFIRMED;
+  const status = body?.status === EVENT_STATUS.RECONCILED ? EVENT_STATUS.RECONCILED : EVENT_STATUS.PROVIDER_CONFIRMED;
 
-  if (!providerEvidenceId) {
-    return NextResponse.json({ error: "Provider evidence ID is required." }, { status: 400, headers: PRIVATE_HEADERS });
-  }
-  if (!customId) {
-    return NextResponse.json({ error: "EPN customid is required for reconciliation." }, { status: 400, headers: PRIVATE_HEADERS });
-  }
+  if (!providerEvidenceId) return NextResponse.json({ error: "Provider evidence ID is required." }, { status: 400, headers: PRIVATE_HEADERS });
+  if (!customId) return NextResponse.json({ error: "EPN customid is required for reconciliation." }, { status: 400, headers: PRIVATE_HEADERS });
   if (!occurredAt || !Number.isFinite(new Date(occurredAt).getTime())) {
-    return NextResponse.json({ error: "A valid provider transaction timestamp is required." }, { status: 400, headers: PRIVATE_HEADERS });
+    return NextResponse.json({ error: "A valid provider transaction timestamp with timezone is required." }, { status: 400, headers: PRIVATE_HEADERS });
   }
   if (!Number.isFinite(confirmedRevenueUSD) || confirmedRevenueUSD < 0) {
     return NextResponse.json({ error: "Confirmed revenue must be a non-negative USD amount from provider evidence." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
-  const stableId = `ebay-epn-${providerEvidenceId}`;
   try {
-    const recorded = await recordFunnelEvent({
+    const recorded = await recordProviderEvidence({
       event: "provider_conversion",
       provider: "ebay_epn",
       status,
       providerEvidenceId,
       customId,
       confirmedRevenueUSD,
-      occurredAt,
+      occurredAt: new Date(occurredAt).toISOString(),
       evidenceSource: "owner_entered_provider_report",
       evidenceVerifiedBy: "owner",
       estimate: false,
-    }, { eventId: stableId, now: new Date(occurredAt) });
+    });
     return NextResponse.json({ accepted: true, pathname: recorded.pathname }, { status: 201, headers: PRIVATE_HEADERS });
   } catch (error) {
     const message = String(error?.message || "");
