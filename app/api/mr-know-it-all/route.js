@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import { after } from "next/server";
 
 import { buildDeterministicCompResponse } from "../../../lib/deterministic-comp-lookup.mjs";
 import { recordFunnelEvent } from "../../../lib/funnel-event-store.js";
@@ -68,21 +67,19 @@ export async function POST(request) {
   try {
     const result = buildDeterministicCompResponse(query);
     const first = Array.isArray(result.matches) ? result.matches[0] : null;
-    after(async () => {
-      try {
-        await recordFunnelEvent({
-          event: "agent_question",
-          status: "observed",
-          category: "deterministic_comp_lookup",
-          resultCount: Array.isArray(result.matches) ? result.matches.length : 0,
-          seriesSlug: first?.seriesSlug || first?.series?.slug || null,
-          figure: first?.figure || first?.name || null,
-          queryTextStored: false,
-        });
-      } catch (error) {
-        console.error("agent_question_log_failed", { name: error?.name });
-      }
-    });
+    try {
+      await recordFunnelEvent({
+        event: "agent_question",
+        status: "observed",
+        category: "deterministic_comp_lookup",
+        resultCount: Array.isArray(result.matches) ? result.matches.length : 0,
+        seriesSlug: first?.seriesSlug || first?.series?.slug || null,
+        figure: first?.figure || first?.name || null,
+        queryTextStored: false,
+      });
+    } catch (error) {
+      console.error("agent_question_log_failed", { name: error?.name });
+    }
     console.info("agent_question", { piiStored: false, queryLength: query.length, resultCount: result.matches.length, mode: "deterministic" });
     return json(result);
   } catch (error) {
