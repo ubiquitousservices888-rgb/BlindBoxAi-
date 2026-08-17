@@ -26,7 +26,7 @@ test("owner dashboard uses a credential distinct from evidence upload", () => {
   }
 });
 
-test("hosted LLM execution is absent from the executable Mr Know It All implementation", () => {
+test("hosted LLM execution and dependency are absent from the executable Mr Know It All implementation", () => {
   const agent = read("lib/mr-know-it-all-agent.mjs");
   const envExample = read(".env.example");
   const pkg = JSON.parse(read("package.json"));
@@ -34,6 +34,7 @@ test("hosted LLM execution is absent from the executable Mr Know It All implemen
   assert.doesNotMatch(agent, /@openai\/agents|webSearchTool|OPENAI_API_KEY|\bAgent\b|\brun\(/);
   assert.match(agent, /Hosted generative-AI execution is disabled/);
   assert.equal(pkg.scripts["mr:ask"], undefined);
+  assert.equal(pkg.dependencies?.["@openai/agents"], undefined);
   assert.doesNotMatch(envExample, /OPENAI_API_KEY|OPENAI_QA_MODEL|MR_KNOW_IT_ALL_ENABLED/);
 });
 
