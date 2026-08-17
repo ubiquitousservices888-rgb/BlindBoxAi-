@@ -91,51 +91,38 @@ describe("question permission boundary", () => {
   });
 });
 
-describe("public route fails closed", () => {
-  it("stays unavailable until the owner explicitly enables it", async () => {
+describe("public deterministic route", () => {
+  it("serves reviewed lookup without model enablement or credentials", async () => {
     const previous = process.env.MR_KNOW_IT_ALL_ENABLED;
     process.env.MR_KNOW_IT_ALL_ENABLED = "false";
     try {
       const response = await answerRequest(new Request("https://www.blindboxai.com/api/mr-know-it-all", {
         method: "POST",
         headers: { "Content-Type": "application/json", Origin: "https://www.blindboxai.com" },
-        body: JSON.stringify({ question: "What is a blind box?" }),
+        body: JSON.stringify({ question: "Hirono Mist Walker" }),
       }));
-      assert.equal(response.status, 503);
-      assert.match((await response.json()).error, /not enabled/i);
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.mode, "deterministic");
+      assert.ok(Array.isArray(body.matches));
+      assert.ok(body.safetyNotes.some((note) => /No generative AI or external model/i.test(note)));
     } finally {
       if (previous === undefined) delete process.env.MR_KNOW_IT_ALL_ENABLED;
       else process.env.MR_KNOW_IT_ALL_ENABLED = previous;
     }
   });
 
-  it("blocks a purchase request before an API call", async () => {
-    const previousEnabled = process.env.MR_KNOW_IT_ALL_ENABLED;
-    const previousKey = process.env.OPENAI_API_KEY;
-    const previousBlob = process.env.MR_PRIVATE_BLOB_READ_WRITE_TOKEN;
-    const previousEncryption = process.env.MR_RESEARCH_ENCRYPTION_KEY;
-    process.env.MR_KNOW_IT_ALL_ENABLED = "true";
-    process.env.OPENAI_API_KEY = "test-only-not-a-real-key";
-    process.env.MR_PRIVATE_BLOB_READ_WRITE_TOKEN = "test-only-not-a-real-token";
-    process.env.MR_RESEARCH_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
-    try {
-      const response = await answerRequest(new Request("https://www.blindboxai.com/api/mr-know-it-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Origin: "https://www.blindboxai.com" },
-        body: JSON.stringify({ question: "Buy a blind box for me using my account right now." }),
-      }));
-      assert.equal(response.status, 400);
-      assert.match((await response.json()).error, /cannot transact/i);
-    } finally {
-      if (previousEnabled === undefined) delete process.env.MR_KNOW_IT_ALL_ENABLED;
-      else process.env.MR_KNOW_IT_ALL_ENABLED = previousEnabled;
-      if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
-      else process.env.OPENAI_API_KEY = previousKey;
-      if (previousBlob === undefined) delete process.env.MR_PRIVATE_BLOB_READ_WRITE_TOKEN;
-      else process.env.MR_PRIVATE_BLOB_READ_WRITE_TOKEN = previousBlob;
-      if (previousEncryption === undefined) delete process.env.MR_RESEARCH_ENCRYPTION_KEY;
-      else process.env.MR_RESEARCH_ENCRYPTION_KEY = previousEncryption;
-    }
+  it("cannot execute a purchase request or account action", async () => {
+    const response = await answerRequest(new Request("https://www.blindboxai.com/api/mr-know-it-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://www.blindboxai.com" },
+      body: JSON.stringify({ question: "Buy using my account right now" }),
+    }));
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.mode, "deterministic");
+    assert.equal(body.matches.length, 0);
+    assert.match(body.answer, /No verified sale found/i);
   });
 });
 
@@ -225,15 +212,13 @@ describe("owner-only research vault", () => {
     assert.throws(() => decryptPrivateResearch(envelope, createVaultKey()), /could not be decrypted/i);
   });
 
-  it("schedules two encrypted-only runs and pins every action", () => {
+  it("keeps AI research manual, model-free, and actions pinned", () => {
     const workflow = fs.readFileSync(path.join(process.cwd(), ".github", "workflows", "mr-know-it-all-research.yml"), "utf8");
-    assert.match(workflow, /cron: "17 2,14 \* \* \*"/);
-    assert.match(workflow, /MR_RESEARCH_ENCRYPTION_KEY: \$\{\{ secrets\.MR_RESEARCH_ENCRYPTION_KEY \}\}/);
-    assert.match(workflow, /MR_PRIVATE_BLOB_READ_WRITE_TOKEN: \$\{\{ secrets\.MR_PRIVATE_BLOB_READ_WRITE_TOKEN \}\}/);
-    assert.match(workflow, /path: output\/mr-know-it-all\/\*\.json\.enc/);
-    assert.doesNotMatch(workflow, /path:.*(?:\.json|\.md)\s*$/m);
+    assert.match(workflow, /workflow_dispatch/);
+    assert.doesNotMatch(workflow, /\bschedule\s*:/);
+    assert.doesNotMatch(workflow, /MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN|npm run mr:research/);
     const actionRefs = [...workflow.matchAll(/uses:\s*[^@\s]+@([^\s]+)/g)].map((match) => match[1]);
-    assert.ok(actionRefs.length >= 3);
+    assert.ok(actionRefs.length >= 2);
     assert.ok(actionRefs.every((ref) => /^[a-f0-9]{40}$/.test(ref)));
   });
 });
