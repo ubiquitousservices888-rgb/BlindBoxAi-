@@ -31,13 +31,13 @@ describe("free deterministic private research", () => {
     assert.equal(price?.count, 1);
   });
 
-  it("scheduled workflow cannot require an OpenAI key or research model", () => {
+  it("research workflow stays manual and model-free", () => {
     const workflow = fs.readFileSync(path.join(process.cwd(), ".github", "workflows", "mr-know-it-all-research.yml"), "utf8");
-    assert.doesNotMatch(workflow, /OPENAI_API_KEY/);
-    assert.doesNotMatch(workflow, /OPENAI_RESEARCH_MODEL/);
-    assert.doesNotMatch(workflow, /gpt-[0-9]/i);
-    assert.match(workflow, /npm run mr:research/);
-    assert.match(workflow, /MR_RESEARCH_ENCRYPTION_KEY/);
-    assert.match(workflow, /MR_PRIVATE_BLOB_READ_WRITE_TOKEN/);
+    assert.doesNotMatch(workflow, /OPENAI_API_KEY|OPENAI_RESEARCH_MODEL|gpt-[0-9]/i);
+    assert.doesNotMatch(workflow, /npm run mr:research/);
+    assert.doesNotMatch(workflow, /MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN/);
+    assert.doesNotMatch(workflow, /\bschedule\s*:/);
+    assert.match(workflow, /workflow_dispatch/);
+    assert.match(workflow, /deterministic-comp-lookup\.test\.mjs/);
   });
 });
