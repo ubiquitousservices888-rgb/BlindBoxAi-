@@ -2,7 +2,7 @@
 import { track } from "@vercel/analytics";
 import { useState } from "react";
 
-export default function Waitlist({ endpoint }) {
+export default function Waitlist() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
 
@@ -11,24 +11,14 @@ export default function Waitlist({ endpoint }) {
     if (!email) return;
     setStatus("sending");
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email, source: "blindboxai-pro-waitlist" }),
+        body: JSON.stringify({ email }),
+        cache: "no-store",
       });
       if (res.ok) {
         track("waitlist_signup", { source: "blindboxai-pro-waitlist" });
-        fetch("/api/funnel/event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event: "waitlist_signup",
-            source: "blindboxai-pro-waitlist",
-            path: window.location.pathname,
-          }),
-          keepalive: true,
-          credentials: "same-origin",
-        }).catch(() => {});
         setStatus("done");
       } else {
         setStatus("error");
