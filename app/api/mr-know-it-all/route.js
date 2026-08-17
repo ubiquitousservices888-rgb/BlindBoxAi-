@@ -1,15 +1,12 @@
 import crypto from "node:crypto";
 
-import { after } from "next/server.js";
+import { buildDeterministicCompResponse } from "../../../lib/deterministic-comp-lookup.mjs";
 
-import { askMrKnowItAll } from "../../../lib/mr-know-it-all-agent.mjs";
-import { recordPrivateQuestion } from "../../../lib/private-question-analytics.mjs";
-
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS_PER_WINDOW = 6;
+const MAX_REQUESTS_PER_WINDOW = 12;
 const buckets = new Map();
 
 function json(body, init = {}) {
@@ -62,9 +59,6 @@ function originAllowed(request) {
 }
 
 export async function POST(request) {
-  if (process.env.MR_KNOW_IT_ALL_ENABLED !== "true") {
-    return json({ error: "Mr. Know It All is not enabled yet." }, { status: 503 });
-  }
   if (!originAllowed(request)) return json({ error: "Origin not allowed." }, { status: 403 });
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     return json({ error: "Content-Type must be application/json." }, { status: 415 });
@@ -77,7 +71,7 @@ export async function POST(request) {
   const limit = takeRateLimit(request);
   if (!limit.allowed) {
     return json(
-      { error: "Please wait a moment before asking another question." },
+      { error: "Please wait a moment before searching again." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
     );
   }
@@ -89,30 +83,22 @@ export async function POST(request) {
     return json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
-  if (![process.env.OPENAI_API_KEY, process.env.MR_PRIVATE_BLOB_READ_WRITE_TOKEN, process.env.MR_RESEARCH_ENCRYPTION_KEY]
-    .every((value) => String(value ?? "").trim())) {
-    return json({ error: "Mr. Know It All is not fully configured yet." }, { status: 503 });
+  const query = String(body?.question ?? body?.query ?? "").trim();
+  if (query.length < 2 || query.length > 120) {
+    return json({ error: "Search must be between 2 and 120 characters." }, { status: 400 });
   }
 
   try {
-    const result = await askMrKnowItAll(body?.question);
-    after(async () => {
-      try {
-        await recordPrivateQuestion({ question: body.question, answer: result });
-      } catch (trackingError) {
-        console.error("Encrypted private question tracking failed", { name: trackingError?.name });
-      }
+    const result = buildDeterministicCompResponse(query);
+    console.info("agent_question", {
+      piiStored: false,
+      queryLength: query.length,
+      resultCount: result.matches.length,
+      mode: "deterministic",
     });
     return json(result);
   } catch (error) {
-    const message = String(error?.message ?? "");
-    if (/complete blind-box question|characters or fewer|cannot reveal|cannot transact/i.test(message)) {
-      return json({ error: message }, { status: 400 });
-    }
-    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
-      return json({ error: "Research took too long. Please try a narrower question." }, { status: 504 });
-    }
-    console.error("Mr. Know It All request failed", { name: error?.name });
-    return json({ error: "Mr. Know It All is temporarily unavailable." }, { status: 503 });
+    console.error("deterministic_comp_lookup_failed", { name: error?.name });
+    return json({ error: "Verified comp lookup is temporarily unavailable." }, { status: 503 });
   }
 }
