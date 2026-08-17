@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 const PUBLIC_EVENTS = new Set([
   FUNNEL_EVENTS.PAGE_VIEW,
   FUNNEL_EVENTS.LANDING_SESSION_SOURCE,
-  FUNNEL_EVENTS.WAITLIST_SIGNUP,
 ]);
 
 function clean(value, max = 120) {
