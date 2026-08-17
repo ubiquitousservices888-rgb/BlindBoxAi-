@@ -1,13 +1,18 @@
 "use client";
 
+import { track } from "@vercel/analytics";
 import Link from "next/link";
 import { useState } from "react";
 
 const SUGGESTIONS = [
-  "What should I verify before buying a POP MART blind box?",
-  "How is a sold transaction different from an asking price?",
-  "What are common counterfeit warning signs for designer toys?",
+  "Hirono Mist-Walker",
+  "The Tempered Aegis",
+  "Labubu Macaron",
 ];
+
+function money(value) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+}
 
 export default function AskPage() {
   const [question, setQuestion] = useState("");
@@ -18,7 +23,7 @@ export default function AskPage() {
   async function submit(event) {
     event.preventDefault();
     const clean = question.trim();
-    if (clean.length < 3 || loading) return;
+    if (clean.length < 2 || loading) return;
     setLoading(true);
     setError("");
     setResult(null);
@@ -29,10 +34,14 @@ export default function AskPage() {
         body: JSON.stringify({ question: clean }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body?.error || "The answer could not be completed.");
+      if (!response.ok) throw new Error(body?.error || "The lookup could not be completed.");
       setResult(body);
+      track("agent_question", {
+        mode: "deterministic",
+        result_count: Array.isArray(body?.matches) ? body.matches.length : 0,
+      });
     } catch (requestError) {
-      setError(requestError.message || "Mr. Know It All is temporarily unavailable.");
+      setError(requestError.message || "Verified comp lookup is temporarily unavailable.");
     } finally {
       setLoading(false);
     }
@@ -42,33 +51,32 @@ export default function AskPage() {
     <main className="ask-main">
       <Link className="crumb" href="/">← All series</Link>
       <section className="ask-intro">
-        <p className="eyebrow">BlindBoxAI agent</p>
-        <h1>Ask Mr. Know It All</h1>
-        <p>Evidence-first answers across blind boxes, POP MART, designer toys, brands, series,
-          observed prices, pull odds, releases, and counterfeit warning signs.</p>
+        <p className="eyebrow">Deterministic verified-comp lookup</p>
+        <h1>Mr. Know It All</h1>
+        <p>Search BlindBoxAI's reviewed historical comp records. This tool does not call an LLM,
+          does not browse the web, and will not invent missing prices.</p>
       </section>
 
       <form className="ask-form" onSubmit={submit}>
-        <label htmlFor="question">Your collector question</label>
-        <textarea
+        <label htmlFor="question">Character or series</label>
+        <input
           id="question"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          maxLength={600}
-          rows={5}
-          placeholder="Ask about a brand, series, release, price observation, or fake-check step…"
+          maxLength={120}
+          placeholder="Try: The Tempered Aegis"
           aria-describedby="question-note"
           required
         />
         <div className="ask-controls">
-          <span id="question-note">{question.length}/600 · No buying or payment permissions</span>
-          <button type="submit" disabled={loading || question.trim().length < 3}>
-            {loading ? "Checking sources…" : "Ask securely"}
+          <span id="question-note">{question.length}/120 · reviewed records only</span>
+          <button type="submit" disabled={loading || question.trim().length < 2}>
+            {loading ? "Searching…" : "Find verified comps"}
           </button>
         </div>
       </form>
 
-      <div className="suggestions" aria-label="Suggested questions">
+      <div className="suggestions" aria-label="Suggested searches">
         {SUGGESTIONS.map((suggestion) => (
           <button key={suggestion} type="button" onClick={() => setQuestion(suggestion)}>
             {suggestion}
@@ -81,23 +89,30 @@ export default function AskPage() {
       {result && (
         <article className="answer" aria-live="polite">
           <div className="answer-head">
-            <h2>Mr. Know It All</h2>
-            <span>{result.confidence} confidence</span>
+            <h2>Verified result</h2>
+            <span>deterministic</span>
           </div>
           <p className="answer-copy">{result.answer}</p>
-          {result.citations?.length > 0 && (
+
+          {result.matches?.length > 0 && (
             <section>
-              <h3>Sources</h3>
-              <ul>
-                {result.citations.map((citation) => (
-                  <li key={citation.url}>
-                    <a href={citation.url} target="_blank" rel="noreferrer">{citation.title}</a>
-                    {citation.supports && <span>{citation.supports}</span>}
-                  </li>
+              <h3>Reviewed historical comps</h3>
+              <div className="matches">
+                {result.matches.map((match) => (
+                  <div className="match" key={`${match.seriesSlug}:${match.figure}`}>
+                    <div>
+                      <strong>{match.figure}</strong>
+                      <span>{match.brand} · {match.series} · {match.rarity}</span>
+                    </div>
+                    <b>{money(match.observedLowUSD)}{match.observedHighUSD !== match.observedLowUSD ? `–${money(match.observedHighUSD)}` : ""}</b>
+                    {match.evidence && <p>{match.evidence}</p>}
+                    <Link href={`/series/${match.seriesSlug}`}>Open series page →</Link>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </section>
           )}
+
           {result.safetyNotes?.length > 0 && (
             <section className="answer-notes">
               <h3>Important limits</h3>
@@ -107,38 +122,32 @@ export default function AskPage() {
         </article>
       )}
 
-      <p className="privacy-note">The public Q&amp;A cannot buy, bid, pay, enroll, contact, or publish.
-        Questions are privacy-redacted, encrypted, and used only for owner-level aggregate knowledge-base,
-        video, and affiliate planning. No visitor identity profile is stored. Do not include personal or payment data.</p>
+      <p className="privacy-note">Search text is not stored as visitor PII. Analytics record only the event name,
+        deterministic mode, and result count. Historical observations are not offers, guarantees, or financial advice.</p>
 
       <style jsx>{`
         .ask-main{max-width:760px;margin:0 auto;padding:28px 0 72px}
         .ask-intro{padding:20px 0 22px}
         .ask-intro h1{font-size:clamp(2.1rem,8vw,3.1rem);margin:.3em 0 .25em}
-        .ask-intro p:last-child{max-width:58ch;color:var(--muted)}
+        .ask-intro p:last-child{max-width:62ch;color:var(--muted)}
         .ask-form{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
         .ask-form label{display:block;font-weight:600;margin-bottom:8px}
-        textarea{display:block;width:100%;resize:vertical;min-height:128px;border:1.5px solid var(--line-strong);border-radius:10px;background:#fff;color:var(--ink);padding:13px;font:16px/1.5 Inter,system-ui,sans-serif}
-        textarea:focus{border-color:var(--verify);outline:2px solid #CBE9DF;outline-offset:1px}
+        input{display:block;width:100%;border:1.5px solid var(--line-strong);border-radius:10px;background:#fff;color:var(--ink);padding:13px;font:16px/1.5 Inter,system-ui,sans-serif}
+        input:focus{border-color:var(--verify);outline:2px solid #CBE9DF;outline-offset:1px}
         .ask-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px}
         .ask-controls span{color:var(--muted);font-size:.76rem}
         .ask-controls button{border:0;border-radius:999px;background:var(--verify);color:#fff;font-weight:600;padding:11px 18px;cursor:pointer;white-space:nowrap}
         .ask-controls button:disabled{cursor:wait;opacity:.55}
         .suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px}
         .suggestions button{border:1px solid var(--line-strong);border-radius:999px;background:transparent;color:var(--ink);padding:7px 11px;font-size:.78rem;cursor:pointer;text-align:left}
-        .suggestions button:hover{border-color:var(--verify);color:var(--verify-ink)}
         .ask-error{border:1px solid #E1A56F;background:#FFF4E8;color:#7B3705;border-radius:12px;padding:14px;margin-top:20px}
         .answer{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:24px}
         .answer-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
         .answer-head h2{font-size:1.35rem}
         .answer-head span{font-family:"Spline Sans Mono",monospace;font-size:.68rem;text-transform:uppercase;color:var(--verify-ink)}
-        .answer-copy{white-space:pre-wrap}
-        .answer section{margin-top:20px}
-        .answer h3{font-size:1rem;margin-bottom:7px}
-        .answer ul{padding-left:20px}
-        .answer li{margin:7px 0}
-        .answer li span{display:block;color:var(--muted);font-size:.82rem}
-        .answer-notes{border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:.88rem}
+        .answer section{margin-top:20px}.answer h3{font-size:1rem;margin-bottom:9px}
+        .matches{display:grid;gap:10px}.match{border:1px solid var(--line);border-radius:10px;padding:13px;background:#fff}.match div{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.match span{display:block;color:var(--muted);font-size:.78rem}.match b{display:block;font-family:"Spline Sans Mono",monospace;margin-top:7px}.match p{color:var(--muted);font-size:.8rem;margin:7px 0}.match a{font-size:.8rem;font-weight:600}
+        .answer-notes{border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:.88rem}.answer-notes ul{padding-left:20px}
         .privacy-note{margin-top:28px;color:var(--muted);font-size:.78rem}
         @media(max-width:560px){.ask-controls{align-items:flex-start;flex-direction:column}.ask-controls button{width:100%}.answer-head{align-items:flex-start;flex-direction:column}}
       `}</style>
