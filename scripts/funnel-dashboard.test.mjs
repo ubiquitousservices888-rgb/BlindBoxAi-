@@ -47,17 +47,20 @@ test("provider evidence is deduplicated by provider and stable evidence id", () 
   assert.equal(result.confirmedRevenueUSD, 4.5);
 });
 
-test("source, campaign, series, and figure breakdowns use observed production events", () => {
+test("source, campaign, content, series, figure, placement, and customid breakdowns use observed production events", () => {
   const result = aggregateFunnel([
     production("page_view", { source: "tiktok", campaign: "hirono-video-1" }),
-    production("landing_session_source", { source: "tiktok", campaign: "hirono-video-1" }),
+    production("landing_session_source", { source: "tiktok", campaign: "hirono-video-1", contentId: "short-001" }),
     production("agent_question", { seriesSlug: "hirono-mist-walker" }),
-    production("outbound_affiliate_click", { seriesSlug: "hirono-mist-walker", figure: "The Tempered Aegis", placement: "series_table" }),
+    production("outbound_affiliate_click", { seriesSlug: "hirono-mist-walker", figure: "The Tempered Aegis", placement: "series_table", customId: "tiktok-price-hirono-0817" }),
   ]);
-  assert.deepEqual(result.breakdowns.sources[0], { key: "tiktok", count: 2 });
-  assert.deepEqual(result.breakdowns.campaigns[0], { key: "hirono-video-1", count: 2 });
+  assert.deepEqual(result.breakdowns.sources[0], { key: "tiktok", count: 1 });
+  assert.deepEqual(result.breakdowns.campaigns[0], { key: "hirono-video-1", count: 1 });
+  assert.deepEqual(result.breakdowns.contentIds[0], { key: "short-001", count: 1 });
   assert.deepEqual(result.breakdowns.clickSeries[0], { key: "hirono-mist-walker", count: 1 });
   assert.deepEqual(result.breakdowns.clickFigures[0], { key: "The Tempered Aegis", count: 1 });
+  assert.deepEqual(result.breakdowns.clickPlacements[0], { key: "series_table", count: 1 });
+  assert.deepEqual(result.breakdowns.clickCustomIds[0], { key: "tiktok-price-hirono-0817", count: 1 });
 });
 
 test("zero-result rates stay truthful instead of inventing percentages", () => {
@@ -78,11 +81,14 @@ test("dashboard date ranges are clamped to 1 through 30 days", () => {
 
 test("conversion intake is owner-only and requires provider evidence fields", () => {
   const source = fs.readFileSync(new URL("../app/api/owner/conversions/route.js", import.meta.url), "utf8");
+  const store = fs.readFileSync(new URL("../lib/provider-evidence-store.js", import.meta.url), "utf8");
   assert.match(source, /assertOwnerDashboardCode/);
   assert.match(source, /providerEvidenceId/);
   assert.match(source, /customId/);
   assert.match(source, /confirmedRevenueUSD/);
   assert.match(source, /owner_entered_provider_report/);
+  assert.match(store, /funnel\/evidence\/\$\{provider\}\/\$\{providerEvidenceId\}\.json/);
+  assert.match(store, /allowOverwrite:\s*false/);
   assert.doesNotMatch(source, /estimatedRevenue|estimatedConversion|assumedSale/i);
 });
 
