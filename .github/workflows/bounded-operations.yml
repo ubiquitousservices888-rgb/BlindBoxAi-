@@ -1,6 +1,8 @@
 name: Bounded unattended operations
 
 on:
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "17 6,18 * * *"
   workflow_dispatch:
@@ -9,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: bounded-operations
-  cancel-in-progress: false
+  group: bounded-operations-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
