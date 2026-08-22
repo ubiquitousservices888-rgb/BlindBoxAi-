@@ -1,0 +1,64 @@
+name: Bounded unattended operations
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6,18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bounded-operations-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Research, validate, and stage safely
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Compliance and repository preflight
+        run: |
+          npm run predeploy
+          npm run audit:epn
+          npm run p0:test
+          npm run comp:test
+
+      - name: Validate daily product pipeline
+        run: |
+          npm run daily:test
+          npm run daily:validate
+
+      - name: Validate video safety gates
+        run: npm run video:test
+
+      - name: Validate verified visual pipeline
+        run: npm run visual:test
+
+      - name: Validate deterministic knowledge path
+        run: npm run mr:test
+
+      - name: Block high-severity dependency vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Safety boundary
+        run: |
+          echo "Validation complete."
+          echo "No purchasing, bidding, spending, credential changes, or unattended public publishing are authorized by this workflow."
