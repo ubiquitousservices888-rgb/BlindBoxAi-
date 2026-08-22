@@ -2,8 +2,19 @@ name: Discord Alerts
 
 on:
   workflow_run:
+    workflows:
+      - BlindBoxAI release gate
+      - Bounded unattended operations
+      - Daily BlindBox pipeline validation (publishing paused)
+      - Labubu content validation (automation paused)
+      - Video pipeline compliance gate (publishing paused)
+      - Mr. Know It All deterministic compliance check
+      - Visual rights validation (discovery paused)
     types:
       - completed
+
+permissions:
+  contents: read
 
 jobs:
   notify:
@@ -31,7 +42,7 @@ jobs:
                  "\nStatus: " + $conclusion +
                  "\n" + $url)
             }' |
-          curl -sS \
+          curl --fail-with-body --silent --show-error \
             -H "Content-Type: application/json" \
             -d @- \
             "$DISCORD_WEBHOOK_URL"
