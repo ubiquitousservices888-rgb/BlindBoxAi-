@@ -180,3 +180,92 @@ test("rates fail closed when their inputs are not observed and valid", () => {
   assert.equal(conversionRate(Number.MAX_VALUE, Number.MIN_VALUE), null);
   assert.equal(aggregateFunnel([]).rates.clicksPerViewPct, null);
 });
+
+test("date ranges include exact boundaries and exclude events outside the window", () => {
+  const result = aggregateFunnel(
+    [
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-19T23:59:59.999Z" }),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-20T00:00:00.000Z" }),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-20T12:00:00.000Z" }),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-21T00:00:00.000Z" }),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-21T00:00:00.001Z" }),
+    ],
+    {
+      from: "2026-08-20T00:00:00.000Z",
+      through: "2026-08-21T00:00:00.000Z",
+    },
+  );
+
+  assert.equal(result.pageViews, 3);
+  assert.deepEqual(result.dateRange, {
+    from: "2026-08-20T00:00:00.000Z",
+    through: "2026-08-21T00:00:00.000Z",
+  });
+});
+
+test("active date ranges fail closed for missing and malformed event timestamps", () => {
+  const result = aggregateFunnel(
+    [
+      production(FUNNEL_EVENTS.PAGE_VIEW),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-02-30T00:00:00.000Z" }),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-20T12:00:00" }),
+      production(FUNNEL_EVENTS.PAGE_VIEW, { occurredAt: "2026-08-20T12:00:00.000Z" }),
+    ],
+    {
+      from: "2026-08-20T00:00:00.000Z",
+      through: "2026-08-20T23:59:59.999Z",
+    },
+  );
+
+  assert.equal(result.pageViews, 1);
+  assert.equal(result.excludedInvalidTimestampEvents, 3);
+});
+
+test("date windows normalize timezone offsets and filter conversions before dedupe", () => {
+  const result = aggregateFunnel(
+    [
+      conversion({
+        providerEvidenceId: "shared",
+        occurredAt: "2026-08-20T05:59:59.999Z",
+        confirmedRevenueUSD: 999,
+      }),
+      conversion({
+        providerEvidenceId: "shared",
+        occurredAt: "2026-08-20T01:00:00.000-05:00",
+        confirmedRevenueUSD: 12.34,
+      }),
+    ],
+    {
+      from: "2026-08-20T01:00:00.000-05:00",
+      through: "2026-08-20T02:00:00.000-05:00",
+    },
+  );
+
+  assert.equal(result.providerConfirmedConversions, 1);
+  assert.equal(result.confirmedRevenueUSD, 12.34);
+  assert.deepEqual(result.dateRange, {
+    from: "2026-08-20T06:00:00.000Z",
+    through: "2026-08-20T07:00:00.000Z",
+  });
+});
+
+test("invalid or partial date ranges are rejected instead of returning misleading totals", () => {
+  assert.throws(
+    () => aggregateFunnel([], { from: "2026-08-20T00:00:00.000Z" }),
+    /both from and through/,
+  );
+  assert.throws(
+    () => aggregateFunnel([], {
+      from: "2026-08-21T00:00:00.000Z",
+      through: "2026-08-20T00:00:00.000Z",
+    }),
+    /must not exceed/,
+  );
+  assert.throws(
+    () => aggregateFunnel([], {
+      from: "08/20/2026",
+      through: "2026-08-21T00:00:00.000Z",
+    }),
+    /valid ISO 8601/,
+  );
+});
