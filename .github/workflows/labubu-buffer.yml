@@ -29,4 +29,4 @@ jobs:
       - name: Validate source data
         run: node scripts/labubu-validate.mjs --skip-url-check --output-dir output/labubu
       - name: Confirm scheduling is paused
-        run: echo "P1 manual-validation phase: no Buffer CSV scheduling or publication occurs in this workflow."
+        run: 'echo "P1 manual-validation phase: no Buffer CSV scheduling or publication occurs in this workflow."'
