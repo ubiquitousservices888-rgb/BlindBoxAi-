@@ -35,6 +35,7 @@ test("test, demo, and unmarked events never enter production KPIs", () => {
   const result = aggregateFunnel([
     production(FUNNEL_EVENTS.PAGE_VIEW),
     { namespace: "test", test: true, event: FUNNEL_EVENTS.PAGE_VIEW, status: EVENT_STATUS.OBSERVED },
+    { namespace: "demo", test: false, event: FUNNEL_EVENTS.PAGE_VIEW, status: EVENT_STATUS.OBSERVED },
     { namespace: "production", event: FUNNEL_EVENTS.PAGE_VIEW, status: EVENT_STATUS.OBSERVED },
     { ...conversion(), test: true, confirmedRevenueUSD: 9999 },
   ]);
@@ -95,6 +96,7 @@ test("malformed and extreme revenue cannot make totals non-finite", () => {
   assert.equal(confirmedRevenue(conversion({ confirmedRevenueUSD: "" })), 0);
   assert.equal(confirmedRevenue(conversion({ confirmedRevenueUSD: null })), 0);
   assert.equal(confirmedRevenue(conversion({ confirmedRevenueUSD: "0x10" })), 0);
+  assert.equal(confirmedRevenue(conversion({ confirmedRevenueUSD: "10.075" })), 0);
   assert.equal(confirmedRevenue(conversion({ confirmedRevenueUSD: Infinity })), 0);
   assert.equal(
     confirmedRevenue(conversion({ confirmedRevenueUSD: MAX_CONFIRMED_REVENUE_USD + 1 })),
@@ -107,7 +109,21 @@ test("malformed and extreme revenue cannot make totals non-finite", () => {
   ]);
   assert.equal(result.providerConfirmedConversions, 2);
   assert.equal(result.confirmedRevenueUSD, 0);
+  assert.equal(result.invalidRevenueEvidence, 2);
+  assert.equal(result.revenueOverflow, false);
   assert.equal(Number.isFinite(result.confirmedRevenueUSD), true);
+});
+
+test("revenue overflow is explicit and never silently drops accepted values", () => {
+  const result = aggregateFunnel([
+    conversion({ providerEvidenceId: "large-1", confirmedRevenueUSD: MAX_CONFIRMED_REVENUE_USD }),
+    conversion({ providerEvidenceId: "large-2", confirmedRevenueUSD: MAX_CONFIRMED_REVENUE_USD }),
+  ]);
+
+  assert.equal(result.providerConfirmedConversions, 2);
+  assert.equal(result.confirmedRevenueUSD, null);
+  assert.equal(result.invalidRevenueEvidence, 0);
+  assert.equal(result.revenueOverflow, true);
 });
 
 test("observed production dimensions produce deterministic breakdowns", () => {
@@ -118,6 +134,7 @@ test("observed production dimensions produce deterministic breakdowns", () => {
       campaign: "hirono-video-1",
       contentId: "short-001",
     }),
+    production(FUNNEL_EVENTS.LANDING_SESSION_SOURCE, { source: "youtube", campaign: "   " }),
     production(FUNNEL_EVENTS.AGENT_QUESTION, { seriesSlug: "hirono-mist-walker" }),
     production(FUNNEL_EVENTS.OUTBOUND_AFFILIATE_CLICK, {
       seriesSlug: "hirono-mist-walker",
@@ -129,6 +146,7 @@ test("observed production dimensions produce deterministic breakdowns", () => {
 
   assert.deepEqual(result.breakdowns.sources[0], { key: "tiktok", count: 1 });
   assert.deepEqual(result.breakdowns.campaigns[0], { key: "hirono-video-1", count: 1 });
+  assert.equal(result.breakdowns.campaigns.length, 1);
   assert.deepEqual(result.breakdowns.contentIds[0], { key: "short-001", count: 1 });
   assert.deepEqual(result.breakdowns.clickSeries[0], { key: "hirono-mist-walker", count: 1 });
   assert.deepEqual(result.breakdowns.clickFigures[0], { key: "The Tempered Aegis", count: 1 });
@@ -137,9 +155,28 @@ test("observed production dimensions produce deterministic breakdowns", () => {
   assert.deepEqual(result.breakdowns.questionsBySeries[0], { key: "hirono-mist-walker", count: 1 });
 });
 
+test("long dimensions remain distinct and ties use canonical code-unit order", () => {
+  const shared = "x".repeat(300);
+  const result = aggregateFunnel([
+    production(FUNNEL_EVENTS.LANDING_SESSION_SOURCE, { source: `${shared}a` }),
+    production(FUNNEL_EVENTS.LANDING_SESSION_SOURCE, { source: `${shared}b` }),
+    production(FUNNEL_EVENTS.LANDING_SESSION_SOURCE, { source: "ä" }),
+    production(FUNNEL_EVENTS.LANDING_SESSION_SOURCE, { source: "z" }),
+  ]);
+
+  assert.equal(result.breakdowns.sources.length, 4);
+  assert.deepEqual(result.breakdowns.sources.map((item) => item.key), [
+    `${shared}a`,
+    `${shared}b`,
+    "z",
+    "ä",
+  ]);
+});
+
 test("rates fail closed when their inputs are not observed and valid", () => {
   assert.equal(conversionRate(1, 0), null);
   assert.equal(conversionRate(-1, 10), null);
   assert.equal(conversionRate(1, Number.NaN), null);
+  assert.equal(conversionRate(Number.MAX_VALUE, Number.MIN_VALUE), null);
   assert.equal(aggregateFunnel([]).rates.clicksPerViewPct, null);
 });
