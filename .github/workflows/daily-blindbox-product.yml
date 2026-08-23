@@ -29,4 +29,4 @@ jobs:
       - name: Validate daily pipeline schemas
         run: npm run daily:validate
       - name: Confirm unattended publication is disabled
-        run: echo "P1 manual-validation phase: no product staging, Buffer publish, or production credentials are used."
+        run: 'echo "P1 manual-validation phase: no product staging, Buffer publish, or production credentials are used."'
