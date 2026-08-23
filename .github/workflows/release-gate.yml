@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release-gate:
-    name: Preflight, test, build, and audit
+  preflight:
+    name: Preflight
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -33,16 +33,66 @@ jobs:
         run: npm ci
       - name: Run repository, environment-name, and credential preflight
         run: npm run predeploy
-      - name: Audit eBay EPN and Skimlinks policy
-        run: npm run audit:epn
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - name: Run all safety tests
         run: npm test
       - name: Validate generated and source data
         run: npm run validate
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
       - name: Build production application
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit eBay EPN and Skimlinks policy
+        run: npm run audit:epn
       - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
-
