@@ -5,6 +5,7 @@ on:
     workflows:
       - BlindBoxAI release gate
       - Bounded unattended operations
+      - Autonomous affiliate loop
       - Daily BlindBox pipeline validation (publishing paused)
       - Labubu content validation (automation paused)
       - Video pipeline compliance gate (publishing paused)
