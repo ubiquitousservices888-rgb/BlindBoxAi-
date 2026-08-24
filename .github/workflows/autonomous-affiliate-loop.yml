@@ -1,0 +1,136 @@
+name: Autonomous affiliate loop
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blindboxai-autonomous-affiliate-loop-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate autonomous rotation safely on PRs
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run daily pipeline safety tests
+        run: npm run daily:test
+      - name: Test priority selector
+        run: node --test scripts/autonomous-priority.test.mjs
+      - name: Validate affiliate-eligible source records
+        run: npm run daily:validate
+
+  stage:
+    name: Select, validate, and stage next eligible collectible
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      has_candidate: ${{ steps.stage.outputs.has_candidate }}
+      reason: ${{ steps.stage.outputs.reason }}
+      candidate_b64: ${{ steps.encode.outputs.candidate_b64 }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run daily pipeline safety tests
+        run: npm run daily:test
+      - name: Test priority selector
+        run: node --test scripts/autonomous-priority.test.mjs
+      - name: Validate affiliate-eligible source records
+        run: npm run daily:validate
+      - name: Select and stage highest-priority candidate
+        id: stage
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BLINDBOXAI_SITE_URL: https://www.blindboxai.com
+          BLINDBOXAI_PRIORITY_TERMS: twinkle
+        run: node scripts/autonomous-priority-stage.mjs
+      - name: Preflight candidate
+        if: ${{ steps.stage.outputs.has_candidate == 'true' }}
+        run: npm run daily:preflight
+      - name: Record staged state
+        if: ${{ steps.stage.outputs.has_candidate == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run daily:mark-staged
+      - name: Carry exact staged artifact forward without third-party storage
+        if: ${{ steps.stage.outputs.has_candidate == 'true' }}
+        id: encode
+        shell: bash
+        run: |
+          candidate_b64="$(base64 -w0 output/daily-product/candidate.json)"
+          echo "candidate_b64=$candidate_b64" >> "$GITHUB_OUTPUT"
+      - name: No candidate status
+        if: ${{ steps.stage.outputs.has_candidate != 'true' }}
+        run: echo "No new eligible candidate staged. Reason=${{ steps.stage.outputs.reason }}"
+
+  publish:
+    name: Publish staged candidate after production approval
+    needs: stage
+    if: ${{ needs.stage.outputs.has_candidate == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: social-production
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Restore exact staged candidate
+        shell: bash
+        env:
+          CANDIDATE_B64: ${{ needs.stage.outputs.candidate_b64 }}
+        run: |
+          mkdir -p output/daily-product
+          printf '%s' "$CANDIDATE_B64" | base64 --decode > output/daily-product/candidate.json
+      - name: Re-run preflight after approval
+        run: npm run daily:preflight
+      - name: Publish to connected Buffer channels
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ secrets.BUFFER_ORGANIZATION_ID }}
+          PRODUCTION_ENVIRONMENT: social-production
+          PRODUCTION_REVIEWER: ubiquitousservices888-rgb
+        run: npm run daily:publish
