@@ -1,0 +1,48 @@
+name: Discord Alerts
+
+on:
+  workflow_run:
+    workflows:
+      - BlindBoxAI release gate
+      - Bounded unattended operations
+      - Daily BlindBox pipeline validation (publishing paused)
+      - Labubu content validation (automation paused)
+      - Video pipeline compliance gate (publishing paused)
+      - Mr. Know It All deterministic compliance check
+      - Visual rights validation (discovery paused)
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    if: ${{ github.event.workflow_run.conclusion != 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord alert
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          jq -n \
+            --arg repo "$REPO" \
+            --arg workflow "$WORKFLOW" \
+            --arg conclusion "$CONCLUSION" \
+            --arg url "$RUN_URL" \
+            '{
+              content:
+                ("GitHub Alert\nRepo: " + $repo +
+                 "\nWorkflow: " + $workflow +
+                 "\nStatus: " + $conclusion +
+                 "\n" + $url)
+            }' |
+          curl --fail-with-body --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d @- \
+            "$DISCORD_WEBHOOK_URL"
