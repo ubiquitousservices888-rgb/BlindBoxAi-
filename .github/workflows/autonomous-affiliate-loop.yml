@@ -7,6 +7,9 @@ on:
     branches: [main]
     paths:
       - "data/series/**"
+      - "lib/automation-priority.mjs"
+      - "scripts/autonomous-priority-stage.mjs"
+      - "scripts/autonomous-priority.test.mjs"
       - ".github/workflows/autonomous-affiliate-loop.yml"
   workflow_dispatch:
   schedule:
@@ -80,6 +83,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           BLINDBOXAI_SITE_URL: https://www.blindboxai.com
           BLINDBOXAI_PRIORITY_TERMS: twinkle
+          BLINDBOXAI_STAGED_TTL_HOURS: "48"
         run: node scripts/autonomous-priority-stage.mjs
       - name: Preflight candidate
         if: ${{ steps.stage.outputs.has_candidate == 'true' }}

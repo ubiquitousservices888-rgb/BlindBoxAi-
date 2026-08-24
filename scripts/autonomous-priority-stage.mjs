@@ -6,6 +6,7 @@ import {
   buildEligibleProduct,
   candidatePreview,
   createCandidate,
+  saveGithubState,
   verifyLiveUrl,
 } from "../lib/daily-product-pipeline.mjs";
 import {
@@ -13,7 +14,7 @@ import {
   hardenCandidateForPublishing,
   loadGithubStatePaginated,
 } from "../lib/daily-product-publish-safety.mjs";
-import { selectPriorityProduct } from "../lib/automation-priority.mjs";
+import { expireStaleStages, selectPriorityProduct } from "../lib/automation-priority.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -28,6 +29,7 @@ const priorityTerms = String(env.BLINDBOXAI_PRIORITY_TERMS ?? "twinkle")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
+const stagedTtlHours = Number(env.BLINDBOXAI_STAGED_TTL_HOURS ?? 48);
 
 function writeOutput(name, value) {
   if (!env.GITHUB_OUTPUT) return;
@@ -46,7 +48,15 @@ function loadSeries() {
 
 if (!repo || !githubToken) throw new Error("Autonomous stage requires GITHUB_REPOSITORY and GITHUB_TOKEN");
 
-const { state } = await loadGithubStatePaginated({ repo, token: githubToken });
+const loaded = await loadGithubStatePaginated({ repo, token: githubToken });
+let state = loaded.state;
+const stale = expireStaleStages(state, { ttlHours: stagedTtlHours });
+if (stale.expired.length) {
+  state = stale.state;
+  await saveGithubState({ repo, token: githubToken, issue: loaded.issue, state });
+  console.log(`EXPIRED_STALE_STAGED: ${stale.expired.join(",")}`);
+}
+
 const alreadyStaged = Object.entries(state.products ?? {}).find(([, value]) => value?.status === "STAGED");
 if (alreadyStaged) {
   console.log(`WAITING_FOR_APPROVAL: ${alreadyStaged[0]}`);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectPriorityProduct } from "../lib/automation-priority.mjs";
+import { expireStaleStages, selectPriorityProduct } from "../lib/automation-priority.mjs";
 
 test("prefers Twinkle over alphabetical fallback", () => {
   const products = [
@@ -25,4 +25,19 @@ test("never reselects staged, partial, or published products", () => {
   ];
   const state = { products: { "twinkle-one": { status: "STAGED" } } };
   assert.equal(selectPriorityProduct(products, state).productId, "hirono-a");
+});
+
+test("expires stale staged candidates but preserves fresh staged candidates", () => {
+  const now = new Date("2026-08-24T20:00:00.000Z");
+  const state = {
+    products: {
+      stale: { status: "STAGED", stagedAt: "2026-08-20T20:00:00.000Z" },
+      fresh: { status: "STAGED", stagedAt: "2026-08-24T08:00:00.000Z" },
+    },
+  };
+  const result = expireStaleStages(state, { now, ttlHours: 48 });
+  assert.deepEqual(result.expired, ["stale"]);
+  assert.equal(result.state.products.stale.status, "FAILED");
+  assert.match(result.state.products.stale.lastError, /Expired stale STAGED candidate/);
+  assert.equal(result.state.products.fresh.status, "STAGED");
 });
