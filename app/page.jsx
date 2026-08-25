@@ -20,8 +20,9 @@ export default function Home() {
         <p className="eyebrow">Independent collector intelligence</p>
         <h1>Know the odds.<br/>Spot the fakes.</h1>
         <p>Ask about blind-box brands and series across the collectible category, then check
-          reviewed US-sold observations and counterfeit warning signs. No account needed.</p>
+          reviewed US-sold observations, deal prices, and counterfeit warning signs. No account needed.</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          <Link className="cta" href="/tools/buy-or-pass">Check a deal →</Link>
           <Link className="cta" href="/ask">Ask Mr. Know It All →</Link>
           <Link className="cta" href="/pro">Reseller tools →</Link>
         </div>
