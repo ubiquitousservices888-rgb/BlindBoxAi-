@@ -36,10 +36,11 @@
     "daily:validate": "node scripts/daily-product-pipeline.mjs validate",
     "daily:test": "node --test scripts/daily-product-pipeline.test.mjs scripts/daily-product-publish-safety.test.mjs scripts/social-card.test.mjs scripts/social-attribution.test.mjs",
     "release:test": "node --test scripts/release-gate.test.mjs",
+    "privacy:test": "node --test scripts/privacy-consent.test.mjs",
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
-    "test": "npm run p0:test && npm run comp:test && npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test",
+    "test": "npm run p0:test && npm run comp:test && npm run labubu:test && npm run video:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test && npm run privacy:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate"
   },
   "dependencies": {
