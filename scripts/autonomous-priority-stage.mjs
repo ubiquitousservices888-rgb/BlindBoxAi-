@@ -15,6 +15,7 @@ import {
   loadGithubStatePaginated,
 } from "../lib/daily-product-publish-safety.mjs";
 import { expireStaleStages, selectPriorityProduct } from "../lib/automation-priority.mjs";
+import { applySocialAttribution } from "../lib/social-attribution.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -83,7 +84,9 @@ if (!product) {
 
 await verifyLiveUrl(product.ctaUrl);
 await verifyLiveUrl(product.graphicUrl, { requireImage: true });
-const candidate = hardenCandidateForPublishing(createCandidate(product, { runId, sourceCommit }));
+const candidate = hardenCandidateForPublishing(
+  applySocialAttribution(createCandidate(product, { runId, sourceCommit })),
+);
 assertArtifactIsSecretFree(candidate);
 assertCandidateCtas(candidate);
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });

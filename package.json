@@ -34,7 +34,7 @@
     "daily:preflight": "node scripts/daily-product-pipeline.mjs preflight",
     "daily:publish": "node scripts/daily-product-pipeline.mjs publish",
     "daily:validate": "node scripts/daily-product-pipeline.mjs validate",
-    "daily:test": "node --test scripts/daily-product-pipeline.test.mjs scripts/daily-product-publish-safety.test.mjs scripts/social-card.test.mjs",
+    "daily:test": "node --test scripts/daily-product-pipeline.test.mjs scripts/daily-product-publish-safety.test.mjs scripts/social-card.test.mjs scripts/social-attribution.test.mjs",
     "release:test": "node --test scripts/release-gate.test.mjs",
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
