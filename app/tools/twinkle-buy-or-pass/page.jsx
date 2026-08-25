@@ -1,10 +1,5 @@
-import TwinkleBuyOrPassClient from './TwinkleBuyOrPassClient';
-
-export const metadata = {
-  title: 'Twinkle Twinkle Buy-or-Pass — BlindBoxAI',
-  description: 'Free price-check utility for POP MART Twinkle Twinkle Strong Bread using dated market reference data.',
-};
+import { permanentRedirect } from 'next/navigation';
 
 export default function TwinkleBuyOrPassPage() {
-  return <TwinkleBuyOrPassClient />;
+  permanentRedirect('/tools/buy-or-pass/twinkle-twinkle-savor-the-moment--strong-bread');
 }
