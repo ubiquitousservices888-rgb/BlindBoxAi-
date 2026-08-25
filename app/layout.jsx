@@ -1,4 +1,5 @@
-import { Analytics } from '@vercel/analytics/next';
+import CookieConsent from './_components/CookieConsent';
+import PrivacySettingsButton from './_components/PrivacySettingsButton';
 
 export const metadata = {
   title: "BlindBoxAI — resale prices, pull odds & fake checks",
@@ -21,8 +22,12 @@ export default function RootLayout({ children }) {
           sponsored, or endorsed by any brand named here — brand and series names are used only
           to identify the products they refer to. Prices are US-sold estimates, not offers.
           Not financial advice.
+          <span className="foot-actions">
+            <a href="/cookies">Cookie & privacy notice</a>
+            <PrivacySettingsButton />
+          </span>
         </footer>
-        <Analytics />
+        <CookieConsent />
       </body>
     </html>
   );
@@ -137,6 +142,8 @@ main{max-width:760px;margin:0 auto;padding:28px 0 72px}
 .foot{max-width:760px;margin:0 auto;padding:22px 0 52px;border-top:1px solid var(--line);
   font-size:.76rem;color:var(--muted)}
 .foot strong{color:var(--ink)}
+.foot-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:10px}
+.privacy-settings-button{appearance:none;border:0;background:transparent;padding:0;color:var(--verify-ink);font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 
 @media(max-width:560px){
   .srow-top{flex-direction:column;align-items:flex-start;gap:6px}
