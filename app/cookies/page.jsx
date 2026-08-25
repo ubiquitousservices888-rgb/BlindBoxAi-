@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export const metadata = {
   title: 'Cookie & Privacy Notice — BlindBoxAI',
   description: 'Plain-language information about browser storage and optional analytics on BlindBoxAI.',
@@ -6,7 +8,7 @@ export const metadata = {
 export default function CookieNoticePage() {
   return (
     <main>
-      <a className="crumb" href="/">← BlindBoxAI</a>
+      <Link className="crumb" href="/">← BlindBoxAI</Link>
       <section className="hero">
         <p className="eyebrow">Privacy controls</p>
         <h1>Cookie & privacy notice</h1>

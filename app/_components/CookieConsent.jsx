@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/next';
 
 const STORAGE_KEY = 'blindboxai_consent_v1';
@@ -27,7 +27,15 @@ function saveConsent(analytics) {
     analytics: analytics === true,
     updatedAt: new Date().toISOString(),
   };
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts. The
+    // runtime choice still applies for this page session even if persistence
+    // is unavailable.
+  }
+
   window.dispatchEvent(new CustomEvent('blindboxai:consent', { detail: value }));
   return value;
 }
@@ -35,6 +43,8 @@ function saveConsent(analytics) {
 export default function CookieConsent() {
   const [consent, setConsent] = useState(undefined);
   const [showSettings, setShowSettings] = useState(false);
+  const dialogRef = useRef(null);
+  const dialogOpen = consent === null || showSettings;
 
   useEffect(() => {
     setConsent(readConsent());
@@ -43,6 +53,50 @@ export default function CookieConsent() {
     window.addEventListener('blindboxai:open-consent', openSettings);
     return () => window.removeEventListener('blindboxai:open-consent', openSettings);
   }, []);
+
+  useEffect(() => {
+    if (!dialogOpen || !dialogRef.current) return undefined;
+
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    const getFocusable = () => Array.from(
+      dialog.querySelectorAll(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+
+    const focusable = getFocusable();
+    (focusable[0] || dialog).focus();
+
+    const onKeyDown = (event) => {
+      if (event.key !== 'Tab') return;
+
+      const items = getFocusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    dialog.addEventListener('keydown', onKeyDown);
+    return () => {
+      dialog.removeEventListener('keydown', onKeyDown);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus();
+      }
+    };
+  }, [dialogOpen]);
 
   const choose = (analytics) => {
     setConsent(saveConsent(analytics));
@@ -53,14 +107,16 @@ export default function CookieConsent() {
     <>
       {consent?.analytics ? <Analytics /> : null}
 
-      {(consent === null || showSettings) && (
+      {dialogOpen && (
         <div className="consent-backdrop" role="presentation">
           <section
+            ref={dialogRef}
             className="consent-card"
             role="dialog"
             aria-modal="true"
             aria-labelledby="consent-title"
             aria-describedby="consent-copy"
+            tabIndex={-1}
           >
             <p className="consent-kicker">Privacy controls</p>
             <h2 id="consent-title">Your choice comes first.</h2>
