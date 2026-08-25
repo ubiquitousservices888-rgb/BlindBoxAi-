@@ -143,3 +143,5 @@ jobs:
           PRODUCTION_ENVIRONMENT: social-production
           PRODUCTION_REVIEWER: ubiquitousservices888-rgb
         run: npm run daily:publish
+
+# Operations note: manual launch trigger after verified production deployment on 2026-08-25.
