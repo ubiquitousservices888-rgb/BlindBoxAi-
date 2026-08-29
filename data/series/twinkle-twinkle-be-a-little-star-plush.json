@@ -1,0 +1,24 @@
+{
+  "slug": "twinkle-twinkle-be-a-little-star-plush",
+  "name": "Twinkle Twinkle Be a Little Star Plush Pendant",
+  "brand": "Pop Mart",
+  "automationPriority": 1,
+  "marketSelection": {
+    "priorityIp": "Twinkle Twinkle",
+    "format": "plush",
+    "completedSalesStatus": "verified",
+    "sellThroughStatus": "requires-current-active-listing-snapshot",
+    "autoPromote": false,
+    "rule": "Do not auto-promote a specific variant until a current sold-vs-active comparable snapshot is recorded."
+  },
+  "figures": [
+    {
+      "name": "Hair Cut",
+      "rarity": "confirmed plush pendant",
+      "resaleLow": 19.49,
+      "resaleHigh": 19.49,
+      "needsReview": false,
+      "evidence": "Reviewed eBay completed transaction: item 157991763193 sold 2026-07-26 for USD 19.49."
+    }
+  ]
+}
