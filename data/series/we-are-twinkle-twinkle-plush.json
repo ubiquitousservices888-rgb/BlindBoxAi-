@@ -1,0 +1,24 @@
+{
+  "slug": "we-are-twinkle-twinkle-plush",
+  "name": "We Are Twinkle Twinkle Plush Pendant",
+  "brand": "Pop Mart",
+  "automationPriority": 2,
+  "marketSelection": {
+    "priorityIp": "Twinkle Twinkle",
+    "format": "plush",
+    "completedSalesStatus": "verified",
+    "sellThroughStatus": "requires-current-active-listing-snapshot",
+    "autoPromote": false,
+    "rule": "Do not auto-promote a specific variant until a current sold-vs-active comparable snapshot is recorded."
+  },
+  "figures": [
+    {
+      "name": "Secret Goodnight",
+      "rarity": "secret plush pendant",
+      "resaleLow": 51.34,
+      "resaleHigh": 51.34,
+      "needsReview": false,
+      "evidence": "Reviewed eBay completed transaction: item 158014421428 sold 2026-07-02 for USD 51.34."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "slug": "twinkle-twinkle-why-so-serious-plush",
+  "name": "Twinkle Twinkle Why So Serious Plush Pendant",
+  "brand": "Pop Mart",
+  "automationPriority": 0,
+  "marketSelection": {
+    "priorityIp": "Twinkle Twinkle",
+    "format": "plush",
+    "completedSalesStatus": "verified",
+    "sellThroughStatus": "requires-current-active-listing-snapshot",
+    "autoPromote": false,
+    "rule": "Do not auto-promote a specific variant until a current sold-vs-active comparable snapshot is recorded."
+  },
+  "figures": [
+    {
+      "name": "Rainbow Jelly Bean",
+      "rarity": "confirmed plush pendant",
+      "resaleLow": 27.99,
+      "resaleHigh": 35.00,
+      "needsReview": false,
+      "evidence": "Reviewed eBay completed transactions: item 257430327018 sold 2026-03-31 for USD 27.99; item 236587391364 sold 2026-04-30 for USD 35.00."
+    }
+  ]
+}

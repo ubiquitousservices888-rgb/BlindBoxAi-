@@ -1,0 +1,44 @@
+name: Evergreen shopping candidate (review only)
+
+on:
+  schedule:
+    - cron: "15 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    name: Build Amazon + YouTube Shopping candidate without publishing
+    runs-on: ubuntu-latest
+    env:
+      AMAZON_ASSOCIATES_ACTIVE: ${{ vars.AMAZON_ASSOCIATES_ACTIVE || 'false' }}
+      YOUTUBE_SHOPPING_AFFILIATE_ACTIVE: ${{ vars.YOUTUBE_SHOPPING_AFFILIATE_ACTIVE || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test shopping safety rules
+        run: npm run shopping:test
+      - name: Stage candidate
+        run: npm run shopping:stage
+      - name: Upload review candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evergreen-shopping-review
+          path: output/shopping
+          retention-days: 7
+          if-no-files-found: error
+      - name: Confirm no unattended commerce action occurred
+        run: |
+          echo "Candidate generated for review only."
+          echo "No Amazon URL was published, no YouTube product was tagged, and no social post was created."
