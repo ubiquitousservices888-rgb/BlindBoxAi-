@@ -70,7 +70,11 @@ const eligible = [];
 for (const series of loadSeries()) {
   try {
     const product = buildEligibleProduct(series, { siteUrl });
-    eligible.push({ ...product, automationPriority: series.automationPriority });
+    eligible.push({
+      ...product,
+      automationPriority: series.automationPriority,
+      marketSelection: series.marketSelection,
+    });
   } catch {}
 }
 
