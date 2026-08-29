@@ -10,6 +10,19 @@ test("prefers Twinkle over alphabetical fallback", () => {
   assert.equal(selectPriorityProduct(products, { products: {} }).productId, "twinkle-twinkle-b");
 });
 
+test("sell-through gate blocks Twinkle auto-promotion even though it is the priority IP", () => {
+  const products = [
+    {
+      productId: "twinkle-twinkle-b",
+      name: "Twinkle Twinkle B",
+      brand: "POP MART",
+      marketSelection: { autoPromote: false, sellThroughStatus: "requires-current-active-listing-snapshot" },
+    },
+    { productId: "hirono-a", name: "HIRONO A", brand: "POP MART" },
+  ];
+  assert.equal(selectPriorityProduct(products, { products: {} }).productId, "hirono-a");
+});
+
 test("falls back alphabetically when no priority term matches", () => {
   const products = [
     { productId: "skullpanda-z", name: "Z", brand: "POP MART" },
