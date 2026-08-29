@@ -1,0 +1,60 @@
+name: Gemini Omni video stage (manual, review only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      resolution:
+        description: "Draft resolution"
+        required: true
+        default: "360p"
+        type: choice
+        options:
+          - "360p"
+          - "720p"
+          - "1080p"
+          - "4k"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  render:
+    name: Generate hosted MP4 then stop at READY_FOR_REVIEW
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      GEMINI_VIDEO_RESOLUTION: ${{ inputs.resolution }}
+      ALLOW_MANUAL_VIDEO_RENDER: "true"
+      ALLOW_GEMINI_VIDEO_RENDER: "true"
+      ALLOW_MANUAL_VIDEO_PUBLISH: "false"
+      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'twitter,tiktok' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run video safety tests
+        run: npm run video:test
+      - name: Validate verified video source data
+        run: node scripts/video-pipeline.mjs validate
+      - name: Generate Gemini Omni draft
+        run: npm run video:gemini-stage
+      - name: Upload review state
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gemini-video-ready-for-review
+          path: output/video-pipeline/state.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Confirm publish gate remains closed
+        run: |
+          node -e 'const s=require("./output/video-pipeline/state.json"); if(s.state!=="READY_FOR_REVIEW") process.exit(1); console.log("Confirmed READY_FOR_REVIEW; no publish step exists in this workflow.")'
