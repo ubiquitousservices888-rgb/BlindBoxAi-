@@ -1,0 +1,126 @@
+{
+  "schema": "blindboxai.evergreen-shopping-opportunities/v1",
+  "updatedAt": "2026-08-29T16:10:00.000Z",
+  "channelRules": {
+    "publicCta": "https://www.blindboxai.com",
+    "merchantLinksInPublicCopy": false,
+    "youtubeProductTags": "channel-native-only",
+    "amazonEligibilityRequired": true,
+    "youtubeShoppingEligibilityRequired": true,
+    "approvalRequiredBeforePublish": true
+  },
+  "opportunities": [
+    {
+      "id": "clear-display-cases",
+      "name": "Clear acrylic display cases",
+      "intent": "protect and display collectibles",
+      "evergreenScore": 100,
+      "buyerIntentScore": 96,
+      "contentAngles": [
+        "3 display mistakes that make a collectible shelf look cluttered",
+        "How to choose a dust-proof case by figure height",
+        "Before-and-after shelf organization for blind-box collectors"
+      ],
+      "amazonSearchTerm": "acrylic display case collectibles",
+      "youtubeTagging": true
+    },
+    {
+      "id": "tiered-display-risers",
+      "name": "Tiered display risers",
+      "intent": "fit more figures on a shelf without hiding the back row",
+      "evergreenScore": 98,
+      "buyerIntentScore": 94,
+      "contentAngles": [
+        "Flat shelf vs tiered riser: which displays more figures",
+        "Best riser dimensions for small collectible figures",
+        "Make a small shelf look like a collector display"
+      ],
+      "amazonSearchTerm": "acrylic tiered display riser collectibles",
+      "youtubeTagging": true
+    },
+    {
+      "id": "led-shelf-lighting",
+      "name": "USB LED shelf lighting",
+      "intent": "improve collectible display visibility and video appearance",
+      "evergreenScore": 96,
+      "buyerIntentScore": 91,
+      "contentAngles": [
+        "Cheap lighting upgrade for collectible shelves",
+        "Front light vs back light for vinyl and plush displays",
+        "How lighting changes collectible photos and Shorts"
+      ],
+      "amazonSearchTerm": "usb led shelf lights display collectibles",
+      "youtubeTagging": true
+    },
+    {
+      "id": "dust-cleaning-kit",
+      "name": "Soft detailing and dust-cleaning kit",
+      "intent": "clean figures and display areas without scratching surfaces",
+      "evergreenScore": 94,
+      "buyerIntentScore": 89,
+      "contentAngles": [
+        "How collectors remove dust from small figures",
+        "Tools for cleaning tight spaces around display shelves",
+        "Five-minute collectible shelf reset"
+      ],
+      "amazonSearchTerm": "soft detailing brush kit collectibles electronics",
+      "youtubeTagging": true
+    },
+    {
+      "id": "protective-bags-sleeves",
+      "name": "Protective bags and sleeves",
+      "intent": "protect boxes, cards and small collectible packaging",
+      "evergreenScore": 92,
+      "buyerIntentScore": 88,
+      "contentAngles": [
+        "Protect the box or toss it? Storage options for collectors",
+        "Simple packaging protection for resale-minded collectors",
+        "How to store cards and inserts from blind boxes"
+      ],
+      "amazonSearchTerm": "clear protective bags collectible boxes sleeves",
+      "youtubeTagging": true
+    },
+    {
+      "id": "photo-turntable",
+      "name": "Small rotating display turntable",
+      "intent": "create smoother collectible product videos and photos",
+      "evergreenScore": 90,
+      "buyerIntentScore": 86,
+      "contentAngles": [
+        "Make a clean 360-degree collectible video with one tool",
+        "Budget setup for photographing figures for resale",
+        "Phone plus turntable collectible video setup"
+      ],
+      "amazonSearchTerm": "rotating display turntable photography collectibles",
+      "youtubeTagging": true
+    },
+    {
+      "id": "storage-bins-dividers",
+      "name": "Small-parts storage bins and dividers",
+      "intent": "organize accessories, cards and duplicate figures",
+      "evergreenScore": 89,
+      "buyerIntentScore": 83,
+      "contentAngles": [
+        "Organize duplicate blind-box accessories without losing pieces",
+        "Collector storage system for cards, stands and tiny parts",
+        "What to do with accessories that are not on display"
+      ],
+      "amazonSearchTerm": "small parts organizer adjustable dividers collectibles",
+      "youtubeTagging": true
+    },
+    {
+      "id": "phone-tripod-overhead",
+      "name": "Phone tripod or overhead mount",
+      "intent": "record unboxings and collector guides hands-free",
+      "evergreenScore": 88,
+      "buyerIntentScore": 84,
+      "contentAngles": [
+        "Hands-free phone setup for blind-box unboxings",
+        "Overhead vs front-facing angle for collectible videos",
+        "Simple mobile creator setup for collector Shorts"
+      ],
+      "amazonSearchTerm": "phone overhead mount unboxing video tripod",
+      "youtubeTagging": true
+    }
+  ]
+}
