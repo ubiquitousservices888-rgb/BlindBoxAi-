@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "lib/narrative-flywheel.mjs"
+      - "lib/ues-network-flywheel.mjs"
       - "scripts/narrative-flywheel-stage.mjs"
       - "scripts/narrative-flywheel.test.mjs"
       - "data/series/**"
@@ -18,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: blindboxai-narrative-flywheel-${{ github.event_name }}
-  cancel-in-progress: false
+  group: blindboxai-narrative-flywheel-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   stage:
@@ -53,5 +54,24 @@ jobs:
           if-no-files-found: error
       - name: Confirm bounded operation
         run: |
-          echo "Narrative candidate generated for review only."
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+
+          const files = [
+            "output/narrative-flywheel/candidate.json",
+            "output/narrative-flywheel/ues-network-candidate.json",
+          ];
+
+          for (const file of files) {
+            const candidate = JSON.parse(fs.readFileSync(file, "utf8"));
+            if (candidate.state !== "READY_FOR_REVIEW") {
+              throw new Error(`${file}: expected READY_FOR_REVIEW, got ${candidate.state}`);
+            }
+            if (candidate.publishAutomatically !== false) {
+              throw new Error(`${file}: publishAutomatically must be false`);
+            }
+          }
+
+          console.log("Narrative artifacts verified as review-only and non-publishing.");
+          NODE
           echo "No social post, token, transaction, product purchase, or merchant URL was created."
