@@ -2,6 +2,7 @@ import Link from "next/link";
 import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
 import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
+import LiveEbayListings from "../../_components/LiveEbayListings";
 
 export const revalidate = 86400;
 export function generateStaticParams() { return allSeries().map(s => ({ slug: s.slug })); }
@@ -82,6 +83,12 @@ export default async function SeriesPage({ params, searchParams }) {
           </tbody>
         </table>
       </section>
+
+      <LiveEbayListings
+        seriesSlug={s.slug}
+        campaignId={campaignId}
+        source={source}
+      />
 
       <section className="block">
         <h2>Fake check <span className="k">INSPECT</span></h2>
