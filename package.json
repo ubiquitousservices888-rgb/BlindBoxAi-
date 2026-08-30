@@ -18,6 +18,8 @@
     "video:test": "node --test scripts/video-pipeline.test.mjs scripts/gemini-video-renderer.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs",
     "shopping:stage": "node scripts/evergreen-shopping-stage.mjs",
     "shopping:test": "node --test scripts/evergreen-shopping.test.mjs",
+    "narrative:stage": "node scripts/narrative-flywheel-stage.mjs",
+    "narrative:test": "node --test scripts/narrative-flywheel.test.mjs",
     "automation:test": "node --test scripts/autonomous-priority.test.mjs scripts/twinkle-market-data.test.mjs",
     "owner:test": "node --test scripts/owner-dashboard.test.mjs",
     "funnel:test": "node --test scripts/funnel-events.test.mjs",
@@ -45,7 +47,7 @@
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
-    "test": "npm run p0:test && npm run comp:test && npm run labubu:test && npm run video:test && npm run shopping:test && npm run automation:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test && npm run privacy:test && npm run intent:test",
+    "test": "npm run p0:test && npm run comp:test && npm run labubu:test && npm run video:test && npm run shopping:test && npm run narrative:test && npm run automation:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test && npm run privacy:test && npm run intent:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate"
   },
   "dependencies": {

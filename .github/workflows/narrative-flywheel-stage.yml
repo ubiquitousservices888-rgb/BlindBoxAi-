@@ -1,0 +1,57 @@
+name: Narrative flywheel candidate (review only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/narrative-flywheel.mjs"
+      - "scripts/narrative-flywheel-stage.mjs"
+      - "scripts/narrative-flywheel.test.mjs"
+      - "data/series/**"
+      - "package.json"
+      - ".github/workflows/narrative-flywheel-stage.yml"
+  schedule:
+    - cron: "45 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blindboxai-narrative-flywheel-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    name: Build narrative candidate without publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BLINDBOXAI_PRIORITY_TERMS: twinkle
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test narrative safety rules
+        run: node --test scripts/narrative-flywheel.test.mjs
+      - name: Stage narrative candidate
+        run: node scripts/narrative-flywheel-stage.mjs
+      - name: Upload review candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: narrative-flywheel-review
+          path: output/narrative-flywheel
+          retention-days: 7
+          if-no-files-found: error
+      - name: Confirm bounded operation
+        run: |
+          echo "Narrative candidate generated for review only."
+          echo "No social post, token, transaction, product purchase, or merchant URL was created."
