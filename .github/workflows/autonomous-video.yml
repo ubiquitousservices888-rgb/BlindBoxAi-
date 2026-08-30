@@ -47,12 +47,16 @@ jobs:
       # Template IDs are not credentials. Restore the previously verified BlindBoxAI
       # template as a fallback so only the actual API key must remain secret.
       CREATOMATE_TEMPLATE_ID: ${{ vars.CREATOMATE_TEMPLATE_ID || '8b360817-3e33-40e3-bbb4-55a8b508f06e' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      GEMINI_VIDEO_RESOLUTION: ${{ vars.GEMINI_VIDEO_RESOLUTION || '360p' }}
       ALLOW_MANUAL_VIDEO_RENDER: "true"
+      ALLOW_GEMINI_VIDEO_RENDER: "true"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@d23441a48e516b6bfb58ed0dc250532a479d7789f # v6
         with:
           persist-credentials: false
       - name: Set up Node.js
@@ -65,16 +69,34 @@ jobs:
       - name: Verify renderer configuration
         shell: bash
         run: |
-          if [ -z "$CREATOMATE_API_KEY" ]; then
-            echo "::error::Creatomate API key is not configured. Add repository Actions secret CREATOMATE_API_KEY."
+          if [ -z "$CREATOMATE_API_KEY" ] && { [ -z "$GEMINI_API_KEY" ] || [ -z "$BLOB_READ_WRITE_TOKEN" ]; }; then
+            echo "::error::No usable video renderer is configured. Configure Creatomate or Gemini + Vercel Blob."
             exit 1
           fi
-          if [ -z "$CREATOMATE_TEMPLATE_ID" ]; then
-            echo "::error::Creatomate template ID is not configured."
-            exit 1
+      - name: Render verified video with automatic fallback
+        shell: bash
+        run: |
+          set +e
+          if [ -n "$CREATOMATE_API_KEY" ]; then
+            echo "Trying Creatomate renderer..."
+            npm run video:daily
+            creatomate_status=$?
+          else
+            creatomate_status=1
           fi
-      - name: Render verified video
-        run: npm run video:daily
+          set -e
+
+          if [ "$creatomate_status" -eq 0 ]; then
+            echo "VIDEO_RENDER_PROVIDER=creatomate"
+            exit 0
+          fi
+
+          echo "Creatomate was unavailable; attempting the guarded Gemini renderer."
+          if [ -z "$GEMINI_API_KEY" ] || [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "::error::Creatomate failed and Gemini fallback is not configured."
+            exit "$creatomate_status"
+          fi
+          npm run video:gemini-stage
       - name: Prepare exact review state
         id: review
         shell: bash
