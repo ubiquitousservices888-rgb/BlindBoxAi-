@@ -14,17 +14,29 @@ function formatPrice(item) {
   }
 }
 
-export default function LiveEbayListings({ seriesSlug, campaignId = "", source = "page" }) {
+export default function LiveEbayListings({
+  seriesSlug = "",
+  offerId = "",
+  campaignId = "",
+  source = "page",
+  heading = "Live eBay listings",
+}) {
   const [items, setItems] = useState([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!seriesSlug && !offerId) {
+      setReady(true);
+      return undefined;
+    }
+
     const controller = new AbortController();
-    const params = new URLSearchParams({ series: seriesSlug });
+    const isOffer = Boolean(offerId);
+    const params = new URLSearchParams(isOffer ? { offer: offerId } : { series: seriesSlug });
     if (campaignId) params.set("campaign", campaignId);
     if (source) params.set("source", source);
 
-    fetch(`/api/ebay/live?${params.toString()}`, {
+    fetch(`${isOffer ? "/api/ebay/live-offer" : "/api/ebay/live"}?${params.toString()}`, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     })
@@ -36,13 +48,13 @@ export default function LiveEbayListings({ seriesSlug, campaignId = "", source =
       .finally(() => setReady(true));
 
     return () => controller.abort();
-  }, [seriesSlug, campaignId, source]);
+  }, [seriesSlug, offerId, campaignId, source]);
 
   if (!ready || items.length === 0) return null;
 
   return (
     <section className="block">
-      <h2>Live eBay listings <span className="k">PRODUCTION API</span></h2>
+      <h2>{heading} <span className="k">PRODUCTION API</span></h2>
       <p style={{ margin: "10px 0 16px", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.82 }}>
         Current fixed-price listings supplied by eBay. As an eBay Partner, BlindBoxAI may earn a commission from qualifying purchases.
       </p>
@@ -50,7 +62,7 @@ export default function LiveEbayListings({ seriesSlug, campaignId = "", source =
         {items.map(item => (
           <a
             key={item.itemId}
-            href={item.affiliateUrl}
+            href={item.clickPath}
             target="_blank"
             rel="sponsored nofollow noopener noreferrer"
             style={{
@@ -76,7 +88,7 @@ export default function LiveEbayListings({ seriesSlug, campaignId = "", source =
             <strong style={{ fontSize: "0.88rem", lineHeight: 1.35 }}>{item.title}</strong>
             <span className="mono">{formatPrice(item)}</span>
             {item.condition ? <span style={{ fontSize: "0.74rem", opacity: 0.72 }}>{item.condition}</span> : null}
-            <span className="ebay">View on eBay ↗</span>
+            <span className="ebay">View current listing ↗</span>
           </a>
         ))}
       </div>
