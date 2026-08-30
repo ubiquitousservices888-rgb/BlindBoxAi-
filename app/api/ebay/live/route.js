@@ -61,9 +61,17 @@ export async function GET(request) {
     });
 
     if (code === "BUY_API_PRODUCTION_ACCESS_REQUIRED") {
-      return json({ configured: true, accessRequired: true, items: [] }, 503);
+      return json({ configured: true, accessRequired: true, errorCode: code, items: [] }, 503);
     }
 
-    return json({ configured: true, items: [] }, 503);
+    if (code === "EPN_CAMPAIGN_ID_REQUIRED") {
+      return json({ configured: true, campaignRequired: true, errorCode: code, items: [] }, 503);
+    }
+
+    if (code === "EBAY_OAUTH_INVALID_CLIENT") {
+      return json({ configured: true, credentialsInvalid: true, errorCode: code, items: [] }, 503);
+    }
+
+    return json({ configured: true, errorCode: code, items: [] }, 503);
   }
 }
