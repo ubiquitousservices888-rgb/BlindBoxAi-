@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ebayProductionApiConfigured,
   normalizeEbayAffiliateReference,
+  normalizeEbayBrowseItem,
   normalizeEbayBrowseItems,
 } from "../lib/ebay-production-api.mjs";
 
@@ -47,4 +48,24 @@ test("Browse items expose only HTTPS eBay affiliate destinations", () => {
   assert.equal(items.length, 1);
   assert.equal(items[0].itemId, "v1|123|0");
   assert.match(items[0].affiliateUrl, /^https:\/\/www\.ebay\.com\//);
+});
+
+test("single Browse item normalization rejects non-eBay destinations", () => {
+  assert.equal(
+    normalizeEbayBrowseItem({
+      itemId: "v1|bad|0",
+      title: "Bad destination",
+      itemAffiliateWebUrl: "https://example.com/itm/bad",
+    }),
+    null,
+  );
+
+  const item = normalizeEbayBrowseItem({
+    itemId: "v1|789|0",
+    title: "Strong Bread",
+    price: { value: "46.00", currency: "USD" },
+    itemAffiliateWebUrl: "https://www.ebay.com/itm/789?campid=1234567890",
+  });
+  assert.equal(item.itemId, "v1|789|0");
+  assert.match(item.affiliateUrl, /^https:\/\/www\.ebay\.com\//);
 });
