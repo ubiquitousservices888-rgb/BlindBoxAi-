@@ -6,6 +6,8 @@ on:
     paths:
       - data/verified-video-products.json
       - .github/workflows/autonomous-video.yml
+      - scripts/deterministic-video-stage.mjs
+      - package.json
   schedule:
     - cron: "17 14 * * *"
   workflow_dispatch:
@@ -39,17 +41,19 @@ jobs:
     name: Render one verified video for review
     needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
     outputs:
       video_url: ${{ steps.review.outputs.video_url }}
       state_b64: ${{ steps.review.outputs.state_b64 }}
     env:
       CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
-      # Template IDs are not credentials. Restore the previously verified BlindBoxAI
-      # template as a fallback so only the actual API key must remain secret.
       CREATOMATE_TEMPLATE_ID: ${{ vars.CREATOMATE_TEMPLATE_ID || '8b360817-3e33-40e3-bbb4-55a8b508f06e' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
       GEMINI_VIDEO_RESOLUTION: ${{ vars.GEMINI_VIDEO_RESOLUTION || '360p' }}
+      VIDEO_ASSET_RELEASE_TAG: blindbox-video-assets
       ALLOW_MANUAL_VIDEO_RENDER: "true"
       ALLOW_GEMINI_VIDEO_RENDER: "true"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"
@@ -66,37 +70,74 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify renderer configuration
+      - name: Verify free fallback renderer
         shell: bash
         run: |
-          if [ -z "$CREATOMATE_API_KEY" ] && { [ -z "$GEMINI_API_KEY" ] || [ -z "$BLOB_READ_WRITE_TOKEN" ]; }; then
-            echo "::error::No usable video renderer is configured. Configure Creatomate or Gemini + Vercel Blob."
+          command -v ffmpeg >/dev/null 2>&1 || {
+            echo "::error::ffmpeg is required for the free deterministic video fallback."
             exit 1
-          fi
+          }
+          ffmpeg -hide_banner -version | head -1
       - name: Render verified video with automatic fallback
         shell: bash
         run: |
           set +e
+          creatomate_status=1
           if [ -n "$CREATOMATE_API_KEY" ]; then
             echo "Trying Creatomate renderer..."
             npm run video:daily
             creatomate_status=$?
-          else
-            creatomate_status=1
           fi
-          set -e
 
           if [ "$creatomate_status" -eq 0 ]; then
             echo "VIDEO_RENDER_PROVIDER=creatomate"
             exit 0
           fi
 
-          echo "Creatomate was unavailable; attempting the guarded Gemini renderer."
-          if [ -z "$GEMINI_API_KEY" ] || [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
-            echo "::error::Creatomate failed and Gemini fallback is not configured."
-            exit "$creatomate_status"
+          gemini_status=1
+          if [ -n "$GEMINI_API_KEY" ] && [ -n "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "Creatomate unavailable; trying guarded Gemini renderer..."
+            npm run video:gemini-stage
+            gemini_status=$?
           fi
-          npm run video:gemini-stage
+          set -e
+
+          if [ "$gemini_status" -eq 0 ]; then
+            echo "VIDEO_RENDER_PROVIDER=gemini-omni"
+            exit 0
+          fi
+
+          echo "Cloud renderers unavailable; using free deterministic ffmpeg fallback."
+          npm run video:deterministic-stage
+      - name: Host deterministic review MP4 on GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          provider="$(node -p 'require("./output/video-pipeline/state.json").render.provider')"
+          if [ "$provider" != "deterministic-ffmpeg" ]; then
+            echo "Cloud renderer produced the hosted MP4; no release upload needed."
+            exit 0
+          fi
+
+          asset="$(node -p 'require("./output/video-pipeline/state.json").render.assetFilename')"
+          video_url="$(node -p 'require("./output/video-pipeline/state.json").render.videoUrl')"
+          local_file="output/video-pipeline/$asset"
+
+          test -s "$local_file" || {
+            echo "::error::Deterministic MP4 is missing."
+            exit 1
+          }
+
+          if ! gh release view "$VIDEO_ASSET_RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$VIDEO_ASSET_RELEASE_TAG" \
+              --title "BlindBoxAI verified video assets" \
+              --notes "Machine-generated review assets for the guarded BlindBoxAI video pipeline. Publishing still requires owner approval."
+          fi
+          gh release upload "$VIDEO_ASSET_RELEASE_TAG" "$local_file" --clobber
+
+          curl --fail --location --silent --show-error --head "$video_url" >/dev/null
+          echo "Hosted deterministic review MP4: $video_url"
       - name: Prepare exact review state
         id: review
         shell: bash
