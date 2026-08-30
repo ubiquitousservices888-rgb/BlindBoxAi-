@@ -44,7 +44,9 @@ jobs:
       state_b64: ${{ steps.review.outputs.state_b64 }}
     env:
       CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
-      CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
+      # Template IDs are not credentials. Restore the previously verified BlindBoxAI
+      # template as a fallback so only the actual API key must remain secret.
+      CREATOMATE_TEMPLATE_ID: ${{ vars.CREATOMATE_TEMPLATE_ID || '8b360817-3e33-40e3-bbb4-55a8b508f06e' }}
       ALLOW_MANUAL_VIDEO_RENDER: "true"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
@@ -63,8 +65,12 @@ jobs:
       - name: Verify renderer configuration
         shell: bash
         run: |
-          if [ -z "$CREATOMATE_API_KEY" ] || [ -z "$CREATOMATE_TEMPLATE_ID" ]; then
-            echo "::error::Creatomate is not configured. CREATOMATE_API_KEY and CREATOMATE_TEMPLATE_ID are required."
+          if [ -z "$CREATOMATE_API_KEY" ]; then
+            echo "::error::Creatomate API key is not configured. Add repository Actions secret CREATOMATE_API_KEY."
+            exit 1
+          fi
+          if [ -z "$CREATOMATE_TEMPLATE_ID" ]; then
+            echo "::error::Creatomate template ID is not configured."
             exit 1
           fi
       - name: Render verified video
