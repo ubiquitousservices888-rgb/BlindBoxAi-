@@ -65,7 +65,7 @@ test("candidate stops at review and keeps public CTA on BlindBoxAI", () => {
   assert.equal(candidate.publicCta, BLINDBOXAI_URL);
   assert.match(candidate.caption, new RegExp(FAN_STORY_DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(candidate.caption, new RegExp(AFFILIATE_DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.doesNotMatch(candidate.caption, /https?:\/\/(?:www\.)?(?:ebay|amazon)\./i);
+  assert.doesNotMatch(candidate.caption, /(?:https?:\/\/)?(?:www\.)?(?:ebay|amazon)\./i);
 });
 
 test("unverified series cannot enter the narrative loop", () => {
@@ -74,16 +74,43 @@ test("unverified series cannot enter the narrative loop", () => {
   assert.throws(() => buildNarrativeCandidate(unverified), /completed sales must be verified/);
 });
 
+test("evidence requires an explicit reviewed state", () => {
+  const missingReviewState = structuredClone(twinkle);
+  delete missingReviewState.figures[0].needsReview;
+  assert.throws(() => buildNarrativeCandidate(missingReviewState), /reviewed evidence-backed figure/);
+});
+
 test("financial-promotion language is rejected", () => {
   const candidate = buildNarrativeCandidate(twinkle, { date: new Date("2026-08-29T12:00:00Z") });
   candidate.caption = `${candidate.caption}\nGuaranteed profit.`;
   assert.throws(() => assertNarrativeSafety(candidate), /blocked financial language/);
 });
 
-test("raw merchant links are rejected", () => {
+test("price-prediction language is rejected", () => {
   const candidate = buildNarrativeCandidate(twinkle, { date: new Date("2026-08-29T12:00:00Z") });
-  candidate.caption = `${candidate.caption}\nhttps://www.ebay.com/itm/123`;
-  assert.throws(() => assertNarrativeSafety(candidate), /raw merchant URLs/);
+  candidate.caption = `${candidate.caption}\nPrice prediction: this figure will double.`;
+  assert.throws(() => assertNarrativeSafety(candidate), /blocked financial language/);
+});
+
+test("legitimate product names do not trigger financial-promotion rules", () => {
+  const moonSeries = structuredClone(twinkle);
+  moonSeries.slug = "moon-rabbit-test";
+  moonSeries.name = "Moon Garden Series";
+  moonSeries.figures[0].name = "Moon Rabbit";
+  assert.doesNotThrow(() => buildNarrativeCandidate(moonSeries, { date: new Date("2026-08-29T12:00:00Z") }));
+});
+
+test("raw merchant links are rejected with or without protocol", () => {
+  for (const merchantUrl of [
+    "https://www.ebay.com/itm/123",
+    "https://ebay.com",
+    "ebay.com/itm/123",
+    "www.amazon.com/dp/example",
+  ]) {
+    const candidate = buildNarrativeCandidate(twinkle, { date: new Date("2026-08-29T12:00:00Z") });
+    candidate.caption = `${candidate.caption}\n${merchantUrl}`;
+    assert.throws(() => assertNarrativeSafety(candidate), /raw merchant URLs/);
+  }
 });
 
 test("UES connection candidate is review-only and identifies the business", () => {
@@ -95,7 +122,7 @@ test("UES connection candidate is review-only and identifies the business", () =
   assert.match(candidate.caption, new RegExp(UES_BUSINESS_NAME));
   assert.match(candidate.caption, new RegExp(UES_NETWORK_DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(candidate.caption, new RegExp(AFFILIATE_DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.doesNotMatch(candidate.caption, /https?:\/\/(?:www\.)?(?:ebay|amazon)\./i);
+  assert.doesNotMatch(candidate.caption, /(?:https?:\/\/)?(?:www\.)?(?:ebay|amazon)\./i);
 });
 
 test("UES connection candidate rejects outcome guarantees", () => {
