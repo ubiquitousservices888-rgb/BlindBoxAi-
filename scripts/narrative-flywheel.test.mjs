@@ -131,6 +131,14 @@ test("UES connection candidate rejects outcome guarantees", () => {
   assert.throws(() => assertUesNetworkSafety(candidate), /blocked promise language/);
 });
 
+test("UES connection candidate rejects instant-money promises", () => {
+  for (const promise of ["instant money", "instant-money"]) {
+    const candidate = buildUesNetworkCandidate({ date: new Date("2026-08-29T12:00:00Z") });
+    candidate.caption = `${candidate.caption}\nThis creates ${promise}.`;
+    assert.throws(() => assertUesNetworkSafety(candidate), /blocked promise language/);
+  }
+});
+
 test("UES connection candidate cannot auto-publish", () => {
   const candidate = buildUesNetworkCandidate({ date: new Date("2026-08-29T12:00:00Z") });
   candidate.publishAutomatically = true;
