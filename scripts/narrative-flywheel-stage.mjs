@@ -6,6 +6,10 @@ import {
   buildNarrativePreview,
   selectNarrativeSeries,
 } from "../lib/narrative-flywheel.mjs";
+import {
+  buildUesNetworkCandidate,
+  buildUesNetworkPreview,
+} from "../lib/ues-network-flywheel.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -32,11 +36,17 @@ const selected = selectNarrativeSeries(loadSeries(), { priorityTerms });
 if (!selected) throw new Error("No verified evidence-backed series is available for narrative staging");
 
 const candidate = buildNarrativeCandidate(selected, { priorityTerms });
+const connectionCandidate = buildUesNetworkCandidate();
+
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUTPUT_DIR, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
 fs.writeFileSync(path.join(OUTPUT_DIR, "preview.md"), buildNarrativePreview(candidate));
+fs.writeFileSync(path.join(OUTPUT_DIR, "ues-network-candidate.json"), JSON.stringify(connectionCandidate, null, 2) + "\n");
+fs.writeFileSync(path.join(OUTPUT_DIR, "ues-network-preview.md"), buildUesNetworkPreview(connectionCandidate));
 
 console.log(`NARRATIVE_READY_FOR_REVIEW: ${candidate.id}`);
 console.log(`HOOK_FAMILY: ${candidate.hookFamily}`);
 console.log(`SERIES: ${candidate.source.seriesName}`);
+console.log(`UES_NETWORK_READY_FOR_REVIEW: ${connectionCandidate.id}`);
+console.log(`UES_NETWORK_CAMPAIGN: ${connectionCandidate.campaign.id}`);
 console.log("NO_AUTONOMOUS_PUBLISH: true");
