@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import LiveEbayListings from '../../_components/LiveEbayListings';
 import { evaluateOfferPrice } from '../../../lib/buy-or-pass-core.mjs';
 
 function money(value) {
@@ -12,7 +13,7 @@ function money(value) {
   }).format(value);
 }
 
-export default function BuyOrPassClient({ offer, activePath, soldPath }) {
+export default function BuyOrPassClient({ offer, activePath, soldPath, campaignId = '', source = 'buy_or_pass' }) {
   const [price, setPrice] = useState('');
   const result = useMemo(() => {
     if (!price.trim()) return null;
@@ -97,9 +98,16 @@ export default function BuyOrPassClient({ offer, activePath, soldPath }) {
           </a>
         </div>
         <p className="tw-muted">
-          These links open an eBay search for this collectible; BlindBoxAI does not choose a specific seller or listing for you.
+          These BlindBoxAI links open the corresponding eBay market view with affiliate attribution preserved.
         </p>
       </section>
+
+      <LiveEbayListings
+        offerId={offer.id}
+        campaignId={campaignId}
+        source={source}
+        heading={`Live ${offer.figure} listings`}
+      />
 
       <section className="block">
         <h2>Evidence <span className="k">REVIEWED</span></h2>

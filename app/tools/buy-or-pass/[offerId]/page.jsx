@@ -40,6 +40,8 @@ export default async function BuyOrPassOfferPage({ params, searchParams }) {
       offer={offer}
       activePath={revenueOutboundPath(offer.id, 'active', attribution)}
       soldPath={revenueOutboundPath(offer.id, 'sold', attribution)}
+      campaignId={attribution.campaignId}
+      source={attribution.source}
     />
   );
 }
