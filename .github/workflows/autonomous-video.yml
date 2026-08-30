@@ -70,6 +70,11 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Install free video renderer
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
       - name: Verify free fallback renderer
         shell: bash
         run: |
