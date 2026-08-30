@@ -10,11 +10,18 @@ test("public Mr Know It All route cannot invoke an LLM or require an OpenAI key"
   assert.match(route, /buildDeterministicCompResponse/);
 });
 
-test("scheduled autonomous video publishing is paused", () => {
+test("scheduled video rendering cannot bypass owner-gated Buffer publishing", () => {
   const workflow = read(".github/workflows/autonomous-video.yml");
-  assert.doesNotMatch(workflow, /\bschedule\s*:/);
-  assert.doesNotMatch(workflow, /ZAPIER_VIDEO_WEBHOOK_URL|BUFFER_API_TOKEN|CREATOMATE_API_KEY/);
+  assert.match(workflow, /\bschedule\s*:/);
   assert.match(workflow, /workflow_dispatch/);
+  assert.match(workflow, /CREATOMATE_API_KEY/);
+  assert.match(workflow, /BUFFER_API_TOKEN/);
+  assert.match(workflow, /ALLOW_MANUAL_VIDEO_RENDER:\s*"true"/);
+  assert.match(workflow, /ALLOW_MANUAL_VIDEO_PUBLISH:\s*"true"/);
+  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(workflow, /READY_FOR_REVIEW/);
+  assert.match(workflow, /Reviewed video URL changed before publication/);
+  assert.doesNotMatch(workflow, /ZAPIER_VIDEO_WEBHOOK_URL/);
 });
 
 test("scheduled Mr Know It All AI research is paused", () => {
