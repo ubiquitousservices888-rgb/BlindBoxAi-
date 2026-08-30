@@ -1,6 +1,13 @@
-name: Video pipeline compliance gate (publishing paused)
+name: Autonomous verified video pipeline
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - data/verified-video-products.json
+      - .github/workflows/autonomous-video.yml
+  schedule:
+    - cron: "17 14 * * *"
   workflow_dispatch:
 
 permissions:
@@ -8,21 +15,146 @@ permissions:
   actions: read
 
 jobs:
-  validate-only:
-    name: Validate deterministic video assets only
+  validate:
+    name: Validate verified video inputs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24
+          node-version: "24"
           cache: npm
-      - run: npm ci
-      - run: npm run video:test
-      - run: node scripts/video-pipeline.mjs validate
-      - name: Confirm publishing is intentionally disabled
+      - name: Install dependencies
+        run: npm ci
+      - name: Run video safety tests
+        run: npm run video:test
+      - name: Validate verified video source data
+        run: node scripts/video-pipeline.mjs validate
+
+  render:
+    name: Render one verified video for review
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      video_url: ${{ steps.review.outputs.video_url }}
+      state_b64: ${{ steps.review.outputs.state_b64 }}
+    env:
+      CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
+      CREATOMATE_TEMPLATE_ID: ${{ secrets.CREATOMATE_TEMPLATE_ID }}
+      ALLOW_MANUAL_VIDEO_RENDER: "true"
+      ALLOW_MANUAL_VIDEO_PUBLISH: "false"
+      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify renderer configuration
+        shell: bash
         run: |
-          echo "P0 compliance hold: this workflow validates only."
-          echo "No Zapier webhook, renderer, Buffer publisher, TikTok API, YouTube API, or generative AI is invoked."
+          if [ -z "$CREATOMATE_API_KEY" ] || [ -z "$CREATOMATE_TEMPLATE_ID" ]; then
+            echo "::error::Creatomate is not configured. CREATOMATE_API_KEY and CREATOMATE_TEMPLATE_ID are required."
+            exit 1
+          fi
+      - name: Render verified video
+        run: npm run video:daily
+      - name: Prepare exact review state
+        id: review
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const file = "output/video-pipeline/state.json";
+          const state = JSON.parse(fs.readFileSync(file, "utf8"));
+          const videoUrl = state?.render?.videoUrl;
+          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Video is not READY_FOR_REVIEW");
+          if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(videoUrl ?? "")) throw new Error("Review URL must be a hosted HTTPS MP4");
+          const stateB64 = Buffer.from(JSON.stringify(state), "utf8").toString("base64");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${videoUrl}\nstate_b64=${stateB64}\n`);
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## Video ready for review\n\n[Watch the exact MP4](${videoUrl})\n\nThis run is stopped behind the social-production approval gate. Approve only if the video and caption are acceptable; approval sends this exact state to Buffer.\n`,
+          );
+          NODE
+      - name: Upload review receipt
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ready-for-review-${{ github.run_id }}
+          path: output/video-pipeline/state.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-after-approval:
+    name: Owner approval → Buffer queue
+    if: needs.render.result == 'success' && github.ref == 'refs/heads/main'
+    needs: render
+    runs-on: ubuntu-latest
+    environment:
+      name: social-production
+      url: ${{ needs.render.outputs.video_url }}
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: autonomous-video-buffer-publish
+      cancel-in-progress: false
+    env:
+      ALLOW_MANUAL_VIDEO_PUBLISH: "true"
+      BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Restore exact reviewed state
+        env:
+          REVIEWED_STATE_B64: ${{ needs.render.outputs.state_b64 }}
+          REVIEWED_VIDEO_URL: ${{ needs.render.outputs.video_url }}
+        shell: bash
+        run: |
+          mkdir -p output/video-pipeline
+          printf '%s' "$REVIEWED_STATE_B64" | base64 --decode > output/video-pipeline/state.json
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const state = JSON.parse(fs.readFileSync("output/video-pipeline/state.json", "utf8"));
+          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Reviewed state is not READY_FOR_REVIEW");
+          if (state?.render?.videoUrl !== process.env.REVIEWED_VIDEO_URL) throw new Error("Reviewed video URL changed before publication");
+          NODE
+      - name: Verify Buffer configuration
+        shell: bash
+        run: |
+          if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
+            echo "::error::Buffer is not configured. BUFFER_API_TOKEN and BUFFER_ORGANIZATION_ID are required."
+            exit 1
+          fi
+      - name: Record owner approval
+        run: npm run video:approve
+      - name: Queue approved video through Buffer
+        run: npm run video:publish
+      - name: Upload publication receipt
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: video-publication-${{ github.run_id }}
+          path: output/video-pipeline/state.json
+          if-no-files-found: error
+          retention-days: 30
