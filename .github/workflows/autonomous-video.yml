@@ -6,7 +6,6 @@ on:
     paths:
       - data/verified-video-products.json
       - .github/workflows/autonomous-video.yml
-      - scripts/deterministic-video-stage.mjs
       - package.json
   schedule:
     - cron: "17 14 * * *"
@@ -42,7 +41,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       actions: read
     outputs:
       video_url: ${{ steps.review.outputs.video_url }}
@@ -53,7 +52,6 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
       GEMINI_VIDEO_RESOLUTION: ${{ vars.GEMINI_VIDEO_RESOLUTION || '360p' }}
-      VIDEO_ASSET_RELEASE_TAG: blindbox-video-assets
       ALLOW_MANUAL_VIDEO_RENDER: "true"
       ALLOW_GEMINI_VIDEO_RENDER: "true"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"
@@ -70,20 +68,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Install free video renderer
-        shell: bash
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
-      - name: Verify free fallback renderer
-        shell: bash
-        run: |
-          command -v ffmpeg >/dev/null 2>&1 || {
-            echo "::error::ffmpeg is required for the free deterministic video fallback."
-            exit 1
-          }
-          ffmpeg -hide_banner -version | head -1
-      - name: Render verified video with automatic fallback
+      - name: Render verified video with production-quality provider
         shell: bash
         run: |
           set +e
@@ -112,37 +97,26 @@ jobs:
             exit 0
           fi
 
-          echo "Cloud renderers unavailable; using free deterministic ffmpeg fallback."
-          npm run video:deterministic-stage
-      - name: Host deterministic review MP4 on GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
+          echo "::error::No production-quality video renderer succeeded. Text-only deterministic fallback is disabled. Nothing will be sent to review or Buffer."
+          exit 1
+      - name: Enforce production video quality gate
         shell: bash
         run: |
-          provider="$(node -p 'require("./output/video-pipeline/state.json").render.provider')"
-          if [ "$provider" != "deterministic-ffmpeg" ]; then
-            echo "Cloud renderer produced the hosted MP4; no release upload needed."
-            exit 0
-          fi
-
-          asset="$(node -p 'require("./output/video-pipeline/state.json").render.assetFilename')"
-          video_url="$(node -p 'require("./output/video-pipeline/state.json").render.videoUrl')"
-          local_file="output/video-pipeline/$asset"
-
-          test -s "$local_file" || {
-            echo "::error::Deterministic MP4 is missing."
-            exit 1
-          }
-
-          if ! gh release view "$VIDEO_ASSET_RELEASE_TAG" >/dev/null 2>&1; then
-            gh release create "$VIDEO_ASSET_RELEASE_TAG" \
-              --title "BlindBoxAI verified video assets" \
-              --notes "Machine-generated review assets for the guarded BlindBoxAI video pipeline. Publishing still requires owner approval."
-          fi
-          gh release upload "$VIDEO_ASSET_RELEASE_TAG" "$local_file" --clobber
-
-          curl --fail --location --silent --show-error --head "$video_url" >/dev/null
-          echo "Hosted deterministic review MP4: $video_url"
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const file = "output/video-pipeline/state.json";
+          if (!fs.existsSync(file)) throw new Error("Renderer did not produce review state");
+          const state = JSON.parse(fs.readFileSync(file, "utf8"));
+          const provider = state?.render?.provider ?? "";
+          const videoUrl = state?.render?.videoUrl ?? "";
+          const blocked = new Set(["deterministic-ffmpeg", "text-card", "placeholder", "mock", "simulated"]);
+          if (blocked.has(provider)) throw new Error(`Blocked low-quality renderer reached review state: ${provider}`);
+          if (!provider) throw new Error("Render provider is missing");
+          if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(videoUrl)) throw new Error("Production review video must be a hosted HTTPS MP4");
+          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Renderer output is not READY_FOR_REVIEW");
+          console.log(`QUALITY_GATE_PROVIDER=${provider}`);
+          console.log(`QUALITY_GATE_VIDEO_URL=${videoUrl}`);
+          NODE
       - name: Prepare exact review state
         id: review
         shell: bash
@@ -152,13 +126,16 @@ jobs:
           const file = "output/video-pipeline/state.json";
           const state = JSON.parse(fs.readFileSync(file, "utf8"));
           const videoUrl = state?.render?.videoUrl;
+          const provider = state?.render?.provider;
+          const blocked = new Set(["deterministic-ffmpeg", "text-card", "placeholder", "mock", "simulated"]);
           if (state?.state !== "READY_FOR_REVIEW") throw new Error("Video is not READY_FOR_REVIEW");
+          if (blocked.has(provider)) throw new Error(`Low-quality renderer cannot enter review: ${provider}`);
           if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(videoUrl ?? "")) throw new Error("Review URL must be a hosted HTTPS MP4");
           const stateB64 = Buffer.from(JSON.stringify(state), "utf8").toString("base64");
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${videoUrl}\nstate_b64=${stateB64}\n`);
           fs.appendFileSync(
             process.env.GITHUB_STEP_SUMMARY,
-            `## Video ready for review\n\n[Watch the exact MP4](${videoUrl})\n\nThis run is stopped behind the social-production approval gate. Approve only if the video and caption are acceptable; approval sends this exact state to Buffer.\n`,
+            `## Production-quality video ready for review\n\n[Watch the exact MP4](${videoUrl})\n\nRenderer: ${provider}\n\nThis run is stopped behind the social-production approval gate. Approve only if the visuals, audio, caption, and CTA are acceptable.\n`,
           );
           NODE
       - name: Upload review receipt
@@ -210,7 +187,9 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
           const state = JSON.parse(fs.readFileSync("output/video-pipeline/state.json", "utf8"));
+          const blocked = new Set(["deterministic-ffmpeg", "text-card", "placeholder", "mock", "simulated"]);
           if (state?.state !== "READY_FOR_REVIEW") throw new Error("Reviewed state is not READY_FOR_REVIEW");
+          if (blocked.has(state?.render?.provider)) throw new Error(`Blocked renderer cannot be published: ${state?.render?.provider}`);
           if (state?.render?.videoUrl !== process.env.REVIEWED_VIDEO_URL) throw new Error("Reviewed video URL changed before publication");
           NODE
       - name: Verify Buffer configuration
