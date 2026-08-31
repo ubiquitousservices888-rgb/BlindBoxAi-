@@ -6,7 +6,6 @@ on:
     paths:
       - data/verified-video-products.json
       - .github/workflows/autonomous-video.yml
-      - scripts/deterministic-video-stage.mjs
       - package.json
   schedule:
     - cron: "17 14 * * *"
