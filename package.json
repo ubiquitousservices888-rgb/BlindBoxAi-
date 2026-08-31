@@ -12,7 +12,6 @@
     "labubu:test": "node --test scripts/labubu-test.mjs",
     "video:daily": "node scripts/video-pipeline.mjs daily",
     "video:gemini-stage": "node scripts/gemini-video-stage.mjs",
-    "video:deterministic-stage": "node scripts/deterministic-video-stage.mjs",
     "video:approve": "node scripts/video-pipeline.mjs approve",
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node scripts/video-pipeline.mjs publish",
