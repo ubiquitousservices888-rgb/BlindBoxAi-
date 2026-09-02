@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DISCLOSURE, STATES, approve, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 
 const now = new Date("2026-08-09T12:00:00.000Z");
 const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
@@ -23,6 +23,10 @@ describe("render and manual review gates", () => {
   it("requires a hosted HTTPS MP4", () => assert.throws(() => markRendered(createRenderRecord(product, generateVideoScript(product, now), ["tiktok"], now), { id: "x", videoUrl: "file:///video.mp4" }, now)));
   it("cannot approve before READY_FOR_REVIEW", () => assert.throws(() => approve(createRenderRecord(product, generateVideoScript(product, now), ["tiktok"], now), now)));
   it("reject records cannot publish", async () => await assert.rejects(() => publishApproved(reject(ready(), "bad audio", now), async () => ({ id: "x" }), now)));
+  it("rejects unapproved state before any publishing preflight", () => {
+    assert.throws(() => assertPublishableState(ready()), /Manual approval is required/);
+    assert.equal(assertPublishableState(approve(ready(), now)), true);
+  });
 });
 
 describe("safe publishing", () => {

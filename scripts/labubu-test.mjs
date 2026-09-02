@@ -319,7 +319,7 @@ describe("Post generator", () => {
       const { rows } = parseCSV(fs.readFileSync(csvPath, "utf8"));
       for (let i = 0; i < rows.length; i++) {
         const pt = rows[i]["Posting Time"];
-        if (!pt || pt.trim() === "") continue;
+        assert.ok(pt?.trim(), `${channel} Row ${i + 2}: Posting Time is required`);
         assert.ok(
           POSTING_TIME_RE.test(pt.trim()),
           `${channel} Row ${i + 2}: Posting Time must be YYYY-MM-DD HH:mm, got: ${pt}`,
@@ -337,11 +337,11 @@ describe("Post generator", () => {
       const { rows } = parseCSV(fs.readFileSync(csvPath, "utf8"));
       for (let i = 0; i < rows.length; i++) {
         const pt = rows[i]["Posting Time"];
-        if (!pt || pt.trim() === "") continue;
-        const d = new Date(pt.trim());
-        if (!isNaN(d.getTime())) {
-          assert.ok(d >= now, `${channel} Row ${i + 2}: Posting Time is in the past: ${pt}`);
-        }
+        assert.ok(pt?.trim(), `${channel} Row ${i + 2}: Posting Time is required`);
+        const isoLocal = pt.trim().replace(" ", "T") + ":00";
+        const d = new Date(isoLocal);
+        assert.ok(!Number.isNaN(d.getTime()), `${channel} Row ${i + 2}: invalid Posting Time: ${pt}`);
+        assert.ok(d >= now, `${channel} Row ${i + 2}: Posting Time is in the past: ${pt}`);
       }
     }
   });

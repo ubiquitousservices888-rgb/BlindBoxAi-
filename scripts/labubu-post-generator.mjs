@@ -166,9 +166,9 @@ function getPriceText(pricingData, slug, variantName) {
   const variant = series.variants?.find((v) => v.variant === variantName);
   if (!variant) return null;
   if (variant.status !== "verified") return null;
-  if (!variant.price_low || !variant.price_high) return null;
+  if (variant.price_low == null || variant.price_high == null) return null;
   const src = variant.source ? ` (source: ${variant.source})` : "";
-  const n = variant.sample_size ? `, ${variant.sample_size} recent listings checked` : "";
+  const n = variant.sample_size == null ? "" : `, ${variant.sample_size} recent listings checked`;
   return `$${variant.price_low}–$${variant.price_high}${n}${src}`;
 }
 
