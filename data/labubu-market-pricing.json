@@ -1,7 +1,7 @@
 {
   "_schema": "labubu-market-pricing/v1",
   "_status": "STALE_SEED_DATA",
-  "_note": "This file contains manually seeded placeholder data only. No values have been verified against live market listings. Update each entry with real sold-listing data before using in any published pricing claim. Set status to 'verified' and populate checkedAt/source/sampleSize when real data is available.",
+  "_note": "This file contains manually seeded placeholder data only. No values have been verified against live market listings. Update each entry with real sold-listing data before using in any published pricing claim. Set status to 'verified' and populate checked_at/source/sample_size when real data is available.",
   "lastUpdated": null,
   "series": [
     {
