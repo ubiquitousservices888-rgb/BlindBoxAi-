@@ -33,6 +33,10 @@ output/labubu/                  — generated output (gitignored)
   labubu-buffer.yml             — GitHub Actions: runs on PR + schedule
 ```
 
+Per-channel CSVs are written only when qualifying posts exist. Image-dependent
+channels such as Instagram and Pinterest may therefore be absent until public,
+approved media is available.
+
 ---
 
 ## A) CSV Bulk Upload (text + images)
