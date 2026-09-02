@@ -10,6 +10,10 @@ const jsonResponse = (body, status = 200) => ({ ok: status >= 200 && status < 30
 describe("verified-data gate", () => {
   it("rejects unsourced claims", () => assert.throws(() => validateVerifiedProduct({ ...product, claims: [{ text: "invented" }] }, now)));
   it("rejects stale sources", () => assert.throws(() => validateVerifiedProduct({ ...product, sources: [{ ...product.sources[0], checkedAt: "2026-01-01T00:00:00.000Z" }] }, now)));
+  it("rejects source timestamps that look ISO-like but do not parse", () => {
+    const invalid = { ...product, sources: [{ ...product.sources[0], checkedAt: "2026-99-99T12:00:00.000Z" }] };
+    assert.throws(() => validateVerifiedProduct(invalid, now), /not verified/);
+  });
   it("fails daily selection closed when none qualify", () => assert.throws(() => selectDailyProduct([], now)));
   it("generates only sourced facts, BlindBoxAI CTA, and disclosure", () => {
     const script = generateVideoScript(product, now);
