@@ -93,11 +93,15 @@ describe("public Buffer media safety", () => {
   });
   it("checks publish state before media reachability in the CLI", () => {
     const source = fs.readFileSync(new URL("./video-pipeline.mjs", import.meta.url), "utf8");
-    const publishStart = source.indexOf('} else if (command === "publish") {');
-    const publishEnd = source.indexOf("} else throw new Error", publishStart);
-    assert.ok(publishStart >= 0 && publishEnd > publishStart, "publish command branch must exist");
+    const publishHeader = /}\s*else\s+if\s*\(\s*command\s*===\s*["']publish["']\s*\)\s*{/;
+    const headerMatch = publishHeader.exec(source);
+    assert.ok(headerMatch, "publish command branch must exist");
 
-    const publishBranch = source.slice(publishStart, publishEnd);
+    const publishTail = source.slice(headerMatch.index + headerMatch[0].length);
+    const branchEnd = /}\s*else\s+throw\s+new\s+Error/.exec(publishTail);
+    assert.ok(branchEnd, "publish command branch must have a terminal boundary");
+
+    const publishBranch = publishTail.slice(0, branchEnd.index);
     const stateGate = publishBranch.indexOf("assertPublishableState(current)");
     const mediaPreflight = publishBranch.indexOf("assertBufferPublishReady(current)");
     assert.ok(stateGate >= 0, "publish branch must enforce the approval state");
