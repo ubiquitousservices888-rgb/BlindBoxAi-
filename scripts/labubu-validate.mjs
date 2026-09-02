@@ -281,7 +281,7 @@ function checkPricingFile() {
       }
 
       if (variant.status === "verified") {
-        if (!variant.price_low || !variant.price_median || !variant.price_high) {
+        if (variant.price_low == null || variant.price_median == null || variant.price_high == null) {
           error(`Verified variant '${variant.variant}' in '${series.series}' is missing price fields`);
         }
         if (!variant.source) {
@@ -290,7 +290,9 @@ function checkPricingFile() {
         if (!variant.checked_at) {
           error(`Verified variant '${variant.variant}' in '${series.series}' must have checked_at`);
         }
-        if (!variant.sample_size || variant.sample_size < 2) {
+        if (variant.sample_size == null) {
+          warn(`Verified variant '${variant.variant}' in '${series.series}' is missing sample_size`);
+        } else if (variant.sample_size < 2) {
           warn(`Verified variant '${variant.variant}' in '${series.series}' has sample_size < 2`);
         }
       }
@@ -378,7 +380,7 @@ function checkChannelCSV(channel, filename) {
     // local form), which all modern JS engines consistently parse as local.
     const postingTime = row["Posting Time"];
     if (!postingTime || postingTime.trim() === "") {
-      warn(`${label}: Posting Time is empty`);
+      error(`${label}: Posting Time is empty`);
     } else if (!POSTING_TIME_RE.test(postingTime.trim())) {
       error(`${label}: Posting Time must be YYYY-MM-DD HH:mm format, got: ${postingTime}`);
     } else {
