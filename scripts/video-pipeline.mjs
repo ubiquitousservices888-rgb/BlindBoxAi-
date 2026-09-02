@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { approve, assertPublishableState, createBufferPublisher, createRenderRecord, DISCLOSURE, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 import { assertBufferPublishReady } from "../lib/buffer-media-safety.mjs";
 import { hardenGenerativeVideoScript } from "../lib/epn-genai-safety.mjs";
 
-const root = path.resolve(new URL("..", import.meta.url).pathname);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataFile = process.env.VIDEO_PRODUCTS_FILE ?? path.join(root, "data/verified-video-products.json");
 const stateFile = process.env.VIDEO_STATE_FILE ?? path.join(root, "output/video-pipeline/state.json");
 const command = process.argv[2] ?? "validate";
