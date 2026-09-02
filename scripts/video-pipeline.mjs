@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { approve, createBufferPublisher, createRenderRecord, DISCLOSURE, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { approve, assertPublishableState, createBufferPublisher, createRenderRecord, DISCLOSURE, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 import { assertBufferPublishReady } from "../lib/buffer-media-safety.mjs";
 import { hardenGenerativeVideoScript } from "../lib/epn-genai-safety.mjs";
 
@@ -39,6 +39,7 @@ if (command === "validate") {
     throw new Error("Video publishing is paused. Set ALLOW_MANUAL_VIDEO_PUBLISH=true only after owner review.");
   }
   const current = read(stateFile);
+  assertPublishableState(current);
   await assertBufferPublishReady(current);
   const publisher = createBufferPublisher({
     token: process.env.BUFFER_API_TOKEN,
