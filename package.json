@@ -7,6 +7,7 @@
     "start": "next start",
     "affiliate:report": "node --env-file=.env.local scripts/affiliate-click-report.mjs",
     "ebay:test": "node --test scripts/ebay-production-api.test.mjs",
+    "amazon:test": "node --test scripts/amazon-associates.test.mjs",
     "labubu:generate": "node scripts/labubu-post-generator.mjs",
     "labubu:validate": "node scripts/labubu-validate.mjs",
     "labubu:test": "node --test scripts/labubu-test.mjs",
@@ -50,7 +51,7 @@
     "predeploy": "bash scripts/predeploy.sh .",
     "audit:epn": "node scripts/audit-epn-links.mjs",
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
-    "test": "npm run p0:test && npm run comp:test && npm run ebay:test && npm run labubu:test && npm run video:test && npm run shopping:test && npm run narrative:test && npm run partnership:test && npm run automation:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test && npm run privacy:test && npm run intent:test && npm run price:test",
+    "test": "npm run p0:test && npm run comp:test && npm run ebay:test && npm run amazon:test && npm run labubu:test && npm run video:test && npm run shopping:test && npm run narrative:test && npm run partnership:test && npm run automation:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run funnel:test && npm run campaign:test && npm run opportunity:test && npm run visual:test && npm run privacy:test && npm run intent:test && npm run price:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate",
     "price:test": "node --test scripts/collectible-price-verification.test.mjs"
   },
