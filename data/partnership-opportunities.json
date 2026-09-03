@@ -1,0 +1,58 @@
+{
+  "schema": "blindboxai.partnership-opportunities/v1",
+  "note": "Public, review-only monetization opportunities. A listing here is not an endorsement, sponsorship, approval, or guarantee of eligibility.",
+  "opportunities": [
+    {
+      "id": "youtube-creator-partnerships",
+      "name": "YouTube Creator Partnerships",
+      "organization": "YouTube",
+      "type": "sponsorship_discovery",
+      "sourceUrl": "https://support.google.com/youtube/answer/9385307?hl=en",
+      "checkedAt": "2026-09-03T11:20:00Z",
+      "evidence": "Eligible YPP creators can be discovered by brands, receive campaign inquiries, use a media kit, and set preferred rates in YouTube Studio.",
+      "requirements": ["18+", "YouTube Partner Program", "supported country/region", "no active Community Guidelines strikes"],
+      "eligibilityStatus": "unknown",
+      "fitTags": ["youtube", "shorts", "collectibles", "brand-deals"],
+      "riskFlags": ["eligibility-must-be-verified", "brand-inquiries-not-guaranteed"]
+    },
+    {
+      "id": "youtube-open-call",
+      "name": "YouTube Creator Partnerships Open Call",
+      "organization": "YouTube",
+      "type": "sponsorship_open_call",
+      "sourceUrl": "https://support.google.com/youtube/answer/17210205?hl=en",
+      "checkedAt": "2026-09-03T11:20:00Z",
+      "evidence": "Invite-only Open Call projects let eligible creators submit Shorts for advertiser selection and payment through AdSense if selected.",
+      "requirements": ["invite", "US/UK/India", "YPP + active AdSense", "1,000-500,000 subscribers", "Short posted in last 30 days", "original user-generated content"],
+      "eligibilityStatus": "unknown",
+      "fitTags": ["youtube", "shorts", "brand-deals"],
+      "riskFlags": ["invite-only", "selection-not-guaranteed", "ai-generated-visuals-may-be-rejected", "usage-rights-require-review"]
+    },
+    {
+      "id": "whatnot-affiliate",
+      "name": "Whatnot Affiliate Program",
+      "organization": "Whatnot",
+      "type": "affiliate",
+      "sourceUrl": "https://help.whatnot.com/hc/en-us/articles/14718641787021-Whatnot-Affiliate-Program",
+      "checkedAt": "2026-09-03T11:20:00Z",
+      "evidence": "Eligible creators can apply through Impact and earn commission on eligible Whatnot purchases attributed through their affiliate link.",
+      "requirements": ["18+", "1,000+ followers or subscribers on one social platform", "Impact standards"],
+      "eligibilityStatus": "unknown",
+      "fitTags": ["collectibles", "marketplace", "affiliate"],
+      "riskFlags": ["affiliate-not-sponsorship", "eligibility-must-be-verified", "3-day-attribution-window"]
+    },
+    {
+      "id": "stockx-the-connect",
+      "name": "The Connect by StockX",
+      "organization": "StockX",
+      "type": "ambassador_affiliate",
+      "sourceUrl": "https://stockx.com/lp/ambassador-program-the-connect/",
+      "checkedAt": "2026-09-03T11:20:00Z",
+      "evidence": "StockX publicly describes The Connect as an ambassador program for creators and trendsetters that pays commission for referred purchases and may include monthly cash bonus payouts.",
+      "requirements": ["application and acceptance"],
+      "eligibilityStatus": "unknown",
+      "fitTags": ["collectibles", "marketplace", "ambassador", "affiliate"],
+      "riskFlags": ["affiliate-not-sponsorship", "acceptance-not-guaranteed", "product-fit-must-be-verified"]
+    }
+  ]
+}
