@@ -1,0 +1,70 @@
+name: Partnership flywheel candidate (review only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/partnership-flywheel.mjs"
+      - "scripts/partnership-flywheel-stage.mjs"
+      - "scripts/partnership-flywheel.test.mjs"
+      - "data/partnership-opportunities.json"
+      - "package.json"
+      - ".github/workflows/partnership-flywheel-stage.yml"
+  schedule:
+    - cron: "20 16 * * *"
+  workflow_dispatch:
+    inputs:
+      focus_terms:
+        description: "Comma-separated partnership focus terms"
+        required: false
+        default: "collectibles,youtube,shorts"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blindboxai-partnership-flywheel-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    name: Research, rank, and stage partnership candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PARTNERSHIP_FOCUS_TERMS: ${{ github.event.inputs.focus_terms || 'collectibles,youtube,shorts' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test partnership safety rules
+        run: node --test scripts/partnership-flywheel.test.mjs
+      - name: Stage researcher, finder, and seeker output
+        run: node scripts/partnership-flywheel-stage.mjs
+      - name: Upload review candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: partnership-flywheel-review
+          path: output/partnership-flywheel
+          retention-days: 7
+          if-no-files-found: error
+      - name: Confirm no autonomous outreach
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const candidate = JSON.parse(fs.readFileSync("output/partnership-flywheel/candidate.json", "utf8"));
+          if (candidate.state !== "READY_FOR_REVIEW") throw new Error("Partnership candidate escaped review state");
+          if (candidate.contactAutomatically !== false) throw new Error("Automatic contact must remain disabled");
+          if (candidate.applyAutomatically !== false) throw new Error("Automatic applications must remain disabled");
+          if (candidate.spendAutomatically !== false) throw new Error("Automatic spending must remain disabled");
+          console.log("Partnership candidate is review-only; no email, DM, application, contract, or spend was executed.");
+          NODE
