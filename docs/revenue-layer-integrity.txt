@@ -1,0 +1,1 @@
+Only network-confirmed orders and earnings may populate revenue KPIs.
