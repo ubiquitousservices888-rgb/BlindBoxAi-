@@ -34,39 +34,6 @@
           "sourceId": "popmart-product-7890"
         }
       ]
-    },
-    {
-      "id": "hirono-shelter-mantel-clock",
-      "name": "HIRONO Shelter Series Mantel Clock",
-      "productUrl": "https://www.blindboxai.com/series/hirono-shelter-series",
-      "sources": [
-        {
-          "id": "popmart-hirono-shelter",
-          "status": "verified",
-          "url": "https://www.popmart.com/us/products/1385/Hirono-Shelter-Series-Figures",
-          "checkedAt": "2026-08-15T04:00:00Z"
-        },
-        {
-          "id": "ebay-hirono-mantel-clock-sold-search",
-          "status": "verified",
-          "url": "https://www.ebay.com/sch/i.html?_nkw=HIRONO+Shelter+Mantel+Clock&LH_Complete=1&LH_Sold=1",
-          "checkedAt": "2026-08-15T04:00:00Z"
-        }
-      ],
-      "claims": [
-        {
-          "text": "POP MART identifies Mantel Clock as a HIRONO Shelter Series figure; the official US page lists the series release date as July 19, 2024.",
-          "sourceId": "popmart-hirono-shelter"
-        },
-        {
-          "text": "A US eBay sold result dated June 27, 2026 displayed $1,399 with free shipping for a listing described as a HIRONO Shelter Series Mantel Clock.",
-          "sourceId": "ebay-hirono-mantel-clock-sold-search"
-        },
-        {
-          "text": "This is one displayed sold result, not an established market value; authenticity and repeatability were not independently verified.",
-          "sourceId": "ebay-hirono-mantel-clock-sold-search"
-        }
-      ]
     }
   ]
 }

@@ -14,6 +14,12 @@ on:
   schedule:
     - cron: "45 15 * * *"
   workflow_dispatch:
+    inputs:
+      priority_terms:
+        description: "Comma-separated Narrative Flywheel priority terms for this manual review run"
+        required: false
+        default: "twinkle"
+        type: string
 
 permissions:
   contents: read
@@ -28,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      BLINDBOXAI_PRIORITY_TERMS: twinkle
+      BLINDBOXAI_PRIORITY_TERMS: ${{ github.event.inputs.priority_terms || 'twinkle' }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
