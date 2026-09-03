@@ -1,0 +1,1 @@
+Affiliate reporting credentials are server-side only. Missing reporting data is represented as unconnected/pending, not zero. Owner auth and social publishing approval remain unchanged.
