@@ -8,6 +8,7 @@ import {
   buildAmazonSearchUrl,
   getAmazonAccessoryOffer,
 } from "../lib/amazon-associates.mjs";
+import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
 
 describe("Amazon Associates accessory path", () => {
   it("uses a fixed allowlist of evergreen accessory categories", () => {
@@ -42,5 +43,45 @@ describe("Amazon Associates accessory path", () => {
 
   it("rejects unknown offer ids instead of becoming an open redirect", () => {
     assert.throws(() => buildAmazonSearchUrl("anything-goes"), /not found/i);
+  });
+
+  it("rolls Amazon clicks up by provider, offer, source, and campaign", () => {
+    const event = {
+      provider: "amazon_associates",
+      offerId: "display-turntable",
+      offerTitle: "Motorized display turntables",
+      source: "youtube",
+      campaignId: "fall_launch",
+      clickedAt: "2026-09-03T23:00:00.000Z",
+    };
+
+    assert.equal(
+      affiliateRollupKey(event),
+      "amazon_associates:offer:display-turntable:source:youtube:campaign:fall_launch",
+    );
+    assert.deepEqual(affiliateReportRow(event), {
+      provider: "amazon_associates",
+      customId: "",
+      offerId: "display-turntable",
+      offerTitle: "Motorized display turntables",
+      seriesSlug: "",
+      seriesName: "",
+      figure: "",
+      kind: "",
+      placement: "",
+      source: "youtube",
+      campaignId: "fall_launch",
+      sourcePath: "",
+      clickedAt: "2026-09-03T23:00:00.000Z",
+    });
+  });
+
+  it("preserves eBay custom ID reporting behavior", () => {
+    const event = { customId: "twinkle-youtube-001", source: "youtube" };
+    assert.equal(
+      affiliateRollupKey(event),
+      "ebay_epn:custom:twinkle-youtube-001",
+    );
+    assert.equal(affiliateReportRow(event).customId, "twinkle-youtube-001");
   });
 });
