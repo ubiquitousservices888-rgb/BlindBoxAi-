@@ -1,0 +1,1 @@
+Owner dashboard now has revenue-control-room KPI slots and truthful source states. Existing EPN click activity remains live. EPN orders/earnings/EPC await authenticated EPN reporting. Amazon affiliate links are active while Amazon reporting awaits account approval.
