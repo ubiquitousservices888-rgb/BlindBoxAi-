@@ -1,0 +1,1 @@
+Adds truthful eBay/Amazon reporting state and revenue KPI slots to the authenticated owner dashboard. No credentials, spending, publishing changes, or fabricated earnings.
