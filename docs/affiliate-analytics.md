@@ -1,33 +1,56 @@
 # BlindBoxAI affiliate analytics
 
-## Flow
+## Flows
+
+### eBay EPN
 
 BlindBoxAI series page
-→ `/api/out/ebay`
+→ tracked BlindBoxAI outbound route
 → private click event
 → eBay EPN URL with `customid`
 → EPN reporting
 
-## Custom ID
+### Amazon Associates
 
-Each link gets a deterministic Custom ID based on:
+BlindBoxAI accessory page
+→ `/api/out/amazon`
+→ private click event
+→ allowlisted Amazon search URL carrying the BlindBoxAI Associates tag
+→ Amazon Associates reporting
 
-- series
-- figure
-- link kind (`sold` or `active`)
-- placement (`series_table`)
+The Amazon route accepts only known accessory offer IDs. It does not accept an arbitrary destination URL.
 
-No user identifier is included.
+## Attribution
+
+### eBay Custom ID
+
+Each eBay link gets a deterministic Custom ID based on the applicable series, figure, link kind, placement, and attribution data. Use `custom_id` as the join key against eBay Partner Network Performance by Custom ID or transaction reports.
+
+### Amazon offer attribution
+
+Amazon click events are rolled up by:
+
+- provider
+- offer ID
+- traffic source
+- campaign ID
+
+BlindBoxAI does not copy Amazon prices or availability into its own report.
 
 ## Stored click fields
 
+Depending on provider, a click event can include:
+
 - timestamp
+- provider
 - Custom ID
+- offer ID/title
 - series slug/name
-- brand
 - figure
 - link kind
 - placement
+- source
+- campaign ID
 - source path
 
 The click event intentionally does not store:
@@ -48,9 +71,7 @@ With `.env.local` containing the private Blob token:
 Output:
 
 - `reports/affiliate/click-events.csv`
-- `reports/affiliate/customid-rollup.csv`
-
-Use `custom_id` as the join key against eBay Partner
-Network Performance by Custom ID or transaction reports.
+- `reports/affiliate/affiliate-rollup.csv`
+- `reports/affiliate/customid-rollup.csv` (compatibility copy)
 
 Generated CSV reports are gitignored.
