@@ -54,7 +54,7 @@ export default async function AccessoriesShopPage({ searchParams }) {
               <h2 style={{ margin: 0, fontSize: "1.15rem" }}>{offer.title}</h2>
               <p style={{ margin: "8px 0 0" }}>{offer.useCase}</p>
             </div>
-            <div>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
               <a
                 className="cta"
                 href={amazonOutboundPath(offer.id, { campaignId, source })}
@@ -62,6 +62,7 @@ export default async function AccessoriesShopPage({ searchParams }) {
               >
                 Compare current Amazon options →
               </a>
+              <span style={{ fontSize: "0.78rem", opacity: 0.72 }}>(paid link)</span>
             </div>
           </article>
         ))}
