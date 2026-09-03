@@ -6,7 +6,7 @@ import { buildPartnershipCandidate, buildPartnershipPreview } from "../lib/partn
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const inputFile = path.resolve(ROOT, process.env.PARTNERSHIP_OPPORTUNITIES_FILE ?? "data/partnership-opportunities.json");
 const outputDir = path.resolve(ROOT, process.env.PARTNERSHIP_OUTPUT_DIR ?? "output/partnership-flywheel");
-const focusTerms = String(process.env.PARTNERSHIP_FOCUS_TERMS ?? "collectibles,youtube,shorts")
+const focusTerms = String(process.env.PARTNERSHIP_FOCUS_TERMS ?? "collectibles,blind-box,affiliate,ambassador,website")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
