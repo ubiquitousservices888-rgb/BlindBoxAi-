@@ -7,7 +7,7 @@
     "start": "next start",
     "affiliate:report": "node --env-file=.env.local scripts/affiliate-click-report.mjs",
     "ebay:test": "node --test scripts/ebay-production-api.test.mjs",
-    "epn-reporting:test": "node --test scripts/epn-reporting.test.mjs",
+    "epn-reporting:test": "node --test scripts/epn-reporting.test.mjs scripts/epn-api-reporting.test.mjs",
     "amazon:test": "node --test scripts/amazon-associates.test.mjs",
     "labubu:generate": "node scripts/labubu-post-generator.mjs",
     "labubu:validate": "node scripts/labubu-validate.mjs",
