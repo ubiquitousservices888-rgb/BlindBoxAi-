@@ -92,4 +92,5 @@ test("selection-not-guaranteed receives the same risk penalty as equivalent flag
   const selection = { ...base, riskFlags: ["selection-not-guaranteed"] };
   const approval = { ...base, riskFlags: ["approval-not-guaranteed"] };
   assert.equal(partnershipScore(selection, { now }), partnershipScore(approval, { now }));
+  assert.ok(partnershipScore(selection, { now }) < partnershipScore(base, { now }));
 });
