@@ -120,9 +120,8 @@ describe("Amazon Associates accessory path", () => {
     assert.match(pageSource, /rel="sponsored nofollow"/);
     assert.match(
       pageSource,
-      /aria-label="Compare current Amazon options \(paid link\)"/,
-    );
-  });
+      /aria-label=\\{`Compare current Amazon options for \\$\\{offer\\.title\\} \\(paid link\\)`\\}/,
+    );  });
 
   it("aggregates legacy custom IDs independently of modern attribution dimensions", () => {
     const events = [
