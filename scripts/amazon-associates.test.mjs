@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { describe, it } from "node:test";
 
 import {
@@ -83,5 +84,50 @@ describe("Amazon Associates accessory path", () => {
       "ebay_epn:custom:twinkle-youtube-001",
     );
     assert.equal(affiliateReportRow(event).customId, "twinkle-youtube-001");
+  });
+
+  it("uses eBay live context fields in rollups and report rows", () => {
+    const event = {
+      contextType: "live",
+      contextId: "stream-42",
+      itemId: "item-77",
+      source: "youtube",
+      campaignId: "fall_launch",
+    };
+
+    assert.equal(
+      affiliateRollupKey(event),
+      "ebay_epn:offer:live:stream-42:item-77:source:youtube:campaign:fall_launch",
+    );
+    assert.equal(affiliateReportRow(event).provider, "ebay_epn");
+    assert.equal(affiliateReportRow(event).offerId, "live:stream-42:item-77");
+  });
+
+  it("keeps paid-link disclosure nested in the sponsored link markup", () => {
+    const pageSource = fs.readFileSync(
+      new URL("../app/shop/accessories/page.jsx", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(
+      pageSource,
+      /<a[\s\S]*?rel="sponsored nofollow"[\s\S]*?>\s*Compare current Amazon options →\s*<span[^>]*>\(paid link\)<\/span>\s*<\/a>/m,
+    );
+  });
+
+  it("keeps customid-rollup compatibility headers in legacy 11-column order", () => {
+    const reportScript = fs.readFileSync(
+      new URL("./affiliate-click-report.mjs", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(
+      reportScript,
+      /const legacyRollupHeaders = \[\s*"custom_id",\s*"series_slug",\s*"series_name",\s*"figure",\s*"kind",\s*"placement",\s*"source",\s*"campaign_id",\s*"clicks",\s*"first_click",\s*"last_click",\s*\];/m,
+    );
+    assert.doesNotMatch(
+      reportScript,
+      /const legacyRollupHeaders = \[[\s\S]*"rollup_key"/m,
+    );
   });
 });
