@@ -166,16 +166,49 @@ const rollupLines = [
   ),
 ];
 
+const legacyRollupHeaders = [
+  "custom_id",
+  "series_slug",
+  "series_name",
+  "figure",
+  "kind",
+  "placement",
+  "source",
+  "campaign_id",
+  "clicks",
+  "first_click",
+  "last_click",
+];
+
+const legacyRollupLines = [
+  legacyRollupHeaders.join(","),
+  ...[...rollups.values()].map(row =>
+    [
+      row.customId,
+      row.seriesSlug,
+      row.seriesName,
+      row.figure,
+      row.kind,
+      row.placement,
+      row.source,
+      row.campaignId,
+      row.clicks,
+      row.firstClick,
+      row.lastClick,
+    ].map(csvCell).join(","),
+  ),
+];
+
 const eventsPath = path.join(OUTPUT_DIR, "click-events.csv");
 const rollupPath = path.join(OUTPUT_DIR, "affiliate-rollup.csv");
 const legacyRollupPath = path.join(OUTPUT_DIR, "customid-rollup.csv");
 
 fs.writeFileSync(eventsPath, eventLines.join("\n") + "\n");
 fs.writeFileSync(rollupPath, rollupLines.join("\n") + "\n");
-fs.writeFileSync(legacyRollupPath, rollupLines.join("\n") + "\n");
+fs.writeFileSync(legacyRollupPath, legacyRollupLines.join("\n") + "\n");
 
 console.log(`Affiliate events: ${events.length}`);
 console.log(`Affiliate rollups: ${rollups.size}`);
 console.log(`Wrote ${eventsPath}`);
 console.log(`Wrote ${rollupPath}`);
-console.log(`Wrote ${legacyRollupPath} (compatibility copy)`);
+console.log(`Wrote ${legacyRollupPath} (legacy 11-column compatibility schema)`);
