@@ -58,7 +58,7 @@ export default async function AccessoriesShopPage({ searchParams }) {
               <a
                 className="cta"
                 href={amazonOutboundPath(offer.id, { campaignId, source })}
-                aria-label="Compare current Amazon options (paid link)"
+                aria-label={`Compare current Amazon options for ${offer.title} (paid link)`}
                 rel="sponsored nofollow"
               >
                 Compare current Amazon options → <span style={{ fontSize: "0.78rem", opacity: 0.78 }}>(paid link)</span>
