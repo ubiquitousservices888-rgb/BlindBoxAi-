@@ -30,10 +30,6 @@ export async function POST(request) {
   if (!contentType.toLowerCase().startsWith("application/json")) {
     return badRequest("Content-Type must be application/json.");
   }
-  if ((request.headers.get("sec-fetch-site") || "").toLowerCase() === "cross-site") {
-    return badRequest("Cross-site analytics requests are not accepted.");
-  }
-
   let body;
   try {
     body = await request.json();
