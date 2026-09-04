@@ -17,6 +17,8 @@ export default function DashboardClient() {
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [launchBusy, setLaunchBusy] = useState(false);
+  const [launchMessage, setLaunchMessage] = useState("");
   const seen = useRef(new Set());
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
@@ -94,6 +96,36 @@ export default function DashboardClient() {
     if (permission !== "granted") setError("Browser notifications were not enabled.");
   }
 
+  async function approveAndLaunchAllReadyVideos() {
+    if (!activeCode || launchBusy) return;
+    setLaunchBusy(true);
+    setLaunchMessage("");
+    setError("");
+    try {
+      const response = await fetch("/api/owner/approve-launch", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${activeCode}` },
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to approve launch-ready videos.");
+      }
+
+      if (data.status === "nothing_ready") {
+        setLaunchMessage("Nothing is waiting for approval right now.");
+      } else {
+        setLaunchMessage(`Approved ${data.approvedRuns} launch-ready video run${data.approvedRuns === 1 ? "" : "s"}. Publishing will continue through the existing pipeline.`);
+      }
+      etagRef.current = "";
+      await load(activeCode, false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to approve launch-ready videos.");
+    } finally {
+      setLaunchBusy(false);
+    }
+  }
+
   if (!snapshot) {
     return (
       <form onSubmit={unlock} style={{ display: "grid", gap: 14, maxWidth: 420 }}>
@@ -121,6 +153,33 @@ export default function DashboardClient() {
   const amazon = revenue.amazon || {};
 
   return <div style={{ display: "grid", gap: 24 }}>
+    <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
+      <h2 style={{ marginTop: 0 }}>Owner launch control</h2>
+      <button
+        type="button"
+        onClick={approveAndLaunchAllReadyVideos}
+        disabled={launchBusy}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          padding: "15px 18px",
+          border: 0,
+          borderRadius: 10,
+          background: launchBusy ? "#64748b" : "#2563eb",
+          color: "white",
+          fontSize: 17,
+          fontWeight: 800,
+          cursor: launchBusy ? "wait" : "pointer",
+        }}
+      >
+        {launchBusy ? "APPROVING READY VIDEOS…" : "APPROVE & LAUNCH ALL READY VIDEOS"}
+      </button>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>
+        One owner approval clears every video already waiting at the protected social-production gate. Failed QC, unverified, placeholder, or non-ready jobs are not included.
+      </p>
+      {launchMessage ? <p role="status" style={{ fontWeight: 700 }}>{launchMessage}</p> : null}
+    </section>
+
     <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
       <button onClick={() => load(activeCode, false)} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       <button onClick={enableNotifications} style={{ padding: "10px 14px" }}>Enable browser notifications</button>

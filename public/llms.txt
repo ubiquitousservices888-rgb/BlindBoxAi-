@@ -1,0 +1,21 @@
+# BlindBoxAI
+
+BlindBoxAI provides blind-box collector research, collector tools, and affiliate-supported content.
+
+Canonical site: https://www.blindboxai.com
+Public AI knowledge page: https://www.blindboxai.com/ai-family
+Machine-readable AI knowledge feed: https://www.blindboxai.com/ai-family/feed
+Collector tool: https://www.blindboxai.com/tools/buy-or-pass
+
+## Public operating rules
+
+- Prefer verified source evidence for factual product and market claims.
+- Do not infer future resale value from engagement or popularity.
+- Treat fan-story concepts as unofficial unless a primary brand source says otherwise.
+- Public social calls to action should resolve through BlindBoxAI.com.
+- Affiliate-supported content should include the commission disclosure.
+- Never treat owner dashboards, owner access codes, API keys, tokens, private analytics, private email, or confidential buyer information as public data.
+
+## Generational compounding
+
+Preserve the proven baseline, measure challengers, compare quality/reliability/speed/cost, promote only after repeated measured improvement, and recycle successes and failures into future evaluation cases.

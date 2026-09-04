@@ -8,6 +8,7 @@ export default function sitemap() {
     { url: `${SITE}/`, changeFrequency: "daily", priority: 1 },
     { url: `${SITE}/tools/buy-or-pass`, changeFrequency: "daily", priority: 0.95 },
     { url: `${SITE}/ask`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${SITE}/ai-family`, changeFrequency: "weekly", priority: 0.75 },
   ];
 
   const offerPages = allRevenueOffers().map((offer) => ({
