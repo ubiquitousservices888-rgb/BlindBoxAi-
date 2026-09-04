@@ -10,6 +10,10 @@ import {
   buildUesNetworkCandidate,
   buildUesNetworkPreview,
 } from "../lib/ues-network-flywheel.mjs";
+import {
+  buildCompoundingCycle,
+  buildCompoundingPreview,
+} from "../lib/generational-compounding.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -37,16 +41,21 @@ if (!selected) throw new Error("No verified evidence-backed series is available 
 
 const candidate = buildNarrativeCandidate(selected, { priorityTerms });
 const connectionCandidate = buildUesNetworkCandidate();
+const compoundingCycle = buildCompoundingCycle(candidate);
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 fs.writeFileSync(path.join(OUTPUT_DIR, "candidate.json"), JSON.stringify(candidate, null, 2) + "\n");
 fs.writeFileSync(path.join(OUTPUT_DIR, "preview.md"), buildNarrativePreview(candidate));
 fs.writeFileSync(path.join(OUTPUT_DIR, "ues-network-candidate.json"), JSON.stringify(connectionCandidate, null, 2) + "\n");
 fs.writeFileSync(path.join(OUTPUT_DIR, "ues-network-preview.md"), buildUesNetworkPreview(connectionCandidate));
+fs.writeFileSync(path.join(OUTPUT_DIR, "generational-compounding-cycle.json"), JSON.stringify(compoundingCycle, null, 2) + "\n");
+fs.writeFileSync(path.join(OUTPUT_DIR, "generational-compounding-preview.md"), buildCompoundingPreview(compoundingCycle));
 
 console.log(`NARRATIVE_READY_FOR_REVIEW: ${candidate.id}`);
 console.log(`HOOK_FAMILY: ${candidate.hookFamily}`);
 console.log(`SERIES: ${candidate.source.seriesName}`);
 console.log(`UES_NETWORK_READY_FOR_REVIEW: ${connectionCandidate.id}`);
 console.log(`UES_NETWORK_CAMPAIGN: ${connectionCandidate.campaign.id}`);
+console.log(`COMPOUNDING_CYCLE_READY_FOR_REVIEW: ${compoundingCycle.cycleId}`);
+console.log("COMPOUNDING_AUTOMATIC_PROMOTION: false");
 console.log("NO_AUTONOMOUS_PUBLISH: true");
