@@ -1,9 +1,10 @@
 import {
-  BLINDBOXAI_URL,
   DISCLOSURE,
   createBufferPublisher,
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
+
+const BLINDBOXAI_URL = "https://www.blindboxai.com";
 
 function required(value, label) {
   const text = String(value ?? "").trim();
