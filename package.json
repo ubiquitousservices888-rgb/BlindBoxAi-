@@ -25,7 +25,7 @@
     "partnership:stage": "node scripts/partnership-flywheel-stage.mjs",
     "partnership:test": "node --test scripts/partnership-flywheel.test.mjs",
     "automation:test": "node --test scripts/autonomous-priority.test.mjs scripts/twinkle-market-data.test.mjs",
-    "owner:test": "node --test scripts/owner-dashboard.test.mjs",
+    "owner:test": "node --test scripts/owner-dashboard.test.mjs scripts/owner-revenue-status.test.mjs",
     "funnel:test": "node --test scripts/funnel-events.test.mjs",
     "campaign:test": "node --test scripts/campaign-attribution.test.mjs",
     "opportunity:test": "node --test scripts/opportunity-gate.test.mjs",
