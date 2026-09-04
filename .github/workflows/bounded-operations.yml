@@ -56,7 +56,32 @@ jobs:
         run: npm run mr:test
 
       - name: Block high-severity dependency vulnerabilities
-        run: npm audit --audit-level=high
+        run: |
+          max_attempts=3
+          attempt=1
+          while [ "$attempt" -le "$max_attempts" ]; do
+            set +e
+            audit_output="$(npm audit --audit-level=high 2>&1)"
+            audit_status=$?
+            set -e
+            echo "$audit_output"
+
+            if [ "$audit_status" -eq 0 ]; then
+              exit 0
+            fi
+
+            if echo "$audit_output" | grep -qiE 'audit endpoint returned an error|network timeout|EAI_AGAIN|ECONNRESET|ETIMEDOUT'; then
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "Transient npm audit error detected (attempt $attempt/$max_attempts). Retrying in 20 seconds..."
+                sleep 20
+                attempt=$((attempt + 1))
+                continue
+              fi
+            fi
+
+            echo "::error::npm audit failed (attempt $attempt/$max_attempts)."
+            exit "$audit_status"
+          done
 
       - name: Safety boundary
         run: |
