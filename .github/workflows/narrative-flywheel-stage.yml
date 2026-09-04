@@ -6,8 +6,10 @@ on:
     paths:
       - "lib/narrative-flywheel.mjs"
       - "lib/ues-network-flywheel.mjs"
+      - "lib/generational-compounding.mjs"
       - "scripts/narrative-flywheel-stage.mjs"
       - "scripts/narrative-flywheel.test.mjs"
+      - "scripts/generational-compounding.test.mjs"
       - "data/series/**"
       - "package.json"
       - ".github/workflows/narrative-flywheel-stage.yml"
@@ -49,6 +51,8 @@ jobs:
         run: npm ci
       - name: Test narrative safety rules
         run: node --test scripts/narrative-flywheel.test.mjs
+      - name: Test generational compounding safety rules
+        run: node --test scripts/generational-compounding.test.mjs
       - name: Stage narrative candidate
         run: node scripts/narrative-flywheel-stage.mjs
       - name: Upload review candidate
@@ -63,12 +67,12 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from "node:fs";
 
-          const files = [
+          const candidateFiles = [
             "output/narrative-flywheel/candidate.json",
             "output/narrative-flywheel/ues-network-candidate.json",
           ];
 
-          for (const file of files) {
+          for (const file of candidateFiles) {
             const candidate = JSON.parse(fs.readFileSync(file, "utf8"));
             if (candidate.state !== "READY_FOR_REVIEW") {
               throw new Error(`${file}: expected READY_FOR_REVIEW, got ${candidate.state}`);
@@ -78,6 +82,24 @@ jobs:
             }
           }
 
-          console.log("Narrative artifacts verified as review-only and non-publishing.");
+          const cycleFile = "output/narrative-flywheel/generational-compounding-cycle.json";
+          const cycle = JSON.parse(fs.readFileSync(cycleFile, "utf8"));
+          if (cycle.state !== "READY_FOR_REVIEW") {
+            throw new Error(`${cycleFile}: expected READY_FOR_REVIEW, got ${cycle.state}`);
+          }
+          if (cycle.publishAutomatically !== false) {
+            throw new Error(`${cycleFile}: publishAutomatically must be false`);
+          }
+          if (cycle.promotionGate?.automaticPromotion !== false) {
+            throw new Error(`${cycleFile}: automatic promotion must be false`);
+          }
+          if (cycle.promotionGate?.requiresOwnerApproval !== true) {
+            throw new Error(`${cycleFile}: owner approval must be required`);
+          }
+          if (cycle.baseline?.preserve !== true || cycle.baseline?.overwrite !== false) {
+            throw new Error(`${cycleFile}: incumbent baseline must be preserved`);
+          }
+
+          console.log("Narrative and generational-compounding artifacts verified as review-only and non-publishing.");
           NODE
           echo "No social post, token, transaction, product purchase, or merchant URL was created."
