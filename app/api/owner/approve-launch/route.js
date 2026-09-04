@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../../lib/evidence";
-import { approveAllLaunchReadyVideos } from "../../../../../lib/owner-batch-approval.mjs";
+import { assertUploadCode } from "../../../../lib/evidence";
+import { approveAllLaunchReadyVideos } from "../../../../lib/owner-batch-approval.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
