@@ -60,9 +60,8 @@ export default async function AccessoriesShopPage({ searchParams }) {
                 href={amazonOutboundPath(offer.id, { campaignId, source })}
                 rel="sponsored nofollow"
               >
-                Compare current Amazon options →
+                Compare current Amazon options → <span style={{ fontSize: "0.78rem", opacity: 0.78 }}>(paid link)</span>
               </a>
-              <span style={{ fontSize: "0.78rem", opacity: 0.72 }}>(paid link)</span>
             </div>
           </article>
         ))}
