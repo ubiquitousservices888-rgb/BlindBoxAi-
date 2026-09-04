@@ -89,8 +89,9 @@ test("safety rejects false endorsement claims", () => {
 
 test("selection-not-guaranteed receives the same risk penalty as equivalent flags", () => {
   const base = opportunities[2];
+  const unflagged = { ...base, riskFlags: [] };
   const selection = { ...base, riskFlags: ["selection-not-guaranteed"] };
   const approval = { ...base, riskFlags: ["approval-not-guaranteed"] };
   assert.equal(partnershipScore(selection, { now }), partnershipScore(approval, { now }));
-  assert.ok(partnershipScore(selection, { now }) < partnershipScore(base, { now }));
+  assert.ok(partnershipScore(selection, { now }) < partnershipScore(unflagged, { now }));
 });
