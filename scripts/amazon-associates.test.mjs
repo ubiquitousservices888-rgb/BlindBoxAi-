@@ -10,7 +10,11 @@ import {
   getAmazonAccessoryOffer,
 } from "../lib/amazon-associates.mjs";
 import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
-import { buildLegacyRollupLines, legacyRollupHeaders } from "./affiliate-click-report.mjs";
+import {
+  buildLegacyRollupLines,
+  buildLegacyRollups,
+  legacyRollupHeaders,
+} from "./affiliate-click-report.mjs";
 
 describe("Amazon Associates accessory path", () => {
   it("uses a fixed allowlist of evergreen accessory categories", () => {
@@ -118,6 +122,27 @@ describe("Amazon Associates accessory path", () => {
       pageSource,
       /aria-label="Compare current Amazon options \(paid link\)"/,
     );
+  });
+
+  it("aggregates legacy custom IDs independently of modern attribution dimensions", () => {
+    const events = [
+      {
+        customId: "cid-1",
+        source: "youtube",
+        campaignId: "spring",
+        clickedAt: "2026-09-01T00:00:00.000Z",
+      },
+      {
+        customId: "cid-1",
+        source: "tiktok",
+        campaignId: "fall",
+        clickedAt: "2026-09-01T01:00:00.000Z",
+      },
+    ];
+
+    const rollups = buildLegacyRollups(events);
+    assert.equal(rollups.size, 1);
+    assert.equal(rollups.get("cid-1").clicks, 2);
   });
 
   it("keeps customid-rollup compatibility output in legacy 11-column order", () => {
