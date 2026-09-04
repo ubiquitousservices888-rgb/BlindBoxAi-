@@ -26,6 +26,10 @@ function badRequest(message) {
 }
 
 export async function POST(request) {
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    return badRequest("Content-Type must be application/json.");
+  }
   let body;
   try {
     body = await request.json();

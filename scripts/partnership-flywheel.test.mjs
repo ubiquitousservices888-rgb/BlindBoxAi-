@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   assertPartnershipSafety,
   buildPartnershipCandidate,
+  partnershipScore,
   rankPartnershipOpportunities,
 } from "../lib/partnership-flywheel.mjs";
 
@@ -53,12 +54,12 @@ const opportunities = [
 ];
 
 test("inactive opportunities are excluded from ranking", () => {
-  const ranked = rankPartnershipOpportunities(opportunities, { focusTerms: ["collectibles", "youtube"] });
+  const ranked = rankPartnershipOpportunities(opportunities, { focusTerms: ["collectibles", "youtube"], now });
   assert.equal(ranked.some(({ opportunity }) => opportunity.id === "inactive-youtube"), false);
 });
 
 test("non-YouTube collector opportunities rank normally", () => {
-  const ranked = rankPartnershipOpportunities(opportunities, { focusTerms: ["collectibles", "blind-box", "affiliate", "ambassador", "website"] });
+  const ranked = rankPartnershipOpportunities(opportunities, { focusTerms: ["collectibles", "blind-box", "affiliate", "ambassador", "website"], now });
   assert.notEqual(ranked[0].opportunity.organization, "YouTube");
   assert.equal(ranked[0].opportunity.id, "affiliate");
 });
@@ -84,4 +85,13 @@ test("safety rejects false endorsement claims", () => {
   const candidate = buildPartnershipCandidate(opportunities, { date: now });
   candidate.outreachBrief.positioning = "Official partner of Example Collectibles Store";
   assert.throws(() => assertPartnershipSafety(candidate), /blocked claim/);
+});
+
+test("selection-not-guaranteed receives the same risk penalty as equivalent flags", () => {
+  const base = opportunities[2];
+  const unflagged = { ...base, riskFlags: [] };
+  const selection = { ...base, riskFlags: ["selection-not-guaranteed"] };
+  const approval = { ...base, riskFlags: ["approval-not-guaranteed"] };
+  assert.equal(partnershipScore(selection, { now }), partnershipScore(approval, { now }));
+  assert.ok(partnershipScore(selection, { now }) < partnershipScore(unflagged, { now }));
 });
