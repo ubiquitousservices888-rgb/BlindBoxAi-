@@ -74,11 +74,11 @@ export default function CoreAnalytics() {
     try {
       if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
       track("landing_session_source", { source });
-      captureFirstParty("landing_session_source", { source, path: window.location.pathname });
+      captureFirstParty("landing_session_source", { source, path: window.location.pathname.slice(0, 120) });
       sessionStorage.setItem("bbai_landing_source_recorded", "1");
     } catch {
       track("landing_session_source", { source });
-      captureFirstParty("landing_session_source", { source, path: window.location.pathname });
+      captureFirstParty("landing_session_source", { source, path: window.location.pathname.slice(0, 120) });
     }
   }, [allowed]);
 
