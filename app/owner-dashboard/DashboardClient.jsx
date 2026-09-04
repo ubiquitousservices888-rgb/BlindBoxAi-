@@ -83,11 +83,14 @@ export default function DashboardClient() {
   const [reviewProgress, setReviewProgress] = useState(0);
   const [reviewMessage, setReviewMessage] = useState("");
   const [reviewResult, setReviewResult] = useState(null);
+  const [epnBusy, setEpnBusy] = useState(false);
+  const [epnMessage, setEpnMessage] = useState("");
   const seen = useRef(new Set());
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
   const requestInFlight = useRef(false);
   const reviewFileInput = useRef(null);
+  const epnFileInput = useRef(null);
 
   async function load(token, announce = false) {
     if (!token || requestInFlight.current) return false;
@@ -228,9 +231,7 @@ export default function DashboardClient() {
         onUploadProgress: ({ percentage }) => setReviewProgress(Math.round(percentage)),
       });
 
-      if (!blob?.url || !/^https:\/\//i.test(blob.url)) {
-        throw new Error("Vercel Blob did not return a public HTTPS review URL.");
-      }
+      if (!blob?.url || !/^https:\/\//i.test(blob.url)) throw new Error("Vercel Blob did not return a public HTTPS review URL.");
 
       setReviewMessage("Running mechanical video checks…");
       const metadata = await readVideoMetadata(blob.url);
@@ -248,10 +249,7 @@ export default function DashboardClient() {
       setReviewMessage("Staging exact video behind the blue approval gate…");
       const stageResponse = await fetch("/api/owner/stage-review", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${activeCode}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
         cache: "no-store",
         body: JSON.stringify({
           videoUrl: blob.url,
@@ -278,6 +276,43 @@ export default function DashboardClient() {
     }
   }
 
+  function chooseEpnReport() {
+    if (!epnBusy) epnFileInput.current?.click();
+  }
+
+  async function importEpnReport(event) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file || epnBusy) return;
+    setError("");
+    setEpnMessage("");
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setError("Choose the CSV version of your eBay Partner Network report.");
+      return;
+    }
+
+    setEpnBusy(true);
+    try {
+      const form = new FormData();
+      form.append("report", file);
+      const response = await fetch("/api/owner/epn-report", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${activeCode}` },
+        body: form,
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to import EPN report.");
+      setEpnMessage(`EPN connected from report: ${data.orders ?? "orders unavailable"} orders, ${money(data.earnings)} earnings, ${money(data.epc)} EPC.`);
+      etagRef.current = "";
+      await load(activeCode, false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to import EPN report.");
+    } finally {
+      setEpnBusy(false);
+    }
+  }
+
   if (!snapshot) {
     return (
       <form onSubmit={unlock} style={{ display: "grid", gap: 14, maxWidth: 420 }}>
@@ -300,26 +335,14 @@ export default function DashboardClient() {
       <h2 style={{ marginTop: 0 }}>Owner video control</h2>
       <input ref={reviewFileInput} type="file" accept="video/mp4,.mp4" onChange={uploadAndStageReview} hidden />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, maxWidth: 900 }}>
-        <button
-          type="button"
-          onClick={chooseReviewVideo}
-          disabled={reviewBusy}
-          style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}
-        >
+        <button type="button" onClick={chooseReviewVideo} disabled={reviewBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}>
           {reviewBusy ? `UPLOADING & CHECKING ${reviewProgress}%` : "UPLOAD & REVIEW VIDEO"}
         </button>
-        <button
-          type="button"
-          onClick={approveAndLaunchAllReadyVideos}
-          disabled={launchBusy}
-          style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: launchBusy ? "#64748b" : "#2563eb", color: "white", fontSize: 17, fontWeight: 800, cursor: launchBusy ? "wait" : "pointer" }}
-        >
+        <button type="button" onClick={approveAndLaunchAllReadyVideos} disabled={launchBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: launchBusy ? "#64748b" : "#2563eb", color: "white", fontSize: 17, fontWeight: 800, cursor: launchBusy ? "wait" : "pointer" }}>
           {launchBusy ? "APPROVING READY VIDEOS…" : "APPROVE & LAUNCH ALL READY VIDEOS"}
         </button>
       </div>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>
-        Yellow uploads and checks an MP4, then parks that exact file at READY_FOR_REVIEW. Watch it here. Blue is the only control that approves and releases ready videos through social-production.
-      </p>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Yellow uploads and checks an MP4, then parks that exact file at READY_FOR_REVIEW. Watch it here. Blue is the only control that approves and releases ready videos through social-production.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
       {launchMessage ? <p role="status" style={{ fontWeight: 700 }}>{launchMessage}</p> : null}
 
@@ -328,9 +351,7 @@ export default function DashboardClient() {
           <div style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
             <strong>{reviewResult.staged ? "READY_FOR_REVIEW — NOT APPROVED" : "UPLOADED — STAGING NOT COMPLETE"}</strong>
             <video src={reviewResult.url} controls playsInline preload="metadata" style={{ width: "100%", marginTop: 10, borderRadius: 10, background: "black" }} />
-            <div style={{ marginTop: 10, fontSize: 14 }}>
-              {reviewResult.width}×{reviewResult.height} · {formatDuration(reviewResult.durationSeconds)} · {(reviewResult.sizeBytes / (1024 * 1024)).toFixed(1)} MB
-            </div>
+            <div style={{ marginTop: 10, fontSize: 14 }}>{reviewResult.width}×{reviewResult.height} · {formatDuration(reviewResult.durationSeconds)} · {(reviewResult.sizeBytes / (1024 * 1024)).toFixed(1)} MB</div>
           </div>
           <div style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
             <strong>Review checklist before blue</strong>
@@ -359,6 +380,13 @@ export default function DashboardClient() {
         <Stat label="EPN EPC" value={money(epn.epc)} />
       </div>
       <p style={{ opacity: 0.75 }}>eBay EPN reporting: {epn.status || "Not connected"}. Amazon Associates: {amazon.status || "Affiliate links active; reporting pending approval"}. Unverified earnings are never displayed as $0.</p>
+      <input ref={epnFileInput} type="file" accept=".csv,text/csv" onChange={importEpnReport} hidden />
+      <button type="button" onClick={chooseEpnReport} disabled={epnBusy} style={{ padding: "11px 15px", fontWeight: 800 }}>
+        {epnBusy ? "IMPORTING EPN REPORT…" : "IMPORT EPN REPORT CSV"}
+      </button>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Best immediate report: EPN Reports → Performance by Day → CSV. The dashboard stores only summarized orders, earnings, clicks/EPC and import time in private storage; the raw CSV is not retained.</p>
+      {epn.importedAt ? <p style={{ opacity: 0.75 }}>Last EPN import: {when(epn.importedAt)}{Number.isFinite(epn.networkClicks) ? ` · EPN-reported clicks: ${epn.networkClicks}` : ""}</p> : null}
+      {epnMessage ? <p role="status" style={{ fontWeight: 700 }}>{epnMessage}</p> : null}
     </section>
 
     <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
