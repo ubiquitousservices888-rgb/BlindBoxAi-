@@ -95,11 +95,25 @@ export default function DashboardClient() {
   }
 
   if (!snapshot) {
-    return <form onSubmit={unlock} style={{ display: "grid", gap: 14, maxWidth: 420 }}>
-      <label style={{ display: "grid", gap: 6 }}><strong>Owner access code</strong><input type="password" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" required style={{ padding: 12, fontSize: 16 }} /></label>
-      <button disabled={busy} style={{ padding: 13, fontWeight: 700 }}>{busy ? "Opening…" : "Open dashboard"}</button>
-      {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
-    </form>;
+    return (
+      <form onSubmit={unlock} style={{ display: "grid", gap: 14, maxWidth: 420 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <strong>Owner access code</strong>
+          <input
+            type="password"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            autoComplete="off"
+            required
+            style={{ padding: 12, fontSize: 16 }}
+          />
+        </label>
+        <button disabled={busy} style={{ padding: 13, fontWeight: 700 }}>
+          {busy ? "Opening…" : "Open dashboard"}
+        </button>
+        {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
+      </form>
+    );
   }
 
   const revenue = snapshot.revenue || {};
@@ -138,5 +152,12 @@ export default function DashboardClient() {
 }
 
 function Stat({ label, value }) {
-  return <div style={{ border: "1px solid currentColor", borderRadius: 10, padding: 14 }}><div style={{ opacity: 0.7, fontSize: 13 }}>{label}</div><div style={{ fontSize: 25, fontWeight: 800, overflowWrap: "anywhere" }}>{value}</div></div>;
+  return (
+    <div style={{ border: "1px solid currentColor", borderRadius: 10, padding: 14 }}>
+      <div style={{ opacity: 0.7, fontSize: 13 }}>{label}</div>
+      <div style={{ fontSize: 25, fontWeight: 800, overflowWrap: "anywhere" }}>
+        {value}
+      </div>
+    </div>
+  );
 }
