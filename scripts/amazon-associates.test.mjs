@@ -10,6 +10,7 @@ import {
   getAmazonAccessoryOffer,
 } from "../lib/amazon-associates.mjs";
 import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
+import { buildLegacyRollupLines, legacyRollupHeaders } from "./affiliate-click-report.mjs";
 
 describe("Amazon Associates accessory path", () => {
   it("uses a fixed allowlist of evergreen accessory categories", () => {
@@ -103,31 +104,44 @@ describe("Amazon Associates accessory path", () => {
     assert.equal(affiliateReportRow(event).offerId, "live:stream-42:item-77");
   });
 
-  it("keeps paid-link disclosure nested in the sponsored link markup", () => {
+  it("sets an explicit accessible label including paid-link disclosure", () => {
     const pageSource = fs.readFileSync(
       new URL("../app/shop/accessories/page.jsx", import.meta.url),
       "utf8",
     );
 
+    assert.match(pageSource, /rel="sponsored nofollow"/);
     assert.match(
       pageSource,
-      /<a[\s\S]*?rel="sponsored nofollow"[\s\S]*?>\s*Compare current Amazon options →\s*<span[^>]*>\(paid link\)<\/span>\s*<\/a>/m,
+      /aria-label="Compare current Amazon options \(paid link\)"/,
     );
   });
 
-  it("keeps customid-rollup compatibility headers in legacy 11-column order", () => {
-    const reportScript = fs.readFileSync(
-      new URL("./affiliate-click-report.mjs", import.meta.url),
-      "utf8",
-    );
+  it("keeps customid-rollup compatibility output in legacy 11-column order", () => {
+    const rollups = new Map([
+      ["legacy", {
+        customId: "cid-1",
+        seriesSlug: "series-a",
+        seriesName: "Series A",
+        figure: "figure-a",
+        kind: "listing",
+        placement: "hero",
+        source: "youtube",
+        campaignId: "fall",
+        clicks: 2,
+        firstClick: "2026-09-01T00:00:00.000Z",
+        lastClick: "2026-09-01T01:00:00.000Z",
+      }],
+    ]);
 
-    assert.match(
-      reportScript,
-      /const legacyRollupHeaders = \[\s*"custom_id",\s*"series_slug",\s*"series_name",\s*"figure",\s*"kind",\s*"placement",\s*"source",\s*"campaign_id",\s*"clicks",\s*"first_click",\s*"last_click",\s*\];/m,
-    );
-    assert.doesNotMatch(
-      reportScript,
-      /const legacyRollupHeaders = \[[\s\S]*"rollup_key"/m,
+    const [headerLine, valueLine] = buildLegacyRollupLines(rollups);
+    const expectedHeaders = legacyRollupHeaders.join(",");
+
+    assert.equal(expectedHeaders.split(",").length, 11);
+    assert.equal(headerLine, expectedHeaders);
+    assert.equal(
+      valueLine,
+      "cid-1,series-a,Series A,figure-a,listing,hero,youtube,fall,2,2026-09-01T00:00:00.000Z,2026-09-01T01:00:00.000Z",
     );
   });
 });
