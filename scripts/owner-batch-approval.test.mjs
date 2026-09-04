@@ -19,18 +19,15 @@ function mockGithub() {
     const parsed = new URL(url);
     const method = options.method ?? "GET";
 
-    if (parsed.pathname.endsWith("/actions/workflows/autonomous-video.yml/runs")) {
-      const status = parsed.searchParams.get("status");
-      if (status === "waiting") {
-        return jsonResponse({
-          workflow_runs: [
-            { id: 101, head_branch: "main", html_url: "https://github.test/run/101", created_at: "2026-09-04T12:00:00Z" },
-            { id: 102, head_branch: "main", html_url: "https://github.test/run/102", created_at: "2026-09-04T12:01:00Z" },
-          ],
-        });
-      }
-      if (status === "in_progress") {
-        return jsonResponse({ workflow_runs: [{ id: 101, head_branch: "main" }] });
+    for (const [workflow, runId] of [["autonomous-video.yml", 101], ["manual-reviewed-video.yml", 201]]) {
+      if (parsed.pathname.endsWith(`/actions/workflows/${workflow}/runs`)) {
+        const status = parsed.searchParams.get("status");
+        if (status === "waiting") {
+          return jsonResponse({
+            workflow_runs: [{ id: runId, head_branch: "main", html_url: `https://github.test/run/${runId}`, created_at: "2026-09-04T12:00:00Z" }],
+          });
+        }
+        if (status === "in_progress") return jsonResponse({ workflow_runs: [] });
       }
     }
 
@@ -41,14 +38,14 @@ function mockGithub() {
       ]);
     }
 
-    if (method === "GET" && parsed.pathname.endsWith("/actions/runs/102/pending_deployments")) {
+    if (method === "GET" && parsed.pathname.endsWith("/actions/runs/201/pending_deployments")) {
       return jsonResponse([
-        { environment: { id: 9, name: "social-production" }, current_user_can_approve: false },
+        { environment: { id: 9, name: "social-production" }, current_user_can_approve: true },
       ]);
     }
 
-    if (method === "POST" && parsed.pathname.endsWith("/actions/runs/101/pending_deployments")) {
-      posts.push(JSON.parse(options.body));
+    if (method === "POST" && /\/actions\/runs\/(101|201)\/pending_deployments$/.test(parsed.pathname)) {
+      posts.push({ runId: Number(parsed.pathname.match(/runs\/(\d+)/)[1]), body: JSON.parse(options.body) });
       return jsonResponse([{ approved: true }]);
     }
 
@@ -58,29 +55,25 @@ function mockGithub() {
   return { fetchImpl, posts };
 }
 
-test("finds only main-branch social-production gates the owner token can approve", async () => {
+test("finds social-production gates for both automated and yellow-button video workflows", async () => {
   const { fetchImpl } = mockGithub();
   const result = await findLaunchReadyVideoRuns({ token: "masked-test-token", fetchImpl });
 
-  assert.equal(result.ready.length, 1);
-  assert.equal(result.ready[0].runId, 101);
-  assert.deepEqual(result.ready[0].environmentIds, [7]);
-  assert.equal(result.skipped.length, 1);
-  assert.equal(result.skipped[0].runId, 102);
+  assert.equal(result.ready.length, 2);
+  assert.deepEqual(result.ready.map((item) => item.workflowFile).sort(), ["autonomous-video.yml", "manual-reviewed-video.yml"]);
+  assert.deepEqual(result.ready.map((item) => item.environmentIds[0]).sort(), [7, 9]);
 });
 
-test("one-click launch approves every eligible video run but no unrelated environment", async () => {
+test("blue approval clears every eligible video gate but no unrelated environment", async () => {
   const { fetchImpl, posts } = mockGithub();
   const result = await approveAllLaunchReadyVideos({ token: "masked-test-token", fetchImpl });
 
   assert.equal(result.status, "approved");
-  assert.equal(result.approvedRuns, 1);
-  assert.equal(result.approvedEnvironments, 1);
-  assert.deepEqual(posts, [{
-    environment_ids: [7],
-    state: "approved",
-    comment: "Approved from BlindBoxAI Owner Dashboard — launch all already-validated video jobs.",
-  }]);
+  assert.equal(result.approvedRuns, 2);
+  assert.equal(result.approvedEnvironments, 2);
+  assert.deepEqual(posts.map((item) => item.body.environment_ids).sort(), [[7], [9]]);
+  assert.ok(posts.every((item) => item.body.state === "approved"));
+  assert.ok(posts.every((item) => /after owner review/i.test(item.body.comment)));
 });
 
 test("missing approval token fails closed", async () => {
