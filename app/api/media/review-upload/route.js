@@ -32,7 +32,7 @@ export async function POST(request) {
 
         assertUploadCode(payload.accessCode);
 
-        if (!/^media\/review\/[a-zA-Z0-9._-]+\.mp4$/.test(pathname)) {
+        if (!/^media\/review\/[a-zA-Z0-9._-]+\.mp4$/i.test(pathname)) {
           throw new Error("Invalid review upload destination.");
         }
 
@@ -48,7 +48,7 @@ export async function POST(request) {
       },
       onUploadCompleted: async ({ blob }) => {
         const createdAt = new Date().toISOString();
-        const uploadTimestamp = /^media\/review\/(\d{13})-/.exec(blob.pathname)?.[1];
+        const uploadTimestamp = /^media\/review\/(\d{13})-/i.exec(blob.pathname)?.[1];
         const uploadDate = uploadTimestamp
           ? new Date(Number(uploadTimestamp)).toISOString().slice(0, 10)
           : createdAt.slice(0, 10);
