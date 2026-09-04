@@ -157,6 +157,33 @@ export const legacyRollupHeaders = [
   "last_click",
 ];
 
+
+export function buildLegacyRollups(events) {
+  const rollups = new Map();
+
+  for (const event of events) {
+    const normalized = affiliateReportRow(event);
+    if (!normalized.customId) continue;
+    const key = normalized.customId;
+
+    if (!rollups.has(key)) {
+      rollups.set(key, {
+        ...normalized,
+        clicks: 0,
+        firstClick: normalized.clickedAt,
+        lastClick: normalized.clickedAt,
+      });
+    }
+
+    const row = rollups.get(key);
+    row.clicks += 1;
+    if (normalized.clickedAt < row.firstClick) row.firstClick = normalized.clickedAt;
+    if (normalized.clickedAt > row.lastClick) row.lastClick = normalized.clickedAt;
+  }
+
+  return rollups;
+}
+
 export function buildLegacyRollupLines(rollups) {
   return [
     legacyRollupHeaders.join(","),
@@ -208,7 +235,8 @@ async function main() {
 
   const eventLines = buildEventLines(events);
   const rollupLines = buildRollupLines(rollups);
-  const legacyRollupLines = buildLegacyRollupLines(rollups);
+  const legacyRollups = buildLegacyRollups(events);
+  const legacyRollupLines = buildLegacyRollupLines(legacyRollups);
 
   const eventsPath = path.join(OUTPUT_DIR, "click-events.csv");
   const rollupPath = path.join(OUTPUT_DIR, "affiliate-rollup.csv");
