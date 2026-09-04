@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../../lib/evidence";
-import { stageOwnerReviewedVideo } from "../../../../../lib/owner-review-staging.mjs";
+import { assertUploadCode } from "../../../../lib/evidence";
+import { stageOwnerReviewedVideo } from "../../../../lib/owner-review-staging.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
