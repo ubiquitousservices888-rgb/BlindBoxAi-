@@ -1,0 +1,101 @@
+name: Manual reviewed video
+run-name: Review upload — ${{ inputs.title }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: Exact uploaded HTTPS MP4 awaiting owner review
+        required: true
+        type: string
+      title:
+        description: Safe display title
+        required: true
+        type: string
+      size_bytes:
+        description: Uploaded file size
+        required: true
+        type: string
+      duration_seconds:
+        description: Browser-read video duration
+        required: true
+        type: string
+      width:
+        description: Browser-read video width
+        required: true
+        type: string
+      height:
+        description: Browser-read video height
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validate-review-upload:
+    name: Validate yellow-button review upload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate exact review metadata
+        env:
+          REVIEWED_VIDEO_URL: ${{ inputs.video_url }}
+          REVIEWED_VIDEO_TITLE: ${{ inputs.title }}
+          REVIEWED_VIDEO_SIZE: ${{ inputs.size_bytes }}
+          REVIEWED_VIDEO_DURATION: ${{ inputs.duration_seconds }}
+          REVIEWED_VIDEO_WIDTH: ${{ inputs.width }}
+          REVIEWED_VIDEO_HEIGHT: ${{ inputs.height }}
+        run: |
+          node <<'NODE'
+          const url = new URL(process.env.REVIEWED_VIDEO_URL);
+          if (url.protocol !== "https:" || !/\.mp4$/i.test(url.pathname)) throw new Error("Review video must be an HTTPS MP4");
+          if (!process.env.REVIEWED_VIDEO_TITLE?.trim()) throw new Error("Review title is required");
+          if (/https?:\/\//i.test(process.env.REVIEWED_VIDEO_TITLE)) throw new Error("Review title must not contain a URL");
+          const size = Number(process.env.REVIEWED_VIDEO_SIZE);
+          const duration = Number(process.env.REVIEWED_VIDEO_DURATION);
+          const width = Number(process.env.REVIEWED_VIDEO_WIDTH);
+          const height = Number(process.env.REVIEWED_VIDEO_HEIGHT);
+          if (!Number.isFinite(size) || size <= 0 || size > 100 * 1024 * 1024) throw new Error("Review upload size is invalid");
+          if (![duration, width, height].every((value) => Number.isFinite(value) && value > 0)) throw new Error("Review media metadata is invalid");
+          console.log("YELLOW_BUTTON_MECHANICAL_QC: pass");
+          console.log("OWNER_WATCH_REQUIRED: true");
+          console.log("READY_FOR_REVIEW: true");
+          NODE
+
+  publish-after-owner-approval:
+    name: Owner watched → Buffer queue
+    needs: validate-review-upload
+    runs-on: ubuntu-latest
+    environment:
+      name: social-production
+      url: ${{ inputs.video_url }}
+    concurrency:
+      group: manual-reviewed-video-buffer-publish
+      cancel-in-progress: false
+    env:
+      REVIEWED_VIDEO_URL: ${{ inputs.video_url }}
+      REVIEWED_VIDEO_TITLE: ${{ inputs.title }}
+      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
+      BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify Buffer configuration
+        run: |
+          if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
+            echo "::error::Buffer is not configured."
+            exit 1
+          fi
+      - name: Publish exact owner-reviewed upload
+        run: node scripts/publish-reviewed-upload.mjs
