@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { get, list } from "@vercel/blob";
+import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
 
 const PREFIX = "affiliate/clicks/";
 const OUTPUT_DIR = "reports/affiliate";
@@ -65,35 +66,33 @@ events.sort((a, b) => String(a.clickedAt).localeCompare(String(b.clickedAt)));
 const rollups = new Map();
 
 for (const event of events) {
-  const key = event.customId;
+  const normalized = affiliateReportRow(event);
+  const key = affiliateRollupKey(event);
 
   if (!rollups.has(key)) {
     rollups.set(key, {
-      customId: key,
-      seriesSlug: event.seriesSlug,
-      seriesName: event.seriesName,
-      figure: event.figure,
-      kind: event.kind,
-      placement: event.placement,
-      source: event.source || "direct",
-      campaignId: event.campaignId || "",
+      rollupKey: key,
+      ...normalized,
       clicks: 0,
-      firstClick: event.clickedAt,
-      lastClick: event.clickedAt,
+      firstClick: normalized.clickedAt,
+      lastClick: normalized.clickedAt,
     });
   }
 
   const row = rollups.get(key);
   row.clicks += 1;
-  if (event.clickedAt < row.firstClick) row.firstClick = event.clickedAt;
-  if (event.clickedAt > row.lastClick) row.lastClick = event.clickedAt;
+  if (normalized.clickedAt < row.firstClick) row.firstClick = normalized.clickedAt;
+  if (normalized.clickedAt > row.lastClick) row.lastClick = normalized.clickedAt;
 }
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 const eventHeaders = [
   "clicked_at",
+  "provider",
   "custom_id",
+  "offer_id",
+  "offer_title",
   "series_slug",
   "series_name",
   "figure",
@@ -106,24 +105,32 @@ const eventHeaders = [
 
 const eventLines = [
   eventHeaders.join(","),
-  ...events.map(event =>
-    [
-      event.clickedAt,
-      event.customId,
-      event.seriesSlug,
-      event.seriesName,
-      event.figure,
-      event.kind,
-      event.placement,
-      event.source || "direct",
-      event.campaignId || "",
-      event.sourcePath,
-    ].map(csvCell).join(","),
-  ),
+  ...events.map(event => {
+    const row = affiliateReportRow(event);
+    return [
+      row.clickedAt,
+      row.provider,
+      row.customId,
+      row.offerId,
+      row.offerTitle,
+      row.seriesSlug,
+      row.seriesName,
+      row.figure,
+      row.kind,
+      row.placement,
+      row.source,
+      row.campaignId,
+      row.sourcePath,
+    ].map(csvCell).join(",");
+  }),
 ];
 
 const rollupHeaders = [
+  "rollup_key",
+  "provider",
   "custom_id",
+  "offer_id",
+  "offer_title",
   "series_slug",
   "series_name",
   "figure",
@@ -138,6 +145,43 @@ const rollupHeaders = [
 
 const rollupLines = [
   rollupHeaders.join(","),
+  ...[...rollups.values()].map(row =>
+    [
+      row.rollupKey,
+      row.provider,
+      row.customId,
+      row.offerId,
+      row.offerTitle,
+      row.seriesSlug,
+      row.seriesName,
+      row.figure,
+      row.kind,
+      row.placement,
+      row.source,
+      row.campaignId,
+      row.clicks,
+      row.firstClick,
+      row.lastClick,
+    ].map(csvCell).join(","),
+  ),
+];
+
+const legacyRollupHeaders = [
+  "custom_id",
+  "series_slug",
+  "series_name",
+  "figure",
+  "kind",
+  "placement",
+  "source",
+  "campaign_id",
+  "clicks",
+  "first_click",
+  "last_click",
+];
+
+const legacyRollupLines = [
+  legacyRollupHeaders.join(","),
   ...[...rollups.values()].map(row =>
     [
       row.customId,
@@ -156,12 +200,15 @@ const rollupLines = [
 ];
 
 const eventsPath = path.join(OUTPUT_DIR, "click-events.csv");
-const rollupPath = path.join(OUTPUT_DIR, "customid-rollup.csv");
+const rollupPath = path.join(OUTPUT_DIR, "affiliate-rollup.csv");
+const legacyRollupPath = path.join(OUTPUT_DIR, "customid-rollup.csv");
 
 fs.writeFileSync(eventsPath, eventLines.join("\n") + "\n");
 fs.writeFileSync(rollupPath, rollupLines.join("\n") + "\n");
+fs.writeFileSync(legacyRollupPath, legacyRollupLines.join("\n") + "\n");
 
 console.log(`Affiliate events: ${events.length}`);
-console.log(`Custom IDs: ${rollups.size}`);
+console.log(`Affiliate rollups: ${rollups.size}`);
 console.log(`Wrote ${eventsPath}`);
 console.log(`Wrote ${rollupPath}`);
+console.log(`Wrote ${legacyRollupPath} (legacy 11-column compatibility schema)`);

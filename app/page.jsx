@@ -23,6 +23,7 @@ export default function Home() {
           reviewed US-sold observations, deal prices, and counterfeit warning signs. No account needed.</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           <Link className="cta" href="/tools/buy-or-pass">Check a deal →</Link>
+          <Link className="cta" href="/shop/accessories">Display & protect →</Link>
           <Link className="cta" href="/ask">Ask Mr. Know It All →</Link>
           <Link className="cta" href="/pro">Reseller tools →</Link>
         </div>
