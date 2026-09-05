@@ -10,7 +10,7 @@ test("yellow review staging dispatches exact MP4 to main without approving it", 
   let request;
   const result = await stageOwnerReviewedVideo({
     token: "masked-test-token",
-    videoUrl: "https://blob.example/review/test.mp4",
+    videoUrl: "https://blob.example/media/review/test.mp4",
     title: "Collector review",
     sizeBytes: 10_000_000,
     durationSeconds: 42.5,
@@ -27,7 +27,7 @@ test("yellow review staging dispatches exact MP4 to main without approving it", 
   assert.match(request.url, /manual-reviewed-video\.yml\/dispatches$/);
   const body = JSON.parse(request.options.body);
   assert.equal(body.ref, "main");
-  assert.equal(body.inputs.video_url, "https://blob.example/review/test.mp4");
+  assert.equal(body.inputs.video_url, "https://blob.example/media/review/test.mp4");
   assert.equal(body.inputs.title, "Collector review");
 });
 
@@ -35,7 +35,7 @@ test("yellow staging rejects non-MP4 and invalid media metadata", async () => {
   await assert.rejects(
     () => stageOwnerReviewedVideo({
       token: "masked-test-token",
-      videoUrl: "https://blob.example/review/test.mov",
+      videoUrl: "https://blob.example/media/review/test.mov",
       title: "Bad format",
       sizeBytes: 100,
       durationSeconds: 10,
@@ -49,7 +49,7 @@ test("yellow staging rejects non-MP4 and invalid media metadata", async () => {
   await assert.rejects(
     () => stageOwnerReviewedVideo({
       token: "masked-test-token",
-      videoUrl: "https://blob.example/review/test.mp4",
+      videoUrl: "https://blob.example/media/review/test.mp4",
       title: "Bad metadata",
       sizeBytes: 100,
       durationSeconds: 0,
@@ -58,5 +58,22 @@ test("yellow staging rejects non-MP4 and invalid media metadata", async () => {
       fetchImpl: async () => response(204),
     }),
     /durationSeconds/,
+  );
+});
+
+
+test("yellow staging rejects MP4 URLs outside the review namespace", async () => {
+  await assert.rejects(
+    () => stageOwnerReviewedVideo({
+      token: "masked-test-token",
+      videoUrl: "https://blob.example/media/approved/test.mp4",
+      title: "Wrong namespace",
+      sizeBytes: 100,
+      durationSeconds: 10,
+      width: 1080,
+      height: 1920,
+      fetchImpl: async () => response(204),
+    }),
+    /\/media\/review\/ namespace/,
   );
 });
