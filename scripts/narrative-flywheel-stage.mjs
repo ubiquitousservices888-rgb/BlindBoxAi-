@@ -57,5 +57,5 @@ console.log(`SERIES: ${candidate.source.seriesName}`);
 console.log(`UES_NETWORK_READY_FOR_REVIEW: ${connectionCandidate.id}`);
 console.log(`UES_NETWORK_CAMPAIGN: ${connectionCandidate.campaign.id}`);
 console.log(`COMPOUNDING_CYCLE_READY_FOR_REVIEW: ${compoundingCycle.cycleId}`);
-console.log("COMPOUNDING_AUTOMATIC_PROMOTION: false");
+console.log(`COMPOUNDING_AUTOMATIC_PROMOTION: ${compoundingCycle.promotionGate.automaticPromotion}`);
 console.log("NO_AUTONOMOUS_PUBLISH: true");
