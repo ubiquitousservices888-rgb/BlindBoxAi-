@@ -6,6 +6,7 @@ const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClien
 const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/route.js", import.meta.url), "utf8");
 const workflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
 const publisher = fs.readFileSync(new URL("../scripts/publish-reviewed-upload.mjs", import.meta.url), "utf8");
+const stageRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/route.js", import.meta.url), "utf8");
 
 test("yellow control is visually distinct, review-only, and adjacent to blue approval", () => {
   assert.match(dashboard, /UPLOAD & REVIEW VIDEO/);
@@ -30,4 +31,17 @@ test("manual upload cannot publish until the protected owner environment is appr
   assert.match(workflow, /Publish exact owner-reviewed upload/);
   assert.match(publisher, /https:\/\/www\.blindboxai\.com/);
   assert.match(publisher, /DISCLOSURE/);
+});
+
+
+test("blue launch is blocked during a dashboard refresh", () => {
+  assert.match(dashboard, /launchBusy \|\| busy \|\| requestInFlight\.current/);
+  assert.match(dashboard, /disabled=\{launchBusy \|\| busy\}/);
+});
+
+test("review staging route forwards only approved client fields", () => {
+  assert.doesNotMatch(stageRoute, /\.\.\.body/);
+  for (const field of ["videoUrl", "title", "sizeBytes", "durationSeconds", "width", "height"]) {
+    assert.match(stageRoute, new RegExp(`${field}: body\\?\\.${field}`));
+  }
 });
