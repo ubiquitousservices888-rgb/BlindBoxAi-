@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertUploadCode } from "../../../../lib/evidence";
 import { getOwnerDashboardSnapshot } from "../../../../lib/owner-dashboard";
+import { requestEtagMatches } from "../../../../lib/owner-dashboard-core.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +11,52 @@ const PRIVATE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
   Vary: "Authorization",
 };
+const DASHBOARD_BLOB_CACHE_MS = 5 * 60 * 1000;
+
+let cachedDashboard = null;
+let cachedDashboardAt = 0;
+let dashboardRefreshInFlight = null;
 
 function unauthorized() {
   return NextResponse.json(
     { error: "Unauthorized" },
     { status: 401, headers: PRIVATE_HEADERS },
   );
+}
+
+async function refreshDashboardSnapshot() {
+  if (!dashboardRefreshInFlight) {
+    dashboardRefreshInFlight = getOwnerDashboardSnapshot({ ifNoneMatch: "" })
+      .then((fresh) => {
+        cachedDashboard = fresh;
+        cachedDashboardAt = Date.now();
+        return fresh;
+      })
+      .finally(() => {
+        dashboardRefreshInFlight = null;
+      });
+  }
+
+  return dashboardRefreshInFlight;
+}
+
+async function dashboardResult(ifNoneMatch) {
+  const now = Date.now();
+  const forceRefresh = !ifNoneMatch;
+  const cacheExpired = !cachedDashboard || now - cachedDashboardAt >= DASHBOARD_BLOB_CACHE_MS;
+
+  if (forceRefresh || cacheExpired) {
+    const fresh = await refreshDashboardSnapshot();
+    if (ifNoneMatch && requestEtagMatches(ifNoneMatch, fresh.etag)) {
+      return { etag: fresh.etag, notModified: true, snapshot: null };
+    }
+    return fresh;
+  }
+
+  // Polling requests may reuse the warm-instance snapshot to avoid Blob list/read
+  // operations. Return 200 here instead of 304 because this request did not
+  // revalidate the underlying Blob state.
+  return cachedDashboard;
 }
 
 export async function GET(request) {
@@ -29,9 +70,7 @@ export async function GET(request) {
   }
 
   try {
-    const result = await getOwnerDashboardSnapshot({
-      ifNoneMatch: request.headers.get("if-none-match") || "",
-    });
+    const result = await dashboardResult(request.headers.get("if-none-match") || "");
     const headers = { ...PRIVATE_HEADERS, ETag: result.etag };
 
     if (result.notModified) {
