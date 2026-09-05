@@ -15,6 +15,7 @@ const DASHBOARD_BLOB_CACHE_MS = 5 * 60 * 1000;
 
 let cachedDashboard = null;
 let cachedDashboardAt = 0;
+let dashboardRefreshInFlight = null;
 
 function unauthorized() {
   return NextResponse.json(
@@ -23,20 +24,38 @@ function unauthorized() {
   );
 }
 
+async function refreshDashboardSnapshot() {
+  if (!dashboardRefreshInFlight) {
+    dashboardRefreshInFlight = getOwnerDashboardSnapshot({ ifNoneMatch: "" })
+      .then((fresh) => {
+        cachedDashboard = fresh;
+        cachedDashboardAt = Date.now();
+        return fresh;
+      })
+      .finally(() => {
+        dashboardRefreshInFlight = null;
+      });
+  }
+
+  return dashboardRefreshInFlight;
+}
+
 async function dashboardResult(ifNoneMatch) {
   const now = Date.now();
-  if (!cachedDashboard || now - cachedDashboardAt >= DASHBOARD_BLOB_CACHE_MS) {
-    // Keep a complete short-lived snapshot in the warm function instance so the
-    // dashboard's frequent polling does not repeatedly list and read Blob objects.
-    const fresh = await getOwnerDashboardSnapshot({ ifNoneMatch: "" });
-    cachedDashboard = fresh;
-    cachedDashboardAt = now;
+  const forceRefresh = !ifNoneMatch;
+  const cacheExpired = !cachedDashboard || now - cachedDashboardAt >= DASHBOARD_BLOB_CACHE_MS;
+
+  if (forceRefresh || cacheExpired) {
+    const fresh = await refreshDashboardSnapshot();
+    if (ifNoneMatch && requestEtagMatches(ifNoneMatch, fresh.etag)) {
+      return { etag: fresh.etag, notModified: true, snapshot: null };
+    }
+    return fresh;
   }
 
-  if (ifNoneMatch && requestEtagMatches(ifNoneMatch, cachedDashboard.etag)) {
-    return { etag: cachedDashboard.etag, notModified: true, snapshot: null };
-  }
-
+  // Polling requests may reuse the warm-instance snapshot to avoid Blob list/read
+  // operations. Return 200 here instead of 304 because this request did not
+  // revalidate the underlying Blob state.
   return cachedDashboard;
 }
 
