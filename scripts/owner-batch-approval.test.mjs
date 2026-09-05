@@ -82,3 +82,49 @@ test("missing approval token fails closed", async () => {
     /GITHUB_OWNER_APPROVAL_TOKEN is required/,
   );
 });
+
+
+test("discovers eligible runs beyond the first workflow-runs page", async () => {
+  const requestedPages = [];
+  const fetchImpl = async (url, options = {}) => {
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith("/actions/workflows/autonomous-video.yml/runs")) {
+      const status = parsed.searchParams.get("status");
+      const page = Number(parsed.searchParams.get("page"));
+      requestedPages.push({ status, page });
+      if (status === "waiting" && page === 1) {
+        return jsonResponse({
+          workflow_runs: Array.from({ length: 100 }, (_, index) => ({
+            id: 1000 + index,
+            head_branch: "feature",
+          })),
+        });
+      }
+      if (status === "waiting" && page === 2) {
+        return jsonResponse({
+          workflow_runs: [{
+            id: 999,
+            head_branch: "main",
+            html_url: "https://github.test/run/999",
+            created_at: "2026-09-04T12:00:00Z",
+          }],
+        });
+      }
+      return jsonResponse({ workflow_runs: [] });
+    }
+    if (parsed.pathname.endsWith("/actions/workflows/manual-reviewed-video.yml/runs")) {
+      return jsonResponse({ workflow_runs: [] });
+    }
+    if ((options.method ?? "GET") === "GET" && parsed.pathname.endsWith("/actions/runs/999/pending_deployments")) {
+      return jsonResponse([
+        { environment: { id: 11, name: "social-production" }, current_user_can_approve: true },
+      ]);
+    }
+    throw new Error(`Unexpected mock GitHub request: ${parsed.pathname}${parsed.search}`);
+  };
+
+  const result = await findLaunchReadyVideoRuns({ token: "masked-test-token", fetchImpl });
+
+  assert.deepEqual(result.ready.map((item) => item.runId), [999]);
+  assert.ok(requestedPages.some((item) => item.status === "waiting" && item.page === 2));
+});
