@@ -41,7 +41,15 @@ export async function POST(request) {
   }
 
   try {
-    const result = await stageOwnerReviewedVideo({ token: githubToken, ...body });
+    const result = await stageOwnerReviewedVideo({
+      token: githubToken,
+      videoUrl: body?.videoUrl,
+      title: body?.title,
+      sizeBytes: body?.sizeBytes,
+      durationSeconds: body?.durationSeconds,
+      width: body?.width,
+      height: body?.height,
+    });
     return NextResponse.json(result, { headers: PRIVATE_HEADERS });
   } catch (error) {
     console.error("owner_review_staging_failed", {
