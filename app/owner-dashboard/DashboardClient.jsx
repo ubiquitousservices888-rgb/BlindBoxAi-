@@ -165,7 +165,7 @@ export default function DashboardClient() {
   }
 
   async function approveAndLaunchAllReadyVideos() {
-    if (!activeCode || launchBusy) return;
+    if (!activeCode || launchBusy || busy || requestInFlight.current) return;
     setLaunchBusy(true);
     setLaunchMessage("");
     setError("");
@@ -338,7 +338,7 @@ export default function DashboardClient() {
         <button type="button" onClick={chooseReviewVideo} disabled={reviewBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}>
           {reviewBusy ? `UPLOADING & CHECKING ${reviewProgress}%` : "UPLOAD & REVIEW VIDEO"}
         </button>
-        <button type="button" onClick={approveAndLaunchAllReadyVideos} disabled={launchBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: launchBusy ? "#64748b" : "#2563eb", color: "white", fontSize: 17, fontWeight: 800, cursor: launchBusy ? "wait" : "pointer" }}>
+        <button type="button" onClick={approveAndLaunchAllReadyVideos} disabled={launchBusy || busy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: launchBusy || busy ? "#64748b" : "#2563eb", color: "white", fontSize: 17, fontWeight: 800, cursor: launchBusy || busy ? "wait" : "pointer" }}>
           {launchBusy ? "APPROVING READY VIDEOS…" : "APPROVE & LAUNCH ALL READY VIDEOS"}
         </button>
       </div>
