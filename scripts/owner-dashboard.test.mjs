@@ -20,6 +20,10 @@ const dashboardClient = readFileSync(
   new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url),
   "utf8",
 );
+const dashboardRoute = readFileSync(
+  new URL("../app/api/owner/dashboard/route.js", import.meta.url),
+  "utf8",
+);
 
 function blob(pathname, uploadedAt, etag = pathname) {
   return { pathname, uploadedAt: new Date(uploadedAt), etag, size: 1 };
@@ -133,4 +137,12 @@ test("dashboard polling starts only after authenticated data loads", () => {
   assert.match(dashboardClient, /const loaded = await load\(token, false\);[\s\S]*if \(loaded\) setActiveCode\(token\);/);
   assert.match(dashboardClient, /if \(!activeCode \|\| !snapshotRef\.current\) return undefined;/);
   assert.match(dashboardClient, /If-None-Match/);
+});
+
+
+test("dashboard route deduplicates Blob refreshes and only returns 304 after revalidation", () => {
+  assert.match(dashboardRoute, /dashboardRefreshInFlight/);
+  assert.match(dashboardRoute, /const forceRefresh = !ifNoneMatch/);
+  assert.match(dashboardRoute, /if \(forceRefresh \|\| cacheExpired\)/);
+  assert.match(dashboardRoute, /Return 200 here instead of 304/);
 });
