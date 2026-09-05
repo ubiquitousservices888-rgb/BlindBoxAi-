@@ -64,3 +64,20 @@ test("dashboard exposes only summarized imported EPN metrics", () => {
     source: "ebay_partner_network_csv",
   });
 });
+
+
+test("long metadata preambles and ISO currency labels are tolerated", () => {
+  const metadata = Array.from({ length: 15 }, (_, index) => `Report metadata ${index + 1}`);
+  const csv = [
+    ...metadata,
+    "Day,Clicks,Transactions,Earnings",
+    "2026-09-01,10,2,USD 4.50",
+    "2026-09-02,5,1,(1.50 USD)",
+  ].join("\n");
+
+  const report = parseEpnReportCsv(csv);
+  assert.equal(report.orders, 3);
+  assert.equal(report.earnings, 3);
+  assert.equal(report.networkClicks, 15);
+  assert.equal(report.epc, 0.2);
+});
