@@ -1,9 +1,26 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { buildEbaySearchUrl } from "../lib/affiliate-policy.mjs";
+import { AMAZON_ASSOCIATE_TAG } from "../lib/amazon-associates.mjs";
+import {
+  DISCLOSURE,
+  STATES,
+  approve,
+  assertAffiliatePathValidation,
+  assertPublishableState,
+  createBufferPublisher,
+  createRenderRecord,
+  generateVideoScript,
+  markRendered,
+  pickAffiliateMonetizationPath,
+  publishApproved,
+  reject,
+  selectDailyProduct,
+  validateVerifiedProduct,
+} from "../lib/video-pipeline.mjs";
 
 const now = new Date("2026-08-09T12:00:00.000Z");
-const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
+const product = { id: "verified-one", name: "Verified One figure blind box", brand: "POP MART", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
 const ready = () => markRendered(createRenderRecord(product, generateVideoScript(product, now), ["tiktok", "instagram"], now), { id: "render-1", videoUrl: "https://cdn.example/video.mp4" }, now);
 const jsonResponse = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
@@ -20,6 +37,75 @@ describe("verified-data gate", () => {
     assert.deepEqual(script.facts, [product.claims[0].text]);
     assert.match(script.caption, new RegExp(DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(script.caption, /https:\/\/blindboxai\.com\/series\/verified-one/);
+    assert.equal(script.affiliatePath.monetizationPath, "existing-ebay-epn");
+  });
+});
+
+describe("affiliate monetization picker", () => {
+  it("routes POP MART figure to eBay/EPN", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Labubu figure", brand: "POP MART" });
+    assert.equal(route.monetizationPath, "existing-ebay-epn");
+    assert.equal(route.validation, "EPN");
+  });
+
+  it("routes Sonny Angel figure to eBay/EPN", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Sonny Angel figure", brand: "Sonny Angel" });
+    assert.equal(route.monetizationPath, "existing-ebay-epn");
+  });
+
+  it("routes Smiski figure to eBay/EPN", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Smiski figure", brand: "Smiski" });
+    assert.equal(route.monetizationPath, "existing-ebay-epn");
+  });
+
+  it("routes display case to Amazon Associates with exact tag", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Display case" });
+    const url = new URL(route.destinationUrl);
+    assert.equal(route.monetizationPath, "amazon-associates");
+    assert.equal(url.origin, "https://www.amazon.com");
+    assert.equal(url.searchParams.get("tag"), AMAZON_ASSOCIATE_TAG);
+  });
+
+  it("routes protective case to Amazon Associates", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Protective case for blind-box figures" });
+    assert.equal(route.monetizationPath, "amazon-associates");
+  });
+
+  it("routes storage accessory to Amazon Associates", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Collector storage accessory organizer" });
+    assert.equal(route.monetizationPath, "amazon-associates");
+  });
+
+  it("routes unknown products to NONE", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Mystery collector thing" });
+    assert.equal(route.monetizationPath, "NONE");
+    assert.equal(route.validation, "NONE");
+  });
+
+  it("routes ambiguous products to NONE", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Labubu display case figure stand bundle", brand: "POP MART" });
+    assert.equal(route.monetizationPath, "NONE");
+  });
+
+  it("keeps existing eBay tracking architecture unchanged", () => {
+    const ebay = new URL(buildEbaySearchUrl({
+      query: "POP MART Labubu",
+      kind: "active",
+      campid: "5339171775",
+      customId: "cid123",
+    }));
+    assert.match(ebay.hostname, /(?:^|\.)ebay\.com$/i);
+    assert.equal(ebay.searchParams.get("campid"), "5339171775");
+    assert.equal(ebay.searchParams.get("customid"), "cid123");
+  });
+
+  it("uses direct Amazon links instead of EPN redirects", () => {
+    const route = pickAffiliateMonetizationPath({ name: "Display stand" });
+    const url = new URL(route.destinationUrl);
+    assert.equal(route.monetizationPath, "amazon-associates");
+    assert.equal(url.hostname, "www.amazon.com");
+    assert.doesNotMatch(url.pathname, /^\/api\/out\/(?:ebay|offer|ebay-live|amazon)/i);
+    assert.equal(assertAffiliatePathValidation({ affiliatePath: route }), true);
   });
 });
 
