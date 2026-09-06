@@ -15,7 +15,7 @@ import { classifyProduct } from "../lib/product-classifier.mjs";
 import { resolveAccessoryOfferId, routeProductToAffiliate } from "../lib/monetization-router.mjs";
 
 const now = new Date("2026-08-09T12:00:00.000Z");
-process.env.NEXT_PUBLIC_EPN_CAMPID = "1234567";
+process.env.EPN_CAMPID = "1234567";
 const baseProduct = {
   id: "verified-product",
   name: "Verified Product",
