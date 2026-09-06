@@ -55,6 +55,11 @@ describe("product classifier and monetization router", () => {
     assertCase("Smiski figure", product, "figure", "ebay");
   });
 
+  it("3b. Generic blind-box figure (no brand) routes to eBay", () => {
+    const product = { ...baseProduct, id: "generic-figure", name: "Mystery blind box figure collectible" };
+    assertCase("Generic blind-box figure", product, "figure", "ebay");
+  });
+
   it("4. Display case routes to Amazon", () => {
     const product = { ...baseProduct, id: "display-case", name: "Acrylic display case for blind box collection" };
     assertCase("Display case", product, "accessory", "amazon");
