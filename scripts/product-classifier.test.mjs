@@ -129,8 +129,10 @@ describe("product classifier and monetization router", () => {
     const affiliateValidation = validateAffiliatePathForProduct(product);
     const pass = classification.type === "figure" && route.path === "ebay" && affiliateValidation.status !== "NONE";
     printResult("Approval still required", product, classification, route, pass);
+    assert.equal(affiliateValidation.status, "EBAY");
+    assert.ok(affiliateValidation.audit.some((entry) => entry === "route:ebay"));
+    assert.ok(affiliateValidation.audit.some((entry) => entry.startsWith("ebay_url:https://www.ebay.com/")));
     assert.equal(record.state, STATES.READY);
     assert.throws(() => assertPublishableState(record), /Manual approval is required/);
   });
-
 });
