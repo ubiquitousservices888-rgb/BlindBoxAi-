@@ -10,6 +10,7 @@ import {
   generateVideoScript,
   markRendered,
   validateAffiliatePathForProduct,
+  validateVerifiedProduct,
 } from "../lib/video-pipeline.mjs";
 import { classifyProduct } from "../lib/product-classifier.mjs";
 import { resolveAccessoryOfferId, routeProductToAffiliate } from "../lib/monetization-router.mjs";
@@ -131,5 +132,17 @@ describe("product classifier and monetization router", () => {
     printResult("Approval still required", product, classification, route, pass);
     assert.equal(record.state, STATES.READY);
     assert.throws(() => assertPublishableState(record), /Manual approval is required/);
+  });
+
+  it("12. Affiliate validation failures are wrapped by validateVerifiedProduct", () => {
+    const product = { ...baseProduct, id: "collector-supply", name: "Collector supply starter kit" };
+    const classification = classifyProduct(product);
+    const route = (() => {
+      try { return routeProductToAffiliate(product); } catch { return { path: "none", reason: "threw" }; }
+    })();
+    const pass = classification.type === "accessory";
+    printResult("Affiliate validation wrapper", product, classification, route, pass);
+    assert.equal(classification.type, "accessory");
+    assert.throws(() => validateVerifiedProduct(product, now), /Affiliate routing validation failed/);
   });
 });
