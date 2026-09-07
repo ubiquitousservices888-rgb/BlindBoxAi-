@@ -1,0 +1,96 @@
+name: Know-It-All public transaction verification
+
+on:
+  schedule:
+    - cron: "37 3,15 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: know-it-all-transaction-verification
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Scan public completed-sales history without credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run public transaction verification
+        env:
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          OPENAI_API_KEY: ""
+          OPENAI_RESEARCH_MODEL: ""
+          MR_RESEARCH_ENCRYPTION_KEY: ""
+          MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ""
+        run: node scripts/autonomous-transaction-verifier.mjs
+
+      - name: Verify sanitized artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s data/know-it-all/latest-transaction-verification.json
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-transaction-verification.json
+          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' data/know-it-all/latest-transaction-verification.json
+
+      - name: Upload verified research artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: know-it-all-transaction-verification
+          path: data/know-it-all/latest-transaction-verification.json
+          if-no-files-found: error
+          retention-days: 7
+
+  persist:
+    name: Persist sanitized verification artifact
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout with GitHub write token
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download verification artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: know-it-all-transaction-verification
+          path: data/know-it-all
+
+      - name: Verify artifact again before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s data/know-it-all/latest-transaction-verification.json
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-transaction-verification.json
+
+      - name: Commit sanitized artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/know-it-all/latest-transaction-verification.json
+          if git diff --cached --quiet; then
+            echo "No verification changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(know-it-all): refresh transaction verification"
+          git push
