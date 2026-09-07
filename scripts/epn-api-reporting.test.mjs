@@ -58,6 +58,26 @@ test("connected EPN API with no rows produces verified zero metrics", () => {
   assert.equal(report.epc, 0);
 });
 
+test("EPN API payload tolerates alternate metric keys, ISO currency labels, and skips non-approved rows", () => {
+  const report = summarizeEpnPerformancePayload({
+    records: [
+      { click_count: "10", transaction_count: "2", "partner earnings": "USD 5.00", transaction_status: "Approved" },
+      { click_count: "6", transaction_count: "1", "partner earnings": "USD 3.00", transaction_status: "Pending" },
+      { click_count: "-4", transaction_count: "-1", "partner earnings": "(USD 1.00)", transaction_status: "Confirmed" },
+    ],
+  }, {
+    now: new Date("2026-09-04T18:00:00Z"),
+    startDate: "2026-08-06",
+    endDate: "2026-09-04",
+  });
+
+  assert.equal(report.networkClicks, 10);
+  assert.equal(report.orders, 2);
+  assert.equal(report.earnings, 4);
+  assert.equal(report.epc, 0.4);
+  assert.deepEqual(report.period, { startDate: "2026-08-06", endDate: "2026-09-04" });
+});
+
 test("EPN API fetch keeps credentials out of URL and sends Basic auth server-side", async () => {
   let capturedUrl = "";
   let capturedAuth = "";
