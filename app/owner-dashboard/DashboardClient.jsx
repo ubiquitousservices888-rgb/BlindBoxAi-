@@ -71,6 +71,12 @@ function formatDuration(seconds) {
   return `${minutes}:${String(total % 60).padStart(2, "0")}`;
 }
 
+function epnEpcStatus(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (!normalized || normalized.includes("not connected")) return "Not connected";
+  return "Unavailable in this report";
+}
+
 export default function DashboardClient() {
   const [code, setCode] = useState("");
   const [activeCode, setActiveCode] = useState("");
@@ -303,7 +309,7 @@ export default function DashboardClient() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to import EPN report.");
-      setEpnMessage(`EPN connected from report: ${data.orders ?? "orders unavailable"} orders, ${money(data.earnings)} earnings, ${money(data.epc)} EPC.`);
+      setEpnMessage(`EPN connected from report: ${data.orders ?? "orders unavailable"} orders, ${money(data.earnings)} earnings, ${money(data.epc, epnEpcStatus(data.status))} EPC.`);
       etagRef.current = "";
       await load(activeCode, false);
     } catch (cause) {
@@ -377,7 +383,7 @@ export default function DashboardClient() {
         <Stat label="Clicks last 24h" value={snapshot.totals?.epnClicksLast24h ?? 0} />
         <Stat label="EPN orders" value={numberOrStatus(epn.orders)} />
         <Stat label="EPN earnings" value={money(epn.earnings)} />
-        <Stat label="EPN EPC" value={money(epn.epc)} />
+        <Stat label="EPN EPC" value={money(epn.epc, epnEpcStatus(epn.status))} />
       </div>
       <p style={{ opacity: 0.75 }}>eBay EPN reporting: {epn.status || "Not connected"}. Amazon Associates: {amazon.status || "Affiliate links active; reporting pending approval"}. Unverified earnings are never displayed as $0.</p>
       <input ref={epnFileInput} type="file" accept=".csv,text/csv" onChange={importEpnReport} hidden />

@@ -19,6 +19,7 @@ test("missing affiliate reporting remains unknown rather than zero", () => {
 test("dashboard formatters never render missing reporting as zero", () => {
   assert.equal(money(null), "Not connected");
   assert.equal(money(undefined), "Not connected");
+  assert.equal(money(undefined, "Unavailable in this report"), "Unavailable in this report");
   assert.equal(numberOrStatus(null), "Not connected");
   assert.equal(money(0), "$0.00");
   assert.equal(numberOrStatus(0), "0");
