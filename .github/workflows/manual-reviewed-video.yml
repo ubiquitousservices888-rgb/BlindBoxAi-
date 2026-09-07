@@ -1,5 +1,5 @@
 name: Manual reviewed video
-run-name: Review upload — ${{ inputs.title }}
+run-name: Review upload — ${{ inputs.video_url }}
 
 on:
   workflow_dispatch:
