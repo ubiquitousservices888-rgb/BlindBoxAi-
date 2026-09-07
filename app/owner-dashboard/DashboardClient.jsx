@@ -43,11 +43,7 @@ function readVideoMetadata(url) {
     video.preload = "metadata";
     video.onloadedmetadata = () => {
       clearTimeout(timer);
-      const metadata = {
-        durationSeconds: video.duration,
-        width: video.videoWidth,
-        height: video.videoHeight,
-      };
+      const metadata = { durationSeconds: video.duration, width: video.videoWidth, height: video.videoHeight };
       video.src = "";
       if (!Number.isFinite(metadata.durationSeconds) || metadata.durationSeconds <= 0 || metadata.width <= 0 || metadata.height <= 0) {
         reject(new Error("Uploaded MP4 has invalid duration or dimensions."));
@@ -67,8 +63,7 @@ function readVideoMetadata(url) {
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds)) return "—";
   const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  return `${minutes}:${String(total % 60).padStart(2, "0")}`;
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function epnEpcStatus(status) {
@@ -83,12 +78,13 @@ export default function DashboardClient() {
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [launchBusy, setLaunchBusy] = useState(false);
-  const [launchMessage, setLaunchMessage] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewProgress, setReviewProgress] = useState(0);
   const [reviewMessage, setReviewMessage] = useState("");
   const [reviewResult, setReviewResult] = useState(null);
+  const [watchingReviewUrl, setWatchingReviewUrl] = useState("");
+  const [approvedReviewUrls, setApprovedReviewUrls] = useState(() => new Set());
+  const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
   const [epnBusy, setEpnBusy] = useState(false);
   const [epnMessage, setEpnMessage] = useState("");
   const seen = useRef(new Set());
@@ -170,34 +166,6 @@ export default function DashboardClient() {
     if (permission !== "granted") setError("Browser notifications were not enabled.");
   }
 
-  async function approveAndLaunchAllReadyVideos() {
-    if (!activeCode || launchBusy || busy || requestInFlight.current) return;
-    setLaunchBusy(true);
-    setLaunchMessage("");
-    setError("");
-    try {
-      const response = await fetch("/api/owner/approve-launch", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${activeCode}` },
-        cache: "no-store",
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Unable to approve launch-ready videos.");
-
-      if (data.status === "nothing_ready") {
-        setLaunchMessage("Nothing is waiting for approval right now.");
-      } else {
-        setLaunchMessage(`Approved ${data.approvedRuns} launch-ready video run${data.approvedRuns === 1 ? "" : "s"}. Publishing will continue through the protected pipeline.`);
-      }
-      etagRef.current = "";
-      await load(activeCode, false);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to approve launch-ready videos.");
-    } finally {
-      setLaunchBusy(false);
-    }
-  }
-
   function chooseReviewVideo() {
     if (!reviewBusy) reviewFileInput.current?.click();
   }
@@ -213,7 +181,7 @@ export default function DashboardClient() {
     setReviewProgress(0);
 
     if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) {
-      setError("Yellow review accepts MP4 video files only.");
+      setError("Review accepts MP4 video files only.");
       return;
     }
     if (file.size <= 0 || file.size > MAX_VIDEO_SIZE) {
@@ -238,18 +206,9 @@ export default function DashboardClient() {
       });
 
       if (!blob?.url || !/^https:\/\//i.test(blob.url)) throw new Error("Vercel Blob did not return a public HTTPS review URL.");
-
       setReviewMessage("Running mechanical video checks…");
       const metadata = await readVideoMetadata(blob.url);
-      const result = {
-        url: blob.url,
-        fileName: file.name,
-        sizeBytes: file.size,
-        ...metadata,
-        state: "READY_FOR_REVIEW",
-        approved: false,
-        staged: false,
-      };
+      const result = { url: blob.url, fileName: file.name, sizeBytes: file.size, ...metadata, state: "READY_FOR_REVIEW", approved: false, staged: false };
       setReviewResult(result);
 
       setReviewMessage("Staging exact video behind the blue approval gate…");
@@ -270,7 +229,7 @@ export default function DashboardClient() {
       if (!stageResponse.ok) throw new Error(stage.error || "Unable to stage the uploaded video for owner review.");
 
       setReviewResult({ ...result, staged: true });
-      setReviewMessage("READY FOR REVIEW — watch this exact video, then use the blue button if it passes your review.");
+      setReviewMessage("READY FOR REVIEW — watch the exact video below, then use its blue approval button.");
       etagRef.current = "";
       await load(activeCode, false);
     } catch (cause) {
@@ -279,6 +238,30 @@ export default function DashboardClient() {
     } finally {
       clearTimeout(timeout);
       setReviewBusy(false);
+    }
+  }
+
+  async function approveReviewVideo(videoUrl) {
+    if (!activeCode || !videoUrl || approvingReviewUrl || busy) return;
+    setApprovingReviewUrl(videoUrl);
+    setError("");
+    try {
+      const response = await fetch("/api/owner/approve-review", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ videoUrl }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
+      setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
+      setReviewMessage("APPROVED — the exact video has been released to the protected social-production publishing gate.");
+      etagRef.current = "";
+      await load(activeCode, false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to approve this review video.");
+    } finally {
+      setApprovingReviewUrl("");
     }
   }
 
@@ -301,12 +284,7 @@ export default function DashboardClient() {
     try {
       const form = new FormData();
       form.append("report", file);
-      const response = await fetch("/api/owner/epn-report", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${activeCode}` },
-        body: form,
-        cache: "no-store",
-      });
+      const response = await fetch("/api/owner/epn-report", { method: "POST", headers: { Authorization: `Bearer ${activeCode}` }, body: form, cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to import EPN report.");
       setEpnMessage(`EPN connected from report: ${data.orders ?? "orders unavailable"} orders, ${money(data.earnings)} earnings, ${money(data.epc, epnEpcStatus(data.status))} EPC.`);
@@ -322,10 +300,7 @@ export default function DashboardClient() {
   if (!snapshot) {
     return (
       <form onSubmit={unlock} style={{ display: "grid", gap: 14, maxWidth: 420 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <strong>Owner access code</strong>
-          <input type="password" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" required style={{ padding: 12, fontSize: 16 }} />
-        </label>
+        <label style={{ display: "grid", gap: 6 }}><strong>Owner access code</strong><input type="password" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" required style={{ padding: 12, fontSize: 16 }} /></label>
         <button disabled={busy} style={{ padding: 13, fontWeight: 700 }}>{busy ? "Opening…" : "Open dashboard"}</button>
         {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
       </form>
@@ -335,22 +310,17 @@ export default function DashboardClient() {
   const revenue = snapshot.revenue || {};
   const epn = revenue.epn || {};
   const amazon = revenue.amazon || {};
+  const reviewNotifications = (snapshot.notifications || []).filter((item) => item?.reviewState === "READY_FOR_REVIEW" && item?.approved !== true && item?.mediaUrl);
 
   return <div style={{ display: "grid", gap: 24 }}>
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h2 style={{ marginTop: 0 }}>Owner video control</h2>
       <input ref={reviewFileInput} type="file" accept="video/mp4,.mp4" onChange={uploadAndStageReview} hidden />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, maxWidth: 900 }}>
-        <button type="button" onClick={chooseReviewVideo} disabled={reviewBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}>
-          {reviewBusy ? `UPLOADING & CHECKING ${reviewProgress}%` : "UPLOAD & REVIEW VIDEO"}
-        </button>
-        <button type="button" onClick={approveAndLaunchAllReadyVideos} disabled={launchBusy || busy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: launchBusy || busy ? "#64748b" : "#2563eb", color: "white", fontSize: 17, fontWeight: 800, cursor: launchBusy || busy ? "wait" : "pointer" }}>
-          {launchBusy ? "APPROVING READY VIDEOS…" : "APPROVE & LAUNCH ALL READY VIDEOS"}
-        </button>
-      </div>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>Yellow uploads and checks an MP4, then parks that exact file at READY_FOR_REVIEW. Watch it here. Blue is the only control that approves and releases ready videos through social-production.</p>
+      <button type="button" onClick={chooseReviewVideo} disabled={reviewBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}>
+        {reviewBusy ? `UPLOADING & CHECKING ${reviewProgress}%` : "UPLOAD NEW REVIEW VIDEO"}
+      </button>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Yellow is the upload entry point. Each staged video below gets its own yellow WATCH button and blue APPROVE button. Approval is authenticated server-side and still passes through the protected social-production environment before publishing.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
-      {launchMessage ? <p role="status" style={{ fontWeight: 700 }}>{launchMessage}</p> : null}
 
       {reviewResult?.url ? (
         <div style={{ marginTop: 16, display: "grid", gap: 12, maxWidth: 720 }}>
@@ -359,17 +329,32 @@ export default function DashboardClient() {
             <video src={reviewResult.url} controls playsInline preload="metadata" style={{ width: "100%", marginTop: 10, borderRadius: 10, background: "black" }} />
             <div style={{ marginTop: 10, fontSize: 14 }}>{reviewResult.width}×{reviewResult.height} · {formatDuration(reviewResult.durationSeconds)} · {(reviewResult.sizeBytes / (1024 * 1024)).toFixed(1)} MB</div>
           </div>
-          <div style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
-            <strong>Review checklist before blue</strong>
-            <ul style={{ marginBottom: 0 }}>
-              <li>Mechanical QC passed: valid MP4, allowed size, readable duration and dimensions, HTTPS review URL.</li>
-              <li>Watch the full video: real/approved visuals, clear audio, correct facts, clean pacing, no unwanted ad/outro or dead section.</li>
-              <li>Confirm BlindBoxAI branding/CTA and required affiliate disclosure are appropriate for the post.</li>
-              <li>If anything is wrong, do not press blue; upload the corrected video with yellow.</li>
-            </ul>
-          </div>
         </div>
       ) : null}
+
+      <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
+        <h3 style={{ marginBottom: 0 }}>Videos waiting for your review</h3>
+        {reviewNotifications.length ? reviewNotifications.map((item) => {
+          const approved = approvedReviewUrls.has(item.mediaUrl);
+          const watching = watchingReviewUrl === item.mediaUrl;
+          return (
+            <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
+              <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>{when(item.createdAt)}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+                <button type="button" onClick={() => setWatchingReviewUrl(watching ? "" : item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
+                  {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
+                </button>
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                  {approved ? "APPROVED & RELEASED" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "APPROVE & LAUNCH THIS VIDEO"}
+                </button>
+              </div>
+              {watching ? <video src={item.mediaUrl} controls autoPlay playsInline preload="metadata" style={{ width: "100%", marginTop: 12, borderRadius: 10, background: "black" }} /> : null}
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved from the control panel. Publishing continues only after the protected social-production gate accepts it." : "Watch the full video first. If it passes your factual, visual, audio, branding, CTA, disclosure, and pacing review, press blue. If it fails, do not approve it; upload a corrected version instead."}</p>
+            </article>
+          );
+        }) : <p>No videos are currently staged for review in the dashboard window.</p>}
+      </div>
     </section>
 
     <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
@@ -387,9 +372,7 @@ export default function DashboardClient() {
       </div>
       <p style={{ opacity: 0.75 }}>eBay EPN reporting: {epn.status || "Not connected"}. Amazon Associates: {amazon.status || "Affiliate links active; reporting pending approval"}. Unverified earnings are never displayed as $0.</p>
       <input ref={epnFileInput} type="file" accept=".csv,text/csv" onChange={importEpnReport} hidden />
-      <button type="button" onClick={chooseEpnReport} disabled={epnBusy} style={{ padding: "11px 15px", fontWeight: 800 }}>
-        {epnBusy ? "IMPORTING EPN REPORT…" : "IMPORT EPN REPORT CSV"}
-      </button>
+      <button type="button" onClick={chooseEpnReport} disabled={epnBusy} style={{ padding: "11px 15px", fontWeight: 800 }}>{epnBusy ? "IMPORTING EPN REPORT…" : "IMPORT EPN REPORT CSV"}</button>
       <p style={{ opacity: 0.75, marginBottom: 0 }}>Best immediate report: EPN Reports → Performance by Day → CSV. The dashboard stores only summarized orders, earnings, clicks/EPC and import time in private storage; the raw CSV is not retained.</p>
       {epn.importedAt ? <p style={{ opacity: 0.75 }}>Last EPN import: {when(epn.importedAt)}{Number.isFinite(epn.networkClicks) ? ` · EPN-reported clicks: ${epn.networkClicks}` : ""}</p> : null}
       {epnMessage ? <p role="status" style={{ fontWeight: 700 }}>{epnMessage}</p> : null}
@@ -410,10 +393,5 @@ export default function DashboardClient() {
 }
 
 function Stat({ label, value }) {
-  return (
-    <div style={{ border: "1px solid currentColor", borderRadius: 10, padding: 14 }}>
-      <div style={{ opacity: 0.7, fontSize: 13 }}>{label}</div>
-      <div style={{ fontSize: 25, fontWeight: 800, overflowWrap: "anywhere" }}>{value}</div>
-    </div>
-  );
+  return <div style={{ border: "1px solid currentColor", borderRadius: 10, padding: 14 }}><div style={{ opacity: 0.7, fontSize: 13 }}>{label}</div><div style={{ fontSize: 25, fontWeight: 800, overflowWrap: "anywhere" }}>{value}</div></div>;
 }
