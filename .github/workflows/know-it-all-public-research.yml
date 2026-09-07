@@ -1,0 +1,65 @@
+name: Know-It-All credentialless public research
+
+on:
+  schedule:
+    - cron: "17 2,14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: know-it-all-public-research
+  cancel-in-progress: true
+
+jobs:
+  research:
+    name: Research public sources without credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run credentialless public research
+        env:
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+          OPENAI_API_KEY: ""
+          OPENAI_RESEARCH_MODEL: ""
+          MR_RESEARCH_ENCRYPTION_KEY: ""
+          MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ""
+        run: node scripts/secure-public-research.mjs
+
+      - name: Verify research artifact contains no credential-like material
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s data/know-it-all/latest-public-research.json
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-public-research.json
+          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' data/know-it-all/latest-public-research.json
+
+      - name: Commit knowledge artifact only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/know-it-all/latest-public-research.json
+          if git diff --cached --quiet; then
+            echo "No research changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(know-it-all): refresh public research"
+          git push
