@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { money, numberOrStatus } from "../../lib/revenue-status.mjs";
 
 const REFRESH_MS = 5 * 60 * 1000;
+const UNAVAILABLE_IN_REPORT = "Unavailable in this report";
 
 function fmtDate(value) {
   if (!value) return "—";
@@ -11,15 +12,33 @@ function fmtDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
-function sumRows(rows, provider, fromDate = null) {
-  const cutoff = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null;
-  const selected = rows.filter((row) => !cutoff || new Date(`${row.date}T00:00:00`).getTime() >= cutoff);
-  const values = selected.map((row) => row[provider] || {});
+function statusLabel(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (!normalized || normalized.includes("not connected")) return "Not connected";
+  return UNAVAILABLE_IN_REPORT;
+}
+
+function metricNumber(value, status) {
+  return numberOrStatus(value, statusLabel(status));
+}
+
+function metricMoney(value, status) {
+  return money(value, statusLabel(status));
+}
+
+function sumRows(rows, provider) {
+  const values = rows.map((row) => row[provider] || {});
   return {
     clicks: values.every((item) => item.clicks == null) ? null : values.reduce((total, item) => total + (Number(item.clicks) || 0), 0),
     orders: values.every((item) => item.orders == null) ? null : values.reduce((total, item) => total + (Number(item.orders) || 0), 0),
     earnings: values.every((item) => item.earnings == null) ? null : Math.round((values.reduce((total, item) => total + (Number(item.earnings) || 0), 0) + Number.EPSILON) * 100) / 100,
   };
+}
+
+function combineValues(...values) {
+  return values.every((value) => typeof value === "number" && Number.isFinite(value))
+    ? values.reduce((total, value) => total + value, 0)
+    : null;
 }
 
 function startOfMonth() {
@@ -38,9 +57,9 @@ function ProviderSummary({ title, data }) {
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-        <Stat label="Clicks" value={numberOrStatus(data.clicks)} />
-        <Stat label="Orders" value={numberOrStatus(data.orders)} />
-        <Stat label="Confirmed earnings" value={money(data.earnings)} />
+        <Stat label="Clicks" value={metricNumber(data.clicks, data.status)} />
+        <Stat label="Orders" value={metricNumber(data.orders, data.status)} />
+        <Stat label="Confirmed earnings" value={metricMoney(data.earnings, data.status)} />
       </div>
     </section>
   );
@@ -120,27 +139,27 @@ export default function RevenueSummaryClient() {
   const amazon = revenue.amazon || {};
   const rows = snapshot.dailyRevenue || [];
   const today = rows[0] || { eBay: {}, amazon: {} };
-  const weekEpn = sumRows(rows, "eBay", startOfLast7Days());
-  const weekAmazon = sumRows(rows, "amazon", startOfLast7Days());
-  const monthEpn = sumRows(rows, "eBay", startOfMonth());
-  const monthAmazon = sumRows(rows, "amazon", startOfMonth());
-  const reportEpn = { clicks: epn.networkClicks, orders: epn.orders, earnings: epn.earnings };
-  const reportAmazon = { clicks: amazon.networkClicks, orders: amazon.orders, earnings: amazon.earnings };
-  const combinedToday = (today.eBay.earnings || 0) + (today.amazon.earnings || 0);
-  const combinedWeek = (weekEpn.earnings || 0) + (weekAmazon.earnings || 0);
-  const combinedMonth = (monthEpn.earnings || 0) + (monthAmazon.earnings || 0);
-  const combinedReport = (epn.earnings || 0) + (amazon.earnings || 0);
+  const weekEpn = sumRows(rows.filter((row) => new Date(`${row.date}T00:00:00`).getTime() >= new Date(`${startOfLast7Days()}T00:00:00`).getTime()), "eBay");
+  const weekAmazon = sumRows(rows.filter((row) => new Date(`${row.date}T00:00:00`).getTime() >= new Date(`${startOfLast7Days()}T00:00:00`).getTime()), "amazon");
+  const monthEpn = sumRows(rows.filter((row) => new Date(`${row.date}T00:00:00`).getTime() >= new Date(`${startOfMonth()}T00:00:00`).getTime()), "eBay");
+  const monthAmazon = sumRows(rows.filter((row) => new Date(`${row.date}T00:00:00`).getTime() >= new Date(`${startOfMonth()}T00:00:00`).getTime()), "amazon");
+  const reportEpn = { clicks: epn.networkClicks, orders: epn.orders, earnings: epn.earnings, status: epn.status };
+  const reportAmazon = { clicks: amazon.networkClicks, orders: amazon.orders, earnings: amazon.earnings, status: amazon.status };
+  const combinedToday = combineValues(today.eBay.earnings, today.amazon.earnings);
+  const combinedWeek = combineValues(weekEpn.earnings, weekAmazon.earnings);
+  const combinedMonth = combineValues(monthEpn.earnings, monthAmazon.earnings);
+  const combinedReport = combineValues(epn.earnings, amazon.earnings);
 
   return <div style={{ display: "grid", gap: 18 }}>
     <section style={{ border: "2px solid currentColor", borderRadius: 14, padding: 18 }}>
       <h2 style={{ marginTop: 0 }}>Earnings at a glance</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-        <Stat label="Today" value={money(combinedToday)} />
-        <Stat label="Last 7 days" value={money(combinedWeek)} />
-        <Stat label="This month" value={money(combinedMonth)} />
-        <Stat label="Confirmed report period" value={money(combinedReport)} />
+        <Stat label="Today" value={money(combinedToday, UNAVAILABLE_IN_REPORT)} />
+        <Stat label="Last 7 days" value={money(combinedWeek, UNAVAILABLE_IN_REPORT)} />
+        <Stat label="This month" value={money(combinedMonth, UNAVAILABLE_IN_REPORT)} />
+        <Stat label="Confirmed report period" value={money(combinedReport, UNAVAILABLE_IN_REPORT)} />
       </div>
-      <p style={{ opacity: 0.75 }}>Confirmed earnings only. A missing report is shown as unavailable, never as a fake $0.</p>
+      <p style={{ opacity: 0.75 }}>Confirmed earnings only. Missing data is shown as unavailable; a real reported zero remains $0. Combined totals are shown only when both networks have report values.</p>
     </section>
 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
@@ -177,14 +196,14 @@ export default function RevenueSummaryClient() {
         <tbody>{rows.slice(0, 14).map((row) => {
           const eBay = row.eBay || {};
           const amazonRow = row.amazon || {};
-          const total = (eBay.earnings || 0) + (amazonRow.earnings || 0);
+          const total = combineValues(eBay.earnings, amazonRow.earnings);
           return <tr key={row.date}>
             <td style={{ padding: 8 }}>{fmtDate(row.date)}</td>
-            <td style={{ padding: 8, textAlign: "right" }}>{numberOrStatus(eBay.clicks)}</td>
-            <td style={{ padding: 8, textAlign: "right" }}>{money(eBay.earnings)}</td>
-            <td style={{ padding: 8, textAlign: "right" }}>{numberOrStatus(amazonRow.clicks)}</td>
-            <td style={{ padding: 8, textAlign: "right" }}>{money(amazonRow.earnings)}</td>
-            <td style={{ padding: 8, textAlign: "right", fontWeight: 800 }}>{money(total)}</td>
+            <td style={{ padding: 8, textAlign: "right" }}>{numberOrStatus(eBay.clicks, UNAVAILABLE_IN_REPORT)}</td>
+            <td style={{ padding: 8, textAlign: "right" }}>{money(eBay.earnings, UNAVAILABLE_IN_REPORT)}</td>
+            <td style={{ padding: 8, textAlign: "right" }}>{numberOrStatus(amazonRow.clicks, UNAVAILABLE_IN_REPORT)}</td>
+            <td style={{ padding: 8, textAlign: "right" }}>{money(amazonRow.earnings, UNAVAILABLE_IN_REPORT)}</td>
+            <td style={{ padding: 8, textAlign: "right", fontWeight: 800 }}>{money(total, UNAVAILABLE_IN_REPORT)}</td>
           </tr>;
         })}</tbody>
       </table>
