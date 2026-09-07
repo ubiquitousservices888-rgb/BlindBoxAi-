@@ -1,8 +1,9 @@
+import Link from "next/link";
 import DashboardClient from "./DashboardClient";
 
 export const metadata = {
   title: "Owner control room | BlindBoxAI",
-  description: "Private owner dashboard for publish status and affiliate click events.",
+  description: "Private owner dashboard for publish status, affiliate activity, and earnings.",
   robots: { index: false, follow: false },
 };
 
@@ -14,8 +15,9 @@ export default function OwnerDashboardPage() {
       </p>
       <h1>Notifications & affiliate activity</h1>
       <p style={{ lineHeight: 1.7 }}>
-        Private dashboard for finished media uploads and tracked eBay Partner Network outbound clicks. Use the same owner access code as the approved-media upload page.
+        Private dashboard for finished media uploads and tracked eBay Partner Network outbound clicks.
       </p>
+      <p><Link href="/owner-dashboard/revenue">Open the daily earnings & payout dashboard →</Link></p>
       <DashboardClient />
     </main>
   );

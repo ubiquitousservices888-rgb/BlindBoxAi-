@@ -62,6 +62,7 @@ test("dashboard exposes only summarized imported EPN metrics", () => {
     networkClicks: 50,
     importedAt: "2026-09-04T12:00:00.000Z",
     source: "ebay_partner_network_csv",
+    payoutTiming: "eBay pays monthly, generally on or around the 10th business day, subject to the account minimum and payment setup.",
   });
 });
 
