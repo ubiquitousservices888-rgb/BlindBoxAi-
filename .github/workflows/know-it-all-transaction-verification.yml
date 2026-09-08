@@ -64,9 +64,12 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout with GitHub write token
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 1
 
       - name: Download verification artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -81,16 +84,34 @@ jobs:
           test -s data/know-it-all/latest-transaction-verification.json
           ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-transaction-verification.json
 
-      - name: Commit sanitized artifact
+      - name: Commit sanitized artifact on protected branch
+        id: commit
         shell: bash
         run: |
           set -euo pipefail
+          branch="know-it-all/verification-${GITHUB_RUN_ID}"
+          git switch -c "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/know-it-all/latest-transaction-verification.json
           if git diff --cached --quiet; then
-            echo "No verification changes to commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "chore(know-it-all): refresh transaction verification"
-          git push
+          git push --set-upstream origin "$branch"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Open protected merge request
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.commit.outputs.branch }}
+        run: |
+          set -euo pipefail
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(know-it-all): refresh transaction verification" \
+            --body "Automated sanitized public transaction verification artifact. The artifact was scanned for credential-like material before commit. Merge only after required repository checks pass."
