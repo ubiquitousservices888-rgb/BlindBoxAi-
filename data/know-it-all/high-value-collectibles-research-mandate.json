@@ -1,0 +1,63 @@
+{
+  "schema": "blindboxai/research-mandate/v1",
+  "agent": "Mr. Know It All",
+  "flywheel": "BlindBoxAI knowledge and monetization flywheel",
+  "scope": "High-value collectible purchase intelligence, with blind-box products retained as one category rather than the whole market.",
+  "lanes": [
+    "pokemon-and-tcg-sealed-product",
+    "graded-cards-and-slabs",
+    "sealed-cases-and-booster-boxes",
+    "mystery-boxes",
+    "japanese-exclusives-and-proxy-buying",
+    "premium-art-toys",
+    "pop-mart-and-labubu",
+    "sanrio-and-mass-market-blind-boxes",
+    "collectible-protection-and-authentication-accessories",
+    "autonomously-discovered-high-value-collectible-categories"
+  ],
+  "priority": "Rank opportunities by verified buyer intent, transaction value, monetization fit, evidence strength, and content opportunity.",
+  "evidenceRules": {
+    "marketValue": "Prefer completed/sold transactions over asking prices.",
+    "minimumIndependentSales": 2,
+    "affiliateEconomics": [
+      "program status",
+      "commission",
+      "attribution or cookie window",
+      "geographic eligibility",
+      "qualifying action",
+      "direct-link capability"
+    ],
+    "buyerRisk": [
+      "counterfeit evidence",
+      "reseal/tampering evidence",
+      "authentication procedure",
+      "grading or certification verification",
+      "documented buyer complaints"
+    ],
+    "demand": [
+      "search intent",
+      "YouTube/topic demand",
+      "marketplace activity",
+      "pre-purchase research behavior",
+      "competition/saturation"
+    ]
+  },
+  "ranking": {
+    "formula": "qualified buyer intent x transaction value x conversion opportunity x monetization fit x evidence confidence",
+    "reject": [
+      "unsupported asking-price claims",
+      "guaranteed-profit claims",
+      "unverified affiliate economics",
+      "single-source market conclusions"
+    ]
+  },
+  "security": {
+    "publicResearchOnly": true,
+    "credentialsAllowed": false,
+    "secretsAllowed": false,
+    "privateAccountAccess": false,
+    "transactionsAllowed": false,
+    "publishingAllowed": false,
+    "ownerApprovalRequiredForCatalogOrPublishing": true
+  }
+}
