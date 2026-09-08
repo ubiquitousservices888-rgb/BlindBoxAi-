@@ -74,9 +74,21 @@ describe("product classifier and monetization router", () => {
     const product = { ...baseProduct, id: "storage-organizer", name: "Storage organizer for collectible accessories" };
     assertCase("Storage organizer", product, "accessory", "amazon");
   });
+
   it("6b. Branded accessory routes to Amazon, not eBay", () => {
     const product = { ...baseProduct, id: "popmart-case", name: "POP MART acrylic display case", brand: "POP MART" };
     assertCase("Branded display case", product, "accessory", "amazon");
+  });
+
+  it("6c. Accessory target figure text does not force eBay", () => {
+    const product = {
+      ...baseProduct,
+      id: "target-figure-case",
+      name: "Acrylic display case for Labubu",
+      brand: "POP MART",
+      claims: [{ text: "Designed to protect the Labubu figure from dust.", sourceId: "official" }],
+    };
+    assertCase("Accessory mentioning target figure", product, "accessory", "amazon");
   });
 
   it("7. Unknown product stays none and never Amazon", () => {
