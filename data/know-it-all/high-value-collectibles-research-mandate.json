@@ -2,20 +2,35 @@
   "schema": "blindboxai/research-mandate/v1",
   "agent": "Mr. Know It All",
   "flywheel": "BlindBoxAI knowledge and monetization flywheel",
-  "scope": "High-value collectible purchase intelligence, with blind-box products retained as one category rather than the whole market.",
+  "scope": "All sports cards and collector cards, including blind-box products as one category rather than the whole market.",
   "lanes": [
-    "pokemon-and-tcg-sealed-product",
+    "baseball-cards",
+    "basketball-cards",
+    "football-cards",
+    "hockey-cards",
+    "soccer-cards",
+    "racing-and-motorsport-cards",
+    "golf-cards",
+    "tennis-cards",
+    "wrestling-cards",
+    "ufc-and-mma-cards",
+    "other-sports-cards",
+    "pokemon-and-tcg",
+    "magic-the-gathering",
+    "yu-gi-oh",
+    "one-piece-lorcana-and-other-tcg",
+    "non-sports-and-entertainment-cards",
     "graded-cards-and-slabs",
-    "sealed-cases-and-booster-boxes",
-    "mystery-boxes",
+    "sealed-packs-boxes-and-cases",
+    "mystery-boxes-and-repack-products",
     "japanese-exclusives-and-proxy-buying",
     "premium-art-toys",
     "pop-mart-and-labubu",
     "sanrio-and-mass-market-blind-boxes",
     "collectible-protection-and-authentication-accessories",
-    "autonomously-discovered-high-value-collectible-categories"
+    "autonomously-discovered-high-value-card-and-collectible-categories"
   ],
-  "priority": "Rank opportunities by verified buyer intent, transaction value, monetization fit, evidence strength, and content opportunity.",
+  "priority": "Rank opportunities by verified buyer intent, transaction value, monetization fit, evidence strength, liquidity, sell-through, and content opportunity.",
   "evidenceRules": {
     "marketValue": "Prefer completed/sold transactions over asking prices.",
     "minimumIndependentSales": 2,
@@ -40,10 +55,19 @@
       "marketplace activity",
       "pre-purchase research behavior",
       "competition/saturation"
+    ],
+    "sportsAndCollectorSignals": [
+      "rookie-card demand",
+      "autograph and memorabilia-card demand",
+      "serial-numbered and parallel scarcity",
+      "population-report and grade scarcity",
+      "set and case-break economics",
+      "seasonal and player/event catalysts",
+      "liquidity and sell-through"
     ]
   },
   "ranking": {
-    "formula": "qualified buyer intent x transaction value x conversion opportunity x monetization fit x evidence confidence",
+    "formula": "qualified buyer intent x transaction value x conversion opportunity x monetization fit x evidence confidence x liquidity",
     "reject": [
       "unsupported asking-price claims",
       "guaranteed-profit claims",
