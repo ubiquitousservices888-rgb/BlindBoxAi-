@@ -74,6 +74,17 @@ test("inbound source is first-party session storage only", () => {
   assert.doesNotMatch(analytics, /document\.cookie/);
 });
 
+test("eBay attribution preserves native new-tab and modified-click behavior", () => {
+  assert.match(analytics, /target\.pathname !== "\/api\/out\/ebay"/);
+  assert.match(analytics, /anchor\.setAttribute\("href", decoratedHref\)/);
+  assert.match(analytics, /anchor\.target === "_blank"/);
+  assert.match(analytics, /event\.metaKey/);
+  assert.match(analytics, /event\.ctrlKey/);
+  assert.match(analytics, /event\.shiftKey/);
+  assert.match(analytics, /if \(preserveNativeNavigation\) return;/);
+  assert.match(analytics, /event\.preventDefault\(\);\s*window\.location\.assign\(decoratedHref\)/s);
+});
+
 test("Amazon remains direct and uses the fixed Associates tag", () => {
   const url = buildAmazonSearchUrl("acrylic-display-case");
   assert.equal(new URL(url).searchParams.get("tag"), "blindboxai-20");
@@ -85,5 +96,7 @@ test("Amazon remains direct and uses the fixed Associates tag", () => {
 test("attribution grammar is centralized", () => {
   assert.match(attribution, /export function buildCustomId/);
   assert.match(attribution, /const MAX_CUSTOM_ID = 64/);
-  assert.match(attribution, /const SRC_RE/);
+  assert.match(attribution, /new RegExp/);
+  assert.match(attribution, /VERTICALS\.join\("\|"\)/);
+  assert.match(attribution, /PLATFORMS\.join\("\|"\)/);
 });
