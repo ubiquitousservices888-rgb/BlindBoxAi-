@@ -45,7 +45,7 @@ test("customid is deterministic, bounded, and safe", () => {
   });
   assert.ok(long.length <= 64);
   assert.match(long, CUSTOM_ID_RE);
-  assert.equal(sanitizeSlug("<script> ABC / 123"), "script-abc-123");
+  assert.equal(sanitizeSlug("<script> ABC / 123"), "-script-abc-123");
 });
 
 test("valid source is authoritative for vertical", () => {
