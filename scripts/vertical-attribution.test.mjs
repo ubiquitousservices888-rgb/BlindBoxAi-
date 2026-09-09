@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildCustomId,
   isValidSource,
+  parseAttribution,
   sanitizeSlug,
   verticalFromSource,
 } from "../lib/attribution.mjs";
@@ -44,7 +45,18 @@ test("customid is deterministic, bounded, and safe", () => {
   });
   assert.ok(long.length <= 64);
   assert.match(long, CUSTOM_ID_RE);
-  assert.equal(sanitizeSlug("<script> ABC / 123"), "-script-abc-123");
+  assert.equal(sanitizeSlug("<script> ABC / 123"), "script-abc-123");
+});
+
+test("valid source is authoritative for vertical", () => {
+  const attribution = parseAttribution({
+    source: "sc_yt_001",
+    vertical: "bb",
+    itemSlug: "Michael Jordan / 1993",
+  });
+  assert.equal(attribution.source, "sc_yt_001");
+  assert.equal(attribution.vertical, "sc");
+  assert.equal(attribution.itemSlug, "michael-jordan-1993");
 });
 
 test("eBay route uses the single attribution builder and records vertical fields", () => {
