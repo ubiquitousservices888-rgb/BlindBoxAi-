@@ -141,13 +141,28 @@ export default function CoreAnalytics() {
 
       try {
         const target = new URL(href, window.location.origin);
+        if (target.pathname !== "/api/out/ebay") return;
         if (attribution.source !== "none") target.searchParams.set("source", attribution.source);
         target.searchParams.set("vertical", attribution.vertical);
         if (!target.searchParams.get("itemSlug")) {
           target.searchParams.set("itemSlug", target.searchParams.get("figure") || window.location.pathname.split("/").filter(Boolean).pop() || "item");
         }
+
+        const decoratedHref = target.pathname + target.search + target.hash;
+        anchor.setAttribute("href", decoratedHref);
+
+        const preserveNativeNavigation =
+          anchor.target === "_blank" ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey;
+
+        if (preserveNativeNavigation) return;
+
         event.preventDefault();
-        window.location.assign(target.pathname + target.search + target.hash);
+        window.location.assign(decoratedHref);
       } catch {}
     };
 
