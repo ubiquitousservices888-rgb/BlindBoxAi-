@@ -49,6 +49,7 @@ jobs:
       video_url: ${{ steps.review.outputs.video_url }}
       state_b64: ${{ steps.review.outputs.state_b64 }}
     env:
+      NEXT_PUBLIC_EPN_CAMPID: "5339171775"
       CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
       CREATOMATE_TEMPLATE_ID: ${{ vars.CREATOMATE_TEMPLATE_ID || '8b360817-3e33-40e3-bbb4-55a8b508f06e' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
