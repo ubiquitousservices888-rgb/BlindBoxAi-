@@ -152,7 +152,7 @@ export default function CoreAnalytics() {
         anchor.setAttribute("href", decoratedHref);
 
         const preserveNativeNavigation =
-          anchor.target === "_blank" ||
+          String(anchor.target || "").toLowerCase() === "_blank" ||
           event.button !== 0 ||
           event.metaKey ||
           event.ctrlKey ||
