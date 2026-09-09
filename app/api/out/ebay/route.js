@@ -5,10 +5,10 @@ import { after, NextResponse } from "next/server";
 import {
   ebayActiveLink,
   ebaySoldLink,
-  epnCustomId,
   getSeries,
 } from "../../../../lib/data";
-import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { normalizeCampaignId } from "../../../../lib/campaign-attribution.mjs";
+import { buildCustomId, parseAttribution, verticalFromSource } from "../../../../lib/attribution.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +36,9 @@ export async function GET(request) {
   const kind = url.searchParams.get("kind")?.trim() || "";
   const placement = url.searchParams.get("placement")?.trim() || "";
   const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
-  const source = normalizeSource(url.searchParams.get("source"));
+  const rawSource = url.searchParams.get("source")?.trim().toLowerCase() || "";
+  const rawVertical = url.searchParams.get("vertical")?.trim().toLowerCase() || "";
+  const rawItemSlug = url.searchParams.get("itemSlug")?.trim() || figureName;
 
   if (!VALID_KINDS.has(kind)) {
     return error("Invalid affiliate link type.");
@@ -58,14 +60,13 @@ export async function GET(request) {
     return error("Figure not found.", 404);
   }
 
-  const customId = epnCustomId({
-    seriesSlug: series.slug,
-    figure: figure.name,
-    kind,
-    placement,
-    campaignId,
-    source,
+  const attribution = parseAttribution({
+    vertical: rawVertical || verticalFromSource(rawSource),
+    source: rawSource,
+    itemSlug: rawItemSlug,
   });
+
+  const customId = buildCustomId(attribution);
 
   const query = `${series.brand} ${series.name} ${figure.name}`;
 
@@ -77,14 +78,16 @@ export async function GET(request) {
   const clickedAt = new Date().toISOString();
 
   const event = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     event: "outbound_affiliate_click",
     provider: "ebay_epn",
 
     clickedAt,
     customId,
     campaignId: campaignId || null,
-    source,
+    source: attribution.source,
+    vertical: attribution.vertical,
+    itemSlug: attribution.itemSlug,
 
     seriesSlug: series.slug,
     seriesName: series.name,
