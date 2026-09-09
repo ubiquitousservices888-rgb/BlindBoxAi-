@@ -77,7 +77,7 @@ test("inbound source is first-party session storage only", () => {
 test("eBay attribution preserves native new-tab and modified-click behavior", () => {
   assert.match(analytics, /target\.pathname !== "\/api\/out\/ebay"/);
   assert.match(analytics, /anchor\.setAttribute\("href", decoratedHref\)/);
-  assert.match(analytics, /anchor\.target === "_blank"/);
+  assert.match(analytics, /String\(anchor\.target \|\| ""\)\.toLowerCase\(\) === "_blank"/);
   assert.match(analytics, /event\.metaKey/);
   assert.match(analytics, /event\.ctrlKey/);
   assert.match(analytics, /event\.shiftKey/);
@@ -96,7 +96,9 @@ test("Amazon remains direct and uses the fixed Associates tag", () => {
 test("attribution grammar is centralized", () => {
   assert.match(attribution, /export function buildCustomId/);
   assert.match(attribution, /const MAX_CUSTOM_ID = 64/);
-  assert.match(attribution, /new RegExp/);
-  assert.match(attribution, /VERTICALS\.join\("\|"\)/);
-  assert.match(attribution, /PLATFORMS\.join\("\|"\)/);
+  assert.match(attribution, /escapeRegexToken/);
+  assert.match(attribution, /VERTICALS\.map\(escapeRegexToken\)/);
+  assert.match(attribution, /PLATFORMS\.map\(escapeRegexToken\)/);
+  assert.match(attribution, /sourceMatch\(source\)\?\.\[1\]/);
+  assert.doesNotMatch(attribution, /slice\(0,\s*2\)/);
 });
