@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { allSeries, seriesVerified, priceSpan } from "../lib/data";
+import { allSeries, priceSpan, seriesPriceVerification } from "../lib/data";
 
 function Guilloche() {
   const lines = [];
@@ -37,8 +37,8 @@ export default function Home() {
       <div className="slist">
         {series.map(s => {
           const span = priceSpan(s);
-          const ok = seriesVerified(s);
-          const secret = s.pullOdds?.secret;
+          const verification = seriesPriceVerification(s);
+          const secret = s._dataQuality?.pullOdds?.status === "verified" ? s.pullOdds?.secret : null;
           return (
             <Link className="srow" href={`/series/${s.slug}`} key={s.slug}>
               <div className="srow-top">
@@ -47,8 +47,12 @@ export default function Home() {
               </div>
               <div className="srow-meta">
                 {secret && <span className="chip secret">SECRET {secret}</span>}
-                <span className={`verify ${ok ? "" : "pending"}`}>
-                  <span className="dot"></span>{ok ? "US-sold verified" : "verifying"}
+                <span className={`verify ${verification.needsResearchCount ? "pending" : ""}`}>
+                  <span className="dot"></span>
+                  {verification.verifiedCount
+                    ? `${verification.verifiedCount} verified price${verification.verifiedCount === 1 ? "" : "s"}`
+                    : "no verified prices"}
+                  {verification.needsResearchCount > 0 && ` · ${verification.needsResearchCount} need research`}
                 </span>
               </div>
             </Link>
