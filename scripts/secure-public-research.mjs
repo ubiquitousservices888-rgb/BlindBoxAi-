@@ -13,16 +13,21 @@ const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi,
 ];
 
-const DEFAULT_QUERIES = [
-  { name: "TCG sealed product", query: "Pokemon TCG sealed booster box resealed authentication sold" },
-  { name: "Graded cards and slabs", query: "Pokemon graded cards PSA slab counterfeit reholder authentication sold" },
-  { name: "Mystery boxes", query: "trading card mystery box resealed buyer review sold" },
-  { name: "Japanese exclusives", query: "Japanese Pokemon cards proxy Buyee authentication buying safely" },
-  { name: "Premium art toys", query: "premium art toy collectible auction resale authentication" },
-  { name: "Blind boxes", query: "Pop Mart Labubu blind box collectible resale sold authentication" },
-  { name: "Affiliate economics", query: "TCGplayer Whatnot Goldin Buyee affiliate program commission" },
-  { name: "Collectible authentication", query: "collectible authentication counterfeit reseal buyer protection trading cards" },
-];
+const LANE_QUERY_OVERRIDES = Object.freeze({
+  "pokemon-and-tcg": "Pokemon TCG sealed booster box completed sales authentication demand",
+  "graded-cards-and-slabs": "graded cards PSA slab completed sales population authentication",
+  "mystery-boxes-and-repack-products": "trading card mystery box repack completed sales buyer review",
+  "japanese-exclusives-and-proxy-buying": "Japanese exclusive collectible cards proxy buying completed sales authentication",
+  "premium-art-toys": "premium art toy collectible completed auction sales authentication",
+  "pop-mart-and-labubu": "Pop Mart Labubu blind box completed sales authentication demand",
+  "collectible-protection-and-authentication-accessories": "collectible protection sleeves cases authentication accessories buyer demand",
+  "autonomously-discovered-high-value-card-and-collectible-categories": "emerging high value collectible category completed sales buyer demand authentication",
+});
+
+function queryForLane(lane) {
+  return LANE_QUERY_OVERRIDES[lane]
+    ?? `${String(lane).replace(/-/g, " ")} completed sales buyer demand authentication`;
+}
 
 function redact(value) {
   let text = String(value ?? "");
@@ -41,11 +46,40 @@ function extractItems(xml, source) {
     const title = stripTags(block.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i)?.[1]);
     const description = stripTags(block.match(/<(?:description|summary|content)(?:\s[^>]*)?>([\s\S]*?)<\/(?:description|summary|content)>/i)?.[1]);
     const linkMatch = block.match(/<link(?:\s[^>]*)?>([\s\S]*?)<\/link>/i) || block.match(/<link[^>]+href=["']([^"']+)["']/i);
-    const url = linkMatch ? stripTags(linkMatch[1]) : null;
+    const feedUrl = linkMatch ? stripTags(linkMatch[1]) : null;
+    const publisherMatch = block.match(/<source\b[^>]*url=["']([^"']+)["'][^>]*>([\s\S]*?)<\/source>/i);
+    const publisherUrl = publisherMatch ? stripTags(publisherMatch[1]) : null;
+    const publisher = publisherMatch ? stripTags(publisherMatch[2]) : null;
+    const url = publisherUrl && /^https:\/\//i.test(publisherUrl) ? publisherUrl : feedUrl;
     const published = stripTags(block.match(/<(?:pubDate|published|updated)(?:\s[^>]*)?>([\s\S]*?)<\/(?:pubDate|published|updated)>/i)?.[1]);
     if (!title || !url || !/^https:\/\//i.test(url)) return null;
-    return { source: source.name, topic: source.topic, title: title.slice(0, 220), url: url.slice(0, 600), published: published?.slice(0, 80) || null, summary: description.slice(0, 700) };
+    return {
+      source: publisher || source.name,
+      publisher: publisher || null,
+      topic: source.topic,
+      title: title.slice(0, 220),
+      url: url.slice(0, 600),
+      feedUrl: feedUrl?.slice(0, 600) || null,
+      published: published?.slice(0, 80) || null,
+      summary: description.slice(0, 700),
+    };
   }).filter(Boolean);
+}
+
+function selectFindingsByLane(results, limit = 64) {
+  const selected = [];
+  for (let index = 0; selected.length < limit; index += 1) {
+    let added = false;
+    for (const result of results) {
+      const item = result.items[index];
+      if (!item) continue;
+      selected.push(item);
+      added = true;
+      if (selected.length >= limit) break;
+    }
+    if (!added) break;
+  }
+  return selected;
 }
 
 async function fetchSource(source) {
@@ -63,13 +97,17 @@ async function fetchSource(source) {
 }
 
 const mandate = JSON.parse(await fs.readFile(MANDATE, "utf8"));
-const sources = DEFAULT_QUERIES.map((item) => ({
-  name: item.name,
-  topic: item.name,
-  url: `https://news.google.com/rss/search?q=${encodeURIComponent(item.query)}&hl=en-US&gl=US&ceid=US:en`,
+const sources = mandate.lanes.map((lane) => ({
+  name: lane,
+  topic: lane,
+  url: `https://news.google.com/rss/search?q=${encodeURIComponent(queryForLane(lane))}&hl=en-US&gl=US&ceid=US:en`,
 }));
 const results = await Promise.all(sources.map(fetchSource));
-const items = results.flatMap((result) => result.items).map((item) => ({ ...item, title: redact(item.title), summary: redact(item.summary) }));
+const items = selectFindingsByLane(results).map((item) => ({
+  ...item,
+  title: redact(item.title),
+  summary: redact(item.summary),
+}));
 const artifact = {
   schema: "blindboxai/know-it-all/public-research/v2",
   agent: "Mr. Know It All",
@@ -91,7 +129,7 @@ const artifact = {
     ownerApprovalRequiredForActions: true,
   },
   sources: results.map(({ source, error, items: found }) => ({ name: source.name, url: source.url, topic: source.topic, status: error ? "unavailable" : "ok", itemCount: found.length, error })),
-  findings: items.slice(0, 64),
+  findings: items,
   nextStep: "Validate public findings against independent completed-sale, official-program, and authentication evidence before scoring opportunities; research cannot authorize transactions, publishing, outreach, or credential access.",
 };
 
