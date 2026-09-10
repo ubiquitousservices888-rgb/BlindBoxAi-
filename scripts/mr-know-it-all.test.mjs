@@ -295,3 +295,36 @@ describe("evaluation case coverage", () => {
     }
   });
 });
+
+
+describe("autonomous public research safeguards", () => {
+  it("covers every mandate lane and retains publisher identity before applying the cap", () => {
+    const researchScript = fs.readFileSync(
+      path.join(process.cwd(), "scripts", "secure-public-research.mjs"),
+      "utf8",
+    );
+    const mandate = JSON.parse(fs.readFileSync(
+      path.join(process.cwd(), "data", "know-it-all", "high-value-collectibles-research-mandate.json"),
+      "utf8",
+    ));
+
+    assert.ok(mandate.lanes.length > 8);
+    assert.match(researchScript, /mandate\.lanes\.map/);
+    assert.match(researchScript, /selectFindingsByLane\(results\)/);
+    assert.match(researchScript, /<source\\b\[\^>\]\*url=/);
+    assert.match(researchScript, /publisher:\s*publisher \|\| null/);
+    assert.match(mandate.ranking.formula, /liquidity x sell-through/);
+  });
+
+  it("persists scheduled artifacts idempotently from current main", () => {
+    const workflow = fs.readFileSync(
+      path.join(process.cwd(), ".github", "workflows", "know-it-all-transaction-verification.yml"),
+      "utf8",
+    );
+
+    assert.match(workflow, /ref:\s*main/);
+    assert.match(workflow, /gh pr list --state open --head/);
+    assert.match(workflow, /--force-with-lease/);
+    assert.doesNotMatch(workflow, /git switch -c "\$branch"/);
+  });
+});
