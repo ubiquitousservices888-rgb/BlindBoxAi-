@@ -91,6 +91,16 @@ describe("product classifier and monetization router", () => {
     assertCase("Accessory mentioning target figure", product, "accessory", "amazon");
   });
 
+  it("6d. Normal plural accessory names route to Amazon", () => {
+    const product = { ...baseProduct, id: "display-cases", name: "Acrylic display cases for collectibles" };
+    assertCase("Plural display cases", product, "accessory", "amazon");
+  });
+
+  it("6e. Cleaning kits stay unclassified until an approved matching offer exists", () => {
+    const product = { ...baseProduct, id: "cleaning-kit", name: "Collectible cleaning kit" };
+    assertCase("Unapproved cleaning kit", product, "unknown", "none");
+  });
+
   it("7. Unknown product stays none and never Amazon", () => {
     const product = { ...baseProduct, id: "unknown", name: "Mystery collector thing" };
     const classification = classifyProduct(product);
