@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { priceSpan, seriesPriceVerification } from "../lib/data.js";
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -54,4 +55,23 @@ test("public lookup keeps historical-data and no-hallucination language", () => 
   assert.match(lookup, /No verified sale found/);
   assert.match(lookup, /Not financial or investment advice/);
   assert.match(lookup, /No generative AI or external model is called/);
+});
+
+test("public price summaries exclude unreviewed observations", () => {
+  const series = {
+    figures: [
+      { name: "Reviewed", rarity: "common", resaleLow: 20, resaleHigh: 30, needsReview: false, evidence: "Two reviewed US sold transactions." },
+      { name: "Outlier", rarity: "common", resaleLow: 1399, resaleHigh: 1399, needsReview: true, evidence: "Single unconfirmed observation." },
+    ],
+  };
+  assert.deepEqual(priceSpan(series), { low: 20, high: 30 });
+  assert.deepEqual(seriesPriceVerification(series), { verifiedCount: 1, needsResearchCount: 1 });
+});
+
+test("series page requires explicit data-quality verification for retail and odds", () => {
+  const page = read("app/series/[slug]/page.jsx");
+  assert.match(page, /retailUSD\?\.status === "verified"/);
+  assert.match(page, /pullOdds\?\.status === "verified"/);
+  assert.match(page, /needs research/);
+  assert.match(page, /Evidence note/);
 });
