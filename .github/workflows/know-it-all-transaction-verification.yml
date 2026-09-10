@@ -66,9 +66,10 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout with GitHub write token
+      - name: Checkout current main with GitHub write token
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: main
           fetch-depth: 1
 
       - name: Download verification artifact
@@ -99,7 +100,8 @@ jobs:
             exit 0
           fi
           git commit -m "chore(know-it-all): refresh transaction verification"
-          git push --set-upstream origin "$branch"
+          git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+          git push --force-with-lease origin "HEAD:refs/heads/$branch"
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
 
@@ -110,6 +112,11 @@ jobs:
           BRANCH: ${{ steps.commit.outputs.branch }}
         run: |
           set -euo pipefail
+          existing_url="$(gh pr list --state open --base main --head "$BRANCH" --json url --jq '.[0].url // empty')"
+          if [ -n "$existing_url" ]; then
+            echo "Reused existing verification PR: $existing_url"
+            exit 0
+          fi
           gh pr create \
             --base main \
             --head "$BRANCH" \
