@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
+import { evaluateAffiliateEligibility } from "../../../lib/market-eligibility.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
 import LiveEbayListings from "../../_components/LiveEbayListings";
@@ -11,7 +12,7 @@ export async function generateMetadata({ params }) {
   const s = getSeries(slug);
   return s ? {
     title: `${s.name} — prices, pull odds & fake check | BlindBoxAI`,
-    description: `${s.name} (${s.brand}): US-sold resale ranges, pull odds, and how to spot counterfeits.`,
+    description: `${s.name} (${s.brand}): reviewed US-sold observations, evidence status, and counterfeit warning signs.`,
   } : {};
 }
 
@@ -23,13 +24,22 @@ export default async function SeriesPage({ params, searchParams }) {
   const attribution = { campaignId, source };
   const s = getSeries(slug);
   if (!s) return <main><h1>Series not found</h1><p><Link href="/">← All series</Link></p></main>;
+  const retailVerified = s._dataQuality?.retailUSD?.status === "verified";
+  const oddsVerified = s._dataQuality?.pullOdds?.status === "verified";
+  const verifiedFigures = new Set(
+    evaluateAffiliateEligibility(s).verifiedMarketRecords.map((record) => record.figure),
+  );
   return (
     <main>
       <Link className="crumb" href="/">← All series</Link>
       <h1 className="ptitle"><span className="brand">{s.brand}</span>{s.name}</h1>
       <div className="sub">
-        <span className="mono">Retail ~${s.retailUSD}</span>
-        {s.pullOdds?.secret && <span className="chip secret">SECRET {s.pullOdds.secret} · {s.pullOdds.source}</span>}
+        {retailVerified && s.retailUSD != null
+          ? <span className="mono">Verified retail ${s.retailUSD}</span>
+          : <span className="nodata">Retail price needs verification</span>}
+        {oddsVerified && s.pullOdds?.secret
+          ? <span className="chip secret">VERIFIED SECRET ODDS {s.pullOdds.secret} · {s.pullOdds.source}</span>
+          : <span className="nodata">Pull odds need verification</span>}
       </div>
 
       <section className="block">
@@ -48,15 +58,24 @@ export default async function SeriesPage({ params, searchParams }) {
         <table className="ptable">
           <thead><tr><th>Figure</th><th>Rarity</th><th>Range</th><th>Market</th></tr></thead>
           <tbody>
-            {s.figures.map(f => (
-              <tr key={f.name}>
+            {s.figures.map(f => {
+              const verified = verifiedFigures.has(f.name);
+              return <tr key={f.name}>
                 <td>{f.name}</td>
                 <td><span className={`rar ${f.rarity === "secret" ? "secret" : ""}`}>{f.rarity}</span></td>
                 <td className="rng">
-                  {f.resaleLow != null
+                  {verified
                     ? (f.resaleLow === f.resaleHigh ? `$${f.resaleLow}` : `$${f.resaleLow}–$${f.resaleHigh}`)
-                    : <span className="nodata">no data</span>}
-                  {f.needsReview && f.resaleLow != null && <span className="nodata"> ·unconfirmed</span>}
+                    : <span className="nodata">needs research</span>}
+                  <div className={`verify ${verified ? "" : "pending"}`} style={{ marginTop: 6 }}>
+                    <span className="dot"></span>{verified ? "verified sale evidence" : "unverified"}
+                  </div>
+                  {f.evidence && (
+                    <details style={{ marginTop: 6, maxWidth: 360 }}>
+                      <summary style={{ cursor: "pointer", fontSize: "0.76rem" }}>Evidence note</summary>
+                      <p style={{ whiteSpace: "normal", fontWeight: 400, lineHeight: 1.45 }}>{f.evidence}</p>
+                    </details>
+                  )}
                 </td>
                 <td>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -78,8 +97,8 @@ export default async function SeriesPage({ params, searchParams }) {
                     </a>
                   </div>
                 </td>
-              </tr>
-            ))}
+              </tr>;
+            })}
           </tbody>
         </table>
       </section>
