@@ -67,7 +67,7 @@
     ]
   },
   "ranking": {
-    "formula": "qualified buyer intent x transaction value x conversion opportunity x monetization fit x evidence confidence x liquidity",
+    "formula": "qualified buyer intent x transaction value x conversion opportunity x monetization fit x evidence confidence x liquidity x sell-through",
     "reject": [
       "unsupported asking-price claims",
       "guaranteed-profit claims",
