@@ -323,7 +323,7 @@ describe("autonomous public research safeguards", () => {
     );
 
     assert.match(workflow, /ref:\s*main/);
-    assert.match(workflow, /gh pr list --state open --head/);
+    assert.match(workflow, /gh pr list --state open[^\n]*--head/);
     assert.match(workflow, /--force-with-lease/);
     assert.doesNotMatch(workflow, /git switch -c "\$branch"/);
   });
