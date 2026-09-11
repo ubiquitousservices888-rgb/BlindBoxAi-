@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 
 const now = new Date("2026-08-09T12:00:00.000Z");
 const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
@@ -20,6 +20,18 @@ describe("verified-data gate", () => {
     assert.deepEqual(script.facts, [product.claims[0].text]);
     assert.match(script.caption, new RegExp(DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(script.caption, /https:\/\/blindboxai\.com\/series\/verified-one/);
+  });
+  it("passes a no-sales audience question while blocking unsupported prices", () => {
+    const noSales = { ...product, videoMode: AUDIENCE_PRICE_MODE };
+    const script = generateVideoScript(noSales, now);
+    assert.equal(script.videoMode, AUDIENCE_PRICE_MODE);
+    assert.match(script.narration, /What would you personally pay/);
+    assert.match(script.caption, new RegExp(AUDIENCE_PRICE_DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(script.caption, /\$\s*\d/);
+    assert.throws(() => validateVerifiedProduct({
+      ...noSales,
+      claims: [{ text: "This card is worth $500.", sourceId: "official" }],
+    }, now), /cannot contain a price or valuation claim/);
   });
 });
 

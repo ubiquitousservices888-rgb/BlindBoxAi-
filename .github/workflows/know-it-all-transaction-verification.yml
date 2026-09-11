@@ -39,6 +39,7 @@ jobs:
           OPENAI_RESEARCH_MODEL: ""
           MR_RESEARCH_ENCRYPTION_KEY: ""
           MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ""
+          THE_CARD_API_KEY: ${{ secrets.THE_CARD_API_KEY }}
         run: node scripts/autonomous-transaction-verifier.mjs
 
       - name: Verify sanitized artifact

@@ -1,10 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fetchCardApiSales } from "../lib/the-card-api.mjs";
+import { verifyCollectibleMarket } from "../lib/collectible-price-verification.mjs";
 
 const ROOT = process.cwd();
 const SERIES_DIR = path.join(ROOT, "data", "series");
 const OUT_DIR = path.join(ROOT, "data", "know-it-all");
 const OUT = path.join(OUT_DIR, "latest-transaction-verification.json");
+const SPORTS_CARD_TARGETS = path.join(OUT_DIR, "sports-card-research-targets.json");
 const MAX_SEARCH_BYTES = 1_500_000;
 const MAX_PAGE_BYTES = 2_500_000;
 const MAX_RESULTS_PER_QUERY = 8;
@@ -168,6 +171,41 @@ for (const target of targets) {
   });
 }
 
+let sportsCardTargets = [];
+try {
+  const registry = JSON.parse(await fs.readFile(SPORTS_CARD_TARGETS, "utf8"));
+  sportsCardTargets = Array.isArray(registry?.targets) ? registry.targets : [];
+} catch {}
+
+const sportsCardFindings = [];
+for (const target of sportsCardTargets) {
+  const provider = await fetchCardApiSales(target);
+  const verification = verifyCollectibleMarket({
+    identity: target.identity,
+    evidence: provider.records,
+  }, { maxAgeHours: 24 * 100, minSoldSamples: MIN_CONFIRMED_SALES });
+  sportsCardFindings.push({
+    id: target.id,
+    video: target.video,
+    claims: target.claims,
+    providerStatus: provider.status,
+    providerReturnedCount: provider.returnedCount ?? 0,
+    verification,
+    publicClaimsAllowed: verification.status === "VERIFIED",
+    recommendedVideoMode: verification.status === "VERIFIED"
+      ? "VERIFIED_SALES_SUMMARY"
+      : "AUDIENCE_PRICE_QUESTION",
+    audiencePriceQuestionIsMarketEvidence: false,
+    reviewState: "READY_FOR_REVIEW",
+  });
+  sourceRuns.push({
+    source: "The Card API",
+    target: target.id,
+    status: provider.status,
+    confirmedSaleCount: verification.soldSampleCount,
+  });
+}
+
 const artifact = {
   schema: "blindboxai/know-it-all/transaction-verification/v1",
   agent: "Mr. Know It All",
@@ -190,10 +228,13 @@ const artifact = {
   sources: [
     { name: "Mercari US", url: "https://www.mercari.com/", role: "public sold-item evidence" },
     { name: "Whatnot", url: "https://www.whatnot.com/", role: "public marketplace evidence; only explicit sold/completed evidence counts" },
+    { name: "The Card API", url: "https://www.thecardapi.com/", role: "read-only sports-card completed-sale provider; confirmed prices only" },
   ],
   targetsChecked: targets.length,
   confirmedTargets: findings.filter((item) => item.verification === "confirmed-by-public-sales-history").length,
   findings,
+  sportsCardTargetsChecked: sportsCardTargets.length,
+  sportsCardFindings,
   sourceRuns,
   nextStep: "Use confirmed evidence as a verification input. Do not overwrite catalog values automatically; preserve owner review for catalog changes.",
 };
