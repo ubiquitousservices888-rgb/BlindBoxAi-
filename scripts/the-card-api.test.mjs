@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { cardApiTitleMatches, fetchCardApiSales, normalizeCardApiSale } from "../lib/the-card-api.mjs";
 
@@ -58,4 +59,20 @@ test("API key is sent only as a request header and never returned", async () => 
   assert.equal(capturedUrl.includes(secret), false);
   assert.equal(capturedHeaders["x-market-api-key"], secret);
   assert.equal(JSON.stringify(result).includes(secret), false);
+});
+
+test("sports-card scripts stay review-only and match registered research targets", () => {
+  const registry = JSON.parse(fs.readFileSync(new URL("../data/know-it-all/sports-card-research-targets.json", import.meta.url), "utf8"));
+  const scripts = JSON.parse(fs.readFileSync(new URL("../data/know-it-all/sports-card-video-scripts.json", import.meta.url), "utf8"));
+  const ids = new Set(registry.targets.map((entry) => entry.id));
+  assert.equal(scripts.state, "READY_FOR_REVIEW");
+  assert.equal(scripts.publishAutomatically, false);
+  assert.equal(scripts.publicCta, "https://www.blindboxai.com");
+  for (const entry of scripts.scripts) {
+    assert.equal(ids.has(entry.researchTargetId), true);
+    const publicText = `${entry.replacementTitle}\n${entry.voiceover.join(" ")}\n${entry.caption}`;
+    assert.doesNotMatch(publicText, /\b(?:steal|invest(?:ment|or|ing)?|guarantee(?:d|s)? profit|price prediction)\b/i);
+    assert.match(entry.caption, /https:\/\/www\.blindboxai\.com/);
+    assert.match(entry.caption, /#ad/);
+  }
 });
