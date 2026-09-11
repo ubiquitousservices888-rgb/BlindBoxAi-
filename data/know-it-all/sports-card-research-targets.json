@@ -20,20 +20,88 @@
       "claims": ["steal", "$300 premium", "only 100 exist"]
     },
     {
-      "id": "2021-topps-triple-threads-david-ortiz-relic-booklet",
+      "id": "2021-topps-triple-threads-david-ortiz-ttr-do2-18",
       "video": "Why Investors Are Chasing 2021 Triple Threads.mp4",
-      "query": "2021 Topps Triple Threads David Ortiz autograph relic booklet",
+      "query": "2021 Topps Triple Threads David Ortiz TTR-DO2 relic /18",
       "dateFrom": "2026-06-06",
       "limit": 50,
-      "requiredTitleTerms": ["2021", "Topps", "Triple Threads", "David", "Ortiz", "Book"],
+      "printRunMax": 18,
+      "requiredTitleTerms": ["2021", "Topps", "Triple Threads", "David", "Ortiz", "TTR-DO2"],
       "identity": {
         "brand": "Topps",
         "series": "2021 Topps Triple Threads",
-        "item": "David Ortiz autograph relic booklet",
+        "item": "David Ortiz Triple Threads Relic TTR-DO2 /18",
         "condition": "raw",
-        "edition": "booklet"
+        "edition": "01/18",
+        "identifier": "TTR-DO2"
       },
-      "claims": ["investors are chasing", "$5,000 market value", "$500+ market value"]
+      "claims": ["investors are chasing", "$5,000 market value", "$500+ market value", "game-used memorabilia", "relic is not tied to a specific game, event, or season"]
+    },
+    {
+      "id": "2021-bowman-platinum-nick-gonzales-pe-23-auto",
+      "query": "2021 Bowman Platinum Nick Gonzales PE-23 autograph",
+      "dateFrom": "2026-06-06",
+      "limit": 50,
+      "requiredTitleTerms": ["2021", "Bowman", "Platinum", "Nick", "Gonzales", "Auto"],
+      "identity": {
+        "brand": "Topps",
+        "series": "2021 Bowman Platinum",
+        "item": "Nick Gonzales autograph PE-23",
+        "condition": "raw",
+        "identifier": "PE-23"
+      },
+      "claims": ["Topps-certified autograph"]
+    },
+    {
+      "id": "2020-21-panini-obsidian-killian-hayes-rji-klh-99",
+      "query": "2020-21 Panini Obsidian Killian Hayes RJI-KLH rookie jersey ink /99",
+      "dateFrom": "2026-06-06",
+      "printRunMax": 99,
+      "limit": 50,
+      "requiredTitleTerms": ["Obsidian", "Killian", "Hayes", "RJI-KLH", "99"],
+      "identity": {
+        "brand": "Panini",
+        "series": "2020-21 Panini Obsidian Basketball",
+        "item": "Killian Hayes Rookie Jersey Ink RJI-KLH /99",
+        "condition": "raw",
+        "edition": "56/99",
+        "identifier": "RJI-KLH"
+      },
+      "claims": ["rookie card", "autograph guaranteed by Panini", "memorabilia is not associated with a specific player, game, or event"]
+    },
+    {
+      "id": "2021-panini-national-treasures-dylan-carlson-cm-dc-99",
+      "query": "2021 Panini National Treasures Dylan Carlson Colossal CM-DC /99",
+      "dateFrom": "2026-06-06",
+      "printRunMax": 99,
+      "limit": 50,
+      "requiredTitleTerms": ["2021", "National Treasures", "Dylan", "Carlson", "Colossal", "99"],
+      "identity": {
+        "brand": "Panini",
+        "series": "2021 Panini National Treasures Baseball",
+        "item": "Dylan Carlson Colossal material CM-DC /99",
+        "condition": "raw",
+        "edition": "44/99",
+        "identifier": "CM-DC"
+      },
+      "claims": ["rookie card", "player-worn/used material guaranteed by Panini"]
+    },
+    {
+      "id": "2021-topps-triple-threads-tanner-houck-asjr-th-99",
+      "query": "2021 Topps Triple Threads Tanner Houck ASJR-TH autograph jumbo relic /99",
+      "dateFrom": "2026-06-06",
+      "printRunMax": 99,
+      "limit": 50,
+      "requiredTitleTerms": ["2021", "Topps", "Triple Threads", "Tanner", "Houck", "ASJR-TH", "99"],
+      "identity": {
+        "brand": "Topps",
+        "series": "2021 Topps Triple Threads",
+        "item": "Tanner Houck Autograph Single Jumbo Relic ASJR-TH /99",
+        "condition": "raw",
+        "edition": "73/99",
+        "identifier": "ASJR-TH"
+      },
+      "claims": ["rookie card", "Topps-certified autograph", "player-worn memorabilia"]
     }
   ],
   "policy": {
