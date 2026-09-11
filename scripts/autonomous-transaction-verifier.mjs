@@ -192,6 +192,10 @@ for (const target of sportsCardTargets) {
     providerReturnedCount: provider.returnedCount ?? 0,
     verification,
     publicClaimsAllowed: verification.status === "VERIFIED",
+    recommendedVideoMode: verification.status === "VERIFIED"
+      ? "VERIFIED_SALES_SUMMARY"
+      : "AUDIENCE_PRICE_QUESTION",
+    audiencePriceQuestionIsMarketEvidence: false,
     reviewState: "READY_FOR_REVIEW",
   });
   sourceRuns.push({
