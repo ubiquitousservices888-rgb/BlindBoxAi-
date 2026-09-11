@@ -68,6 +68,9 @@ test("sports-card scripts stay review-only and match registered research targets
   assert.equal(scripts.state, "READY_FOR_REVIEW");
   assert.equal(scripts.publishAutomatically, false);
   assert.equal(scripts.publicCta, "https://www.blindboxai.com");
+  assert.equal(scripts.noVerifiedSalesFallback.mode, "AUDIENCE_PRICE_QUESTION");
+  assert.match(scripts.noVerifiedSalesFallback.disclosure, /opinions, not completed-sale evidence/);
+  assert.match(scripts.noVerifiedSalesFallback.analyticsRule, /never be recorded as sales/);
   for (const entry of scripts.scripts) {
     assert.equal(ids.has(entry.researchTargetId), true);
     const publicText = `${entry.replacementTitle}\n${entry.voiceover.join(" ")}\n${entry.caption}`;
