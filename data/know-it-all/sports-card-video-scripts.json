@@ -4,6 +4,12 @@
   "publishAutomatically": false,
   "publicCta": "https://www.blindboxai.com",
   "pricePolicy": "No price, premium, steal, investor-demand, or future-value claim may be inserted until the corresponding research target is VERIFIED by at least two confirmed exact-card completed sales.",
+  "noVerifiedSalesFallback": {
+    "mode": "AUDIENCE_PRICE_QUESTION",
+    "hook": "No matching completed sales were verified for this exact card. What would you personally pay for it?",
+    "disclosure": "Viewer answers are opinions, not completed-sale evidence or verified market value.",
+    "analyticsRule": "Comments and clicks measure audience interest only. They must never be recorded as sales, orders, earnings, or verified price evidence."
+  },
   "scripts": [
     {
       "researchTargetId": "2022-topps-tier-one-jose-abreu-tta-ja-auto-100",
