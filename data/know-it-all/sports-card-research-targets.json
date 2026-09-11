@@ -1,0 +1,45 @@
+{
+  "schema": "blindboxai/know-it-all/sports-card-targets/v1",
+  "targets": [
+    {
+      "id": "2022-topps-tier-one-jose-abreu-tta-ja-auto-100",
+      "video": "Why This Tier One Abreu Auto Is A Steal.mp4",
+      "query": "2022 Topps Tier One Jose Abreu TTA-JA autograph -(bronze,silver,gold,2023,2024)",
+      "dateFrom": "2026-06-06",
+      "printRunMax": 100,
+      "limit": 50,
+      "requiredTitleTerms": ["2022", "Topps", "Tier One", "Jose", "Abreu", "Auto"],
+      "identity": {
+        "brand": "Topps",
+        "series": "2022 Topps Tier One",
+        "item": "Jose Abreu Tier One Talent Autograph TTA-JA /100",
+        "condition": "raw",
+        "edition": "base autograph /100",
+        "identifier": "TTA-JA"
+      },
+      "claims": ["steal", "$300 premium", "only 100 exist"]
+    },
+    {
+      "id": "2021-topps-triple-threads-david-ortiz-relic-booklet",
+      "video": "Why Investors Are Chasing 2021 Triple Threads.mp4",
+      "query": "2021 Topps Triple Threads David Ortiz autograph relic booklet",
+      "dateFrom": "2026-06-06",
+      "limit": 50,
+      "requiredTitleTerms": ["2021", "Topps", "Triple Threads", "David", "Ortiz", "Book"],
+      "identity": {
+        "brand": "Topps",
+        "series": "2021 Topps Triple Threads",
+        "item": "David Ortiz autograph relic booklet",
+        "condition": "raw",
+        "edition": "booklet"
+      },
+      "claims": ["investors are chasing", "$5,000 market value", "$500+ market value"]
+    }
+  ],
+  "policy": {
+    "askingPricesAreEvidence": false,
+    "minimumConfirmedSalesForVerified": 2,
+    "automaticPublishing": false,
+    "ownerReviewRequired": true
+  }
+}
