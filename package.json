@@ -27,7 +27,7 @@
     "partnership:test": "node --test scripts/partnership-flywheel.test.mjs",
     "automation:test": "node --test scripts/autonomous-priority.test.mjs scripts/twinkle-market-data.test.mjs",
     "owner:test": "node --test scripts/owner-dashboard.test.mjs scripts/owner-revenue-status.test.mjs scripts/owner-batch-approval.test.mjs scripts/owner-review-staging.test.mjs",
-    "ai-family:test": "node --test scripts/ai-family-public.test.mjs scripts/generational-compounding.test.mjs",
+    "ai-family:test": "node --test scripts/ai-family-public.test.mjs scripts/generational-compounding.test.mjs scripts/family-core-client.test.mjs",
     "funnel:test": "node --test scripts/funnel-events.test.mjs",
     "campaign:test": "node --test scripts/campaign-attribution.test.mjs",
     "attribution:test": "node --test scripts/vertical-attribution.test.mjs",
