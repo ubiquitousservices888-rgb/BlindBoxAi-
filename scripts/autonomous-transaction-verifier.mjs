@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fetchCardApiSales } from "../lib/the-card-api.mjs";
-import { verifyCollectibleMarket } from "../lib/collectible-price-verification.mjs";
+import { fetchCardApiSales, summarizeCardApiSales } from "../lib/the-card-api.mjs";
 
 const ROOT = process.cwd();
 const SERIES_DIR = path.join(ROOT, "data", "series");
@@ -12,7 +11,7 @@ const MAX_SEARCH_BYTES = 1_500_000;
 const MAX_PAGE_BYTES = 2_500_000;
 const MAX_RESULTS_PER_QUERY = 8;
 const MIN_CONFIRMED_SALES = 2;
-const USER_AGENT = "BlindBoxAI-KnowItAll/1.0 (public transaction verification; no credentials)";
+const USER_AGENT = "BlindBoxAI-KnowItAll/1.0 (public transaction verification)";
 
 const SECRET_PATTERNS = [
   /sk-(?:proj-)?[A-Za-z0-9_-]{16,}/gi,
@@ -141,6 +140,15 @@ async function loadSeries() {
   return records;
 }
 
+async function loadSportsCardTargets() {
+  const raw = await fs.readFile(SPORTS_CARD_TARGETS, "utf8");
+  const registry = JSON.parse(raw);
+  if (!Array.isArray(registry?.targets) || registry.targets.length === 0) {
+    throw new Error("Sports-card research target registry is missing or empty");
+  }
+  return registry.targets;
+}
+
 const targets = await loadSeries();
 const findings = [];
 const sourceRuns = [];
@@ -171,27 +179,23 @@ for (const target of targets) {
   });
 }
 
-let sportsCardTargets = [];
-try {
-  const registry = JSON.parse(await fs.readFile(SPORTS_CARD_TARGETS, "utf8"));
-  sportsCardTargets = Array.isArray(registry?.targets) ? registry.targets : [];
-} catch {}
-
+const sportsCardTargets = await loadSportsCardTargets();
+const providerCredentialUsed = Boolean(String(process.env.THE_CARD_API_KEY ?? "").trim());
 const sportsCardFindings = [];
 for (const target of sportsCardTargets) {
   const provider = await fetchCardApiSales(target);
-  const verification = verifyCollectibleMarket({
-    identity: target.identity,
-    evidence: provider.records,
-  }, { maxAgeHours: 24 * 100, minSoldSamples: MIN_CONFIRMED_SALES });
+  const verification = summarizeCardApiSales(provider.records, MIN_CONFIRMED_SALES);
   sportsCardFindings.push({
     id: target.id,
     video: target.video,
     claims: target.claims,
     providerStatus: provider.status,
     providerReturnedCount: provider.returnedCount ?? 0,
+    providerAcceptedCount: provider.acceptedCount ?? 0,
     verification,
-    publicClaimsAllowed: verification.status === "VERIFIED",
+    publicClaimsAllowed: false,
+    completedSalePriceSummaryAllowed: verification.canClaimCompletedSalePriceSummary,
+    verifiedClaimTypes: verification.canClaimCompletedSalePriceSummary ? ["completed-sale price summary"] : [],
     recommendedVideoMode: verification.status === "VERIFIED"
       ? "VERIFIED_SALES_SUMMARY"
       : "AUDIENCE_PRICE_QUESTION",
@@ -202,18 +206,20 @@ for (const target of sportsCardTargets) {
     source: "The Card API",
     target: target.id,
     status: provider.status,
-    confirmedSaleCount: verification.soldSampleCount,
+    returnedCount: provider.returnedCount ?? 0,
+    acceptedExactSaleCount: verification.soldSampleCount,
   });
 }
 
 const artifact = {
   schema: "blindboxai/know-it-all/transaction-verification/v1",
   agent: "Mr. Know It All",
-  mode: "credentialless-public-sales-history",
+  mode: providerCredentialUsed ? "public-sales-with-readonly-provider-credential" : "credentialless-public-sales-history",
   researchedAt: new Date().toISOString(),
   security: {
-    credentialsProvided: false,
-    secretsRead: false,
+    credentialsProvided: providerCredentialUsed,
+    secretsRead: providerCredentialUsed,
+    providerCredentialPurpose: providerCredentialUsed ? "read-only completed-sale provider lookup" : null,
     privateRepositoriesAccessed: false,
     sideEffectsPerformed: [],
     ownerApprovalRequiredForCatalogChanges: true,
@@ -222,13 +228,14 @@ const artifact = {
     onlyPublicHTTPS: true,
     completedOrSoldEvidenceOnly: true,
     askingPricesRejected: true,
-    minimumIndependentSales: MIN_CONFIRMED_SALES,
+    minimumConfirmedExactSales: MIN_CONFIRMED_SALES,
     automaticCatalogOverwrite: false,
+    unrelatedClaimsAutoApprovedFromPriceEvidence: false,
   },
   sources: [
     { name: "Mercari US", url: "https://www.mercari.com/", role: "public sold-item evidence" },
     { name: "Whatnot", url: "https://www.whatnot.com/", role: "public marketplace evidence; only explicit sold/completed evidence counts" },
-    { name: "The Card API", url: "https://www.thecardapi.com/", role: "read-only sports-card completed-sale provider; confirmed prices only" },
+    { name: "The Card API", url: "https://www.thecardapi.com/", role: "read-only sports-card completed-sale provider; confirmed USD prices only" },
   ],
   targetsChecked: targets.length,
   confirmedTargets: findings.filter((item) => item.verification === "confirmed-by-public-sales-history").length,
@@ -242,4 +249,4 @@ const artifact = {
 const serialized = redact(JSON.stringify(artifact, null, 2));
 await fs.mkdir(OUT_DIR, { recursive: true });
 await fs.writeFile(OUT, `${serialized}\n`, "utf8");
-console.log(`Checked ${targets.length} reviewed figures; confirmed ${artifact.confirmedTargets}.`);
+console.log(`Checked ${targets.length} reviewed figures and ${sportsCardTargets.length} sports-card targets; confirmed ${artifact.confirmedTargets} public-web figures.`);
