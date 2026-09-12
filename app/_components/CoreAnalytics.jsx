@@ -128,8 +128,8 @@ export default function CoreAnalytics() {
     const campaign = captureCampaignAttribution();
     const payload = {
       path,
-      campaignId: campaign.campaignId || "none",
-      campaignSource: campaign.campaignSource || "none",
+      source: campaign.campaignSource || "direct",
+      campaign: campaign.campaignId || "none",
     };
     track("page_view", payload);
     captureFirstParty("page_view", payload);
@@ -137,14 +137,13 @@ export default function CoreAnalytics() {
 
   useEffect(() => {
     if (!allowed) return;
-    const source = safeLandingSource();
     const campaign = captureCampaignAttribution();
+    const source = campaign.campaignSource || safeLandingSource();
     captureValidatedAttribution();
     const payload = {
       source,
       path: window.location.pathname.slice(0, 120),
-      campaignId: campaign.campaignId || "none",
-      campaignSource: campaign.campaignSource || "none",
+      campaign: campaign.campaignId || "none",
     };
     try {
       if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
@@ -169,13 +168,13 @@ export default function CoreAnalytics() {
       if (destination === "internal_cta" && !href.includes("shop") && !href.includes("buy")) return;
 
       const attribution = currentAttribution(window.location.pathname);
+      const effectiveSource = attribution.campaignSource || attribution.source;
       const payload = {
         destination,
         path: window.location.pathname.slice(0, 120),
         vertical: attribution.vertical,
-        source: attribution.source,
-        campaignId: attribution.campaignId || "none",
-        campaignSource: attribution.campaignSource || "none",
+        source: effectiveSource,
+        campaign: attribution.campaignId || "none",
       };
 
       track("commerce_intent_click", payload);
