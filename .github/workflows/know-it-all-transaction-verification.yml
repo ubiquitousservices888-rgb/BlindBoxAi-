@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Scan public completed-sales history without credentials
+    name: Scan public completed-sales history with guarded provider access
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -39,16 +39,22 @@ jobs:
           OPENAI_RESEARCH_MODEL: ""
           MR_RESEARCH_ENCRYPTION_KEY: ""
           MR_PRIVATE_BLOB_READ_WRITE_TOKEN: ""
-          THE_CARD_API_KEY: ${{ secrets.THE_CARD_API_KEY }}
+          THE_CARD_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.THE_CARD_API_KEY || '' }}
         run: node scripts/autonomous-transaction-verifier.mjs
 
       - name: Verify sanitized artifact
         shell: bash
+        env:
+          THE_CARD_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.THE_CARD_API_KEY || '' }}
         run: |
           set -euo pipefail
-          test -s data/know-it-all/latest-transaction-verification.json
-          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-transaction-verification.json
-          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' data/know-it-all/latest-transaction-verification.json
+          artifact="data/know-it-all/latest-transaction-verification.json"
+          test -s "$artifact"
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' "$artifact"
+          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN|THE_CARD_API_KEY)[[:space:]]*[:=][[:space:]]*[^" ]+' "$artifact"
+          if [ -n "${THE_CARD_API_KEY:-}" ]; then
+            ! grep -Fq -- "$THE_CARD_API_KEY" "$artifact"
+          fi
 
       - name: Upload verified research artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -83,8 +89,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s data/know-it-all/latest-transaction-verification.json
-          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-transaction-verification.json
+          artifact="data/know-it-all/latest-transaction-verification.json"
+          test -s "$artifact"
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' "$artifact"
+          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN|THE_CARD_API_KEY)[[:space:]]*[:=][[:space:]]*[^" ]+' "$artifact"
 
       - name: Commit sanitized artifact on protected branch
         id: commit

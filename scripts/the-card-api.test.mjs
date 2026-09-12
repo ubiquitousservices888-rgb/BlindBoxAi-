@@ -1,24 +1,32 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { cardApiTitleMatches, fetchCardApiSales, normalizeCardApiSale } from "../lib/the-card-api.mjs";
+import {
+  cardApiExactTargetMatches,
+  cardApiTitleMatches,
+  fetchCardApiSales,
+  normalizeCardApiSale,
+  summarizeCardApiSales,
+} from "../lib/the-card-api.mjs";
 
-const identity = { brand: "Topps", series: "2022 Topps Tier One", item: "Jose Abreu autograph", condition: "raw" };
-const target = { identity, requiredTitleTerms: ["2022", "Topps", "Tier One", "Jose", "Abreu", "Auto"] };
+const identity = {
+  brand: "Topps",
+  series: "2022 Topps Tier One",
+  item: "Jose Abreu Tier One Talent Autograph TTA-JA /100",
+  condition: "raw",
+  identifier: "TTA-JA",
+};
+const target = {
+  id: "abreu-test",
+  query: "2022 Topps Tier One Jose Abreu TTA-JA autograph",
+  identity,
+  printRunMax: 100,
+  requiredTitleTerms: ["2022", "Topps", "Tier One", "Jose", "Abreu"],
+  requiredTitleAliases: [["Auto", "Autograph"]],
+};
 
-test("missing API key fails closed without a request", async () => {
-  let called = false;
-  const result = await fetchCardApiSales({ query: "Jose Abreu", identity }, {
-    apiKey: "",
-    fetchImpl: async () => { called = true; },
-  });
-  assert.equal(result.status, "not_configured");
-  assert.equal(called, false);
-  assert.deepEqual(result.records, []);
-});
-
-test("only confirmed completed-sale records are normalized", () => {
-  const base = {
+function sale(overrides = {}) {
+  return {
     id: "sale-1",
     platform: "eBay",
     listing_type: "best_offer",
@@ -27,38 +35,94 @@ test("only confirmed completed-sale records are normalized", () => {
     price_confirmed: true,
     sold_at: "2026-09-10T00:00:00Z",
     listing_url: "https://www.ebay.com/itm/123",
-    title: "2022 Topps Tier One Jose Abreu Auto /100",
+    title: "2022 Topps Tier One Jose Abreu Autograph TTA-JA 25/100",
+    ...overrides,
   };
-  const normalized = normalizeCardApiSale(base, target);
+}
+
+test("missing API key fails closed without a request", async () => {
+  let called = false;
+  const result = await fetchCardApiSales(target, {
+    apiKey: "",
+    fetchImpl: async () => { called = true; },
+  });
+  assert.equal(result.status, "not_configured");
+  assert.equal(called, false);
+  assert.deepEqual(result.records, []);
+});
+
+test("only confirmed explicit-USD exact-target completed sales are normalized", () => {
+  const normalized = normalizeCardApiSale(sale(), target);
   assert.equal(normalized.amount, 42.5);
+  assert.equal(normalized.currency, "USD");
   assert.equal(normalized.trust, "marketplace_completed_sales");
   assert.equal(normalized.listingType, "best_offer");
-  assert.equal(normalized.observedAt, base.sold_at);
-  assert.equal(normalizeCardApiSale({ ...base, price_confirmed: false }, target), null);
-  assert.equal(normalizeCardApiSale({ ...base, listing_url: "http://example.test" }, target), null);
-  assert.equal(normalizeCardApiSale({ ...base, title: "2022 Topps Tier One Tim Anderson Auto" }, target), null);
+  assert.equal(normalized.strictTargetMatch, true);
+  assert.equal(normalized.observedAt, "2026-09-10T00:00:00Z");
+  assert.equal(normalizeCardApiSale(sale({ price_confirmed: false }), target), null);
+  assert.equal(normalizeCardApiSale(sale({ currency: "" }), target), null);
+  assert.equal(normalizeCardApiSale(sale({ currency: "EUR" }), target), null);
+  assert.equal(normalizeCardApiSale(sale({ listing_url: "http://example.test" }), target), null);
+  assert.equal(normalizeCardApiSale(sale({ title: "2022 Topps Tier One Tim Anderson Autograph TTA-JA 25/100" }), target), null);
+});
+
+test("exact target match requires identifier, print-run denominator, aliases, and raw condition", () => {
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA 25/100", target), true);
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Autograph TTA-JA 25/100", target), true);
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Autograph 25/100", target), false);
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Autograph TTA-JA 25/50", target), false);
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Autograph TTA-JA 25/100 PSA 10", target), false);
 });
 
 test("identity terms use token boundaries", () => {
-  assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Auto /100", target.requiredTitleTerms), true);
-  assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Automatic Insert", target.requiredTitleTerms), false);
+  assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA 25/100", target.requiredTitleTerms), true);
+  assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Automatic Insert TTA-JA 25/100", [...target.requiredTitleTerms, "Auto"]), false);
 });
 
-test("API key is sent only as a request header and never returned", async () => {
+test("provider request rejects redirects and keeps API key out of URL and result", async () => {
   const secret = "test-secret-value";
   let capturedUrl;
-  let capturedHeaders;
-  const result = await fetchCardApiSales({ query: "Jose Abreu", identity }, {
+  let capturedInit;
+  const result = await fetchCardApiSales(target, {
     apiKey: secret,
     fetchImpl: async (url, init) => {
       capturedUrl = String(url);
-      capturedHeaders = init.headers;
+      capturedInit = init;
       return { ok: true, json: async () => ({ data: [] }) };
     },
   });
   assert.equal(capturedUrl.includes(secret), false);
-  assert.equal(capturedHeaders["x-market-api-key"], secret);
+  assert.equal(capturedInit.redirect, "error");
+  assert.equal(capturedInit.headers["x-market-api-key"], secret);
   assert.equal(JSON.stringify(result).includes(secret), false);
+});
+
+test("duplicate provider rows cannot satisfy the two-sale verification threshold", async () => {
+  const duplicate = sale();
+  const result = await fetchCardApiSales(target, {
+    apiKey: "test-secret-value",
+    fetchImpl: async () => ({ ok: true, json: async () => ({ data: [duplicate, { ...duplicate }] }) }),
+  });
+  assert.equal(result.returnedCount, 2);
+  assert.equal(result.acceptedCount, 1);
+  assert.equal(result.records.length, 1);
+  const verification = summarizeCardApiSales(result.records, 2);
+  assert.equal(verification.status, "LOW_CONFIDENCE");
+  assert.equal(verification.soldSampleCount, 1);
+  assert.equal(verification.canClaimCompletedSalePriceSummary, false);
+  assert.equal(verification.canClaimOtherTargetClaims, false);
+});
+
+test("two distinct exact sales allow only a completed-sale price summary", () => {
+  const first = normalizeCardApiSale(sale(), target);
+  const second = normalizeCardApiSale(sale({ id: "sale-2", listing_url: "https://www.ebay.com/itm/456", price: 55 }), target);
+  const verification = summarizeCardApiSales([first, second], 2);
+  assert.equal(verification.status, "VERIFIED");
+  assert.equal(verification.soldSampleCount, 2);
+  assert.equal(verification.soldLowUSD, 42.5);
+  assert.equal(verification.soldHighUSD, 55);
+  assert.equal(verification.canClaimCompletedSalePriceSummary, true);
+  assert.equal(verification.canClaimOtherTargetClaims, false);
 });
 
 test("sports-card scripts stay review-only and match registered research targets", () => {
