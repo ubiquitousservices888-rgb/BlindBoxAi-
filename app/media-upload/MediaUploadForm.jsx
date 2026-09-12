@@ -145,6 +145,7 @@ export default function MediaUploadForm() {
     setStatus("reading_metadata");
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), MOBILE_UPLOAD_TIMEOUT_MS);
+    let uploadedBlob = null;
 
     try {
       const metadata = await readVideoMetadata(file);
@@ -166,6 +167,7 @@ export default function MediaUploadForm() {
         throw new Error("Vercel Blob did not return a public HTTPS media URL.");
       }
 
+      uploadedBlob = blob;
       setResult(blob);
       const payload = { blob, title: title.trim().slice(0, 120), file, metadata };
       setStagingPayload(payload);
@@ -176,7 +178,7 @@ export default function MediaUploadForm() {
       setStatus("complete");
       setAccessCode("");
     } catch (err) {
-      setStatus(result?.url ? "staging_failed" : "failed");
+      setStatus(uploadedBlob?.url ? "staging_failed" : "failed");
       setError(normalizeUploadError(err));
     } finally {
       clearTimeout(timeout);
