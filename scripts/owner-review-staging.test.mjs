@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { stageOwnerReviewedVideo } from "../lib/owner-review-staging.mjs";
+import { researchRunIdForVideo, stageOwnerReviewedVideo } from "../lib/owner-review-staging.mjs";
 
 function response(status = 204) {
   return { ok: status >= 200 && status < 300, status, async json() { return {}; } };
@@ -8,9 +8,10 @@ function response(status = 204) {
 
 test("yellow review staging dispatches exact MP4 to main without approving it", async () => {
   let request;
+  const videoUrl = "https://blob.example/media/review/test.mp4";
   const result = await stageOwnerReviewedVideo({
     token: "masked-test-token",
-    videoUrl: "https://blob.example/media/review/test.mp4",
+    videoUrl,
     title: "Collector review",
     sizeBytes: 10_000_000,
     durationSeconds: 42.5,
@@ -24,11 +25,21 @@ test("yellow review staging dispatches exact MP4 to main without approving it", 
 
   assert.equal(result.state, "READY_FOR_REVIEW");
   assert.equal(result.approved, false);
+  assert.match(result.researchRunId, /^rv-[a-f0-9]{16}$/);
+  assert.equal(result.researchRunId, researchRunIdForVideo(videoUrl));
+  assert.equal(result.campaignId, `bb-${result.researchRunId}`);
   assert.match(request.url, /manual-reviewed-video\.yml\/dispatches$/);
   const body = JSON.parse(request.options.body);
   assert.equal(body.ref, "main");
-  assert.equal(body.inputs.video_url, "https://blob.example/media/review/test.mp4");
+  assert.equal(body.inputs.video_url, videoUrl);
   assert.equal(body.inputs.title, "Collector review");
+  assert.equal(body.inputs.research_run_id, result.researchRunId);
+});
+
+test("research run id is stable for the exact uploaded video and changes for a different video", () => {
+  const first = researchRunIdForVideo("https://blob.example/media/review/a.mp4");
+  assert.equal(first, researchRunIdForVideo("https://blob.example/media/review/a.mp4"));
+  assert.notEqual(first, researchRunIdForVideo("https://blob.example/media/review/b.mp4"));
 });
 
 test("yellow staging rejects non-MP4 and invalid media metadata", async () => {
