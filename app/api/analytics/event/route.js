@@ -18,6 +18,11 @@ function cleanText(value, max = 120) {
     .slice(0, max);
 }
 
+function cleanDimension(value, max = 80) {
+  const cleaned = cleanText(value, max);
+  return cleaned && cleaned !== "none" ? cleaned : null;
+}
+
 function badRequest(message) {
   return NextResponse.json(
     { error: message },
@@ -43,13 +48,21 @@ export async function POST(request) {
   }
 
   const capturedAt = new Date().toISOString();
+  const campaign = cleanDimension(body?.campaign);
   const event = {
     schemaVersion: 1,
+    namespace: "production",
+    test: false,
+    status: "observed",
     event: eventName,
     capturedAt,
-    path: cleanText(body?.path, 140) || null,
-    source: cleanText(body?.source, 80) || null,
-    destination: cleanText(body?.destination, 60) || null,
+    occurredAt: capturedAt,
+    path: cleanDimension(body?.path, 140),
+    source: cleanDimension(body?.source),
+    destination: cleanDimension(body?.destination, 60),
+    campaign,
+    contentId: cleanDimension(body?.contentId) || campaign,
+    vertical: cleanDimension(body?.vertical, 20),
     piiStored: false,
   };
 

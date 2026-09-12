@@ -5,9 +5,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { isValidSource, verticalFromSource } from "../../lib/attribution.mjs";
+import { normalizeCampaignId, normalizeSource } from "../../lib/campaign-attribution.mjs";
 
 const CONSENT_STORAGE_KEY = "blindboxai_consent_v1";
 const ATTRIBUTION_STORAGE_KEY = "bbai_src";
+const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
+const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
 
 function analyticsAllowed() {
   try {
@@ -45,6 +48,26 @@ function captureValidatedAttribution() {
   }
 }
 
+function captureCampaignAttribution() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const incomingCampaignId = normalizeCampaignId(params.get("campaign"));
+    if (incomingCampaignId) {
+      const campaignSource = normalizeSource(params.get("source") || "social");
+      sessionStorage.setItem(CAMPAIGN_STORAGE_KEY, incomingCampaignId);
+      sessionStorage.setItem(CAMPAIGN_SOURCE_STORAGE_KEY, campaignSource);
+      return { campaignId: incomingCampaignId, campaignSource };
+    }
+
+    const storedCampaignId = normalizeCampaignId(sessionStorage.getItem(CAMPAIGN_STORAGE_KEY));
+    if (!storedCampaignId) return { campaignId: "", campaignSource: "" };
+    const campaignSource = normalizeSource(sessionStorage.getItem(CAMPAIGN_SOURCE_STORAGE_KEY) || "social");
+    return { campaignId: storedCampaignId, campaignSource };
+  } catch {
+    return { campaignId: "", campaignSource: "" };
+  }
+}
+
 function currentAttribution(pathname) {
   let source = "none";
   try {
@@ -55,8 +78,9 @@ function currentAttribution(pathname) {
   const vertical = verticalFromSource(source) ||
     (pathname.includes("sports-card") || pathname.includes("sports_card") ? "sc" :
       pathname.includes("trading-card") || pathname.includes("trading_card") || pathname.includes("tcg") ? "tc" : "bb");
+  const campaign = captureCampaignAttribution();
 
-  return { source, vertical };
+  return { source, vertical, ...campaign };
 }
 
 function captureFirstParty(event, payload = {}) {
@@ -73,9 +97,14 @@ function captureFirstParty(event, payload = {}) {
 function destinationKind(href) {
   if (href.includes("/api/out/ebay")) return "ebay_affiliate";
   if (href.includes("/api/out/offer")) return "marketplace_offer";
+  if (href.includes("/api/out/amazon")) return "amazon_affiliate";
   if (href.includes("/tools/buy-or-pass")) return "buy_or_pass";
   if (href.includes("/series/")) return "series_detail";
   return "internal_cta";
+}
+
+function isAffiliateDestination(destination) {
+  return ["ebay_affiliate", "marketplace_offer", "amazon_affiliate"].includes(destination);
 }
 
 export default function CoreAnalytics() {
@@ -96,22 +125,34 @@ export default function CoreAnalytics() {
   useEffect(() => {
     if (!allowed || !pathname) return;
     const path = pathname.slice(0, 120);
-    track("page_view", { path });
-    captureFirstParty("page_view", { path });
+    const campaign = captureCampaignAttribution();
+    const payload = {
+      path,
+      source: campaign.campaignSource || "direct",
+      campaign: campaign.campaignId || "none",
+    };
+    track("page_view", payload);
+    captureFirstParty("page_view", payload);
   }, [allowed, pathname]);
 
   useEffect(() => {
     if (!allowed) return;
-    const source = safeLandingSource();
+    const campaign = captureCampaignAttribution();
+    const source = campaign.campaignSource || safeLandingSource();
     captureValidatedAttribution();
+    const payload = {
+      source,
+      path: window.location.pathname.slice(0, 120),
+      campaign: campaign.campaignId || "none",
+    };
     try {
       if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
-      track("landing_session_source", { source });
-      captureFirstParty("landing_session_source", { source, path: window.location.pathname.slice(0, 120) });
+      track("landing_session_source", payload);
+      captureFirstParty("landing_session_source", payload);
       sessionStorage.setItem("bbai_landing_source_recorded", "1");
     } catch {
-      track("landing_session_source", { source });
-      captureFirstParty("landing_session_source", { source, path: window.location.pathname.slice(0, 120) });
+      track("landing_session_source", payload);
+      captureFirstParty("landing_session_source", payload);
     }
   }, [allowed]);
 
@@ -127,25 +168,32 @@ export default function CoreAnalytics() {
       if (destination === "internal_cta" && !href.includes("shop") && !href.includes("buy")) return;
 
       const attribution = currentAttribution(window.location.pathname);
+      const effectiveSource = attribution.campaignSource || attribution.source;
       const payload = {
         destination,
         path: window.location.pathname.slice(0, 120),
         vertical: attribution.vertical,
-        source: attribution.source,
+        source: effectiveSource,
+        campaign: attribution.campaignId || "none",
       };
 
       track("commerce_intent_click", payload);
       captureFirstParty("commerce_intent_click", payload);
 
-      if (destination !== "ebay_affiliate") return;
+      if (!isAffiliateDestination(destination)) return;
 
       try {
         const target = new URL(href, window.location.origin);
-        if (target.pathname !== "/api/out/ebay") return;
-        if (attribution.source !== "none") target.searchParams.set("source", attribution.source);
-        target.searchParams.set("vertical", attribution.vertical);
-        if (!target.searchParams.get("itemSlug")) {
-          target.searchParams.set("itemSlug", target.searchParams.get("figure") || window.location.pathname.split("/").filter(Boolean).pop() || "item");
+        const outboundSource = attribution.campaignSource || (attribution.source !== "none" ? attribution.source : "");
+        if (attribution.campaignId) target.searchParams.set("campaign", attribution.campaignId);
+        if (outboundSource) target.searchParams.set("source", outboundSource);
+
+        if (destination === "ebay_affiliate") {
+          if (target.pathname !== "/api/out/ebay") return;
+          target.searchParams.set("vertical", attribution.vertical);
+          if (!target.searchParams.get("itemSlug")) {
+            target.searchParams.set("itemSlug", target.searchParams.get("figure") || window.location.pathname.split("/").filter(Boolean).pop() || "item");
+          }
         }
 
         const decoratedHref = target.pathname + target.search + target.hash;
