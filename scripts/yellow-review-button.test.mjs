@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
+const uploadPage = fs.readFileSync(new URL("../app/media-upload/MediaUploadForm.jsx", import.meta.url), "utf8");
 const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/route.js", import.meta.url), "utf8");
 const workflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
 const publisher = fs.readFileSync(new URL("../scripts/publish-reviewed-upload.mjs", import.meta.url), "utf8");
@@ -20,6 +21,14 @@ test("staged videos have per-video yellow watch and blue approval controls", () 
   assert.doesNotMatch(dashboard, /APPROVE & LAUNCH ALL READY VIDEOS/);
 });
 
+test("phone upload goes directly into the review and research staging path", () => {
+  assert.match(uploadPage, /media\/review/);
+  assert.match(uploadPage, /\/api\/media\/review-upload/);
+  assert.match(uploadPage, /\/api\/owner\/stage-review/);
+  assert.match(uploadPage, /Upload & stage for research/);
+  assert.match(uploadPage, /Research campaign/);
+});
+
 test("yellow upload remains review-only", () => {
   assert.match(dashboard, /UPLOAD NEW REVIEW VIDEO/);
   assert.match(uploadRoute, /media\\\/review/);
@@ -31,10 +40,15 @@ test("yellow upload remains review-only", () => {
 test("manual upload cannot publish until the protected owner environment is approved", () => {
   assert.match(workflow, /validate-review-upload/);
   assert.match(workflow, /READY_FOR_REVIEW/);
+  assert.match(workflow, /research_run_id/);
+  assert.match(workflow, /RESEARCH_RUN_ID/);
   assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(workflow, /Publish exact owner-reviewed upload/);
+  assert.match(workflow, /Publish exact owner-reviewed upload with traction attribution/);
   assert.match(workflow, /run-name: Review upload — \$\{\{ inputs\.video_url \}\}/);
   assert.match(publisher, /https:\/\/www\.blindboxai\.com/);
+  assert.match(publisher, /buildTrackedSocialCta/);
+  assert.match(publisher, /RESEARCH_RUN_ID/);
+  assert.match(publisher, /campaignId/);
   assert.match(publisher, /DISCLOSURE/);
 });
 
