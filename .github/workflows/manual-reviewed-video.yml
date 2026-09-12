@@ -28,6 +28,10 @@ on:
         description: Browser-read video height
         required: true
         type: string
+      research_run_id:
+        description: Stable per-upload research attribution ID
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -46,6 +50,7 @@ jobs:
           REVIEWED_VIDEO_DURATION: ${{ inputs.duration_seconds }}
           REVIEWED_VIDEO_WIDTH: ${{ inputs.width }}
           REVIEWED_VIDEO_HEIGHT: ${{ inputs.height }}
+          RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
         run: |
           node <<'NODE'
           const url = new URL(process.env.REVIEWED_VIDEO_URL);
@@ -58,9 +63,11 @@ jobs:
           const height = Number(process.env.REVIEWED_VIDEO_HEIGHT);
           if (!Number.isFinite(size) || size <= 0 || size > 100 * 1024 * 1024) throw new Error("Review upload size is invalid");
           if (![duration, width, height].every((value) => Number.isFinite(value) && value > 0)) throw new Error("Review media metadata is invalid");
+          if (!/^rv-[a-f0-9]{16}$/.test(process.env.RESEARCH_RUN_ID || "")) throw new Error("Research run ID is invalid");
           console.log("YELLOW_BUTTON_MECHANICAL_QC: pass");
           console.log("OWNER_WATCH_REQUIRED: true");
           console.log("READY_FOR_REVIEW: true");
+          console.log(`RESEARCH_RUN_ID: ${process.env.RESEARCH_RUN_ID}`);
           NODE
 
   publish-after-owner-approval:
@@ -76,6 +83,7 @@ jobs:
     env:
       REVIEWED_VIDEO_URL: ${{ inputs.video_url }}
       REVIEWED_VIDEO_TITLE: ${{ inputs.title }}
+      RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
@@ -97,5 +105,5 @@ jobs:
             echo "::error::Buffer is not configured."
             exit 1
           fi
-      - name: Publish exact owner-reviewed upload
+      - name: Publish exact owner-reviewed upload with traction attribution
         run: node scripts/publish-reviewed-upload.mjs
