@@ -189,6 +189,7 @@ export default function CoreAnalytics() {
         if (outboundSource) target.searchParams.set("source", outboundSource);
 
         if (destination === "ebay_affiliate") {
+          if (target.pathname !== "/api/out/ebay") return;
           target.searchParams.set("vertical", attribution.vertical);
           if (!target.searchParams.get("itemSlug")) {
             target.searchParams.set("itemSlug", target.searchParams.get("figure") || window.location.pathname.split("/").filter(Boolean).pop() || "item");
