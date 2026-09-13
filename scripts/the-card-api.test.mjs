@@ -125,16 +125,19 @@ test("two distinct exact sales allow only a completed-sale price summary", () =>
   assert.equal(verification.canClaimOtherTargetClaims, false);
 });
 
-test("sports-card scripts stay review-only and match registered research targets", () => {
+test("sports-card scripts stay review-only and use sold-only value evidence", () => {
   const registry = JSON.parse(fs.readFileSync(new URL("../data/know-it-all/sports-card-research-targets.json", import.meta.url), "utf8"));
   const scripts = JSON.parse(fs.readFileSync(new URL("../data/know-it-all/sports-card-video-scripts.json", import.meta.url), "utf8"));
   const ids = new Set(registry.targets.map((entry) => entry.id));
   assert.equal(scripts.state, "READY_FOR_REVIEW");
   assert.equal(scripts.publishAutomatically, false);
   assert.equal(scripts.publicCta, "https://www.blindboxai.com");
+  assert.match(scripts.pricePolicy, /completed sold prices/i);
   assert.equal(scripts.noVerifiedSalesFallback.mode, "AUDIENCE_PRICE_QUESTION");
-  assert.match(scripts.noVerifiedSalesFallback.disclosure, /opinions, not completed-sale evidence/);
-  assert.match(scripts.noVerifiedSalesFallback.analyticsRule, /never be recorded as sales/);
+  assert.match(scripts.noVerifiedSalesFallback.hook, /pay for it raw/i);
+  assert.match(scripts.noVerifiedSalesFallback.hook, /pay for it graded/i);
+  assert.match(scripts.noVerifiedSalesFallback.disclosure, /audience research only/i);
+  assert.match(scripts.noVerifiedSalesFallback.analyticsRule, /never be recorded as sales, sold prices/i);
   for (const entry of scripts.scripts) {
     assert.equal(ids.has(entry.researchTargetId), true);
     const publicText = `${entry.replacementTitle}\n${entry.voiceover.join(" ")}\n${entry.caption}`;
