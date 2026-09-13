@@ -5,6 +5,7 @@ import test from "node:test";
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const uploadPage = fs.readFileSync(new URL("../app/media-upload/MediaUploadForm.jsx", import.meta.url), "utf8");
 const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/route.js", import.meta.url), "utf8");
+const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
 const workflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
 const publisher = fs.readFileSync(new URL("../scripts/publish-reviewed-upload.mjs", import.meta.url), "utf8");
 const stageRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/route.js", import.meta.url), "utf8");
@@ -21,12 +22,16 @@ test("staged videos have per-video yellow watch and blue approval controls", () 
   assert.doesNotMatch(dashboard, /APPROVE & LAUNCH ALL READY VIDEOS/);
 });
 
-test("phone upload goes directly into the review and research staging path", () => {
+test("phone upload uses owner-authenticated signed storage then enters research staging", () => {
   assert.match(uploadPage, /media\/review/);
-  assert.match(uploadPage, /\/api\/media\/review-upload/);
+  assert.match(uploadPage, /blindbox-video-upload/);
+  assert.match(uploadPage, /signedUrl/);
+  assert.match(uploadPage, /publicUrl/);
   assert.match(uploadPage, /\/api\/owner\/stage-review/);
   assert.match(uploadPage, /Upload & stage for research/);
   assert.match(uploadPage, /Research campaign/);
+  assert.match(storageAuthRoute, /assertUploadCode/);
+  assert.match(storageAuthRoute, /Authorization/);
 });
 
 test("yellow upload remains review-only", () => {
