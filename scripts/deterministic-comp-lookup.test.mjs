@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildDeterministicCompResponse, lookupVerifiedComps } from "../lib/deterministic-comp-lookup.mjs";
+import { recordKnowItAllQuestion } from "../lib/mr-know-it-all-store.mjs";
 
 const catalog = [
   {
@@ -67,4 +68,30 @@ test("responses include historical-data disclaimer and no model citations", () =
   assert.equal(response.citations.length, 0);
   assert.ok(response.safetyNotes.some((note) => /not financial or investment advice/i.test(note)));
   assert.equal(response.mode, "deterministic");
+});
+
+test("unanswered research questions can queue without a Vercel Supabase key", async () => {
+  const previous = process.env.SUPABASE_ANON_KEY;
+  delete process.env.SUPABASE_ANON_KEY;
+  let captured = null;
+  try {
+    const result = await recordKnowItAllQuestion({
+      question: "Pokemon 30th Celebration Charizard",
+      result: { matches: [], confidence: "high" },
+      fetchImpl: async (url, init) => {
+        captured = { url: String(url), init, payload: JSON.parse(init.body) };
+        return { ok: true, json: async () => ({ ok: true, queued: true }) };
+      },
+    });
+    assert.equal(result.stored, true);
+    assert.equal(result.queued, true);
+    assert.equal(captured.init.headers.authorization, undefined);
+    assert.equal(captured.payload.type, "question");
+    assert.equal(captured.payload.vertical, "pokemon_tcg");
+    assert.equal(captured.payload.answered, false);
+    assert.match(captured.url, /mr-know-it-all-ingest$/);
+  } finally {
+    if (previous === undefined) delete process.env.SUPABASE_ANON_KEY;
+    else process.env.SUPABASE_ANON_KEY = previous;
+  }
 });
