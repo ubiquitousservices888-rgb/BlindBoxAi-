@@ -1,0 +1,67 @@
+{
+  "schema": "blindboxai/know-it-all/collectible-coverage/v1",
+  "policy": {
+    "crossCategorySubstitutionAllowed": false,
+    "askingPriceIsVerifiedValue": false,
+    "minimumExactCompletedSalesForVerifiedRange": 2,
+    "missingEvidenceBehavior": "show_missing",
+    "genericFallbacks": ["other_collectible_card", "other_collectible_toy"]
+  },
+  "priority": [
+    "pokemon_tcg",
+    "magic_the_gathering",
+    "sports_cards",
+    "yugioh",
+    "one_piece",
+    "disney_lorcana",
+    "digimon",
+    "flesh_and_blood",
+    "dragon_ball",
+    "star_wars_unlimited",
+    "weiss_schwarz",
+    "final_fantasy_tcg",
+    "cardfight_vanguard",
+    "union_arena",
+    "pop_mart",
+    "other_collectible_card",
+    "other_collectible_toy"
+  ],
+  "verticals": {
+    "pokemon_tcg": {
+      "type": "collectible_card",
+      "aliases": ["pokemon", "pokémon", "pokemon tcg", "pokémon tcg"],
+      "priorityEvent": "Pokemon TCG: 30th Celebration",
+      "officialReleaseDate": "2026-09-16",
+      "status": "priority_research",
+      "valueRule": "no pre-release market value without verified completed-sale evidence"
+    },
+    "magic_the_gathering": {
+      "type": "collectible_card",
+      "aliases": ["magic", "magic the gathering", "mtg"],
+      "status": "priority_research"
+    },
+    "sports_cards": {
+      "type": "collectible_card",
+      "aliases": ["sports card", "baseball card", "basketball card", "football card", "hockey card", "soccer card", "f1 card", "ufc card", "wrestling card"],
+      "status": "research_targets_present"
+    },
+    "yugioh": {"type":"collectible_card","aliases":["yu-gi-oh","yugioh"],"status":"queued"},
+    "one_piece": {"type":"collectible_card","aliases":["one piece card game","one piece tcg"],"status":"queued"},
+    "disney_lorcana": {"type":"collectible_card","aliases":["lorcana","disney lorcana"],"status":"queued"},
+    "digimon": {"type":"collectible_card","aliases":["digimon card game","digimon tcg"],"status":"queued"},
+    "flesh_and_blood": {"type":"collectible_card","aliases":["flesh and blood","fab tcg"],"status":"queued"},
+    "dragon_ball": {"type":"collectible_card","aliases":["dragon ball card","dragon ball super card game","fusion world"],"status":"queued"},
+    "star_wars_unlimited": {"type":"collectible_card","aliases":["star wars unlimited","swu"],"status":"queued"},
+    "weiss_schwarz": {"type":"collectible_card","aliases":["weiss schwarz"],"status":"queued"},
+    "final_fantasy_tcg": {"type":"collectible_card","aliases":["final fantasy tcg","fftcg"],"status":"queued"},
+    "cardfight_vanguard": {"type":"collectible_card","aliases":["cardfight vanguard","vanguard card"],"status":"queued"},
+    "union_arena": {"type":"collectible_card","aliases":["union arena"],"status":"queued"},
+    "pop_mart": {
+      "type": "collectible_toy",
+      "aliases": ["pop mart", "labubu", "the monsters", "skullpanda", "hirono", "crybaby", "dimoo", "molly", "twinkle twinkle", "pucky"],
+      "status": "active_catalog_and_research"
+    },
+    "other_collectible_card": {"type":"collectible_card","aliases":["trading card","collectible card","tcg","ccg"],"status":"generic_fallback"},
+    "other_collectible_toy": {"type":"collectible_toy","aliases":["blind box","designer toy","vinyl figure","art toy","sofubi","funko","bearbrick","sonny angel","smiski","kidrobot","hot toys"],"status":"generic_fallback"}
+  }
+}
