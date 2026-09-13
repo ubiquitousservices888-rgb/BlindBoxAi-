@@ -49,6 +49,19 @@ test("unknown queries fail closed without invented data", () => {
   assert.match(response.answer, /No verified sale found/i);
 });
 
+test("generic natural-language sports-card question never falls through to toy comps", () => {
+  const query = "What's the most valuable sports card for this year's releases?";
+  const response = buildDeterministicCompResponse(query, { catalog });
+  assert.equal(response.mode, "deterministic");
+  assert.equal(response.matches.length, 0);
+  assert.match(response.answer, /No verified sports-card sale found/i);
+});
+
+test("common word 'the' cannot create unrelated collectible matches", () => {
+  const results = lookupVerifiedComps("what is the best one", { catalog });
+  assert.deepEqual(results, []);
+});
+
 test("responses include historical-data disclaimer and no model citations", () => {
   const response = buildDeterministicCompResponse("Tempered Aegis", { catalog });
   assert.equal(response.citations.length, 0);
