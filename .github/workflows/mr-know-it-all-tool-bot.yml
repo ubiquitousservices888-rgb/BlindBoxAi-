@@ -1,0 +1,38 @@
+name: Mr. Know It All research tool bot
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: mr-know-it-all-tool-bot
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run bounded research worker and repeater
+        env:
+          THE_CARD_API_KEY: ${{ secrets.THE_CARD_API_KEY }}
+          SUPABASE_URL: https://lazzdoadoqzrzlarerfx.supabase.co
+        run: node scripts/mr-know-it-all-tool-bot.mjs
