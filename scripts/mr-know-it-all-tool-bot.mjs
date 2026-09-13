@@ -13,7 +13,7 @@ const CARD_VERTICALS = new Set([
   "other_collectible_card",
 ]);
 const STOPWORDS = new Set([
-  "what", "is", "are", "the", "a", "an", "of", "for", "this", "that", "card", "cards", "worth",
+  "what", "is", "are", "the", "a", "an", "and", "of", "for", "this", "that", "card", "cards", "worth",
   "value", "price", "sold", "sale", "sales", "raw", "graded", "pokemon", "pokémon", "tcg", "ccg",
 ]);
 
