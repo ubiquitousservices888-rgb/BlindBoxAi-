@@ -3,12 +3,13 @@
   "state": "READY_FOR_REVIEW",
   "publishAutomatically": false,
   "publicCta": "https://www.blindboxai.com",
-  "pricePolicy": "No price, premium, steal, investor-demand, or future-value claim may be inserted until the corresponding research target is VERIFIED by at least two confirmed exact-card completed sales.",
+  "pricePolicy": "Only confirmed exact-card completed sold prices may be presented as market-value evidence. No asking price, audience answer, premium, steal, investor-demand, or future-value claim may be presented as verified value.",
   "noVerifiedSalesFallback": {
     "mode": "AUDIENCE_PRICE_QUESTION",
-    "hook": "No matching completed sales were verified for this exact card. What would you personally pay for it?",
-    "disclosure": "Viewer answers are opinions, not completed-sale evidence or verified market value.",
-    "analyticsRule": "Comments and clicks measure audience interest only. They must never be recorded as sales, orders, earnings, or verified price evidence."
+    "hook": "No matching completed sales were verified for this exact card. What would you pay for it raw? What would you pay for it graded?",
+    "researchUse": "Capture raw and graded audience price opinions as separate demand-research signals.",
+    "disclosure": "Viewer raw and graded answers are audience research only, not completed-sale evidence or verified market value.",
+    "analyticsRule": "Comments and clicks may measure audience interest and raw-versus-graded price expectations only. They must never be recorded as sales, sold prices, orders, earnings, or verified price evidence."
   },
   "scripts": [
     {
@@ -20,10 +21,11 @@
         "Shown here is a 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, card TTA-JA.",
         "The back carries Topps' certified-autograph statement and says the signing was witnessed by a Topps representative.",
         "That verifies what the card is. It does not establish what the card is worth.",
-        "Before quoting a market value, BlindBoxAI requires matching completed sales for this exact card and parallel. Active asking prices do not count.",
+        "Before quoting a market value, BlindBoxAI requires matching completed sold prices for this exact card and parallel. Active asking prices and audience guesses do not count.",
+        "If exact sold comps are missing, the research question is: what would you pay raw, and what would you pay graded? Those answers are research signals only.",
         "See the verified research status at BlindBoxAI.com. Historical sales do not predict future prices."
       ],
-      "caption": "A photo-backed look at the 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, TTA-JA. Market value remains unverified until matching completed sales pass the evidence gate. Collector research: https://www.blindboxai.com — Historical sales do not predict future prices. #ad BlindBoxAI may earn a commission from qualifying purchases."
+      "caption": "A photo-backed look at the 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, TTA-JA. Verified value uses completed sold prices only. If exact sold comps are missing: what would you pay raw, and what would you pay graded? Audience answers are research only. Collector research: https://www.blindboxai.com — Historical sales do not predict future prices. #ad BlindBoxAI may earn a commission from qualifying purchases."
     },
     {
       "researchTargetId": "2021-topps-triple-threads-david-ortiz-ttr-do2-18",
@@ -35,10 +37,11 @@
         "The front labels the material game-used memorabilia.",
         "The back also gives an important limitation: the relic is not from any specific game, event, or season.",
         "This card is not an autograph card, and the photos do not show a booklet card.",
-        "Its serial number and relic make it an identifiable collectible, but they do not prove a market price. BlindBoxAI requires matching completed sales before publishing a value range.",
+        "Its serial number and relic make it an identifiable collectible, but they do not prove a market price. BlindBoxAI uses exact completed sold prices before publishing a verified value range.",
+        "If those sold comps are missing, tell us what you would pay raw and what you would pay graded. We use those answers for research, never as sold-price evidence.",
         "Check the verified research status at BlindBoxAI.com. Historical sales do not predict future prices."
       ],
-      "caption": "2021 Topps Triple Threads David Ortiz TTR-DO2, numbered 01/18. The card labels the material game-used and states it is not tied to a specific game, event, or season. Price remains unverified pending exact completed-sale evidence. Research: https://www.blindboxai.com — Historical sales do not predict future prices. #ad BlindBoxAI may earn a commission from qualifying purchases."
+      "caption": "2021 Topps Triple Threads David Ortiz TTR-DO2, numbered 01/18. Verified value uses completed sold prices only. If exact sold comps are missing: what would you pay raw, and what would you pay graded? Audience answers are research only. Research: https://www.blindboxai.com — Historical sales do not predict future prices. #ad BlindBoxAI may earn a commission from qualifying purchases."
     }
   ]
 }
