@@ -1,8 +1,14 @@
+import crypto from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import { fetchCardApiSales, summarizeCardApiSales } from "../lib/the-card-api.mjs";
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://lazzdoadoqzrzlarerfx.supabase.co").replace(/\/$/, "");
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/mr-know-it-all-ingest`;
 const OIDC_AUDIENCE = "blindboxai-research-bot";
+const BATCH_SIZE = 100;
+const CONCURRENCY = 5;
+const SALES_LIMIT_PER_CONDITION = 20;
 const CARD_VERTICALS = new Set([
   "pokemon_tcg",
   "magic_the_gathering",
@@ -16,6 +22,10 @@ const STOPWORDS = new Set([
   "what", "is", "are", "the", "a", "an", "and", "of", "for", "this", "that", "card", "cards", "worth",
   "value", "price", "sold", "sale", "sales", "raw", "graded", "pokemon", "pokémon", "tcg", "ccg",
 ]);
+
+const questionBank = JSON.parse(
+  readFileSync(new URL("../data/know-it-all/research-question-bank.json", import.meta.url), "utf8"),
+);
 
 function clean(value, max = 180) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -38,6 +48,23 @@ function parseGrade(title) {
   return match ? { grader: match[1].toUpperCase(), grade: match[2] } : { grader: null, grade: null };
 }
 
+function selectionSalt(now = new Date()) {
+  return `${now.toISOString().slice(0, 10)}:${process.env.GITHUB_RUN_NUMBER || "local"}`;
+}
+
+function selectResearchBatch(items, count = BATCH_SIZE, salt = selectionSalt()) {
+  const unique = [...new Map((Array.isArray(items) ? items : []).map((item) => [clean(item?.question).toLowerCase(), item])).values()]
+    .filter((item) => clean(item?.question).length >= 4 && clean(item?.vertical).length > 0);
+  return unique
+    .map((item) => ({
+      ...item,
+      _rank: crypto.createHash("sha256").update(`${salt}:${clean(item.question).toLowerCase()}`).digest("hex"),
+    }))
+    .sort((a, b) => a._rank.localeCompare(b._rank))
+    .slice(0, Math.min(count, unique.length))
+    .map(({ _rank, ...item }) => item);
+}
+
 async function getGithubOidcToken(fetchImpl = fetch) {
   const requestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
   const requestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
@@ -57,7 +84,7 @@ async function edgeCall(type, body = {}, { oidcToken, fetchImpl = fetch } = {}) 
     headers: {
       authorization: `Bearer ${oidcToken}`,
       "content-type": "application/json",
-      "user-agent": "BlindBoxAI-MrKnowItAll-ResearchBot/1.0",
+      "user-agent": "BlindBoxAI-MrKnowItAll-ResearchBot/2.0",
     },
     body: JSON.stringify({ type, ...body }),
     redirect: "error",
@@ -77,7 +104,7 @@ function targetFromQueueItem(item, condition) {
     requiredTitleTerms: terms,
     requiredTitleAliases: [],
     identity: { condition },
-    limit: 100,
+    limit: SALES_LIMIT_PER_CONDITION,
   };
 }
 
@@ -86,10 +113,11 @@ async function researchQueueItem(item, oidcToken) {
     await edgeCall("bot_finish", {
       queueId: item.id,
       status: "blocked",
-      note: "No approved completed-sale provider is configured for this collectible vertical yet.",
+      note: "Catalog target recorded, but no approved completed-sale provider is configured for this collectible vertical yet.",
       retryHours: 24,
+      result: { catalogTarget: true, soldEvidence: false },
     }, { oidcToken });
-    return { id: item.id, outcome: "blocked_no_provider" };
+    return { id: item.id, outcome: "cataloged_waiting_for_provider" };
   }
 
   if (!String(process.env.THE_CARD_API_KEY || "").trim()) {
@@ -97,7 +125,7 @@ async function researchQueueItem(item, oidcToken) {
       queueId: item.id,
       status: "queued",
       note: "The Card API credential is not configured; retry retained without fabricating value evidence.",
-      retryHours: 6,
+      retryHours: 24,
     }, { oidcToken });
     return { id: item.id, outcome: "waiting_for_card_api" };
   }
@@ -137,35 +165,44 @@ async function researchQueueItem(item, oidcToken) {
     note: verified
       ? `Verified completed-sale evidence stored. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`
       : `Insufficient exact completed-sale evidence. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`,
-    retryHours: verified ? 24 : 6,
+    retryHours: 24,
+    result: { raw: rawSummary, graded: gradedSummary },
   }, { oidcToken });
   return { id: item.id, outcome: verified ? "verified" : "insufficient_evidence", raw: rawSummary, graded: gradedSummary };
 }
 
 async function seedRepeater(oidcToken) {
-  const seeds = [
-    { question: "Pokemon 30th Celebration Charizard", vertical: "pokemon_tcg", priority: 98 },
-    { question: "Pokemon 30th Celebration Mewtwo Futuristic rare", vertical: "pokemon_tcg", priority: 97 },
-    { question: "Pokemon 30th Celebration Mew Futuristic rare", vertical: "pokemon_tcg", priority: 97 },
-    { question: "Pokemon 30th Celebration Umbreon illustration rare", vertical: "pokemon_tcg", priority: 96 },
-    { question: "Pokemon 30th Celebration Espeon illustration rare", vertical: "pokemon_tcg", priority: 96 },
-    { question: "2026 Topps baseball rookie card", vertical: "sports_cards", priority: 84 },
-    { question: "Magic the Gathering Black Lotus", vertical: "magic_the_gathering", priority: 75 },
-    { question: "Labubu Macaron", vertical: "pop_mart", priority: 70 },
-  ];
-  const utcDay = new Date().getUTCDate();
-  const selected = [seeds[utcDay % seeds.length], seeds[(utcDay + 3) % seeds.length], seeds[(utcDay + 5) % seeds.length]];
+  const selected = selectResearchBatch(questionBank?.items, BATCH_SIZE);
   return edgeCall("bot_seed", { seeds: selected }, { oidcToken });
+}
+
+async function runBounded(items, oidcToken) {
+  const results = [];
+  for (let offset = 0; offset < items.length; offset += CONCURRENCY) {
+    const chunk = items.slice(offset, offset + CONCURRENCY);
+    const settled = await Promise.allSettled(chunk.map((item) => researchQueueItem(item, oidcToken)));
+    settled.forEach((entry, index) => {
+      results.push(entry.status === "fulfilled"
+        ? entry.value
+        : { id: chunk[index]?.id, outcome: "worker_error", error: clean(entry.reason?.message || entry.reason, 240) });
+    });
+  }
+  return results;
 }
 
 async function main() {
   const oidcToken = await getGithubOidcToken();
   const seedResult = await seedRepeater(oidcToken);
-  const pull = await edgeCall("bot_pull", { limit: 5 }, { oidcToken });
+  const pull = await edgeCall("bot_pull", { limit: BATCH_SIZE }, { oidcToken });
   const items = Array.isArray(pull?.items) ? pull.items : [];
-  const results = [];
-  for (const item of items) results.push(await researchQueueItem(item, oidcToken));
-  console.log(JSON.stringify({ seeded: seedResult?.seeded ?? 0, pulled: items.length, results }, null, 2));
+  const results = await runBounded(items, oidcToken);
+  console.log(JSON.stringify({
+    questionBankSize: Array.isArray(questionBank?.items) ? questionBank.items.length : 0,
+    requestedBatchSize: BATCH_SIZE,
+    seeded: seedResult?.seeded ?? 0,
+    pulled: items.length,
+    results,
+  }, null, 2));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -175,4 +212,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { meaningfulTerms, parseGrade, targetFromQueueItem };
+export { meaningfulTerms, parseGrade, selectResearchBatch, targetFromQueueItem };
