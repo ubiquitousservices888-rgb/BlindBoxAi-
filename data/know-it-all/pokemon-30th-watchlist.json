@@ -1,0 +1,45 @@
+{
+  "schema": "blindboxai/know-it-all/pokemon-30th-watchlist/v1",
+  "event": "Pokemon TCG: 30th Celebration",
+  "releaseDate": "2026-09-16",
+  "releaseScope": "simultaneous worldwide release in participating markets",
+  "priceStatus": "pre_release_no_verified_market_value",
+  "officialFacts": [
+    "Every card in the expansion is foil, including Basic Energy.",
+    "The expansion introduces Futuristic rare cards.",
+    "Thirty different Pikachu cards with unique illustrations are included in booster packs.",
+    "Official previews include Mewtwo and Mew Futuristic rare cards.",
+    "Official previews include illustration rares for Espeon, Umbreon, Lapras, Drifloon, Zorua and Lycanroc.",
+    "Official previews include Greninja ex and Sylveon ex.",
+    "Classic-card treatments include Base Set Charizard and Pikachu & Zekrom-GX from Sun & Moon—Team Up.",
+    "Official August previews include Lugia and Ho-Oh."
+  ],
+  "prioritySubjects": [
+    "Mewtwo",
+    "Mew",
+    "Pikachu",
+    "Charizard",
+    "Pikachu & Zekrom-GX",
+    "Espeon",
+    "Umbreon",
+    "Lapras",
+    "Drifloon",
+    "Zorua",
+    "Lycanroc",
+    "Greninja ex",
+    "Sylveon ex",
+    "Lugia",
+    "Ho-Oh"
+  ],
+  "researchRules": {
+    "beforeRelease": "publish official identity and release information only; do not claim market value",
+    "afterRelease": "collect exact-card completed-sale evidence by card number, finish, language and condition",
+    "minimumExactCompletedSalesForVerifiedRange": 2,
+    "separateLaunchVolatility": true,
+    "askingPricesAreEvidence": false
+  },
+  "officialSources": [
+    "https://www.pokemon.com/us/news/get-ready-for-pokemon-tcg-30th-celebration",
+    "https://www.pokemon.com/us/news/get-a-sneak-peek-at-lugia-and-ho-oh-from-pokemon-tcg-30th-celebration"
+  ]
+}
