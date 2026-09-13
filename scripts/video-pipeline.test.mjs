@@ -21,12 +21,14 @@ describe("verified-data gate", () => {
     assert.match(script.caption, new RegExp(DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(script.caption, /https:\/\/blindboxai\.com\/series\/verified-one/);
   });
-  it("passes a no-sales audience question while blocking unsupported prices", () => {
+  it("asks raw and graded when no sold comps exist while blocking unsupported prices", () => {
     const noSales = { ...product, videoMode: AUDIENCE_PRICE_MODE };
     const script = generateVideoScript(noSales, now);
     assert.equal(script.videoMode, AUDIENCE_PRICE_MODE);
-    assert.match(script.narration, /What would you personally pay/);
+    assert.match(script.narration, /What would you pay for it raw\?/);
+    assert.match(script.narration, /What would you pay for it graded\?/);
     assert.match(script.caption, new RegExp(AUDIENCE_PRICE_DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(script.caption, /audience research only/i);
     assert.doesNotMatch(script.caption, /\$\s*\d/);
     assert.throws(() => validateVerifiedProduct({
       ...noSales,
