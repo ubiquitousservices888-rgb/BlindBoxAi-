@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
 import { allSeries, priceSpan, seriesPriceVerification } from "../lib/data";
 
 export default function Home() {
@@ -6,6 +7,7 @@ export default function Home() {
 
   return (
     <main className="bv-home">
+      <BlindVaultHomeStyles />
       <header className="bv-nav">
         <Link className="bv-brand" href="/">BlindBoxAI</Link>
         <nav aria-label="Primary navigation">
