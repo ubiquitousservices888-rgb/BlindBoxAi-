@@ -17,6 +17,15 @@ export default function OwnerDashboardPage() {
       <p style={{ lineHeight: 1.7 }}>
         Private dashboard for finished media uploads and tracked eBay Partner Network outbound clicks.
       </p>
+      <section style={{ border: "2px solid currentColor", borderRadius: 12, padding: 16, margin: "18px 0" }}>
+        <strong>Video upload</strong>
+        <p style={{ lineHeight: 1.6 }}>
+          Vercel Blob is at its Hobby operations limit. Use the free signed-storage uploader below; the video returns here for the same WATCH and blue APPROVE gate.
+        </p>
+        <Link href="/media-upload" style={{ display: "inline-block", padding: "13px 16px", borderRadius: 10, background: "#facc15", color: "#111827", fontWeight: 800, textDecoration: "none" }}>
+          UPLOAD NEW REVIEW VIDEO — FREE STORAGE
+        </Link>
+      </section>
       <p><Link href="/owner-dashboard/revenue">Open the daily earnings & payout dashboard →</Link></p>
       <DashboardClient />
     </main>
