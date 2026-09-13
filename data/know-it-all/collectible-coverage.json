@@ -4,6 +4,9 @@
     "crossCategorySubstitutionAllowed": false,
     "askingPriceIsVerifiedValue": false,
     "minimumExactCompletedSalesForVerifiedRange": 2,
+    "verifiedValueEvidence": "completed_sales_only",
+    "audiencePriceAnswersAreSoldEvidence": false,
+    "audiencePriceResearchDimensions": ["raw", "graded"],
     "missingEvidenceBehavior": "show_missing",
     "genericFallbacks": ["other_collectible_card", "other_collectible_toy"]
   },
