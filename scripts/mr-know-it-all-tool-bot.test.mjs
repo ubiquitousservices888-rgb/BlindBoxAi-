@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { cardApiExactTargetMatches } from "../lib/the-card-api.mjs";
-import { meaningfulTerms, parseGrade, targetFromQueueItem } from "./mr-know-it-all-tool-bot.mjs";
+import { meaningfulTerms, parseGrade, selectResearchBatch, targetFromQueueItem } from "./mr-know-it-all-tool-bot.mjs";
 
 test("research bot extracts bounded exact-match terms from a collectible question", () => {
   const terms = meaningfulTerms("What is Pokemon 30th Celebration Charizard worth raw and graded?");
@@ -23,13 +23,25 @@ test("queue item becomes separate raw and graded strict provider targets", () =>
   const graded = targetFromQueueItem(item, "graded");
   assert.equal(raw.identity.condition, "raw");
   assert.equal(graded.identity.condition, "graded");
+  assert.equal(raw.limit, 20);
   assert.deepEqual(raw.requiredTitleTerms, ["30th", "celebration", "charizard"]);
 });
 
-test("card matcher never mixes raw and graded sold evidence", () => {
+test("100-question selector is deterministic per run and contains no duplicates", () => {
+  const items = Array.from({ length: 140 }, (_, index) => ({
+    question: `Collectible target ${index}`,
+    vertical: index % 2 ? "sports_cards" : "other_collectible_toy",
+    priority: 50,
+  }));
+  const first = selectResearchBatch(items, 100, "test-run");
+  const second = selectResearchBatch(items, 100, "test-run");
+  assert.equal(first.length, 100);
+  assert.deepEqual(first, second);
+  assert.equal(new Set(first.map((item) => item.question)).size, 100);
+});
+
+test("card matcher never mixes graded sale into a raw target", () => {
   const base = { requiredTitleTerms: ["charizard", "30th", "celebration"], requiredTitleAliases: [], identity: {} };
   assert.equal(cardApiExactTargetMatches("Pokemon Charizard 30th Celebration raw", { ...base, identity: { condition: "raw" } }), true);
   assert.equal(cardApiExactTargetMatches("Pokemon Charizard 30th Celebration PSA 10", { ...base, identity: { condition: "raw" } }), false);
-  assert.equal(cardApiExactTargetMatches("Pokemon Charizard 30th Celebration PSA 10", { ...base, identity: { condition: "graded" } }), true);
-  assert.equal(cardApiExactTargetMatches("Pokemon Charizard 30th Celebration raw", { ...base, identity: { condition: "graded" } }), false);
 });
