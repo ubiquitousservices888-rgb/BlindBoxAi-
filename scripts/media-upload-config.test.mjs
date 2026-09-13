@@ -10,14 +10,21 @@ test("mobile upload authorization lasts well beyond the former 10-minute window"
   assert.doesNotMatch(route, /Date\.now\(\)\s*\+\s*10\s*\*\s*60\s*\*\s*1000/);
 });
 
-test("mobile uploader uses multipart for ordinary approved video sizes", () => {
-  assert.match(form, /MULTIPART_THRESHOLD_BYTES\s*=\s*5\s*\*\s*1024\s*\*\s*1024/);
-  assert.match(form, /multipart:\s*file\.size\s*>=\s*MULTIPART_THRESHOLD_BYTES/);
+test("mobile uploader uses owner-authenticated signed storage for approved video sizes", () => {
+  assert.match(form, /blindbox-video-upload/);
+  assert.match(form, /MAX_VIDEO_SIZE\s*=\s*100\s*\*\s*1024\s*\*\s*1024/);
+  assert.match(form, /xhr\.open\("PUT",\s*signedUrl/);
+  assert.match(form, /new FormData\(\)/);
+  assert.match(form, /signedUrl/);
+  assert.match(form, /publicUrl/);
 });
 
-test("mobile uploader has timeout and explicit completion state", () => {
+test("mobile uploader has timeout, progress, and explicit completion state", () => {
   assert.match(form, /MOBILE_UPLOAD_TIMEOUT_MS\s*=\s*30\s*\*\s*60\s*\*\s*1000/);
-  assert.match(form, /abortSignal:\s*controller\.signal/);
-  assert.match(form, /Finalizing public Blob URL/);
+  assert.match(form, /xhr\.timeout\s*=\s*MOBILE_UPLOAD_TIMEOUT_MS/);
+  assert.match(form, /xhr\.ontimeout/);
+  assert.match(form, /xhr\.upload\.onprogress/);
+  assert.match(form, /setStatus\("complete"\)/);
+  assert.match(form, /Finalizing public video URL/);
   assert.match(form, /Public MP4 ready/);
 });
