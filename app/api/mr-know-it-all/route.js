@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { buildDeterministicCompResponse } from "../../../lib/deterministic-comp-lookup.mjs";
+import { recordKnowItAllQuestion } from "../../../lib/mr-know-it-all-store.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,13 +91,15 @@ export async function POST(request) {
 
   try {
     const result = buildDeterministicCompResponse(query);
+    const storage = await recordKnowItAllQuestion({ question: query, result }).catch(() => ({ stored: false, reason: "write_failed" }));
     console.info("agent_question", {
       piiStored: false,
       queryLength: query.length,
       resultCount: result.matches.length,
       mode: "deterministic",
+      researchStored: storage.stored,
     });
-    return json(result);
+    return json({ ...result, researchKey: crypto.createHash("sha256").update(query.trim().toLowerCase()).digest("hex"), researchStored: storage.stored });
   } catch (error) {
     console.error("deterministic_comp_lookup_failed", { name: error?.name });
     return json({ error: "Verified comp lookup is temporarily unavailable." }, { status: 503 });
