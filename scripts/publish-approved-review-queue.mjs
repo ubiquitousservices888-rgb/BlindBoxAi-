@@ -6,8 +6,10 @@ import {
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
+const PUBLISHED_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
 const BLINDBOXAI_URL = "https://www.blindboxai.com";
-const OIDC_AUDIENCE = "blindboxai-review-publisher";
+const REVIEW_OIDC_AUDIENCE = "blindboxai-review-publisher";
+const FEED_OIDC_AUDIENCE = "blindboxai-video-publisher";
 
 function required(value, label) {
   const text = String(value ?? "").trim();
@@ -15,31 +17,31 @@ function required(value, label) {
   return text;
 }
 
-async function getGithubOidcToken(fetchImpl = fetch) {
+async function getGithubOidcToken(audience, fetchImpl = fetch) {
   const requestUrl = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
   const requestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
   if (!requestUrl || !requestToken) throw new Error("GitHub OIDC environment is unavailable");
   const url = new URL(requestUrl);
-  url.searchParams.set("audience", OIDC_AUDIENCE);
+  url.searchParams.set("audience", audience);
   const response = await fetchImpl(url, { headers: { Authorization: `Bearer ${requestToken}` } });
   if (!response.ok) throw new Error(`GitHub OIDC request failed: ${response.status}`);
   const body = await response.json();
   return required(body?.value, "GitHub OIDC token");
 }
 
-async function queueRequest(token, body, fetchImpl = fetch) {
-  const response = await fetchImpl(REVIEW_QUEUE_URL, {
+async function postJson(url, token, body, fetchImpl = fetch) {
+  const response = await fetchImpl(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.error || `Review queue request failed: ${response.status}`);
+  if (!response.ok) throw new Error(data?.error || `Request failed: ${response.status}`);
   return data;
 }
 
-const token = await getGithubOidcToken();
-const claimed = await queueRequest(token, { action: "claim" });
+const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
+const claimed = await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "claim" });
 const item = claimed?.item;
 if (!item) {
   console.log("REVIEW_QUEUE_EMPTY: true");
@@ -72,13 +74,25 @@ try {
       throw new Error(`${channel}: tracked CTA and affiliate disclosure are required`);
     }
     const result = await publisher({ channel, videoUrl: item.video_url, caption });
-    results.push({ channel, id: result.id, duplicate: result.duplicate === true });
+    results.push({ channel, id: result.id, duplicate: result.duplicate === true, campaignId: new URL(trackedCta).searchParams.get("campaign") });
     console.log(`REVIEW_QUEUE_PUBLISHED: ${channel}:${result.id}`);
   }
 
-  await queueRequest(token, { action: "complete", researchRunId: item.research_run_id, success: true });
+  const feedToken = await getGithubOidcToken(FEED_OIDC_AUDIENCE);
+  await postJson(PUBLISHED_FEED_URL, feedToken, {
+    researchRunId: item.research_run_id,
+    title: item.title,
+    vertical: item.vertical,
+    videoUrl: item.video_url,
+    channels: results.map((entry) => entry.channel),
+    bufferPostIds: Object.fromEntries(results.map((entry) => [entry.channel, entry.id])),
+    campaignId: results[0]?.campaignId || null,
+  });
+
+  await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "complete", researchRunId: item.research_run_id, success: true });
   console.log(`REVIEW_QUEUE_COMPLETE: ${item.research_run_id}`);
+  console.log(`REVIEW_QUEUE_HOMEPAGE_LINKED: ${item.research_run_id}`);
 } catch (error) {
-  await queueRequest(token, { action: "complete", researchRunId: item.research_run_id, success: false, error: error instanceof Error ? error.message : String(error) }).catch(() => {});
+  await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "complete", researchRunId: item.research_run_id, success: false, error: error instanceof Error ? error.message : String(error) }).catch(() => {});
   throw error;
 }
