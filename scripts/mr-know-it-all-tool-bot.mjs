@@ -6,9 +6,9 @@ import { fetchCardApiSales, summarizeCardApiSales } from "../lib/the-card-api.mj
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://lazzdoadoqzrzlarerfx.supabase.co").replace(/\/$/, "");
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/mr-know-it-all-ingest`;
 const OIDC_AUDIENCE = "blindboxai-research-bot";
-const BATCH_SIZE = 100;
-const CONCURRENCY = 5;
-const SALES_LIMIT_PER_CONDITION = 20;
+const BATCH_SIZE = Math.min(100, Math.max(1, Number(process.env.RESEARCH_BATCH_SIZE) || 25));
+const CONCURRENCY = Math.min(10, Math.max(1, Number(process.env.RESEARCH_CONCURRENCY) || 5));
+const SALES_LIMIT_PER_CONDITION = Math.min(50, Math.max(1, Number(process.env.SALES_LIMIT_PER_CONDITION) || 20));
 const CARD_VERTICALS = new Set([
   "pokemon_tcg",
   "magic_the_gathering",
@@ -84,7 +84,7 @@ async function edgeCall(type, body = {}, { oidcToken, fetchImpl = fetch } = {}) 
     headers: {
       authorization: `Bearer ${oidcToken}`,
       "content-type": "application/json",
-      "user-agent": "BlindBoxAI-MrKnowItAll-ResearchBot/2.0",
+      "user-agent": "BlindBoxAI-MrKnowItAll-ResearchBot/2.1",
     },
     body: JSON.stringify({ type, ...body }),
     redirect: "error",
@@ -125,7 +125,7 @@ async function researchQueueItem(item, oidcToken) {
       queueId: item.id,
       status: "queued",
       note: "The Card API credential is not configured; retry retained without fabricating value evidence.",
-      retryHours: 24,
+      retryHours: 6,
     }, { oidcToken });
     return { id: item.id, outcome: "waiting_for_card_api" };
   }
@@ -165,7 +165,7 @@ async function researchQueueItem(item, oidcToken) {
     note: verified
       ? `Verified completed-sale evidence stored. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`
       : `Insufficient exact completed-sale evidence. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`,
-    retryHours: 24,
+    retryHours: 6,
     result: { raw: rawSummary, graded: gradedSummary },
   }, { oidcToken });
   return { id: item.id, outcome: verified ? "verified" : "insufficient_evidence", raw: rawSummary, graded: gradedSummary };
@@ -199,6 +199,7 @@ async function main() {
   console.log(JSON.stringify({
     questionBankSize: Array.isArray(questionBank?.items) ? questionBank.items.length : 0,
     requestedBatchSize: BATCH_SIZE,
+    salesLimitPerCondition: SALES_LIMIT_PER_CONDITION,
     seeded: seedResult?.seeded ?? 0,
     pulled: items.length,
     results,
