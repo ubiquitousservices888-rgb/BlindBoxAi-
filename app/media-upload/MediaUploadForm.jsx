@@ -122,6 +122,20 @@ async function stageForResearch({ accessCode, blob, title, file, metadata }) {
   return body;
 }
 
+async function approveVideo({ accessCode, videoUrl }) {
+  const response = await fetch("/api/owner/approve-review", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessCode}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ videoUrl }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
+  return body;
+}
+
 export default function MediaUploadForm() {
   const [accessCode, setAccessCode] = useState("");
   const [file, setFile] = useState(null);
@@ -133,6 +147,7 @@ export default function MediaUploadForm() {
   const [stagingPayload, setStagingPayload] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [approved, setApproved] = useState(false);
 
   async function retryStage() {
     if (!stagingPayload || !accessCode) return;
@@ -144,9 +159,24 @@ export default function MediaUploadForm() {
       setStageResult(staged);
       setStagingPayload(null);
       setStatus("complete");
-      setAccessCode("");
     } catch (err) {
       setStatus("staging_failed");
+      setError(normalizeUploadError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approveCurrentVideo() {
+    if (!result?.url || !accessCode || approved || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await approveVideo({ accessCode, videoUrl: result.url });
+      setApproved(true);
+      setStatus("approved");
+      setAccessCode("");
+    } catch (err) {
       setError(normalizeUploadError(err));
     } finally {
       setBusy(false);
@@ -159,6 +189,7 @@ export default function MediaUploadForm() {
     setResult(null);
     setStageResult(null);
     setStagingPayload(null);
+    setApproved(false);
 
     if (!file) return setError("Choose an MP4 video first.");
     if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) return setError("Only MP4 video files are allowed.");
@@ -191,7 +222,6 @@ export default function MediaUploadForm() {
       setStageResult(staged);
       setStagingPayload(null);
       setStatus("complete");
-      setAccessCode("");
     } catch (err) {
       setStatus(uploadedBlob?.url ? "staging_failed" : "failed");
       setError(normalizeUploadError(err));
@@ -207,9 +237,11 @@ export default function MediaUploadForm() {
         ? "Authorizing free storage..."
         : status === "staging"
           ? "Staging research campaign..."
-          : progress >= 100
-            ? "Finalizing public video URL..."
-            : `Uploading ${progress}%`
+          : status === "approved"
+            ? "Approved"
+            : progress >= 100
+              ? "Finalizing public video URL..."
+              : `Uploading ${progress}%`
     : status === "failed"
       ? "Retry upload"
       : "Upload & stage for research";
@@ -218,12 +250,12 @@ export default function MediaUploadForm() {
     <form onSubmit={submit} style={{ display: "grid", gap: 16 }}>
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Owner upload code</strong>
-        <input type="password" autoComplete="off" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} required disabled={busy} style={{ padding: 12, fontSize: 16 }} />
+        <input type="password" autoComplete="off" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} required disabled={busy || approved} style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Research title</strong>
-        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required disabled={busy} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
+        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
@@ -241,16 +273,17 @@ export default function MediaUploadForm() {
             setStageResult(null);
             setStagingPayload(null);
             setProgress(0);
+            setApproved(false);
           }}
           required
-          disabled={busy}
+          disabled={busy || approved}
           style={{ padding: 12 }}
         />
       </label>
 
-      <button type="submit" disabled={busy} style={{ padding: 14, fontSize: 16, fontWeight: 700 }}>{buttonLabel}</button>
+      {!stageResult && !approved ? <button type="submit" disabled={busy} style={{ padding: 14, fontSize: 16, fontWeight: 700 }}>{buttonLabel}</button> : null}
 
-      {busy ? <p aria-live="polite" style={{ margin: 0 }}>Keep this page open until it says <strong>Ready for owner review</strong>.</p> : null}
+      {busy ? <p aria-live="polite" style={{ margin: 0 }}>Keep this page open until the current step finishes.</p> : null}
       {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
 
       {result?.url ? (
@@ -259,8 +292,16 @@ export default function MediaUploadForm() {
           <p style={{ overflowWrap: "anywhere" }}><a href={result.url} target="_blank" rel="noreferrer">{result.url}</a></p>
           {stageResult ? (
             <>
-              <p><strong>Ready for owner review.</strong> Approval will queue this exact MP4 to Buffer with traction attribution.</p>
+              <p><strong>Ready for owner review.</strong> Watch this exact MP4 before approving it.</p>
+              <video src={result.url} controls playsInline preload="metadata" style={{ width: "100%", maxWidth: 420, borderRadius: 10, background: "black" }} />
               <p>Research campaign: <code>{stageResult.campaignId}</code></p>
+              {!approved ? (
+                <button type="button" disabled={busy || !accessCode} onClick={approveCurrentVideo} style={{ padding: 14, fontWeight: 800, background: "#2563eb", color: "white", border: 0, borderRadius: 8 }}>
+                  APPROVE & LAUNCH THIS VIDEO
+                </button>
+              ) : (
+                <p role="status"><strong>APPROVED.</strong> The automated publisher will pick up this exact video and send it through the configured Buffer channels.</p>
+              )}
             </>
           ) : stagingPayload ? (
             <>
