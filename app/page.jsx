@@ -1,16 +1,38 @@
 import Link from "next/link";
 import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
+import PublishedVideoStyles from "./_components/PublishedVideoStyles";
 import { allSeries, priceSpan, seriesPriceVerification } from "../lib/data";
 
-export default function Home() {
+export const revalidate = 300;
+
+const VIDEO_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
+
+async function getPublishedVideos() {
+  try {
+    const response = await fetch(VIDEO_FEED_URL, { next: { revalidate: 300 } });
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    return items
+      .filter((item) => ["sports_cards", "pokemon_tcg"].includes(item?.vertical))
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
+export default async function Home() {
   const series = allSeries();
+  const publishedVideos = await getPublishedVideos();
 
   return (
     <main className="bv-home">
       <BlindVaultHomeStyles />
+      <PublishedVideoStyles />
       <header className="bv-nav">
         <Link className="bv-brand" href="/">BlindBoxAI</Link>
         <nav aria-label="Primary navigation">
+          <a href="#videos">Videos</a>
           <a href="#how-it-works">How it works</a>
           <a href="#research">Research</a>
           <Link href="/pro">Reseller tools</Link>
@@ -29,7 +51,7 @@ export default function Home() {
           </p>
           <div className="bv-actions">
             <Link className="bv-button bv-button-primary" href="/tools/buy-or-pass">Start researching →</Link>
-            <a className="bv-button bv-button-secondary" href="#how-it-works">See how it works</a>
+            <a className="bv-button bv-button-secondary" href="#videos">Watch published research</a>
           </div>
           <p className="bv-micro">Start free. Evidence stays attached to the decision.</p>
         </div>
@@ -49,6 +71,36 @@ export default function Home() {
             <p>Historical observations stay connected to their source and context.</p>
           </div>
         </div>
+      </section>
+
+      <section className="bv-videos" id="videos">
+        <div className="bv-section-head">
+          <div>
+            <p className="bv-kicker">Published research videos</p>
+            <h2>Sports cards and Pokémon 30th — linked after owner approval.</h2>
+          </div>
+          <span>{publishedVideos.length ? `${publishedVideos.length} live` : "Publishing feed ready"}</span>
+        </div>
+        {publishedVideos.length ? (
+          <div className="bv-video-grid">
+            {publishedVideos.map((video) => (
+              <article className="bv-video-card" key={video.research_run_id}>
+                <video controls playsInline preload="metadata" src={video.video_url} />
+                <div className="bv-video-copy">
+                  <span>{video.vertical === "pokemon_tcg" ? "POKÉMON 30TH" : "SPORTS CARDS"}</span>
+                  <h3>{video.title}</h3>
+                  <p>Owner-reviewed, published through the approved social workflow, and linked back to BlindBoxAI.</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="bv-video-empty">
+            <strong>The publishing feed is connected.</strong>
+            <p>Approved sports-card and Pokémon 30th videos will appear here automatically after Buffer publishing succeeds.</p>
+            <Link className="bv-text-link" href="/media-upload">Upload the next video →</Link>
+          </div>
+        )}
       </section>
 
       <section className="bv-standard" id="about">
