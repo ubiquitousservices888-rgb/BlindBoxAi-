@@ -54,6 +54,8 @@ async function dashboardResult(ifNoneMatch) {
     return fresh;
   }
 
+  // Return 200 here instead of 304 because this request did not revalidate
+  // the legacy Blob state, and the Supabase review queue may have changed.
   return cachedDashboard;
 }
 
