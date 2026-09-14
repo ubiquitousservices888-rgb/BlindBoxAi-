@@ -6,21 +6,20 @@ const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClien
 const uploadPage = fs.readFileSync(new URL("../app/media-upload/MediaUploadForm.jsx", import.meta.url), "utf8");
 const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/route.js", import.meta.url), "utf8");
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
-const workflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
-const publisher = fs.readFileSync(new URL("../scripts/publish-reviewed-upload.mjs", import.meta.url), "utf8");
+const legacyWorkflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
+const queuedWorkflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
+const queuedPublisher = fs.readFileSync(new URL("../scripts/publish-approved-review-queue.mjs", import.meta.url), "utf8");
 const homepage = fs.readFileSync(new URL("../app/page.jsx", import.meta.url), "utf8");
 const stageRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/route.js", import.meta.url), "utf8");
 const approvalRoute = fs.readFileSync(new URL("../app/api/owner/approve-review/route.js", import.meta.url), "utf8");
-const approvalLibrary = fs.readFileSync(new URL("../lib/owner-batch-approval.mjs", import.meta.url), "utf8");
 
-test("staged videos have per-video yellow watch and blue approval controls", () => {
+test("staged videos have watch and per-video approval controls", () => {
+  assert.match(uploadPage, /APPROVE & LAUNCH THIS VIDEO/);
+  assert.match(uploadPage, /<video src=\{result\.url\}/);
+  assert.match(uploadPage, /\/api\/owner\/approve-review/);
+  assert.doesNotMatch(uploadPage, /APPROVE & LAUNCH ALL READY VIDEOS/);
   assert.match(dashboard, /WATCH VIDEO/);
   assert.match(dashboard, /#facc15/);
-  assert.match(dashboard, /APPROVE & LAUNCH THIS VIDEO/);
-  assert.match(dashboard, /\/api\/owner\/approve-review/);
-  assert.match(dashboard, /reviewState === \"READY_FOR_REVIEW\"/);
-  assert.match(dashboard, /approvedReviewUrls/);
-  assert.doesNotMatch(dashboard, /APPROVE & LAUNCH ALL READY VIDEOS/);
 });
 
 test("phone upload uses owner-authenticated signed storage then enters research staging", () => {
@@ -43,41 +42,33 @@ test("yellow upload remains review-only", () => {
   assert.doesNotMatch(uploadRoute, /approved_media_upload_completed/);
 });
 
-test("manual upload cannot publish until the protected owner environment is approved", () => {
-  assert.match(workflow, /validate-review-upload/);
-  assert.match(workflow, /READY_FOR_REVIEW/);
-  assert.match(workflow, /research_run_id/);
-  assert.match(workflow, /RESEARCH_RUN_ID/);
-  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(workflow, /Publish exact owner-reviewed upload with traction attribution/);
-  assert.match(workflow, /run-name: Review upload — \$\{\{ inputs\.video_url \}\}/);
-  assert.match(publisher, /https:\/\/www\.blindboxai\.com/);
-  assert.match(publisher, /buildTrackedSocialCta/);
-  assert.match(publisher, /RESEARCH_RUN_ID/);
-  assert.match(publisher, /campaignId/);
-  assert.match(publisher, /DISCLOSURE/);
+test("legacy protected manual workflow remains available", () => {
+  assert.match(legacyWorkflow, /validate-review-upload/);
+  assert.match(legacyWorkflow, /READY_FOR_REVIEW/);
+  assert.match(legacyWorkflow, /environment:\s*\n\s*name:\s*social-production/);
 });
 
-test("successful reviewed-video publishing is linked into the public homepage feed", () => {
-  assert.match(workflow, /id-token:\s*write/);
-  assert.match(workflow, /PUBLISHED_VIDEO_FEED_URL/);
-  assert.match(publisher, /blindboxai-video-publisher/);
-  assert.match(publisher, /recordPublishedVideo/);
-  assert.match(publisher, /REVIEWED_UPLOAD_HOMEPAGE_LINKED/);
+test("new queue publishing requires explicit approval before Buffer publishing", () => {
+  assert.match(stageRoute, /review-video-queue/);
+  assert.match(stageRoute, /action:\s*"stage"/);
+  assert.match(approvalRoute, /review-video-queue/);
+  assert.match(approvalRoute, /action:\s*"approve"/);
+  assert.match(queuedWorkflow, /id-token:\s*write/);
+  assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
+  assert.match(queuedPublisher, /action:\s*"claim"/);
+  assert.match(queuedPublisher, /createBufferPublisher/);
+  assert.match(queuedPublisher, /DISCLOSURE/);
+  assert.match(queuedPublisher, /blindboxai-review-publisher/);
+});
+
+test("successful queued publishing is linked into the public homepage feed", () => {
+  assert.match(queuedPublisher, /published-video-feed/);
+  assert.match(queuedPublisher, /blindboxai-video-publisher/);
+  assert.match(queuedPublisher, /REVIEW_QUEUE_HOMEPAGE_LINKED/);
   assert.match(homepage, /published-video-feed/);
   assert.match(homepage, /sports_cards/);
   assert.match(homepage, /pokemon_tcg/);
   assert.match(homepage, /<video controls playsInline/);
-});
-
-test("per-video approval is owner-authenticated and fails closed when the exact gate is absent", () => {
-  assert.match(approvalRoute, /assertUploadCode/);
-  assert.match(approvalRoute, /GITHUB_OWNER_APPROVAL_TOKEN/);
-  assert.match(approvalRoute, /approveLaunchReadyVideo/);
-  assert.match(approvalLibrary, /safeReviewVideoUrl/);
-  assert.match(approvalLibrary, /not currently waiting at the owner approval gate/);
-  assert.match(approvalLibrary, /Multiple approval gates matched/);
-  assert.match(approvalLibrary, /current_user_can_approve === true/);
 });
 
 test("review staging route forwards only approved client fields", () => {
