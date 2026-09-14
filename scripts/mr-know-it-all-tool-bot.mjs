@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import { fetchCardApiSales, summarizeCardApiSales } from "../lib/the-card-api.mjs";
+import { cardApiExactTargetMatches, fetchCardApiSales, summarizeCardApiSales } from "../lib/the-card-api.mjs";
 
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://lazzdoadoqzrzlarerfx.supabase.co").replace(/\/$/, "");
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/mr-know-it-all-ingest`;
@@ -22,6 +22,21 @@ const STOPWORDS = new Set([
   "what", "is", "are", "the", "a", "an", "and", "of", "for", "this", "that", "card", "cards", "worth",
   "value", "price", "sold", "sale", "sales", "raw", "graded", "pokemon", "pokémon", "tcg", "ccg",
 ]);
+const VERTICAL_GENERIC_TERMS = new Map([
+  ["magic_the_gathering", new Set(["magic", "gathering"])],
+  ["yugioh", new Set(["yu-gi-oh", "yugioh"])],
+  ["one_piece", new Set(["one", "piece", "game"])],
+  ["disney_lorcana", new Set(["disney", "lorcana"])],
+]);
+const TERM_ALIASES = new Map([
+  ["rookie", ["rookie", "rc"]],
+  ["autograph", ["autograph", "auto"]],
+  ["celebration", ["celebration", "celebrations"]],
+  ["1st", ["1st", "first"]],
+]);
+const PROVIDER_LOW_SIGNAL = new Set([
+  "rare", "illustration", "enchanted", "rookie", "autograph", "celebration", "edition", "refractor", "shadowless",
+]);
 
 const questionBank = JSON.parse(
   readFileSync(new URL("../data/know-it-all/research-question-bank.json", import.meta.url), "utf8"),
@@ -39,7 +54,38 @@ function meaningfulTerms(question) {
     .split(/\s+/)
     .filter(Boolean)
     .filter((token) => token.length >= 2 && !STOPWORDS.has(token));
-  return [...new Set(tokens)].slice(0, 8);
+  return [...new Set(tokens)].slice(0, 10);
+}
+
+function identityTerms(question, vertical) {
+  const generic = VERTICAL_GENERIC_TERMS.get(clean(vertical, 60)) || new Set();
+  return meaningfulTerms(question).filter((term) => !generic.has(term));
+}
+
+function splitStrictIdentity(terms) {
+  const requiredTitleTerms = [];
+  const requiredTitleAliases = [];
+  for (const term of terms) {
+    const aliases = TERM_ALIASES.get(term);
+    if (aliases) requiredTitleAliases.push(aliases);
+    else requiredTitleTerms.push(term);
+  }
+  return { requiredTitleTerms, requiredTitleAliases };
+}
+
+function buildProviderQuery(terms) {
+  const highSignal = terms.filter((term) => !PROVIDER_LOW_SIGNAL.has(term));
+  const source = highSignal.length >= 2 ? highSignal : terms;
+  if (source.length <= 4) return source.join(" ");
+
+  // Prefer names, years and card numbers while keeping their original order.
+  const ranked = source.map((term, index) => ({
+    term,
+    index,
+    score: (/\d/.test(term) ? 4 : 0) + (term.includes("/") || term.includes("-") ? 3 : 0) + Math.min(term.length, 10) / 10,
+  }));
+  const selected = ranked.sort((a, b) => b.score - a.score || a.index - b.index).slice(0, 4).sort((a, b) => a.index - b.index);
+  return selected.map((entry) => entry.term).join(" ");
 }
 
 function parseGrade(title) {
@@ -84,7 +130,7 @@ async function edgeCall(type, body = {}, { oidcToken, fetchImpl = fetch } = {}) 
     headers: {
       authorization: `Bearer ${oidcToken}`,
       "content-type": "application/json",
-      "user-agent": "BlindBoxAI-MrKnowItAll-ResearchBot/2.1",
+      "user-agent": "BlindBoxAI-MrKnowItAll-ResearchBot/2.2",
     },
     body: JSON.stringify({ type, ...body }),
     redirect: "error",
@@ -96,16 +142,44 @@ async function edgeCall(type, body = {}, { oidcToken, fetchImpl = fetch } = {}) 
 
 function targetFromQueueItem(item, condition) {
   const question = clean(item?.questionRedacted, 180);
-  const terms = meaningfulTerms(question);
-  if (terms.length < 2) return null;
+  const terms = identityTerms(question, item?.vertical);
+  const strict = splitStrictIdentity(terms);
+  const constraintCount = strict.requiredTitleTerms.length + strict.requiredTitleAliases.length;
+  if (constraintCount < 2) return null;
   return {
     id: clean(item?.queryKey, 128),
     query: question,
-    requiredTitleTerms: terms,
-    requiredTitleAliases: [],
+    providerQuery: buildProviderQuery(terms),
+    requiredTitleTerms: strict.requiredTitleTerms,
+    requiredTitleAliases: strict.requiredTitleAliases,
     identity: { condition },
     limit: SALES_LIMIT_PER_CONDITION,
   };
+}
+
+async function saveMatchedSales(item, target, records, oidcToken) {
+  const accepted = [];
+  for (const sale of records) {
+    if (!cardApiExactTargetMatches(sale.title, target)) continue;
+    const condition = clean(target?.identity?.condition, 20);
+    const grade = condition === "graded" ? parseGrade(sale.title) : { grader: null, grade: null };
+    const saved = await edgeCall("bot_sold_observation", {
+      queryKey: item.queryKey,
+      sourcePlatform: clean(sale.source || "the_card_api", 80),
+      sourceRecordId: clean(sale.providerRecordId || sale.sourceUrl, 160),
+      sourceUrl: sale.sourceUrl,
+      amount: sale.amount,
+      soldAt: sale.soldAt,
+      conditionType: condition,
+      grader: grade.grader,
+      grade: grade.grade,
+      saleType: sale.listingType,
+      exactMatch: true,
+      verified: true,
+    }, { oidcToken });
+    if (saved.ok) accepted.push({ ...sale, conditionType: condition, ...grade });
+  }
+  return accepted;
 }
 
 async function researchQueueItem(item, oidcToken) {
@@ -130,45 +204,68 @@ async function researchQueueItem(item, oidcToken) {
     return { id: item.id, outcome: "waiting_for_card_api" };
   }
 
-  const accepted = [];
-  for (const condition of ["raw", "graded"]) {
-    const target = targetFromQueueItem(item, condition);
-    if (!target) continue;
-    const provider = await fetchCardApiSales(target);
-    if (provider.status !== "ok") continue;
-    for (const sale of provider.records) {
-      const grade = condition === "graded" ? parseGrade(sale.title) : { grader: null, grade: null };
-      const saved = await edgeCall("bot_sold_observation", {
-        queryKey: item.queryKey,
-        sourcePlatform: clean(sale.source || "the_card_api", 80),
-        sourceRecordId: clean(sale.providerRecordId || sale.sourceUrl, 160),
-        sourceUrl: sale.sourceUrl,
-        amount: sale.amount,
-        soldAt: sale.soldAt,
-        conditionType: condition,
-        grader: grade.grader,
-        grade: grade.grade,
-        saleType: sale.listingType,
-        exactMatch: true,
-        verified: true,
-      }, { oidcToken });
-      if (saved.ok) accepted.push({ ...sale, conditionType: condition, ...grade });
-    }
+  const rawTarget = targetFromQueueItem(item, "raw");
+  const gradedTarget = targetFromQueueItem(item, "graded");
+  if (!rawTarget || !gradedTarget) {
+    await edgeCall("bot_finish", {
+      queueId: item.id,
+      status: "queued",
+      note: "Not enough identity terms for safe sold-result matching.",
+      retryHours: 24,
+      result: { soldEvidence: false, reason: "insufficient_identity" },
+    }, { oidcToken });
+    return { id: item.id, outcome: "insufficient_identity" };
   }
 
-  const rawSummary = summarizeCardApiSales(accepted.filter((sale) => sale.conditionType === "raw"));
-  const gradedSummary = summarizeCardApiSales(accepted.filter((sale) => sale.conditionType === "graded"));
+  // One broad provider request per collectible. Raw/graded are separated only after
+  // every returned candidate passes the strict title/identity checks.
+  const searchTarget = {
+    ...rawTarget,
+    identity: { condition: "" },
+    limit: Math.min(100, SALES_LIMIT_PER_CONDITION * 2),
+  };
+  const provider = await fetchCardApiSales(searchTarget);
+  const providerInfo = {
+    status: provider.status,
+    providerQuery: provider.providerQuery || searchTarget.providerQuery,
+    returnedCount: provider.returnedCount ?? 0,
+    strictIdentityCount: provider.acceptedCount ?? 0,
+  };
+
+  if (provider.status !== "ok") {
+    await edgeCall("bot_finish", {
+      queueId: item.id,
+      status: "queued",
+      note: `Completed-sale provider did not return usable data (${provider.status}).`,
+      retryHours: 6,
+      result: { provider: providerInfo, soldEvidence: false },
+    }, { oidcToken });
+    return { id: item.id, outcome: "provider_unavailable", provider: providerInfo };
+  }
+
+  const rawAccepted = await saveMatchedSales(item, rawTarget, provider.records, oidcToken);
+  const gradedAccepted = await saveMatchedSales(item, gradedTarget, provider.records, oidcToken);
+  const accepted = [...rawAccepted, ...gradedAccepted];
+
+  const rawSummary = summarizeCardApiSales(rawAccepted);
+  const gradedSummary = summarizeCardApiSales(gradedAccepted);
   const verified = rawSummary.status === "VERIFIED" || gradedSummary.status === "VERIFIED";
   await edgeCall("bot_finish", {
     queueId: item.id,
     status: verified ? "verified" : "queued",
     note: verified
       ? `Verified completed-sale evidence stored. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`
-      : `Insufficient exact completed-sale evidence. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`,
+      : `Broad sold search returned ${providerInfo.returnedCount}; strict identity kept ${providerInfo.strictIdentityCount}; stored ${accepted.length}.`,
     retryHours: 6,
-    result: { raw: rawSummary, graded: gradedSummary },
+    result: { provider: providerInfo, raw: rawSummary, graded: gradedSummary },
   }, { oidcToken });
-  return { id: item.id, outcome: verified ? "verified" : "insufficient_evidence", raw: rawSummary, graded: gradedSummary };
+  return {
+    id: item.id,
+    outcome: verified ? "verified" : "insufficient_evidence",
+    provider: providerInfo,
+    raw: rawSummary,
+    graded: gradedSummary,
+  };
 }
 
 async function seedRepeater(oidcToken) {
@@ -213,4 +310,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { meaningfulTerms, parseGrade, selectResearchBatch, targetFromQueueItem };
+export { buildProviderQuery, identityTerms, meaningfulTerms, parseGrade, selectResearchBatch, targetFromQueueItem };
