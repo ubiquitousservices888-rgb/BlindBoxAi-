@@ -1,0 +1,52 @@
+name: Buffer organization diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/buffer-organization-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  buffer-organization:
+    runs-on: ubuntu-latest
+    env:
+      BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+    steps:
+      - name: Verify Buffer token is configured
+        shell: bash
+        run: |
+          if [ -z "$BUFFER_API_TOKEN" ]; then
+            echo "::error::BUFFER_API_TOKEN repository secret is not configured."
+            exit 1
+          fi
+          echo "BUFFER_API_TOKEN is configured."
+
+      - name: Read Buffer organization ID safely
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          response="$(curl -sS https://api.buffer.com \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $BUFFER_API_TOKEN" \
+            --data '{"query":"query GetOrganizations { account { organizations { id name } } }"}')"
+
+          error_message="$(printf '%s' "$response" | jq -r '.errors[0].message // empty')"
+          if [ -n "$error_message" ]; then
+            echo "::error::Buffer API rejected the request: $error_message"
+            exit 1
+          fi
+
+          org_count="$(printf '%s' "$response" | jq -r '(.data.account.organizations // []) | length')"
+          if [ "$org_count" -eq 0 ]; then
+            echo "::error::Buffer API returned no organizations."
+            exit 1
+          fi
+
+          echo "Buffer organizations found: $org_count"
+          printf '%s' "$response" | jq -r '.data.account.organizations[] | "::notice title=Buffer organization::name=\(.name) id=\(.id)"'
