@@ -2,7 +2,7 @@ name: Mr. Know It All research tool bot
 
 on:
   schedule:
-    - cron: "17 6 * * *"
+    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -31,8 +31,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run 100-question research batch
+      - name: Pull verified sold results into Supabase
         env:
           THE_CARD_API_KEY: ${{ secrets.THE_CARD_API_KEY }}
           SUPABASE_URL: https://lazzdoadoqzrzlarerfx.supabase.co
+          RESEARCH_BATCH_SIZE: "25"
+          RESEARCH_CONCURRENCY: "5"
+          SALES_LIMIT_PER_CONDITION: "20"
         run: node scripts/mr-know-it-all-tool-bot.mjs
