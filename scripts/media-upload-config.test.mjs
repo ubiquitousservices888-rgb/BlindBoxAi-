@@ -11,7 +11,7 @@ test("mobile upload authorization lasts well beyond the former 10-minute window"
 });
 
 test("mobile uploader uses owner-authenticated signed storage for approved video sizes", () => {
-  assert.match(form, /blindbox-video-upload/);
+  assert.match(form, /free-upload-ticket/);
   assert.match(form, /MAX_VIDEO_SIZE\s*=\s*100\s*\*\s*1024\s*\*\s*1024/);
   assert.match(form, /xhr\.open\("PUT",\s*signedUrl/);
   assert.match(form, /new FormData\(\)/);

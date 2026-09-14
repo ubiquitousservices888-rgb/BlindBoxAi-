@@ -6,6 +6,7 @@ const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClien
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
 const uploadPage = fs.readFileSync(new URL("../app/media-upload/MediaUploadForm.jsx", import.meta.url), "utf8");
 const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/route.js", import.meta.url), "utf8");
+const freeUploadRoute = fs.readFileSync(new URL("../app/api/media/free-upload-ticket/route.js", import.meta.url), "utf8");
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
 const legacyWorkflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
 const queuedWorkflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
@@ -33,12 +34,14 @@ test("owner dashboard includes the Supabase review queue", () => {
 
 test("phone upload uses owner-authenticated signed storage then enters research staging", () => {
   assert.match(uploadPage, /media\/review/);
-  assert.match(uploadPage, /blindbox-video-upload/);
+  assert.match(uploadPage, /free-upload-ticket/);
   assert.match(uploadPage, /signedUrl/);
   assert.match(uploadPage, /publicUrl/);
   assert.match(uploadPage, /\/api\/owner\/stage-review/);
   assert.match(uploadPage, /Upload & stage for research/);
   assert.match(uploadPage, /Research campaign/);
+  assert.match(freeUploadRoute, /blindbox-video-upload/);
+  assert.match(freeUploadRoute, /100 \* 1024 \* 1024/);
   assert.match(storageAuthRoute, /assertUploadCode/);
   assert.match(storageAuthRoute, /Authorization/);
 });

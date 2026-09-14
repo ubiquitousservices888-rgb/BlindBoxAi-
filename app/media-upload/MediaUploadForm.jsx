@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const STORAGE_BROKER = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
+const STORAGE_BROKER = "/api/media/free-upload-ticket";
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
@@ -69,6 +69,7 @@ async function requestUploadTicket({ accessCode, path, sizeBytes }) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ path, sizeBytes }),
+    cache: "no-store",
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body?.signedUrl || !body?.publicUrl) {
