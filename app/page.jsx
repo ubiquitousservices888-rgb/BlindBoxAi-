@@ -1,5 +1,6 @@
 import Link from "next/link";
 import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
+import PublishedVideoStyles from "./_components/PublishedVideoStyles";
 import { allSeries, priceSpan, seriesPriceVerification } from "../lib/data";
 
 export const revalidate = 300;
@@ -27,6 +28,7 @@ export default async function Home() {
   return (
     <main className="bv-home">
       <BlindVaultHomeStyles />
+      <PublishedVideoStyles />
       <header className="bv-nav">
         <Link className="bv-brand" href="/">BlindBoxAI</Link>
         <nav aria-label="Primary navigation">
