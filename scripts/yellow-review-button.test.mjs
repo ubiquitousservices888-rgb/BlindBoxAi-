@@ -8,6 +8,7 @@ const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/rout
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
 const workflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
 const publisher = fs.readFileSync(new URL("../scripts/publish-reviewed-upload.mjs", import.meta.url), "utf8");
+const homepage = fs.readFileSync(new URL("../app/page.jsx", import.meta.url), "utf8");
 const stageRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/route.js", import.meta.url), "utf8");
 const approvalRoute = fs.readFileSync(new URL("../app/api/owner/approve-review/route.js", import.meta.url), "utf8");
 const approvalLibrary = fs.readFileSync(new URL("../lib/owner-batch-approval.mjs", import.meta.url), "utf8");
@@ -55,6 +56,18 @@ test("manual upload cannot publish until the protected owner environment is appr
   assert.match(publisher, /RESEARCH_RUN_ID/);
   assert.match(publisher, /campaignId/);
   assert.match(publisher, /DISCLOSURE/);
+});
+
+test("successful reviewed-video publishing is linked into the public homepage feed", () => {
+  assert.match(workflow, /id-token:\s*write/);
+  assert.match(workflow, /PUBLISHED_VIDEO_FEED_URL/);
+  assert.match(publisher, /blindboxai-video-publisher/);
+  assert.match(publisher, /recordPublishedVideo/);
+  assert.match(publisher, /REVIEWED_UPLOAD_HOMEPAGE_LINKED/);
+  assert.match(homepage, /published-video-feed/);
+  assert.match(homepage, /sports_cards/);
+  assert.match(homepage, /pokemon_tcg/);
+  assert.match(homepage, /<video controls playsInline/);
 });
 
 test("per-video approval is owner-authenticated and fails closed when the exact gate is absent", () => {
