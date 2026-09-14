@@ -74,27 +74,42 @@ test("exact target match requires identifier, print-run denominator, aliases, an
   assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Autograph TTA-JA 25/100 PSA 10", target), false);
 });
 
-test("identity terms use token boundaries", () => {
+test("identity terms use token boundaries and tolerate only narrow plural variation", () => {
   assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA 25/100", target.requiredTitleTerms), true);
   assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Automatic Insert TTA-JA 25/100", [...target.requiredTitleTerms, "Auto"]), false);
+  assert.equal(cardApiTitleMatches("Pokemon 30th Celebrations Charizard", ["30th", "celebration", "charizard"]), true);
 });
 
-test("provider request rejects redirects and keeps API key out of URL and result", async () => {
+test("provider request uses broad providerQuery but still returns only strict matches", async () => {
   const secret = "test-secret-value";
   let capturedUrl;
   let capturedInit;
-  const result = await fetchCardApiSales(target, {
+  const broadTarget = { ...target, providerQuery: "Jose Abreu TTA-JA" };
+  const result = await fetchCardApiSales(broadTarget, {
     apiKey: secret,
     fetchImpl: async (url, init) => {
       capturedUrl = String(url);
       capturedInit = init;
-      return { ok: true, json: async () => ({ data: [] }) };
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            sale(),
+            sale({ id: "wrong", listing_url: "https://www.ebay.com/itm/999", title: "2022 Topps Tier One Tim Anderson Auto TTA-JA 25/100" }),
+          ],
+        }),
+      };
     },
   });
+  const parsed = new URL(capturedUrl);
+  assert.equal(parsed.searchParams.get("q"), "Jose Abreu TTA-JA");
   assert.equal(capturedUrl.includes(secret), false);
   assert.equal(capturedInit.redirect, "error");
   assert.equal(capturedInit.headers["x-market-api-key"], secret);
   assert.equal(JSON.stringify(result).includes(secret), false);
+  assert.equal(result.returnedCount, 2);
+  assert.equal(result.acceptedCount, 1);
+  assert.equal(result.records.length, 1);
 });
 
 test("duplicate provider rows cannot satisfy the two-sale verification threshold", async () => {
