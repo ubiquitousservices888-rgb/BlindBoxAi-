@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
+const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
 const uploadPage = fs.readFileSync(new URL("../app/media-upload/MediaUploadForm.jsx", import.meta.url), "utf8");
 const uploadRoute = fs.readFileSync(new URL("../app/api/media/review-upload/route.js", import.meta.url), "utf8");
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
@@ -20,6 +21,14 @@ test("staged videos have watch and per-video approval controls", () => {
   assert.doesNotMatch(uploadPage, /APPROVE & LAUNCH ALL READY VIDEOS/);
   assert.match(dashboard, /WATCH VIDEO/);
   assert.match(dashboard, /#facc15/);
+});
+
+test("owner dashboard includes the Supabase review queue", () => {
+  assert.match(dashboardRoute, /review-video-queue/);
+  assert.match(dashboardRoute, /action:\s*"list"/);
+  assert.match(dashboardRoute, /READY_FOR_REVIEW/);
+  assert.match(dashboardRoute, /mediaUrl:\s*item\.video_url/);
+  assert.match(dashboardRoute, /notifications:/);
 });
 
 test("phone upload uses owner-authenticated signed storage then enters research staging", () => {
