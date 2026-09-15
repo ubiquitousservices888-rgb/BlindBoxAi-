@@ -83,5 +83,6 @@ test("campaign-attributed series clicks carry the same identifier into eBay EPN 
   assert.match(ebayRoute, /epnCustomId/);
   assert.match(ebayRoute, /const customId = campaignId[\s\S]*?epnCustomId\(/);
   assert.match(ebayRoute, /campaignId,/);
-  assert.match(ebayRoute, /source: outboundSource/);
+  assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
+  assert.match(ebayRoute, /source:\s*attribution\.source/);
 });
