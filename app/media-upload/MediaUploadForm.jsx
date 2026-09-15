@@ -82,6 +82,7 @@ function uploadToSignedUrl({ signedUrl, file, onProgress }) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", signedUrl, true);
+    xhr.setRequestHeader("x-upsert", "false");
     xhr.timeout = MOBILE_UPLOAD_TIMEOUT_MS;
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
