@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
-import { evaluateAffiliateEligibility } from "../../../lib/market-eligibility.mjs";
+import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../../../lib/market-eligibility.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
 import LiveEbayListings from "../../_components/LiveEbayListings";
@@ -30,6 +30,14 @@ function latestEvidenceDate(series) {
   return timestamps.length ? new Date(Math.max(...timestamps)) : null;
 }
 
+function displaySaleDate(value) {
+  if (!value) return "date unavailable";
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime())
+    ? parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+    : "date unavailable";
+}
+
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const s = getSeries(slug);
@@ -56,11 +64,12 @@ export default async function SeriesPage({ params, searchParams }) {
 
   const retailVerified = s._dataQuality?.retailUSD?.status === "verified";
   const oddsVerified = s._dataQuality?.pullOdds?.status === "verified";
-  const eligibility = evaluateAffiliateEligibility(s);
-  const verifiedFigures = new Set(eligibility.verifiedMarketRecords.map((record) => record.figure));
+  const now = new Date();
+  const eligibility = evaluateAffiliateEligibility(s, { now });
+  const verifiedByFigure = new Map(eligibility.verifiedMarketRecords.map((record) => [record.figure, record]));
   const checkedAt = latestEvidenceDate(s);
-  const ageDays = checkedAt ? Math.floor((Date.now() - checkedAt.getTime()) / 86400000) : null;
-  const stale = ageDays != null && ageDays > 30;
+  const ageDays = checkedAt ? Math.floor((now.getTime() - checkedAt.getTime()) / 86400000) : null;
+  const stale = ageDays != null && ageDays > PUBLIC_PRICE_FRESHNESS_DAYS;
   const checklist = Array.isArray(s.checklist) ? s.checklist.filter(Boolean) : [];
 
   return (
@@ -80,8 +89,11 @@ export default async function SeriesPage({ params, searchParams }) {
         <h2>Resale prices <span className="k">US-SOLD</span></h2>
         <p style={{ margin: "10px 0", fontSize: "0.78rem", color: stale ? "var(--fake)" : "var(--muted)" }}>
           {checkedAt
-            ? `Prices last checked: ${checkedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}${stale ? " · stale — older than 30 days" : ""}`
+            ? `Prices last checked: ${checkedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}${stale ? ` · dated — older than ${PUBLIC_PRICE_FRESHNESS_DAYS} days` : ""}`
             : "Price-check date unavailable — treat values as needing freshness review."}
+        </p>
+        <p style={{ margin: "12px 0", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.82 }}>
+          Verified evidence means at least two documented completed sales. Fresh pricing means the latest documented sale is within {PUBLIC_PRICE_FRESHNESS_DAYS} days.
         </p>
         <p style={{ margin: "12px 0", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.82 }}>
           Disclosure: As an eBay Partner, BlindBoxAI may earn a commission from qualifying purchases.
@@ -90,7 +102,15 @@ export default async function SeriesPage({ params, searchParams }) {
           <thead><tr><th>Figure</th><th>Rarity</th><th>Range</th><th>Market</th></tr></thead>
           <tbody>
             {s.figures.map(f => {
-              const verified = verifiedFigures.has(f.name);
+              const marketRecord = verifiedByFigure.get(f.name);
+              const verified = Boolean(marketRecord);
+              const freshnessText = marketRecord?.freshnessStatus === "fresh"
+                ? `fresh · latest ${displaySaleDate(marketRecord.latestSaleAt)}`
+                : marketRecord?.freshnessStatus === "dated"
+                  ? `dated · latest ${displaySaleDate(marketRecord.latestSaleAt)}`
+                  : verified
+                    ? "freshness unknown · sale date unavailable"
+                    : "unverified";
               return <tr key={f.name}>
                 <td>{f.name}</td>
                 <td><span className={`rar ${String(f.rarity).toLowerCase().includes("secret") ? "secret" : ""}`}>{f.rarity}</span></td>
@@ -98,8 +118,8 @@ export default async function SeriesPage({ params, searchParams }) {
                   {verified
                     ? (f.resaleLow === f.resaleHigh ? `$${f.resaleLow}` : `$${f.resaleLow}–$${f.resaleHigh}`)
                     : <span className="nodata">needs research</span>}
-                  <div className={`verify ${verified ? "" : "pending"}`} style={{ marginTop: 6 }}>
-                    <span className="dot"></span>{verified ? "verified: 2+ completed sales" : "unverified"}
+                  <div className={`verify ${verified ? "" : "pending"}`} style={{ marginTop: 6, color: marketRecord?.freshnessStatus === "dated" ? "#8a5100" : undefined }}>
+                    <span className="dot"></span>{verified ? `${marketRecord.completedSaleCount} completed sales · ${freshnessText}` : "unverified"}
                   </div>
                   {f.evidence && (
                     <details style={{ marginTop: 6, maxWidth: 360 }}>
