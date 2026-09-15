@@ -1,7 +1,10 @@
 import Link from "next/link";
 import Waitlist from "./waitlist";
 
-export const metadata = { title: "Reseller tools | BlindBoxAI" };
+export const metadata = {
+  title: "Reseller tools waitlist | BlindBoxAI",
+  description: "Planned BlindBoxAI reseller tools for price alerts, bulk valuation, CSV export, and saved set-completion tracking. No charge while the product is in build.",
+};
 
 export default function Pro() {
   const endpoint = process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT;
