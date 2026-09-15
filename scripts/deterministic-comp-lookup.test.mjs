@@ -159,7 +159,7 @@ test("unknown queries fail closed without invented data", () => {
   assert.equal(response.mode, "deterministic");
   assert.equal(response.matches.length, 0);
   assert.equal(response.suggestedMatch, null);
-  assert.match(response.answer, /No exact verified sale found/i);
+  assert.match(response.answer, /No verified sale found/i);
 });
 
 test("generic natural-language sports-card question never falls through to toy comps", () => {
