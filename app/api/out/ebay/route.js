@@ -97,7 +97,8 @@ export async function GET(request) {
     clickedAt,
     customId,
     campaignId: campaignId || null,
-    source: outboundSource,
+    campaignSource: campaignId ? outboundSource : null,
+    source: attribution.source,
     vertical: attribution.vertical,
     itemSlug: attribution.itemSlug,
 
