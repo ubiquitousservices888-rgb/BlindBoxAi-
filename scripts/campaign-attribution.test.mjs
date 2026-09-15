@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -9,6 +10,10 @@ import {
 } from "../lib/campaign-attribution.mjs";
 
 import { epnCustomId, ebayOutboundPath } from "../lib/data.js";
+
+const attributionBridge = readFileSync(new URL("../app/_components/CampaignAttributionBridge.jsx", import.meta.url), "utf8");
+const ebayRoute = readFileSync(new URL("../app/api/out/ebay/route.js", import.meta.url), "utf8");
+const template = readFileSync(new URL("../app/template.jsx", import.meta.url), "utf8");
 
 test("campaign ids reject unsafe input", () => {
   assert.equal(normalizeCampaignId("HIRONO-20260816-A"), "hirono-20260816-a");
@@ -63,4 +68,21 @@ test("empty campaign preserves legacy link shape", () => {
   assert.equal(suffix, "");
   const path = ebayOutboundPath("hirono-series", "The Other One", "sold");
   assert.doesNotMatch(path, /campaign=/);
+});
+
+test("campaign attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
+  assert.match(template, /<CampaignAttributionBridge\s*\/>/);
+  assert.match(attributionBridge, /current\.searchParams\.get\("campaign"\)/);
+  assert.match(attributionBridge, /next\.searchParams\.set\("campaign", campaignId\)/);
+  assert.match(attributionBridge, /next\.searchParams\.set\("source", source\)/);
+  assert.match(attributionBridge, /window\.location\.assign\(attributedHref\)/);
+  assert.doesNotMatch(attributionBridge, /document\.cookie|localStorage|sessionStorage/);
+});
+
+test("campaign-attributed series clicks carry the same identifier into eBay EPN customid", () => {
+  assert.match(ebayRoute, /epnCustomId/);
+  assert.match(ebayRoute, /const customId = campaignId[\s\S]*?epnCustomId\(/);
+  assert.match(ebayRoute, /campaignId,/);
+  assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
+  assert.match(ebayRoute, /source:\s*attribution\.source/);
 });
