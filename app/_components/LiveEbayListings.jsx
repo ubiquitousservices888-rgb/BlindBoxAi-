@@ -88,7 +88,7 @@ export default function LiveEbayListings({
             <strong style={{ fontSize: "0.88rem", lineHeight: 1.35 }}>{item.title}</strong>
             <span className="mono">{formatPrice(item)}</span>
             {item.condition ? <span style={{ fontSize: "0.74rem", opacity: 0.72 }}>{item.condition}</span> : null}
-            <span className="ebay">View current listing ↗</span>
+            <span className="ebay">View current listing on eBay ↗</span>
           </a>
         ))}
       </div>
