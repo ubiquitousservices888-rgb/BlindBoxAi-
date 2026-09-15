@@ -35,7 +35,7 @@ describe("Amazon Associates accessory path", () => {
     assert.equal(url.searchParams.get("tag"), AMAZON_ASSOCIATE_TAG);
   });
 
-  it("keeps campaign attribution on the BlindBoxAI redirect", () => {
+  it("keeps campaign attribution on the legacy BlindBoxAI redirect", () => {
     const path = amazonOutboundPath("display-turntable", {
       campaignId: "fall_launch",
       source: "youtube",
@@ -45,6 +45,20 @@ describe("Amazon Associates accessory path", () => {
     assert.equal(url.searchParams.get("offer"), "display-turntable");
     assert.equal(url.searchParams.get("campaign"), "fall_launch");
     assert.equal(url.searchParams.get("source"), "youtube");
+  });
+
+  it("primary Amazon shop links go directly to Amazon while first-party logging stays non-blocking", () => {
+    const pageSource = fs.readFileSync(new URL("../app/shop/accessories/page.jsx", import.meta.url), "utf8");
+    const linkSource = fs.readFileSync(new URL("../app/shop/accessories/AmazonAffiliateLink.jsx", import.meta.url), "utf8");
+    const loggerSource = fs.readFileSync(new URL("../app/api/events/amazon-affiliate-click/route.js", import.meta.url), "utf8");
+
+    assert.match(pageSource, /href=\{buildAmazonSearchUrl\(offer\.id\)\}/);
+    assert.doesNotMatch(pageSource, /amazonOutboundPath\(/);
+    assert.match(linkSource, /navigator\.sendBeacon/);
+    assert.match(linkSource, /keepalive:\s*true/);
+    assert.doesNotMatch(linkSource, /preventDefault\(|window\.location\.assign/);
+    assert.match(loggerSource, /provider:\s*"amazon_associates"/);
+    assert.match(loggerSource, /piiStored:\s*false/);
   });
 
   it("rejects unknown offer ids instead of becoming an open redirect", () => {
@@ -111,17 +125,19 @@ describe("Amazon Associates accessory path", () => {
     assert.equal(affiliateReportRow(event).offerId, "live:stream-42:item-77");
   });
 
-  it("sets an explicit accessible label including paid-link disclosure", () => {
+  it("sets an explicit Amazon destination label including paid-link disclosure", () => {
     const pageSource = fs.readFileSync(
       new URL("../app/shop/accessories/page.jsx", import.meta.url),
       "utf8",
     );
 
-    assert.match(pageSource, /rel="sponsored nofollow"/);
     assert.match(
       pageSource,
-      /aria-label=\{`Compare current Amazon options for \$\{offer\.title\} \(paid link\)`\}/,
-    ); });
+      /ariaLabel=\{`View \$\{offer\.title\} on Amazon \(paid link\)`\}/,
+    );
+    assert.match(pageSource, /View on Amazon →/);
+    assert.match(pageSource, /As an Amazon Associate I earn from qualifying purchases/);
+  });
 
   it("aggregates legacy custom IDs independently of modern attribution dimensions", () => {
     const events = [
