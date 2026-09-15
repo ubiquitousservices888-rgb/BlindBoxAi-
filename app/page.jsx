@@ -2,7 +2,7 @@ import Link from "next/link";
 import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
 import PublishedVideoStyles from "./_components/PublishedVideoStyles";
 import { allSeries, ebayOutboundPath, seriesPriceVerification } from "../lib/data";
-import { evaluateAffiliateEligibility } from "../lib/market-eligibility.mjs";
+import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../lib/market-eligibility.mjs";
 
 export const revalidate = 300;
 
@@ -29,18 +29,36 @@ function recordRange(records) {
   return { low: Math.min(...lows), high: Math.max(...highs) };
 }
 
-function marketSummary(series) {
-  const records = evaluateAffiliateEligibility(series).verifiedMarketRecords;
+function displayDate(value) {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime())
+    ? parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
+    : null;
+}
+
+function marketSummary(series, now) {
+  const records = evaluateAffiliateEligibility(series, { now }).verifiedMarketRecords;
+  if (!records.length) return null;
   const secrets = records.filter((record) => String(record.rarity).toLowerCase().includes("secret"));
   const regular = records.filter((record) => !String(record.rarity).toLowerCase().includes("secret"));
   const regularRange = recordRange(regular);
   const secretRange = recordRange(secrets);
   const format = (range) => range ? `$${range.low}–$${range.high}` : null;
-
-  if (regularRange && secretRange) return `Commons ${format(regularRange)} · Secret ${format(secretRange)}`;
-  if (regularRange) return format(regularRange);
-  if (secretRange) return `Secret ${format(secretRange)}`;
-  return null;
+  const rangeText = regularRange && secretRange
+    ? `Commons ${format(regularRange)} · Secret ${format(secretRange)}`
+    : regularRange
+      ? format(regularRange)
+      : `Secret ${format(secretRange)}`;
+  const dated = records.some((record) => record.freshnessStatus !== "fresh");
+  const latestSaleAt = records.map((record) => record.latestSaleAt).filter(Boolean).sort().at(-1) ?? null;
+  const completedSales = records.reduce((total, record) => total + (Number(record.completedSaleCount) || 0), 0);
+  const latestText = displayDate(latestSaleAt);
+  return {
+    text: `${dated ? "Historical evidence" : "Recent evidence"} · ${rangeText}`,
+    freshnessStatus: dated ? "dated" : "fresh",
+    freshnessLabel: `${completedSales} documented sales · ${latestText ? `latest ${latestText}` : "sale date unavailable"}${dated ? " · includes dated evidence" : ` · within ${PUBLIC_PRICE_FRESHNESS_DAYS} days`}`,
+  };
 }
 
 function marketplaceLink(series) {
@@ -52,8 +70,9 @@ function marketplaceLink(series) {
 export default async function Home() {
   const series = allSeries();
   const publishedVideos = await getPublishedVideos();
+  const now = new Date();
   const latestCollectibles = series
-    .filter((item) => evaluateAffiliateEligibility(item).verifiedMarketRecordCount > 0)
+    .filter((item) => evaluateAffiliateEligibility(item, { now }).verifiedMarketRecordCount > 0)
     .slice(0, 6);
 
   return (
@@ -85,7 +104,7 @@ export default async function Home() {
             <Link className="bv-button bv-button-primary" href="/ask">Ask Mr. Know It All →</Link>
             <a className="bv-button bv-button-secondary" href="#collectibles">Browse verified collectibles</a>
           </div>
-          <p className="bv-micro">Verified means at least two documented completed sales.</p>
+          <p className="bv-micro">Verified means at least two documented completed sales. Freshness is shown separately using a {PUBLIC_PRICE_FRESHNESS_DAYS}-day window.</p>
         </div>
 
         <div className="bv-vault-visual" aria-label="Illustration of collectible research evidence">
@@ -132,7 +151,7 @@ export default async function Home() {
       <section className="bv-research" id="collectibles">
         <div className="bv-section-head">
           <div>
-            <p className="bv-kicker">Verified collectibles</p>
+            <p className="bv-kicker">Verified sale evidence</p>
             <h2>Items with at least two documented completed sales.</h2>
           </div>
           <span>{latestCollectibles.length} featured</span>
@@ -140,7 +159,7 @@ export default async function Home() {
 
         <div className="bv-series-grid">
           {latestCollectibles.map((s) => {
-            const summary = marketSummary(s);
+            const summary = marketSummary(s, now);
             const verification = seriesPriceVerification(s);
             const outbound = marketplaceLink(s);
             return (
@@ -150,12 +169,13 @@ export default async function Home() {
                     <Link className="bv-card-title" href={`/series/${s.slug}`}>{s.name}</Link>
                     <span>{s.brand}</span>
                   </div>
-                  {summary && <b>{summary}</b>}
+                  {summary?.text && <b>{summary.text}</b>}
                 </div>
                 <div className="bv-series-meta">
                   <span className={verification.needsResearchCount ? "bv-status bv-status-pending" : "bv-status"}>
                     {verification.verifiedCount} verified price{verification.verifiedCount === 1 ? "" : "s"}
                   </span>
+                  {summary?.freshnessLabel && <span className={summary.freshnessStatus === "fresh" ? "bv-status" : "bv-status bv-status-pending"}>{summary.freshnessLabel}</span>}
                 </div>
                 <div className="bv-card-links">
                   <Link href={`/series/${s.slug}`}>Open knowledge →</Link>
@@ -195,7 +215,7 @@ export default async function Home() {
 
         <div className="bv-series-grid">
           {series.map((s) => {
-            const summary = marketSummary(s);
+            const summary = marketSummary(s, now);
             const verification = seriesPriceVerification(s);
             const secret = s._dataQuality?.pullOdds?.status === "verified" ? s.pullOdds?.secret : null;
             return (
@@ -205,7 +225,7 @@ export default async function Home() {
                     <strong>{s.name}</strong>
                     <span>{s.brand}</span>
                   </div>
-                  {summary && <b>{summary}</b>}
+                  {summary?.text && <b>{summary.text}</b>}
                 </div>
                 <div className="bv-series-meta">
                   {secret && <span className="bv-chip">SECRET {secret}</span>}
@@ -215,6 +235,7 @@ export default async function Home() {
                       : "No verified prices yet"}
                     {verification.needsResearchCount > 0 && ` · ${verification.needsResearchCount} need research`}
                   </span>
+                  {summary?.freshnessLabel && <span className={summary.freshnessStatus === "fresh" ? "bv-status" : "bv-status bv-status-pending"}>{summary.freshnessLabel}</span>}
                 </div>
               </Link>
             );
@@ -232,5 +253,5 @@ const PUBLIC_ONLY_CSS = `
 .bv-card-links a{font-size:.78rem;font-weight:750;color:#087e7a;text-decoration:none}
 .bv-paid-link{display:block;margin-top:8px;color:#697471;font-size:.65rem;line-height:1.4}
 .bv-public-ask{margin-top:24px}
-.bv-series-top b{max-width:240px;text-align:right;white-space:normal}
+.bv-series-top b{max-width:260px;text-align:right;white-space:normal}
 `;
