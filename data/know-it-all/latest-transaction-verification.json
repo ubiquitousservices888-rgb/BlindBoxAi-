@@ -1,12 +1,12 @@
 {
   "schema": "blindboxai/know-it-all/transaction-verification/v1",
   "agent": "Mr. Know It All",
-  "mode": "credentialless-public-sales-history",
-  "researchedAt": "2026-09-13T08:31:54.419Z",
+  "mode": "public-sales-with-readonly-provider-credential",
+  "researchedAt": "2026-09-15T19:10:28.276Z",
   "security": {
-    "credentialsProvided": false,
-    "secretsRead": false,
-    "providerCredentialPurpose": null,
+    "credentialsProvided": true,
+    "secretsRead": true,
+    "providerCredentialPurpose": "read-only completed-sale provider lookup",
     "privateRepositoriesAccessed": false,
     "sideEffectsPerformed": [],
     "ownerApprovalRequiredForCatalogChanges": true
@@ -290,7 +290,7 @@
         "$300 premium",
         "only 100 exist"
       ],
-      "providerStatus": "not_configured",
+      "providerStatus": "fetch_failed",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -320,7 +320,7 @@
         "game-used memorabilia",
         "relic is not tied to a specific game, event, or season"
       ],
-      "providerStatus": "not_configured",
+      "providerStatus": "fetch_failed",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -345,7 +345,7 @@
       "claims": [
         "Topps-certified autograph"
       ],
-      "providerStatus": "not_configured",
+      "providerStatus": "fetch_failed",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -372,7 +372,7 @@
         "autograph guaranteed by Panini",
         "memorabilia is not associated with a specific player, game, or event"
       ],
-      "providerStatus": "not_configured",
+      "providerStatus": "fetch_failed",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -398,7 +398,7 @@
         "rookie card",
         "player-worn/used material guaranteed by Panini"
       ],
-      "providerStatus": "not_configured",
+      "providerStatus": "fetch_failed",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -425,7 +425,7 @@
         "Topps-certified autograph",
         "player-worn memorabilia"
       ],
-      "providerStatus": "not_configured",
+      "providerStatus": "fetch_failed",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -674,42 +674,42 @@
     {
       "source": "The Card API",
       "target": "2022-topps-tier-one-jose-abreu-tta-ja-auto-100",
-      "status": "not_configured",
+      "status": "fetch_failed",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-topps-triple-threads-david-ortiz-ttr-do2-18",
-      "status": "not_configured",
+      "status": "fetch_failed",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-bowman-platinum-nick-gonzales-pe-23-auto",
-      "status": "not_configured",
+      "status": "fetch_failed",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2020-21-panini-obsidian-killian-hayes-rji-klh-99",
-      "status": "not_configured",
+      "status": "fetch_failed",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-panini-national-treasures-dylan-carlson-cm-dc-99",
-      "status": "not_configured",
+      "status": "fetch_failed",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-topps-triple-threads-tanner-houck-asjr-th-99",
-      "status": "not_configured",
+      "status": "fetch_failed",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     }
