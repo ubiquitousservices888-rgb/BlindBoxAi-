@@ -104,12 +104,68 @@ test("provider request uses broad providerQuery but still returns only strict ma
   const parsed = new URL(capturedUrl);
   assert.equal(parsed.searchParams.get("q"), "Jose Abreu TTA-JA");
   assert.equal(capturedUrl.includes(secret), false);
-  assert.equal(capturedInit.redirect, "error");
+  assert.equal(capturedInit.redirect, "manual");
   assert.equal(capturedInit.headers["x-market-api-key"], secret);
   assert.equal(JSON.stringify(result).includes(secret), false);
   assert.equal(result.returnedCount, 2);
   assert.equal(result.acceptedCount, 1);
   assert.equal(result.records.length, 1);
+});
+
+test("same-provider redirect is followed once without exposing the credential in the URL", async () => {
+  const secret = "test-secret-value";
+  const calls = [];
+  const result = await fetchCardApiSales(target, {
+    apiKey: secret,
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init });
+      if (calls.length === 1) {
+        return {
+          ok: false,
+          status: 307,
+          headers: {
+            get: (name) => name.toLowerCase() === "location"
+              ? "https://www.thecardapi.com/api/v1/market/sales?q=Jose%20Abreu"
+              : null,
+          },
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [sale()] }),
+      };
+    },
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].init.redirect, "manual");
+  assert.equal(calls[1].init.redirect, "error");
+  assert.equal(new URL(calls[1].url).hostname, "www.thecardapi.com");
+  assert.equal(calls[0].url.includes(secret), false);
+  assert.equal(calls[1].url.includes(secret), false);
+  assert.equal(calls[1].init.headers["x-market-api-key"], secret);
+  assert.equal(result.status, "ok");
+  assert.equal(result.acceptedCount, 1);
+});
+
+test("redirect outside Card API hosts is blocked before a second request", async () => {
+  let calls = 0;
+  const result = await fetchCardApiSales(target, {
+    apiKey: "test-secret-value",
+    fetchImpl: async () => {
+      calls += 1;
+      return {
+        ok: false,
+        status: 302,
+        headers: { get: () => "https://example.com/not-the-provider" },
+      };
+    },
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(result.status, "unsafe_redirect");
+  assert.deepEqual(result.records, []);
 });
 
 test("duplicate provider rows cannot satisfy the two-sale verification threshold", async () => {
