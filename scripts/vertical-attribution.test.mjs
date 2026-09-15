@@ -59,12 +59,14 @@ test("valid source is authoritative for vertical", () => {
   assert.equal(attribution.itemSlug, "michael-jordan-1993");
 });
 
-test("eBay route uses the single attribution builder and records vertical fields", () => {
+test("eBay route preserves closed vertical attribution while campaign clicks use EPN custom IDs", () => {
   assert.match(ebayRoute, /buildCustomId\(attribution\)/);
+  assert.match(ebayRoute, /const customId = campaignId/);
+  assert.match(ebayRoute, /epnCustomId\(/);
   assert.match(ebayRoute, /vertical:\s*attribution\.vertical/);
   assert.match(ebayRoute, /source:\s*attribution\.source/);
+  assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
   assert.match(ebayRoute, /itemSlug:\s*attribution\.itemSlug/);
-  assert.doesNotMatch(ebayRoute, /epnCustomId/);
 });
 
 test("inbound source is first-party session storage only", () => {
