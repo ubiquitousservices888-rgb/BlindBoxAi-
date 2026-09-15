@@ -1,8 +1,8 @@
 import {
   DISCLOSURE,
-  createBufferPublisher,
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
+import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
@@ -52,7 +52,7 @@ const channels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tikto
   .split(",").map((value) => value.trim()).filter(Boolean))];
 if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one service");
 
-const publisher = createBufferPublisher({
+const publisher = createReviewBufferPublisher({
   token: process.env.BUFFER_API_TOKEN,
   organizationId: process.env.BUFFER_ORGANIZATION_ID,
 });
@@ -73,7 +73,13 @@ try {
     if (!caption.includes(trackedCta) || !caption.includes(DISCLOSURE)) {
       throw new Error(`${channel}: tracked CTA and affiliate disclosure are required`);
     }
-    const result = await publisher({ channel, videoUrl: item.video_url, caption });
+    const result = await publisher({
+      channel,
+      videoUrl: item.video_url,
+      caption,
+      title: item.title,
+      youtubeCategoryId: "17",
+    });
     results.push({ channel, id: result.id, duplicate: result.duplicate === true, campaignId: new URL(trackedCta).searchParams.get("campaign") });
     console.log(`REVIEW_QUEUE_PUBLISHED: ${channel}:${result.id}`);
   }

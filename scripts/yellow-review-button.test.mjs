@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
+import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
@@ -14,6 +16,12 @@ const queuedPublisher = fs.readFileSync(new URL("../scripts/publish-approved-rev
 const homepage = fs.readFileSync(new URL("../app/page.jsx", import.meta.url), "utf8");
 const stageRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/route.js", import.meta.url), "utf8");
 const approvalRoute = fs.readFileSync(new URL("../app/api/owner/approve-review/route.js", import.meta.url), "utf8");
+
+const jsonResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => body,
+});
 
 test("staged videos have watch and per-video approval controls", () => {
   assert.match(uploadPage, /APPROVE & LAUNCH THIS VIDEO/);
@@ -68,9 +76,58 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(queuedWorkflow, /id-token:\s*write/);
   assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
   assert.match(queuedPublisher, /action:\s*"claim"/);
-  assert.match(queuedPublisher, /createBufferPublisher/);
+  assert.match(queuedPublisher, /createReviewBufferPublisher/);
   assert.match(queuedPublisher, /DISCLOSURE/);
   assert.match(queuedPublisher, /blindboxai-review-publisher/);
+});
+
+test("review publisher sends required YouTube metadata while keeping TikTok metadata null", async () => {
+  const createRequests = [];
+  let mediaChecks = 0;
+  const videoUrl = "https://cdn.example/video.mp4";
+  const fetchImpl = async (url, options = {}) => {
+    if (String(url) === videoUrl) {
+      mediaChecks += 1;
+      return {
+        status: 206,
+        redirected: false,
+        url: videoUrl,
+        headers: { get: (name) => name.toLowerCase() === "content-type" ? "video/mp4" : null },
+        body: { cancel: async () => {} },
+      };
+    }
+
+    const body = JSON.parse(options.body);
+    const query = body.query;
+    if (query.includes("query Organizations")) {
+      return jsonResponse({ data: { account: { organizations: [{ id: "org-1", name: "Public" }] } } });
+    }
+    if (query.includes("query Channels")) {
+      return jsonResponse({ data: { channels: [
+        { id: "channel-youtube", name: "YouTube", displayName: "YouTube", service: "youtube", isQueuePaused: false, isDisconnected: false, isLocked: false },
+        { id: "channel-tiktok", name: "TikTok", displayName: "TikTok", service: "tiktok", isQueuePaused: false, isDisconnected: false, isLocked: false },
+      ] } });
+    }
+    if (query.includes("query Existing")) {
+      return jsonResponse({ data: { posts: { edges: [], pageInfo: { hasNextPage: false, endCursor: null } } } });
+    }
+    if (query.includes("mutation CreateReviewVideo")) {
+      createRequests.push(body);
+      return jsonResponse({ data: { createPost: { post: { id: `post-${createRequests.length}`, text: body.variables.text, status: "scheduled", channelId: body.variables.channelId } } } });
+    }
+    throw new Error("unexpected Buffer query");
+  };
+
+  const publisher = createReviewBufferPublisher({ token: "test-token", organizationId: "org-1", fetchImpl });
+  const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
+  await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>" });
+  await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
+
+  assert.equal(mediaChecks, 2);
+  assert.deepEqual(createRequests[0].variables.metadata, {
+    youtube: { title: "YouTube Title", categoryId: "17" },
+  });
+  assert.equal(createRequests[1].variables.metadata, null);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {
