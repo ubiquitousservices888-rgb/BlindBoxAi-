@@ -85,7 +85,7 @@ export default async function SeriesPage({ params, searchParams }) {
                       target="_blank"
                       rel="sponsored nofollow noopener noreferrer"
                     >
-                      Sold comps ↗
+                      View sold comps on eBay ↗
                     </a>
                     <a
                       className="ebay"
@@ -93,7 +93,7 @@ export default async function SeriesPage({ params, searchParams }) {
                       target="_blank"
                       rel="sponsored nofollow noopener noreferrer"
                     >
-                      Shop active ↗
+                      View active listings on eBay ↗
                     </a>
                   </div>
                 </td>

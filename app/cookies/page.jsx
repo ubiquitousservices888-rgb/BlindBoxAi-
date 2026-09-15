@@ -36,6 +36,9 @@ export default function CookieNoticePage() {
         <p>
           Some outbound links may be affiliate links. If you follow one, the destination marketplace may use its own cookies or similar technologies under its own privacy terms. BlindBoxAI does not control cookies set after you leave this site.
         </p>
+        <p>
+          When you choose an affiliate link, BlindBoxAI may record a first-party outbound-click event so the owner can reconcile aggregate affiliate reporting. The application event can include the marketplace, offer, campaign/source label, and click time. It does not store your email, IP address, cookies, account or user ID, user agent, or referrer. This operational affiliate record is separate from optional site analytics.
+        </p>
       </section>
 
       <section className="block">

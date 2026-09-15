@@ -91,10 +91,10 @@ export default function BuyOrPassClient({ offer, activePath, soldPath, campaignI
         </p>
         <div className="market-actions">
           <a className="cta" href={activePath} target="_blank" rel="sponsored nofollow noopener noreferrer">
-            Compare active listings ↗
+            View active listings on eBay ↗
           </a>
           <a className="market-secondary" href={soldPath} target="_blank" rel="sponsored nofollow noopener noreferrer">
-            Review sold comps ↗
+            View sold comps on eBay ↗
           </a>
         </div>
         <p className="tw-muted">

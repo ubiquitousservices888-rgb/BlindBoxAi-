@@ -2,9 +2,10 @@ import Link from "next/link";
 
 import {
   allAmazonAccessoryOffers,
-  amazonOutboundPath,
+  buildAmazonSearchUrl,
 } from "../../../lib/amazon-associates.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
+import AmazonAffiliateLink from "./AmazonAffiliateLink";
 
 export const metadata = {
   title: "Collector Display & Storage Accessories | BlindBoxAI",
@@ -55,14 +56,16 @@ export default async function AccessoriesShopPage({ searchParams }) {
               <p style={{ margin: "8px 0 0" }}>{offer.useCase}</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              <a
+              <AmazonAffiliateLink
                 className="cta"
-                href={amazonOutboundPath(offer.id, { campaignId, source })}
-                aria-label={`Compare current Amazon options for ${offer.title} (paid link)`}
-                rel="sponsored nofollow"
+                href={buildAmazonSearchUrl(offer.id)}
+                offerId={offer.id}
+                campaignId={campaignId}
+                source={source}
+                ariaLabel={`View ${offer.title} on Amazon (paid link)`}
               >
-                Compare current Amazon options → <span style={{ fontSize: "0.78rem", opacity: 0.78 }}>(paid link)</span>
-              </a>
+                View on Amazon → <span style={{ fontSize: "0.78rem", opacity: 0.78 }}>(paid link)</span>
+              </AmazonAffiliateLink>
             </div>
           </article>
         ))}
