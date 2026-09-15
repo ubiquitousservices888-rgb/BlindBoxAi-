@@ -1,12 +1,8 @@
 import Link from "next/link";
 import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
 import PublishedVideoStyles from "./_components/PublishedVideoStyles";
-import {
-  allSeries,
-  ebayOutboundPath,
-  priceSpan,
-  seriesPriceVerification,
-} from "../lib/data";
+import { allSeries, ebayOutboundPath, seriesPriceVerification } from "../lib/data";
+import { evaluateAffiliateEligibility } from "../lib/market-eligibility.mjs";
 
 export const revalidate = 300;
 
@@ -26,17 +22,38 @@ async function getPublishedVideos() {
   }
 }
 
+function recordRange(records) {
+  if (!records.length) return null;
+  const lows = records.map((record) => record.resaleLowUSD);
+  const highs = records.map((record) => record.resaleHighUSD);
+  return { low: Math.min(...lows), high: Math.max(...highs) };
+}
+
+function marketSummary(series) {
+  const records = evaluateAffiliateEligibility(series).verifiedMarketRecords;
+  const secrets = records.filter((record) => String(record.rarity).toLowerCase().includes("secret"));
+  const regular = records.filter((record) => !String(record.rarity).toLowerCase().includes("secret"));
+  const regularRange = recordRange(regular);
+  const secretRange = recordRange(secrets);
+  const format = (range) => range ? `$${range.low}–$${range.high}` : null;
+
+  if (regularRange && secretRange) return `Commons ${format(regularRange)} · Secret ${format(secretRange)}`;
+  if (regularRange) return format(regularRange);
+  if (secretRange) return `Secret ${format(secretRange)}`;
+  return null;
+}
+
 function marketplaceLink(series) {
-  const figure = Array.isArray(series?.figures) ? series.figures[0] : null;
-  if (!figure?.name) return null;
-  return ebayOutboundPath(series.slug, figure.name, "active", { source: "page" });
+  const firstVerified = evaluateAffiliateEligibility(series).verifiedMarketRecords[0];
+  if (!firstVerified?.figure) return null;
+  return ebayOutboundPath(series.slug, firstVerified.figure, "active", { source: "page" });
 }
 
 export default async function Home() {
   const series = allSeries();
   const publishedVideos = await getPublishedVideos();
   const latestCollectibles = series
-    .filter((item) => Array.isArray(item?.figures) && item.figures.length > 0)
+    .filter((item) => evaluateAffiliateEligibility(item).verifiedMarketRecordCount > 0)
     .slice(0, 6);
 
   return (
@@ -48,8 +65,8 @@ export default async function Home() {
       <header className="bv-nav">
         <Link className="bv-brand" href="/">BlindBoxAI</Link>
         <nav aria-label="Primary navigation">
-          <a href="#videos">Latest videos</a>
-          <a href="#collectibles">Cards & collectibles</a>
+          {publishedVideos.length > 0 && <a href="#videos">Latest videos</a>}
+          <a href="#collectibles">Collectibles</a>
           <Link href="/ask">Mr. Know It All</Link>
           <a href="#knowledge">Knowledge base</a>
         </nav>
@@ -61,21 +78,20 @@ export default async function Home() {
           <p className="bv-kicker">Collectible intelligence</p>
           <h1>Research the collectible before you buy.</h1>
           <p className="bv-lead">
-            Watch the latest research videos, check current cards and collectibles,
-            browse the BlindBoxAI knowledge base, and ask Mr. Know It All for
-            evidence-first answers.
+            Compare reviewed sold-price evidence, browse collectible guides, and ask
+            Mr. Know It All. Missing evidence stays marked as missing instead of guessed.
           </p>
           <div className="bv-actions">
             <Link className="bv-button bv-button-primary" href="/ask">Ask Mr. Know It All →</Link>
-            <a className="bv-button bv-button-secondary" href="#collectibles">Browse collectibles</a>
+            <a className="bv-button bv-button-secondary" href="#collectibles">Browse verified collectibles</a>
           </div>
-          <p className="bv-micro">No invented prices. Missing evidence stays marked as missing.</p>
+          <p className="bv-micro">Verified means at least two documented completed sales.</p>
         </div>
 
         <div className="bv-vault-visual" aria-label="Illustration of collectible research evidence">
           <div className="bv-vault-grid">
-            <div className="bv-mini-card"><span>VIDEOS</span><strong>Latest research</strong></div>
-            <div className="bv-mini-card"><span>CARDS</span><strong>Current collectibles</strong></div>
+            <div className="bv-mini-card"><span>PRICES</span><strong>Completed sales</strong></div>
+            <div className="bv-mini-card"><span>COLLECTIBLES</span><strong>Verified catalog</strong></div>
             <div className="bv-mini-card"><span>ASK</span><strong>Mr. Know It All</strong></div>
             <div className="bv-mini-card"><span>KNOWLEDGE</span><strong>Evidence-backed guides</strong></div>
           </div>
@@ -89,15 +105,15 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="bv-videos" id="videos">
-        <div className="bv-section-head">
-          <div>
-            <p className="bv-kicker">Latest videos</p>
-            <h2>New collectible research, ready to watch.</h2>
+      {publishedVideos.length > 0 && (
+        <section className="bv-videos" id="videos">
+          <div className="bv-section-head">
+            <div>
+              <p className="bv-kicker">Latest videos</p>
+              <h2>Published collectible research.</h2>
+            </div>
+            <span>{publishedVideos.length} published</span>
           </div>
-          <span>{publishedVideos.length ? `${publishedVideos.length} published` : "Feed connected"}</span>
-        </div>
-        {publishedVideos.length ? (
           <div className="bv-video-grid">
             {publishedVideos.map((video) => (
               <article className="bv-video-card" key={video.research_run_id}>
@@ -110,26 +126,21 @@ export default async function Home() {
               </article>
             ))}
           </div>
-        ) : (
-          <div className="bv-video-empty">
-            <strong>The public video feed is connected.</strong>
-            <p>New sports-card and Pokémon research videos will appear here automatically when they are published.</p>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       <section className="bv-research" id="collectibles">
         <div className="bv-section-head">
           <div>
-            <p className="bv-kicker">Latest cards & collectibles</p>
-            <h2>Current items from the BlindBoxAI catalog.</h2>
+            <p className="bv-kicker">Verified collectibles</p>
+            <h2>Items with at least two documented completed sales.</h2>
           </div>
           <span>{latestCollectibles.length} featured</span>
         </div>
 
         <div className="bv-series-grid">
           {latestCollectibles.map((s) => {
-            const span = priceSpan(s);
+            const summary = marketSummary(s);
             const verification = seriesPriceVerification(s);
             const outbound = marketplaceLink(s);
             return (
@@ -139,13 +150,11 @@ export default async function Home() {
                     <Link className="bv-card-title" href={`/series/${s.slug}`}>{s.name}</Link>
                     <span>{s.brand}</span>
                   </div>
-                  {span && <b>${span.low}–${span.high}</b>}
+                  {summary && <b>{summary}</b>}
                 </div>
                 <div className="bv-series-meta">
                   <span className={verification.needsResearchCount ? "bv-status bv-status-pending" : "bv-status"}>
-                    {verification.verifiedCount
-                      ? `${verification.verifiedCount} verified price${verification.verifiedCount === 1 ? "" : "s"}`
-                      : "Research in progress"}
+                    {verification.verifiedCount} verified price{verification.verifiedCount === 1 ? "" : "s"}
                   </span>
                 </div>
                 <div className="bv-card-links">
@@ -168,9 +177,8 @@ export default async function Home() {
           <p className="bv-kicker">Ask Mr. Know It All</p>
           <h2>Ask the public collector assistant.</h2>
           <p>
-            Ask about cards, blind boxes, toys, sold-price evidence, authenticity warning signs,
-            or what BlindBoxAI already knows. Exact sold evidence is returned when available;
-            missing evidence is queued for research instead of guessed.
+            Ask about BlindBoxAI's reviewed collectible evidence. Exact sold evidence is returned
+            when available; missing evidence is queued for research instead of guessed.
           </p>
         </div>
         <Link className="bv-button bv-button-primary bv-public-ask" href="/ask">Ask Mr. Know It All →</Link>
@@ -187,7 +195,7 @@ export default async function Home() {
 
         <div className="bv-series-grid">
           {series.map((s) => {
-            const span = priceSpan(s);
+            const summary = marketSummary(s);
             const verification = seriesPriceVerification(s);
             const secret = s._dataQuality?.pullOdds?.status === "verified" ? s.pullOdds?.secret : null;
             return (
@@ -197,7 +205,7 @@ export default async function Home() {
                     <strong>{s.name}</strong>
                     <span>{s.brand}</span>
                   </div>
-                  {span && <b>${span.low}–${span.high}</b>}
+                  {summary && <b>{summary}</b>}
                 </div>
                 <div className="bv-series-meta">
                   {secret && <span className="bv-chip">SECRET {secret}</span>}
@@ -224,4 +232,5 @@ const PUBLIC_ONLY_CSS = `
 .bv-card-links a{font-size:.78rem;font-weight:750;color:#087e7a;text-decoration:none}
 .bv-paid-link{display:block;margin-top:8px;color:#697471;font-size:.65rem;line-height:1.4}
 .bv-public-ask{margin-top:24px}
+.bv-series-top b{max-width:240px;text-align:right;white-space:normal}
 `;

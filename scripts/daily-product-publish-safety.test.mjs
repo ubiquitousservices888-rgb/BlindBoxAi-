@@ -130,7 +130,7 @@ describe("approval artifact CTA integrity", () => {
         rarity: "standard",
         resaleLow: 18,
         resaleHigh: 24,
-        evidence: "Test fixture reviewed sold transaction TX-USD-001",
+        evidence: "2 reviewed US sold transactions: TX-USD-001 and TX-USD-002",
         needsReview: false,
       }],
     });
