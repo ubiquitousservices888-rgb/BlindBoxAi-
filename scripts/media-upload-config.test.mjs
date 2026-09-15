@@ -14,6 +14,7 @@ test("mobile uploader uses owner-authenticated signed storage for approved video
   assert.match(form, /free-upload-ticket/);
   assert.match(form, /MAX_VIDEO_SIZE\s*=\s*100\s*\*\s*1024\s*\*\s*1024/);
   assert.match(form, /xhr\.open\("PUT",\s*signedUrl/);
+  assert.match(form, /xhr\.setRequestHeader\("x-upsert",\s*"false"\)/);
   assert.match(form, /new FormData\(\)/);
   assert.match(form, /signedUrl/);
   assert.match(form, /publicUrl/);
