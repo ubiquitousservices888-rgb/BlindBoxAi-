@@ -5,9 +5,10 @@ import { after, NextResponse } from "next/server";
 import {
   ebayActiveLink,
   ebaySoldLink,
+  epnCustomId,
   getSeries,
 } from "../../../../lib/data";
-import { normalizeCampaignId } from "../../../../lib/campaign-attribution.mjs";
+import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
 import { buildCustomId, parseAttribution, verticalFromSource } from "../../../../lib/attribution.mjs";
 
 export const runtime = "nodejs";
@@ -65,8 +66,19 @@ export async function GET(request) {
     source: rawSource,
     itemSlug: rawItemSlug,
   });
-
-  const customId = buildCustomId(attribution);
+  const outboundSource = campaignId
+    ? normalizeSource(rawSource || "page")
+    : attribution.source;
+  const customId = campaignId
+    ? epnCustomId({
+        seriesSlug: series.slug,
+        figure: figure.name,
+        kind,
+        placement,
+        campaignId,
+        source: outboundSource,
+      })
+    : buildCustomId(attribution);
 
   const query = `${series.brand} ${series.name} ${figure.name}`;
 
@@ -85,7 +97,7 @@ export async function GET(request) {
     clickedAt,
     customId,
     campaignId: campaignId || null,
-    source: attribution.source,
+    source: outboundSource,
     vertical: attribution.vertical,
     itemSlug: attribution.itemSlug,
 
