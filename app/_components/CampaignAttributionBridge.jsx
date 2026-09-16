@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import {
+  normalizeAttributionSource,
   normalizeCampaignId,
   normalizeSource,
 } from "../../lib/campaign-attribution.mjs";
@@ -21,16 +22,23 @@ export default function CampaignAttributionBridge() {
 
       const current = new URL(window.location.href);
       const campaignId = normalizeCampaignId(current.searchParams.get("campaign"));
-      if (!campaignId) return;
-      const source = normalizeSource(current.searchParams.get("source") || "page");
+      const source = normalizeAttributionSource(
+        current.searchParams.get("source") || current.searchParams.get("utm_source"),
+      );
+      if (!campaignId && source === "none") return;
 
       const rawHref = anchor.getAttribute("href") || "";
       if (!rawHref || rawHref.startsWith("#") || /^(mailto:|tel:|javascript:)/i.test(rawHref)) return;
 
       const next = new URL(rawHref, window.location.href);
       if (next.origin !== window.location.origin) return;
-      if (!next.searchParams.has("campaign")) next.searchParams.set("campaign", campaignId);
-      if (!next.searchParams.has("source")) next.searchParams.set("source", source);
+
+      if (campaignId && !next.searchParams.has("campaign")) {
+        next.searchParams.set("campaign", campaignId);
+      }
+      if (source !== "none" && !next.searchParams.has("source")) {
+        next.searchParams.set("source", normalizeSource(source));
+      }
 
       const attributedHref = `${next.pathname}${next.search}${next.hash}`;
       anchor.setAttribute("href", attributedHref);
