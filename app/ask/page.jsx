@@ -4,6 +4,8 @@ import { track } from "@vercel/analytics";
 import Link from "next/link";
 import { useState } from "react";
 
+import AskVisualListings from "../_components/AskVisualListings";
+
 const SUGGESTIONS = [
   "Pokemon 30th Celebration Charizard",
   "2026 Topps baseball rookie card",
@@ -139,6 +141,15 @@ export default function AskPage() {
           <div className="answer-head"><h2>Research result</h2><span>{result.mode || "deterministic"}</span></div>
           <p className="answer-copy">{result.answer}</p>
 
+          {result.matches?.length === 0 && (
+            <section className="answer-guidance">
+              <h3>What I can answer right now</h3>
+              <p>I do not have enough verified completed-sale evidence to rank this request by value yet, so I will not invent a top-five list or price. The visual research below still shows real matching cards and collectibles so you can inspect them, open listings, or narrow the question to an exact item.</p>
+            </section>
+          )}
+
+          <AskVisualListings query={question.trim()} />
+
           {result.suggestedMatch && result.matches?.length === 0 && (
             <section className="nearest-match">
               <h3>Possible match — confirmation required</h3>
@@ -199,7 +210,7 @@ export default function AskPage() {
         .ask-form,.answer{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}.ask-form label,.audience-research label{display:block;font-weight:600;margin:10px 0 8px}input{display:block;width:100%;border:1.5px solid var(--line-strong);border-radius:10px;background:#fff;color:var(--ink);padding:13px;font:16px/1.5 Inter,system-ui,sans-serif}input:focus{border-color:var(--verify);outline:2px solid #CBE9DF;outline-offset:1px}
         .ask-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px}.ask-controls span{color:var(--muted);font-size:.76rem}.ask-controls button,.audience-research button,.nearest-match button{border:0;border-radius:999px;background:var(--verify);color:#fff;font-weight:600;padding:11px 18px;cursor:pointer;margin-top:12px}.ask-controls button:disabled,.audience-research button:disabled{opacity:.55;cursor:not-allowed}
         .suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px}.suggestions button{border:1px solid var(--line-strong);border-radius:999px;background:transparent;color:var(--ink);padding:7px 11px;font-size:.78rem;cursor:pointer;text-align:left}.ask-error{border:1px solid #E1A56F;background:#FFF4E8;color:#7B3705;border-radius:12px;padding:14px;margin-top:20px}
-        .answer{padding:20px;margin-top:24px}.answer-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}.answer-head h2{font-size:1.35rem}.answer-head span{font-family:"Spline Sans Mono",monospace;font-size:.68rem;text-transform:uppercase;color:var(--verify-ink)}.answer section{margin-top:20px}.answer h3{font-size:1rem;margin-bottom:9px}
+        .answer{padding:20px;margin-top:24px}.answer-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}.answer-head h2{font-size:1.35rem}.answer-head span{font-family:"Spline Sans Mono",monospace;font-size:.68rem;text-transform:uppercase;color:var(--verify-ink)}.answer section{margin-top:20px}.answer h3{font-size:1rem;margin-bottom:9px}.answer-guidance{border:1px solid #d8e8e2;border-radius:12px;background:#f4faf7;padding:13px}.answer-guidance p{margin:0;color:var(--muted);font-size:.84rem;line-height:1.55}
         .matches{display:grid;gap:10px}.match{border:1px solid var(--line);border-radius:10px;padding:13px;background:#fff}.match div{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.match span{display:block;color:var(--muted);font-size:.78rem}.match b{display:block;font-family:"Spline Sans Mono",monospace;margin-top:7px}.match p,.audience-research p,.nearest-match p{color:var(--muted);font-size:.84rem;margin:7px 0}.match a{font-size:.8rem;font-weight:600}.evidence-meta{margin-top:9px;padding:8px 10px;border-radius:8px;background:#eef5f2;font-size:.74rem}.evidence-meta.fresh{background:#eaf6f1}.evidence-meta.dated{background:#fff3df}.evidence-meta.unknown{background:#f1f2f2}.evidence-meta span:last-child{font-weight:700}.nearest-match{border-top:1px solid var(--line);padding-top:14px}.nearest-match small{display:block;margin-top:9px;color:var(--muted);font-size:.72rem;line-height:1.45}.audience-research{border-top:1px solid var(--line);padding-top:14px}.research-status{font-weight:600}.answer-notes{border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:.88rem}.answer-notes ul{padding-left:20px}.privacy-note{margin-top:28px;color:var(--muted);font-size:.78rem}
         @media(max-width:560px){.ask-controls{align-items:flex-start;flex-direction:column}.ask-controls button{width:100%}.answer-head{align-items:flex-start;flex-direction:column}.evidence-meta{align-items:flex-start;flex-direction:column}}
       `}</style>
