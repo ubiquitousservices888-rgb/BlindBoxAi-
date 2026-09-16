@@ -5,14 +5,20 @@ import test from "node:test";
 import {
   buildCampaignId,
   campaignCustomIdSuffix,
+  normalizeAttributionSource,
   normalizeCampaignId,
   normalizeSource,
+  resolveRequestAttribution,
 } from "../lib/campaign-attribution.mjs";
 
 import { epnCustomId, ebayOutboundPath } from "../lib/data.js";
 
 const attributionBridge = readFileSync(new URL("../app/_components/CampaignAttributionBridge.jsx", import.meta.url), "utf8");
+const coreAnalytics = readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
 const ebayRoute = readFileSync(new URL("../app/api/out/ebay/route.js", import.meta.url), "utf8");
+const ebayLiveRoute = readFileSync(new URL("../app/api/out/ebay-live/route.js", import.meta.url), "utf8");
+const offerRoute = readFileSync(new URL("../app/api/out/offer/route.js", import.meta.url), "utf8");
+const amazonRoute = readFileSync(new URL("../app/api/out/amazon/route.js", import.meta.url), "utf8");
 const template = readFileSync(new URL("../app/template.jsx", import.meta.url), "utf8");
 
 test("campaign ids reject unsafe input", () => {
@@ -32,9 +38,36 @@ test("deterministic campaign builder follows platform-content-series-date scheme
   );
 });
 
-test("source is normalized without carrying arbitrary text", () => {
+test("source normalization distinguishes legacy page fallback from clean missing attribution", () => {
   assert.equal(normalizeSource("YouTube Shorts"), "youtubeshorts");
   assert.equal(normalizeSource(""), "page");
+  assert.equal(normalizeAttributionSource("Reddit Ads"), "redditads");
+  assert.equal(normalizeAttributionSource(""), "none");
+});
+
+test("request attribution accepts a source without inventing a campaign", () => {
+  assert.deepEqual(
+    resolveRequestAttribution({ source: "test" }),
+    { campaignId: "", source: "test", recoveredFrom: "query_source" },
+  );
+});
+
+test("request attribution can recover BlindBoxAI landing tags from referrer", () => {
+  assert.deepEqual(
+    resolveRequestAttribution({ referer: "https://blindboxai.com/?utm_source=reddit" }),
+    { campaignId: "", source: "reddit", recoveredFrom: "blindbox_referrer" },
+  );
+});
+
+test("missing or stripped referrer fails cleanly to none", () => {
+  assert.deepEqual(
+    resolveRequestAttribution({ referer: "" }),
+    { campaignId: "", source: "none", recoveredFrom: "none" },
+  );
+  assert.deepEqual(
+    resolveRequestAttribution({ referer: "https://reddit.com/r/popmart" }),
+    { campaignId: "", source: "none", recoveredFrom: "none" },
+  );
 });
 
 test("EPN custom id carries campaign and source", () => {
@@ -51,7 +84,20 @@ test("EPN custom id carries campaign and source", () => {
   assert.ok(id.length <= 240);
 });
 
-test("outbound path keeps first-party attribution", () => {
+test("EPN custom id can carry a source-only landing tag", () => {
+  const id = epnCustomId({
+    seriesSlug: "hirono-series",
+    figure: "The Other One",
+    kind: "active",
+    placement: "series_table",
+    source: "test",
+  });
+  assert.match(id, /^bb1/);
+  assert.match(id, /sxtest/);
+  assert.ok(id.length <= 240);
+});
+
+test("outbound path keeps explicit campaign attribution", () => {
   const path = ebayOutboundPath(
     "hirono-series",
     "The Other One",
@@ -63,8 +109,8 @@ test("outbound path keeps first-party attribution", () => {
   assert.doesNotMatch(path, /ebay\.com/);
 });
 
-test("empty campaign preserves legacy link shape", () => {
-  const suffix = campaignCustomIdSuffix({ campaignId: "", source: "youtube" });
+test("empty campaign and source preserve legacy link shape", () => {
+  const suffix = campaignCustomIdSuffix({ campaignId: "", source: "" });
   assert.equal(suffix, "");
   const path = ebayOutboundPath("hirono-series", "The Other One", "sold");
   assert.doesNotMatch(path, /campaign=/);
@@ -79,10 +125,26 @@ test("campaign attribution survives internal BlindBoxAI navigation without track
   assert.doesNotMatch(attributionBridge, /document\.cookie|localStorage|sessionStorage/);
 });
 
-test("campaign-attributed series clicks carry the same identifier into eBay EPN customid", () => {
-  assert.match(ebayRoute, /epnCustomId/);
-  assert.match(ebayRoute, /const customId = campaignId[\s\S]*?epnCustomId\(/);
-  assert.match(ebayRoute, /campaignId,/);
-  assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
-  assert.match(ebayRoute, /source:\s*attribution\.source/);
+test("landing source survives same-tab navigation in sessionStorage and decorates affiliate clicks", () => {
+  assert.match(coreAnalytics, /LANDING_SOURCE_STORAGE_KEY = "bbai_landing_source_v1"/);
+  assert.match(coreAnalytics, /params\.get\("utm_source"\) \|\| params\.get\("source"\)/);
+  assert.match(coreAnalytics, /sessionStorage\.setItem\(LANDING_SOURCE_STORAGE_KEY, incoming\)/);
+  assert.match(coreAnalytics, /sessionStorage\.getItem\(LANDING_SOURCE_STORAGE_KEY\)/);
+  assert.match(coreAnalytics, /target\.searchParams\.set\("source", effectiveSource\)/);
+  assert.doesNotMatch(coreAnalytics, /document\.cookie/);
+});
+
+test("all four outbound routes use the single request-attribution resolver", () => {
+  for (const route of [ebayRoute, ebayLiveRoute, offerRoute, amazonRoute]) {
+    assert.match(route, /resolveRequestAttribution/);
+    assert.match(route, /referer:\s*request\.headers\.get\("referer"\)/);
+  }
+  assert.doesNotMatch(ebayLiveRoute, /normalizeCampaignId\(url\.searchParams\.get\("campaign"\)\)/);
+});
+
+test("series eBay clicks put recovered source into both Supabase event and EPN customid", () => {
+  assert.match(ebayRoute, /const hasMarketingSource = outboundSource !== "none"/);
+  assert.match(ebayRoute, /campaignId \|\| hasMarketingSource[\s\S]*?epnCustomId\(/);
+  assert.match(ebayRoute, /source:\s*hasMarketingSource \|\| campaignId \? outboundSource : attribution\.source/);
+  assert.match(ebayRoute, /metadata:\s*\{ attributionRecoveredFrom: requestAttribution\.recoveredFrom \}/);
 });
