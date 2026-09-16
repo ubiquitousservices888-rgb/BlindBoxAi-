@@ -27,22 +27,35 @@ export default function AskVisualListings({ query = "" }) {
     }
 
     const controller = new AbortController();
+    let active = true;
     setReady(false);
     setItems([]);
 
-    const params = new URLSearchParams({ q: clean, source: "ask" });
-    fetch(`/api/ebay/search?${params.toString()}`, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then(response => (response.ok ? response.json() : null))
-      .then(payload => {
-        if (Array.isArray(payload?.items)) setItems(payload.items);
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ q: clean, source: "ask" });
+      fetch(`/api/ebay/search?${params.toString()}`, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
       })
-      .catch(() => {})
-      .finally(() => setReady(true));
+        .then(response => (response.ok ? response.json() : null))
+        .then(payload => {
+          if (!active) return;
+          if (Array.isArray(payload?.items)) setItems(payload.items);
+        })
+        .catch(error => {
+          if (!active || error?.name === "AbortError") return;
+          setItems([]);
+        })
+        .finally(() => {
+          if (active) setReady(true);
+        });
+    }, 180);
 
-    return () => controller.abort();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   if (!query?.trim()) return null;
