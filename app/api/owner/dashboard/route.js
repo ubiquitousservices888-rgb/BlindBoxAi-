@@ -11,7 +11,7 @@ const PRIVATE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
   Vary: "Authorization",
 };
-const DASHBOARD_BLOB_CACHE_MS = 5 * 60 * 1000;
+const DASHBOARD_CACHE_MS = 5 * 60 * 1000;
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 
 let cachedDashboard = null;
@@ -19,15 +19,12 @@ let cachedDashboardAt = 0;
 let dashboardRefreshInFlight = null;
 
 function unauthorized() {
-  return NextResponse.json(
-    { error: "Unauthorized" },
-    { status: 401, headers: PRIVATE_HEADERS },
-  );
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_HEADERS });
 }
 
-async function refreshDashboardSnapshot() {
+async function refreshDashboardSnapshot(ownerCode) {
   if (!dashboardRefreshInFlight) {
-    dashboardRefreshInFlight = getOwnerDashboardSnapshot({ ifNoneMatch: "" })
+    dashboardRefreshInFlight = getOwnerDashboardSnapshot({ ifNoneMatch: "", ownerCode })
       .then((fresh) => {
         cachedDashboard = fresh;
         cachedDashboardAt = Date.now();
@@ -37,25 +34,20 @@ async function refreshDashboardSnapshot() {
         dashboardRefreshInFlight = null;
       });
   }
-
   return dashboardRefreshInFlight;
 }
 
-async function dashboardResult(ifNoneMatch) {
+async function dashboardResult(ifNoneMatch, ownerCode) {
   const now = Date.now();
   const forceRefresh = !ifNoneMatch;
-  const cacheExpired = !cachedDashboard || now - cachedDashboardAt >= DASHBOARD_BLOB_CACHE_MS;
-
+  const cacheExpired = !cachedDashboard || now - cachedDashboardAt >= DASHBOARD_CACHE_MS;
   if (forceRefresh || cacheExpired) {
-    const fresh = await refreshDashboardSnapshot();
+    const fresh = await refreshDashboardSnapshot(ownerCode);
     if (ifNoneMatch && requestEtagMatches(ifNoneMatch, fresh.etag)) {
       return { etag: fresh.etag, notModified: true, snapshot: null };
     }
     return fresh;
   }
-
-  // Return 200 here instead of 304 because this request did not revalidate
-  // the legacy Blob state, and the Supabase review queue may have changed.
   return cachedDashboard;
 }
 
@@ -70,9 +62,7 @@ async function loadReviewQueue(ownerCode) {
     cache: "no-store",
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(body?.error || `Review queue lookup failed (${response.status}).`);
-  }
+  if (!response.ok) throw new Error(body?.error || `Review queue lookup failed (${response.status}).`);
   return Array.isArray(body?.items) ? body.items : [];
 }
 
@@ -97,7 +87,6 @@ function reviewNotifications(items) {
 export async function GET(request) {
   const auth = request.headers.get("authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-
   try {
     assertUploadCode(token);
   } catch {
@@ -105,7 +94,7 @@ export async function GET(request) {
   }
 
   try {
-    const result = await dashboardResult(request.headers.get("if-none-match") || "");
+    const result = await dashboardResult(request.headers.get("if-none-match") || "", token);
     const baseSnapshot = result.snapshot ?? cachedDashboard?.snapshot;
     if (!baseSnapshot) throw new Error("Dashboard snapshot unavailable.");
 
@@ -113,23 +102,15 @@ export async function GET(request) {
     const queueNotifications = reviewNotifications(queueItems);
     const snapshot = {
       ...baseSnapshot,
-      notifications: [
-        ...queueNotifications,
-        ...(Array.isArray(baseSnapshot.notifications) ? baseSnapshot.notifications : []),
-      ],
+      notifications: [...queueNotifications, ...(Array.isArray(baseSnapshot.notifications) ? baseSnapshot.notifications : [])],
     };
 
-    // Review-queue state changes independently of the legacy dashboard snapshot,
-    // so return 200 even when the legacy ETag has not changed.
     const headers = { ...PRIVATE_HEADERS, ETag: result.etag || cachedDashboard?.etag || "" };
     return NextResponse.json(snapshot, { headers });
   } catch (error) {
     console.error("owner_dashboard_load_failed", {
       message: error instanceof Error ? error.message : "Unknown dashboard error",
     });
-    return NextResponse.json(
-      { error: "Dashboard data unavailable." },
-      { status: 503, headers: PRIVATE_HEADERS },
-    );
+    return NextResponse.json({ error: "Dashboard data unavailable." }, { status: 503, headers: PRIVATE_HEADERS });
   }
 }
