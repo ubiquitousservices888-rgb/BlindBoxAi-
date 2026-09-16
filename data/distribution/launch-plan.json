@@ -1,0 +1,53 @@
+{
+  "schema": "blindboxai/distribution-launch/v1",
+  "startedAt": "2026-09-15",
+  "measurementWindowDays": 14,
+  "baseline": {
+    "epnClicksPerDayApprox": 16,
+    "epnSource": "user-reported EPN portal baseline",
+    "amazonTraffic": "near-zero",
+    "amazonSource": "user-reported Amazon Associates baseline"
+  },
+  "primaryKpis": [
+    "epn_clicks_per_day",
+    "useful_reddit_answers_posted"
+  ],
+  "trafficGate": {
+    "minimumFreshFeaturedSeries": 2,
+    "freshnessWindowDays": 30,
+    "requireTwoCompletedSalesPerDisplayedPrice": true,
+    "status": "blocked_until_fresh_comp_coverage"
+  },
+  "featuredSeries": [
+    {
+      "slug": "hirono-mist-walker",
+      "priority": 1,
+      "status": "refresh-required"
+    }
+  ],
+  "candidateSeries": [
+    {
+      "slug": "labubu-the-monsters-big-into-energy",
+      "priority": 2,
+      "status": "identity-and-comp-verification-required"
+    },
+    {
+      "slug": "labubu-the-monsters-have-a-seat",
+      "priority": 3,
+      "status": "identity-and-comp-verification-required"
+    }
+  ],
+  "distributionRules": {
+    "redditAutoPosting": false,
+    "redditMode": "monitor-and-draft-only",
+    "affiliateLinks": "BlindBoxAI tracked paths only; never raw marketplace affiliate URLs in social posts",
+    "catalogUpdates": "source-backed completed-sale evidence only",
+    "unknownOrAmbiguousEvidence": "do not publish a price",
+    "featureFreeze": "no new product features until a primary KPI moves"
+  },
+  "notes": [
+    "Labubu candidate catalogs currently require exact identity verification before they can be featured as pricing evidence.",
+    "EPN portal reporting is the authoritative click scoreboard while first-party Blob logging is unavailable.",
+    "Approved-video publishing may continue because it is an existing distribution path, not a new product feature."
+  ]
+}
