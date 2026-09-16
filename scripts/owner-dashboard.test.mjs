@@ -24,19 +24,23 @@ const dashboardRoute = readFileSync(
   new URL("../app/api/owner/dashboard/route.js", import.meta.url),
   "utf8",
 );
+const dashboardLib = readFileSync(
+  new URL("../lib/owner-dashboard.js", import.meta.url),
+  "utf8",
+);
 
 function blob(pathname, uploadedAt, etag = pathname) {
   return { pathname, uploadedAt: new Date(uploadedAt), etag, size: 1 };
 }
 
-test("dashboard scans the current and previous UTC dates across month boundaries", () => {
+test("legacy Blob date helper handles month boundaries", () => {
   assert.deepEqual(
     recentUtcDateStrings(new Date("2026-09-01T00:01:00.000Z"), 2),
     ["2026-09-01", "2026-08-31"],
   );
 });
 
-test("Blob pagination follows every cursor and reaches newest events", async () => {
+test("legacy Blob pagination helper follows every cursor", async () => {
   const calls = [];
   const pages = new Map([
     ["affiliate/clicks/2026-08-15/|", {
@@ -72,7 +76,7 @@ test("Blob pagination follows every cursor and reaches newest events", async () 
   assert.ok(calls.includes("affiliate/clicks/2026-08-15/|today-page-2"));
 });
 
-test("Blob pagination fails closed if a cursor does not advance", async () => {
+test("legacy Blob pagination helper fails closed if a cursor does not advance", async () => {
   await assert.rejects(
     listAllBlobPages(
       async () => ({ blobs: [], hasMore: true, cursor: "stuck" }),
@@ -82,7 +86,7 @@ test("Blob pagination fails closed if a cursor does not advance", async () => {
   );
 });
 
-test("last-24-hour count uses Blob metadata without downloading every JSON file", () => {
+test("legacy last-24-hour Blob helper counts metadata correctly", () => {
   const blobs = [
     blob("a", "2026-08-15T11:00:00Z"),
     blob("b", "2026-08-14T11:59:59Z"),
@@ -139,10 +143,11 @@ test("dashboard polling starts only after authenticated data loads", () => {
   assert.match(dashboardClient, /If-None-Match/);
 });
 
-
-test("dashboard route deduplicates Blob refreshes and only returns 304 after revalidation", () => {
+test("dashboard uses Supabase telemetry without Blob list calls", () => {
+  assert.match(dashboardLib, /getDistributionTelemetry/);
+  assert.doesNotMatch(dashboardLib, /\bfrom\s+["']@vercel\/blob["'][\s\S]*\blist\b/);
+  assert.doesNotMatch(dashboardLib, /listRecentBlobMetadata/);
   assert.match(dashboardRoute, /dashboardRefreshInFlight/);
-  assert.match(dashboardRoute, /const forceRefresh = !ifNoneMatch/);
+  assert.match(dashboardRoute, /getOwnerDashboardSnapshot\(\{ ifNoneMatch: "", ownerCode \}\)/);
   assert.match(dashboardRoute, /if \(forceRefresh \|\| cacheExpired\)/);
-  assert.match(dashboardRoute, /Return 200 here instead of 304/);
 });

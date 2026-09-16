@@ -1,9 +1,8 @@
-import { put } from "@vercel/blob";
-import { randomUUID } from "node:crypto";
 import { after, NextResponse } from "next/server";
 
 import { getAmazonAccessoryOffer } from "../../../../lib/amazon-associates.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +19,7 @@ export async function POST(request) {
 
   const offerId = String(body?.offerId || "").trim().toLowerCase();
   const offer = getAmazonAccessoryOffer(offerId);
-  if (!offer) {
-    return NextResponse.json({ error: "Offer not found." }, { status: 404, headers: PRIVATE_HEADERS });
-  }
+  if (!offer) return NextResponse.json({ error: "Offer not found." }, { status: 404, headers: PRIVATE_HEADERS });
 
   const campaignId = normalizeCampaignId(body?.campaignId);
   const source = normalizeSource(body?.source || "amazon_accessories");
@@ -36,32 +33,20 @@ export async function POST(request) {
     customId,
     campaignId: campaignId || null,
     source,
-    offerId: offer.id,
-    offerTitle: offer.title,
+    itemSlug: offer.id,
     placement: "amazon_accessories",
     sourcePath: "/shop/accessories",
+    metadata: { offerTitle: offer.title, directProviderLink: true },
     piiStored: false,
-    directProviderLink: true,
   };
 
   after(async () => {
     try {
-      const date = clickedAt.slice(0, 10);
-      const eventId = `${Date.now().toString(36)}-${randomUUID().replaceAll("-", "")}`;
-      await put(
-        `affiliate/clicks/${date}/${eventId}.json`,
-        JSON.stringify(event, null, 2),
-        {
-          access: "private",
-          contentType: "application/json",
-          addRandomSuffix: false,
-          allowOverwrite: false,
-        },
-      );
+      await recordAffiliateClick(event);
     } catch (cause) {
       console.error("amazon_affiliate_click_log_failed", {
         offerId: offer.id,
-        message: cause instanceof Error ? cause.message : "Unknown Blob error",
+        message: cause instanceof Error ? cause.message : "Unknown Supabase error",
       });
     }
   });

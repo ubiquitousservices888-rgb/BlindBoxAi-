@@ -1,6 +1,6 @@
-import { put } from "@vercel/blob";
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+
+import { recordAnalyticsEvent } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,22 +67,11 @@ export async function POST(request) {
   };
 
   try {
-    const date = capturedAt.slice(0, 10);
-    const eventId = `${Date.now().toString(36)}-${randomUUID().replaceAll("-", "")}`;
-    await put(
-      `analytics/events/${date}/${eventId}.json`,
-      JSON.stringify(event, null, 2),
-      {
-        access: "private",
-        contentType: "application/json",
-        addRandomSuffix: false,
-        allowOverwrite: false,
-      },
-    );
+    await recordAnalyticsEvent(event);
   } catch (cause) {
     console.error("analytics_event_log_failed", {
       event: eventName,
-      message: cause instanceof Error ? cause.message : "Unknown Blob error",
+      message: cause instanceof Error ? cause.message : "Unknown Supabase error",
     });
     return NextResponse.json(
       { ok: false },
