@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 
 import { buildEbaySearchUrl } from "../../../../lib/affiliate-policy.mjs";
-import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
 import { getRevenueOffer, revenueOfferCustomId } from "../../../../lib/revenue-offers";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
@@ -16,8 +16,13 @@ export async function GET(request) {
   const url = new URL(request.url);
   const offerId = url.searchParams.get("offer")?.trim().toLowerCase() || "";
   const kind = url.searchParams.get("kind")?.trim() || "";
-  const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
-  const source = normalizeSource(url.searchParams.get("source") || "buy_or_pass");
+  const requestAttribution = resolveRequestAttribution({
+    campaign: url.searchParams.get("campaign"),
+    source: url.searchParams.get("source"),
+    referer: request.headers.get("referer"),
+  });
+  const campaignId = requestAttribution.campaignId;
+  const source = requestAttribution.source;
 
   if (kind !== "active" && kind !== "sold") return error("Invalid affiliate link type.");
   const offer = getRevenueOffer(offerId);
@@ -33,6 +38,7 @@ export async function GET(request) {
     clickedAt,
     customId,
     campaignId: campaignId || null,
+    campaignSource: campaignId ? source : null,
     source,
     itemSlug: offer.id,
     seriesSlug: offer.seriesSlug,
@@ -42,6 +48,7 @@ export async function GET(request) {
     kind,
     placement: "buy_or_pass",
     sourcePath: `/tools/buy-or-pass/${offer.id}`,
+    metadata: { attributionRecoveredFrom: requestAttribution.recoveredFrom },
     piiStored: false,
   };
 

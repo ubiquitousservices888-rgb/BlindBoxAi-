@@ -4,7 +4,7 @@ import {
   buildAmazonSearchUrl,
   getAmazonAccessoryOffer,
 } from "../../../../lib/amazon-associates.mjs";
-import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -17,8 +17,13 @@ function error(message, status = 400) {
 export async function GET(request) {
   const url = new URL(request.url);
   const offerId = url.searchParams.get("offer")?.trim().toLowerCase() || "";
-  const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
-  const source = normalizeSource(url.searchParams.get("source") || "amazon_accessories");
+  const requestAttribution = resolveRequestAttribution({
+    campaign: url.searchParams.get("campaign"),
+    source: url.searchParams.get("source"),
+    referer: request.headers.get("referer"),
+  });
+  const campaignId = requestAttribution.campaignId;
+  const source = requestAttribution.source;
 
   const offer = getAmazonAccessoryOffer(offerId);
   if (!offer) return error("Offer not found.", 404);
@@ -33,11 +38,15 @@ export async function GET(request) {
     clickedAt,
     customId,
     campaignId: campaignId || null,
+    campaignSource: campaignId ? source : null,
     source,
     itemSlug: offer.id,
     placement: "amazon_accessories",
     sourcePath: "/shop/accessories",
-    metadata: { offerTitle: offer.title },
+    metadata: {
+      offerTitle: offer.title,
+      attributionRecoveredFrom: requestAttribution.recoveredFrom,
+    },
     piiStored: false,
   };
 

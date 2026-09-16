@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
 import { getSeries } from "../../../../lib/data";
 import { getEbayProductionItem, normalizeEbayAffiliateReference } from "../../../../lib/ebay-production-api.mjs";
 import { getRevenueOffer } from "../../../../lib/revenue-offers";
@@ -31,9 +31,16 @@ export async function GET(request) {
   const context = resolveContext(String(url.searchParams.get("context") || "").trim(), String(url.searchParams.get("id") || "").trim());
   if (!context) return error("Invalid live eBay click context.", 404);
 
-  const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
-  const source = normalizeSource(url.searchParams.get("source") || "live_ebay");
-  const affiliateReferenceId = normalizeEbayAffiliateReference(["bb-live-click", context.type, context.id, campaignId, source].filter(Boolean).join("-"));
+  const requestAttribution = resolveRequestAttribution({
+    campaign: url.searchParams.get("campaign"),
+    source: url.searchParams.get("source"),
+    referer: request.headers.get("referer"),
+  });
+  const campaignId = requestAttribution.campaignId;
+  const source = requestAttribution.source;
+  const affiliateReferenceId = normalizeEbayAffiliateReference(
+    ["bb-live-click", context.type, context.id, campaignId || "none", source].join("-"),
+  );
 
   let item;
   try {
@@ -51,16 +58,24 @@ export async function GET(request) {
 
   const clickedAt = new Date().toISOString();
   const event = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     event: "outbound_affiliate_click",
     provider: "ebay_epn_live",
     clickedAt,
+    customId: affiliateReferenceId,
     campaignId: campaignId || null,
+    campaignSource: campaignId ? source : null,
     source,
     itemSlug: item.itemId,
     placement: context.type,
     sourcePath: context.type === "series" ? `/series/${context.id}` : `/tools/buy-or-pass/${context.id}`,
-    metadata: { contextType: context.type, contextId: context.id, affiliateReferenceId, ebayUserDataStored: false },
+    metadata: {
+      contextType: context.type,
+      contextId: context.id,
+      affiliateReferenceId,
+      attributionRecoveredFrom: requestAttribution.recoveredFrom,
+      ebayUserDataStored: false,
+    },
     piiStored: false,
   };
 

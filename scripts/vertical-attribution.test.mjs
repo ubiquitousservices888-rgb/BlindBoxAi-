@@ -18,7 +18,7 @@ const attribution = readFileSync("lib/attribution.mjs", "utf8");
 
 const CUSTOM_ID_RE = /^[a-z0-9._-]+$/;
 
-test("closed source taxonomy rejects unvalidated input", () => {
+test("closed source taxonomy rejects unvalidated vertical-source input", () => {
   for (const value of ["../../x", "a".repeat(500), "<script>", "sc_yt_1", "garbage", ""]) {
     assert.equal(isValidSource(value), false, value);
   }
@@ -48,36 +48,38 @@ test("customid is deterministic, bounded, and safe", () => {
   assert.equal(sanitizeSlug("<script> ABC / 123"), "-script-abc-123");
 });
 
-test("valid source is authoritative for vertical", () => {
-  const attribution = parseAttribution({
+test("valid structured source is authoritative for vertical", () => {
+  const parsed = parseAttribution({
     source: "sc_yt_001",
     vertical: "bb",
     itemSlug: "Michael Jordan / 1993",
   });
-  assert.equal(attribution.source, "sc_yt_001");
-  assert.equal(attribution.vertical, "sc");
-  assert.equal(attribution.itemSlug, "michael-jordan-1993");
+  assert.equal(parsed.source, "sc_yt_001");
+  assert.equal(parsed.vertical, "sc");
+  assert.equal(parsed.itemSlug, "michael-jordan-1993");
 });
 
-test("eBay route preserves closed vertical attribution while campaign clicks use EPN custom IDs", () => {
+test("eBay route preserves closed vertical attribution while broader landing source is separately recorded", () => {
+  assert.match(ebayRoute, /resolveRequestAttribution/);
   assert.match(ebayRoute, /buildCustomId\(attribution\)/);
-  assert.match(ebayRoute, /const customId = campaignId/);
   assert.match(ebayRoute, /epnCustomId\(/);
   assert.match(ebayRoute, /vertical:\s*attribution\.vertical/);
-  assert.match(ebayRoute, /source:\s*attribution\.source/);
+  assert.match(ebayRoute, /source:\s*hasMarketingSource \|\| campaignId \? outboundSource : attribution\.source/);
   assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
   assert.match(ebayRoute, /itemSlug:\s*attribution\.itemSlug/);
 });
 
-test("inbound source is first-party session storage only", () => {
+test("inbound attribution remains session-only and stores no cookie", () => {
   assert.match(analytics, /sessionStorage\.getItem\(ATTRIBUTION_STORAGE_KEY\)/);
   assert.match(analytics, /sessionStorage\.setItem\(ATTRIBUTION_STORAGE_KEY, candidate\)/);
+  assert.match(analytics, /sessionStorage\.getItem\(LANDING_SOURCE_STORAGE_KEY\)/);
+  assert.match(analytics, /sessionStorage\.setItem\(LANDING_SOURCE_STORAGE_KEY, incoming\)/);
   assert.match(analytics, /isValidSource\(candidate\)/);
   assert.doesNotMatch(analytics, /document\.cookie/);
 });
 
 test("eBay attribution preserves native new-tab and modified-click behavior", () => {
-  assert.match(analytics, /target\.pathname !== "\/api\/out\/ebay"/);
+  assert.match(analytics, /target\.pathname !== "\/api\/out\/ebay" && target\.pathname !== "\/api\/out\/ebay-live"/);
   assert.match(analytics, /anchor\.setAttribute\("href", decoratedHref\)/);
   assert.match(analytics, /String\(anchor\.target \|\| ""\)\.toLowerCase\(\) === "_blank"/);
   assert.match(analytics, /event\.metaKey/);

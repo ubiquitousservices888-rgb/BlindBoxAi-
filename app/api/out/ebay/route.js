@@ -6,7 +6,7 @@ import {
   epnCustomId,
   getSeries,
 } from "../../../../lib/data";
-import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
 import { buildCustomId, parseAttribution, verticalFromSource } from "../../../../lib/attribution.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
@@ -26,8 +26,13 @@ export async function GET(request) {
   const figureName = url.searchParams.get("figure")?.trim() || "";
   const kind = url.searchParams.get("kind")?.trim() || "";
   const placement = url.searchParams.get("placement")?.trim() || "";
-  const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
-  const rawSource = url.searchParams.get("source")?.trim().toLowerCase() || "";
+  const requestAttribution = resolveRequestAttribution({
+    campaign: url.searchParams.get("campaign"),
+    source: url.searchParams.get("source"),
+    referer: request.headers.get("referer"),
+  });
+  const campaignId = requestAttribution.campaignId;
+  const outboundSource = requestAttribution.source;
   const rawVertical = url.searchParams.get("vertical")?.trim().toLowerCase() || "";
   const rawItemSlug = url.searchParams.get("itemSlug")?.trim() || figureName;
 
@@ -39,10 +44,21 @@ export async function GET(request) {
   const figure = series.figures.find(item => item.name === figureName);
   if (!figure) return error("Figure not found.", 404);
 
-  const attribution = parseAttribution({ vertical: rawVertical || verticalFromSource(rawSource), source: rawSource, itemSlug: rawItemSlug });
-  const outboundSource = campaignId ? normalizeSource(rawSource || "page") : attribution.source;
-  const customId = campaignId
-    ? epnCustomId({ seriesSlug: series.slug, figure: figure.name, kind, placement, campaignId, source: outboundSource })
+  const attribution = parseAttribution({
+    vertical: rawVertical || verticalFromSource(outboundSource),
+    source: outboundSource,
+    itemSlug: rawItemSlug,
+  });
+  const hasMarketingSource = outboundSource !== "none" && outboundSource !== "page";
+  const customId = campaignId || hasMarketingSource
+    ? epnCustomId({
+        seriesSlug: series.slug,
+        figure: figure.name,
+        kind,
+        placement,
+        campaignId,
+        source: outboundSource,
+      })
     : buildCustomId(attribution);
 
   const query = `${series.brand} ${series.name} ${figure.name}`;
@@ -56,7 +72,7 @@ export async function GET(request) {
     customId,
     campaignId: campaignId || null,
     campaignSource: campaignId ? outboundSource : null,
-    source: attribution.source,
+    source: hasMarketingSource || campaignId ? outboundSource : attribution.source,
     vertical: attribution.vertical,
     itemSlug: attribution.itemSlug,
     seriesSlug: series.slug,
@@ -66,6 +82,7 @@ export async function GET(request) {
     kind,
     placement,
     sourcePath: `/series/${series.slug}`,
+    metadata: { attributionRecoveredFrom: requestAttribution.recoveredFrom },
     piiStored: false,
   };
 

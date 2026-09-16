@@ -5,12 +5,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { isValidSource, verticalFromSource } from "../../lib/attribution.mjs";
-import { normalizeCampaignId, normalizeSource } from "../../lib/campaign-attribution.mjs";
+import {
+  normalizeAttributionSource,
+  normalizeCampaignId,
+  normalizeSource,
+} from "../../lib/campaign-attribution.mjs";
 
 const CONSENT_STORAGE_KEY = "blindboxai_consent_v1";
 const ATTRIBUTION_STORAGE_KEY = "bbai_src";
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
+const LANDING_SOURCE_STORAGE_KEY = "bbai_landing_source_v1";
 
 function analyticsAllowed() {
   try {
@@ -25,12 +30,40 @@ function analyticsAllowed() {
 
 function safeLandingSource() {
   const params = new URLSearchParams(window.location.search);
-  const utm = String(params.get("utm_source") || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 40);
-  if (utm) return utm;
+  const utm = normalizeAttributionSource(params.get("utm_source"));
+  if (utm !== "none") return utm;
   try {
     if (document.referrer) return new URL(document.referrer).hostname.replace(/^www\./, "").slice(0, 80);
   } catch {}
   return "direct";
+}
+
+function captureLandingAttributionSource() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const incoming = normalizeAttributionSource(
+      params.get("utm_source") || params.get("source"),
+    );
+    if (incoming !== "none") {
+      sessionStorage.setItem(LANDING_SOURCE_STORAGE_KEY, incoming);
+      return incoming;
+    }
+
+    const stored = normalizeAttributionSource(sessionStorage.getItem(LANDING_SOURCE_STORAGE_KEY));
+    if (stored !== "none") return stored;
+
+    if (document.referrer) {
+      const ref = new URL(document.referrer);
+      if (ref.origin !== window.location.origin) {
+        const external = normalizeAttributionSource(ref.hostname.replace(/^www\./, "").replace(/\./g, "_"));
+        if (external !== "none") {
+          sessionStorage.setItem(LANDING_SOURCE_STORAGE_KEY, external);
+          return external;
+        }
+      }
+    }
+  } catch {}
+  return "none";
 }
 
 function captureValidatedAttribution() {
@@ -53,7 +86,7 @@ function captureCampaignAttribution() {
     const params = new URLSearchParams(window.location.search);
     const incomingCampaignId = normalizeCampaignId(params.get("campaign"));
     if (incomingCampaignId) {
-      const campaignSource = normalizeSource(params.get("source") || "social");
+      const campaignSource = normalizeSource(params.get("source") || params.get("utm_source") || "social");
       sessionStorage.setItem(CAMPAIGN_STORAGE_KEY, incomingCampaignId);
       sessionStorage.setItem(CAMPAIGN_SOURCE_STORAGE_KEY, campaignSource);
       return { campaignId: incomingCampaignId, campaignSource };
@@ -79,8 +112,9 @@ function currentAttribution(pathname) {
     (pathname.includes("sports-card") || pathname.includes("sports_card") ? "sc" :
       pathname.includes("trading-card") || pathname.includes("trading_card") || pathname.includes("tcg") ? "tc" : "bb");
   const campaign = captureCampaignAttribution();
+  const landingSource = captureLandingAttributionSource();
 
-  return { source, vertical, ...campaign };
+  return { source, vertical, landingSource, ...campaign };
 }
 
 function captureFirstParty(event, payload = {}) {
@@ -112,6 +146,7 @@ export default function CoreAnalytics() {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
+    captureLandingAttributionSource();
     setAllowed(analyticsAllowed());
 
     const onConsent = (event) => {
@@ -126,9 +161,10 @@ export default function CoreAnalytics() {
     if (!allowed || !pathname) return;
     const path = pathname.slice(0, 120);
     const campaign = captureCampaignAttribution();
+    const landingSource = captureLandingAttributionSource();
     const payload = {
       path,
-      source: campaign.campaignSource || "direct",
+      source: campaign.campaignSource || (landingSource !== "none" ? landingSource : "direct"),
       campaign: campaign.campaignId || "none",
     };
     track("page_view", payload);
@@ -138,7 +174,8 @@ export default function CoreAnalytics() {
   useEffect(() => {
     if (!allowed) return;
     const campaign = captureCampaignAttribution();
-    const source = campaign.campaignSource || safeLandingSource();
+    const landingSource = captureLandingAttributionSource();
+    const source = campaign.campaignSource || (landingSource !== "none" ? landingSource : safeLandingSource());
     captureValidatedAttribution();
     const payload = {
       source,
@@ -157,8 +194,6 @@ export default function CoreAnalytics() {
   }, [allowed]);
 
   useEffect(() => {
-    if (!allowed) return;
-
     const onClick = (event) => {
       const anchor = event.target?.closest?.("a[href]");
       if (!anchor) return;
@@ -168,30 +203,33 @@ export default function CoreAnalytics() {
       if (destination === "internal_cta" && !href.includes("shop") && !href.includes("buy")) return;
 
       const attribution = currentAttribution(window.location.pathname);
-      const effectiveSource = attribution.campaignSource || attribution.source;
-      const payload = {
-        destination,
-        path: window.location.pathname.slice(0, 120),
-        vertical: attribution.vertical,
-        source: effectiveSource,
-        campaign: attribution.campaignId || "none",
-      };
+      const outboundSource = attribution.campaignSource ||
+        (attribution.source !== "none" ? attribution.source : attribution.landingSource);
+      const effectiveSource = outboundSource !== "none" ? outboundSource : "none";
 
-      track("commerce_intent_click", payload);
-      captureFirstParty("commerce_intent_click", payload);
+      if (allowed) {
+        const payload = {
+          destination,
+          path: window.location.pathname.slice(0, 120),
+          vertical: attribution.vertical,
+          source: effectiveSource,
+          campaign: attribution.campaignId || "none",
+        };
+        track("commerce_intent_click", payload);
+        captureFirstParty("commerce_intent_click", payload);
+      }
 
       if (!isAffiliateDestination(destination)) return;
 
       try {
         const target = new URL(href, window.location.origin);
-        const outboundSource = attribution.campaignSource || (attribution.source !== "none" ? attribution.source : "");
         if (attribution.campaignId) target.searchParams.set("campaign", attribution.campaignId);
-        if (outboundSource) target.searchParams.set("source", outboundSource);
+        if (effectiveSource !== "none") target.searchParams.set("source", effectiveSource);
 
         if (destination === "ebay_affiliate") {
-          if (target.pathname !== "/api/out/ebay") return;
+          if (target.pathname !== "/api/out/ebay" && target.pathname !== "/api/out/ebay-live") return;
           target.searchParams.set("vertical", attribution.vertical);
-          if (!target.searchParams.get("itemSlug")) {
+          if (target.pathname === "/api/out/ebay" && !target.searchParams.get("itemSlug")) {
             target.searchParams.set("itemSlug", target.searchParams.get("figure") || window.location.pathname.split("/").filter(Boolean).pop() || "item");
           }
         }
