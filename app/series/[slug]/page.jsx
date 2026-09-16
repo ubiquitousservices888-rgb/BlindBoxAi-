@@ -57,7 +57,7 @@ export default async function SeriesPage({ params, searchParams }) {
   const { slug } = await params;
   const query = await searchParams;
   const campaignId = normalizeCampaignId(query?.campaign);
-  const source = normalizeSource(query?.source);
+  const source = normalizeSource(query?.source || query?.utm_source);
   const attribution = { campaignId, source };
   const s = getSeries(slug);
   if (!s) return <main><h1>Series not found</h1><p><Link href="/">← All series</Link></p></main>;
