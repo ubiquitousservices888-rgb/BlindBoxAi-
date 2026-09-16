@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { buildAskVisualClickPath, normalizeAskVisualQuery } from "../lib/ask-visual-search.mjs";
 import {
   ebayProductionApiConfigured,
   normalizeEbayAffiliateReference,
@@ -68,4 +69,21 @@ test("single Browse item normalization rejects non-eBay destinations", () => {
   });
   assert.equal(item.itemId, "v1|789|0");
   assert.match(item.affiliateUrl, /^https:\/\/www\.ebay\.com\//);
+});
+
+test("Ask visual search converts broad ranking questions into useful collectible queries", () => {
+  assert.equal(normalizeAskVisualQuery("top 5 most valuable pokemon cards"), "pokemon cards");
+  assert.equal(normalizeAskVisualQuery("What are the top 10 most valuable Magic cards?"), "Magic cards");
+  assert.equal(normalizeAskVisualQuery("show me Labubu Macaron"), "Labubu Macaron");
+});
+
+test("Ask visual click paths keep the user's search text out of affiliate URLs", () => {
+  const clickPath = buildAskVisualClickPath("v1|123|0", "campaign-1", "ask");
+  const url = new URL(clickPath, "https://blindboxai.com");
+  assert.equal(url.pathname, "/api/out/ebay-live");
+  assert.equal(url.searchParams.get("item"), "v1|123|0");
+  assert.equal(url.searchParams.get("context"), "ask");
+  assert.equal(url.searchParams.get("id"), "visual-search");
+  assert.equal(url.searchParams.get("campaign"), "campaign-1");
+  assert.equal(url.searchParams.has("q"), false);
 });

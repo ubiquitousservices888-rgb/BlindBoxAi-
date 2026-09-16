@@ -22,7 +22,17 @@ function resolveContext(type, id) {
     const offer = getRevenueOffer(id);
     return offer ? { type, id: offer.id } : null;
   }
+  if (type === "ask" && id === "visual-search") {
+    return { type: "ask", id: "visual-search" };
+  }
   return null;
+}
+
+function sourcePathForContext(context) {
+  if (context.type === "series") return `/series/${context.id}`;
+  if (context.type === "offer") return `/tools/buy-or-pass/${context.id}`;
+  if (context.type === "ask") return "/ask";
+  return "/";
 }
 
 export async function GET(request) {
@@ -68,7 +78,7 @@ export async function GET(request) {
     source,
     itemSlug: item.itemId,
     placement: context.type,
-    sourcePath: context.type === "series" ? `/series/${context.id}` : `/tools/buy-or-pass/${context.id}`,
+    sourcePath: sourcePathForContext(context),
     metadata: {
       contextType: context.type,
       contextId: context.id,
