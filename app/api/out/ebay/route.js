@@ -6,7 +6,7 @@ import {
   epnCustomId,
   getSeries,
 } from "../../../../lib/data";
-import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { resolveRequestCampaign } from "../../../../lib/campaign-attribution.mjs";
 import { buildCustomId, parseAttribution, verticalFromSource } from "../../../../lib/attribution.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
@@ -26,8 +26,13 @@ export async function GET(request) {
   const figureName = url.searchParams.get("figure")?.trim() || "";
   const kind = url.searchParams.get("kind")?.trim() || "";
   const placement = url.searchParams.get("placement")?.trim() || "";
-  const campaignId = normalizeCampaignId(url.searchParams.get("campaign"));
   const rawSource = url.searchParams.get("source")?.trim().toLowerCase() || "";
+  const campaign = resolveRequestCampaign({
+    campaign: url.searchParams.get("campaign"),
+    source: rawSource,
+    referer: request.headers.get("referer"),
+  });
+  const campaignId = campaign.campaignId;
   const rawVertical = url.searchParams.get("vertical")?.trim().toLowerCase() || "";
   const rawItemSlug = url.searchParams.get("itemSlug")?.trim() || figureName;
 
@@ -40,7 +45,7 @@ export async function GET(request) {
   if (!figure) return error("Figure not found.", 404);
 
   const attribution = parseAttribution({ vertical: rawVertical || verticalFromSource(rawSource), source: rawSource, itemSlug: rawItemSlug });
-  const outboundSource = campaignId ? normalizeSource(rawSource || "page") : attribution.source;
+  const outboundSource = campaignId ? campaign.source : attribution.source;
   const customId = campaignId
     ? epnCustomId({ seriesSlug: series.slug, figure: figure.name, kind, placement, campaignId, source: outboundSource })
     : buildCustomId(attribution);
@@ -56,7 +61,7 @@ export async function GET(request) {
     customId,
     campaignId: campaignId || null,
     campaignSource: campaignId ? outboundSource : null,
-    source: attribution.source,
+    source: campaignId ? outboundSource : attribution.source,
     vertical: attribution.vertical,
     itemSlug: attribution.itemSlug,
     seriesSlug: series.slug,
