@@ -109,11 +109,23 @@ test("outbound path keeps explicit campaign attribution", () => {
   assert.doesNotMatch(path, /ebay\.com/);
 });
 
+test("outbound path keeps source-only marketing attribution", () => {
+  const path = ebayOutboundPath(
+    "hirono-series",
+    "The Other One",
+    "sold",
+    { source: "test" },
+  );
+  assert.match(path, /source=test/);
+  assert.doesNotMatch(path, /campaign=/);
+});
+
 test("empty campaign and source preserve legacy link shape", () => {
   const suffix = campaignCustomIdSuffix({ campaignId: "", source: "" });
   assert.equal(suffix, "");
   const path = ebayOutboundPath("hirono-series", "The Other One", "sold");
   assert.doesNotMatch(path, /campaign=/);
+  assert.doesNotMatch(path, /source=/);
 });
 
 test("campaign or source-only attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
