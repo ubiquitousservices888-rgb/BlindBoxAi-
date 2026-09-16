@@ -116,11 +116,13 @@ test("empty campaign and source preserve legacy link shape", () => {
   assert.doesNotMatch(path, /campaign=/);
 });
 
-test("campaign attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
+test("campaign or source-only attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
   assert.match(template, /<CampaignAttributionBridge\s*\/>/);
   assert.match(attributionBridge, /current\.searchParams\.get\("campaign"\)/);
+  assert.match(attributionBridge, /current\.searchParams\.get\("source"\) \|\| current\.searchParams\.get\("utm_source"\)/);
+  assert.match(attributionBridge, /if \(!campaignId && source === "none"\) return;/);
   assert.match(attributionBridge, /next\.searchParams\.set\("campaign", campaignId\)/);
-  assert.match(attributionBridge, /next\.searchParams\.set\("source", source\)/);
+  assert.match(attributionBridge, /next\.searchParams\.set\("source", normalizeSource\(source\)\)/);
   assert.match(attributionBridge, /window\.location\.assign\(attributedHref\)/);
   assert.doesNotMatch(attributionBridge, /document\.cookie|localStorage|sessionStorage/);
 });
