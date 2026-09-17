@@ -41,9 +41,9 @@ test("reader applies lookback, stable newest-first ordering, pagination, mapping
     [
       { id: "00000000-0000-0000-0000-000000000004", question_redacted: "What is HIRONO Mist Walker worth?", created_at: "2026-09-17T07:59:00.000Z", confidence: "high" },
       { id: "00000000-0000-0000-0000-000000000003", question_redacted: "How do I check a LABUBU for authenticity?", created_at: "2026-09-17T07:59:00.000Z", confidence: "medium" },
+      { id: "00000000-0000-0000-0000-000000000002", question_redacted: "   ", created_at: "2026-09-17T07:58:00.000Z", confidence: "low" },
     ],
     [
-      { id: "00000000-0000-0000-0000-000000000002", question_redacted: "   ", created_at: "2026-09-17T07:58:00.000Z", confidence: "low" },
       { id: "00000000-0000-0000-0000-000000000001", question_redacted: "Which SKULLPANDA series should I compare?", created_at: "2026-09-17T07:57:00.000Z", confidence: null },
     ],
   ];
@@ -80,7 +80,7 @@ test("reader applies lookback, stable newest-first ordering, pagination, mapping
   assert.equal(requested[0].init.headers.authorization, "Bearer server-only-secret");
 
   const second = new URL(requested[1].url);
-  assert.equal(second.searchParams.get("offset"), "2");
+  assert.equal(second.searchParams.get("offset"), "3");
   assert.equal(second.searchParams.get("limit"), "1");
 });
 
