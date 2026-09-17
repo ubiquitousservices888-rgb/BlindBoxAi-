@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createMrKnowItAllHandler } from "../app/api/mr-know-it-all/route.js";
 import { loadPrivateQuestionEvents } from "../lib/private-question-analytics.mjs";
+import { recordKnowItAllQuestion } from "../lib/mr-know-it-all-store.mjs";
 
 const now = new Date("2026-09-17T08:00:00.000Z");
 
@@ -11,6 +13,46 @@ function jsonResponse(rows, status = 200) {
     headers: { "content-type": "application/json" },
   });
 }
+
+test("route handler accepts an injected no-op recorder", async () => {
+  let recorderCalls = 0;
+  const handler = createMrKnowItAllHandler({
+    recorder: async () => {
+      recorderCalls += 1;
+      return { stored: false, reason: "test_noop" };
+    },
+  });
+  const response = await handler(new Request("https://www.blindboxai.com/api/mr-know-it-all", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: "https://www.blindboxai.com" },
+    body: JSON.stringify({ question: "Hirono Mist Walker" }),
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(recorderCalls, 1);
+  const body = await response.json();
+  assert.equal(body.researchStored, false);
+});
+
+test("mr:test makes zero ingest network calls without explicit opt-in", async () => {
+  const previous = process.env.BLINDBOXAI_ALLOW_TEST_INGEST;
+  delete process.env.BLINDBOXAI_ALLOW_TEST_INGEST;
+  let calls = 0;
+  try {
+    const result = await recordKnowItAllQuestion({
+      question: "Hirono Mist Walker",
+      result: { matches: [], confidence: "low" },
+      fetchImpl: async () => {
+        calls += 1;
+        return jsonResponse({ ok: true }, 202);
+      },
+    });
+    assert.equal(calls, 0);
+    assert.equal(result.stored, false);
+    assert.equal(result.reason, "test_recording_disabled");
+  } finally {
+    if (previous !== undefined) process.env.BLINDBOXAI_ALLOW_TEST_INGEST = previous;
+  }
+});
 
 test("Supabase reader requires server-side URL and service role credentials", async () => {
   await assert.rejects(
