@@ -7,12 +7,22 @@ import {
   recordAnalyticsEvent,
 } from "../lib/supabase-telemetry.mjs";
 
-async function withTelemetryCode(fn) {
-  const previous = process.env.EVIDENCE_UPLOAD_CODE;
+async function withTelemetryTestConfig(fn) {
+  const previous = {
+    code: process.env.EVIDENCE_UPLOAD_CODE,
+    url: process.env.SUPABASE_URL,
+    allow: process.env.BLINDBOXAI_ALLOW_TEST_INGEST,
+  };
   process.env.EVIDENCE_UPLOAD_CODE = "test-telemetry-code";
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.BLINDBOXAI_ALLOW_TEST_INGEST = "true";
   try { await fn(); } finally {
-    if (previous === undefined) delete process.env.EVIDENCE_UPLOAD_CODE;
-    else process.env.EVIDENCE_UPLOAD_CODE = previous;
+    if (previous.code === undefined) delete process.env.EVIDENCE_UPLOAD_CODE;
+    else process.env.EVIDENCE_UPLOAD_CODE = previous.code;
+    if (previous.url === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previous.url;
+    if (previous.allow === undefined) delete process.env.BLINDBOXAI_ALLOW_TEST_INGEST;
+    else process.env.BLINDBOXAI_ALLOW_TEST_INGEST = previous.allow;
   }
 }
 
@@ -24,7 +34,7 @@ function response(body = { ok: true }, status = 202) {
 }
 
 test("affiliate clicks use the Supabase telemetry edge function with existing BlindBoxAI auth", async () => {
-  await withTelemetryCode(async () => {
+  await withTelemetryTestConfig(async () => {
     let call;
     await recordAffiliateClick({ provider: "ebay_epn", clickedAt: "2026-09-15T20:00:00Z", piiStored: false }, {
       fetchImpl: async (url, options) => { call = { url, options }; return response(); },
@@ -37,7 +47,7 @@ test("affiliate clicks use the Supabase telemetry edge function with existing Bl
 });
 
 test("analytics events use the same protected telemetry edge function", async () => {
-  await withTelemetryCode(async () => {
+  await withTelemetryTestConfig(async () => {
     let payload;
     await recordAnalyticsEvent({ event: "page_view", capturedAt: "2026-09-15T20:00:00Z", piiStored: false }, {
       fetchImpl: async (_url, options) => { payload = JSON.parse(options.body); return response(); },
@@ -48,7 +58,7 @@ test("analytics events use the same protected telemetry edge function", async ()
 });
 
 test("dashboard telemetry forwards internal and owner authorization separately", async () => {
-  await withTelemetryCode(async () => {
+  await withTelemetryTestConfig(async () => {
     let headers;
     const result = await getDistributionTelemetry({
       ownerCode: "owner-test-code",
@@ -63,15 +73,34 @@ test("dashboard telemetry forwards internal and owner authorization separately",
   });
 });
 
-test("telemetry fails closed when existing BlindBoxAI authorization is missing", async () => {
-  const previous = process.env.EVIDENCE_UPLOAD_CODE;
-  delete process.env.EVIDENCE_UPLOAD_CODE;
+test("telemetry writes make zero network calls in automated tests without explicit opt-in", async () => {
+  const previousAllow = process.env.BLINDBOXAI_ALLOW_TEST_INGEST;
+  delete process.env.BLINDBOXAI_ALLOW_TEST_INGEST;
+  let calls = 0;
   try {
-    await assert.rejects(
-      recordAnalyticsEvent({ event: "page_view", capturedAt: "2026-09-15T20:00:00Z" }, { fetchImpl: async () => response() }),
-      /BlindBoxAI telemetry authorization is not configured/,
+    const result = await recordAnalyticsEvent(
+      { event: "page_view", capturedAt: "2026-09-15T20:00:00Z" },
+      { fetchImpl: async () => { calls += 1; return response(); } },
     );
+    assert.equal(calls, 0);
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, "test_recording_disabled");
   } finally {
-    if (previous !== undefined) process.env.EVIDENCE_UPLOAD_CODE = previous;
+    if (previousAllow !== undefined) process.env.BLINDBOXAI_ALLOW_TEST_INGEST = previousAllow;
   }
+});
+
+test("telemetry fails closed when existing BlindBoxAI authorization is missing", async () => {
+  await withTelemetryTestConfig(async () => {
+    const previous = process.env.EVIDENCE_UPLOAD_CODE;
+    delete process.env.EVIDENCE_UPLOAD_CODE;
+    try {
+      await assert.rejects(
+        recordAnalyticsEvent({ event: "page_view", capturedAt: "2026-09-15T20:00:00Z" }, { fetchImpl: async () => response() }),
+        /BlindBoxAI telemetry authorization is not configured/,
+      );
+    } finally {
+      if (previous !== undefined) process.env.EVIDENCE_UPLOAD_CODE = previous;
+    }
+  });
 });
