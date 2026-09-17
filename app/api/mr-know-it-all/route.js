@@ -59,49 +59,62 @@ function originAllowed(request) {
   return allowed.has(origin);
 }
 
-export async function POST(request) {
-  if (!originAllowed(request)) return json({ error: "Origin not allowed." }, { status: 403 });
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
-    return json({ error: "Content-Type must be application/json." }, { status: 415 });
-  }
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > 4_096) {
-    return json({ error: "Request body is too large." }, { status: 413 });
-  }
-
-  const limit = takeRateLimit(request);
-  if (!limit.allowed) {
-    return json(
-      { error: "Please wait a moment before searching again." },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
-    );
-  }
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Request body must be valid JSON." }, { status: 400 });
-  }
-
-  const query = String(body?.question ?? body?.query ?? "").trim();
-  if (query.length < 2 || query.length > 120) {
-    return json({ error: "Search must be between 2 and 120 characters." }, { status: 400 });
-  }
-
-  try {
-    const result = buildDeterministicCompResponse(query);
-    const storage = await recordKnowItAllQuestion({ question: query, result }).catch(() => ({ stored: false, reason: "write_failed" }));
-    console.info("agent_question", {
-      piiStored: false,
-      queryLength: query.length,
-      resultCount: result.matches.length,
-      mode: "deterministic",
-      researchStored: storage.stored,
-    });
-    return json({ ...result, researchKey: crypto.createHash("sha256").update(query.trim().toLowerCase()).digest("hex"), researchStored: storage.stored });
-  } catch (error) {
-    console.error("deterministic_comp_lookup_failed", { name: error?.name });
-    return json({ error: "Verified comp lookup is temporarily unavailable." }, { status: 503 });
-  }
+function automatedTestRuntime() {
+  return process.env.NODE_ENV === "test" || process.env.CI === "true" || Boolean(process.env.NODE_TEST_CONTEXT);
 }
+
+async function runtimeRecorder(payload) {
+  if (automatedTestRuntime()) return { stored: false, reason: "test_recording_disabled" };
+  return recordKnowItAllQuestion(payload);
+}
+
+export function createMrKnowItAllHandler({ recorder = runtimeRecorder } = {}) {
+  return async function handleMrKnowItAll(request) {
+    if (!originAllowed(request)) return json({ error: "Origin not allowed." }, { status: 403 });
+    if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+      return json({ error: "Content-Type must be application/json." }, { status: 415 });
+    }
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > 4_096) {
+      return json({ error: "Request body is too large." }, { status: 413 });
+    }
+
+    const limit = takeRateLimit(request);
+    if (!limit.allowed) {
+      return json(
+        { error: "Please wait a moment before searching again." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+      );
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "Request body must be valid JSON." }, { status: 400 });
+    }
+
+    const query = String(body?.question ?? body?.query ?? "").trim();
+    if (query.length < 2 || query.length > 120) {
+      return json({ error: "Search must be between 2 and 120 characters." }, { status: 400 });
+    }
+
+    try {
+      const result = buildDeterministicCompResponse(query);
+      const storage = await recorder({ question: query, result }).catch(() => ({ stored: false, reason: "write_failed" }));
+      console.info("agent_question", {
+        piiStored: false,
+        queryLength: query.length,
+        resultCount: result.matches.length,
+        mode: "deterministic",
+        researchStored: storage.stored,
+      });
+      return json({ ...result, researchKey: crypto.createHash("sha256").update(query.trim().toLowerCase()).digest("hex"), researchStored: storage.stored });
+    } catch (error) {
+      console.error("deterministic_comp_lookup_failed", { name: error?.name });
+      return json({ error: "Verified comp lookup is temporarily unavailable." }, { status: 503 });
+    }
+  };
+}
+
+export const POST = createMrKnowItAllHandler();
