@@ -183,9 +183,17 @@ test("responses include historical-data disclaimer and no model citations", () =
   assert.equal(response.mode, "deterministic");
 });
 
-test("unanswered research questions can queue without a Vercel Supabase key", async () => {
-  const previous = process.env.SUPABASE_ANON_KEY;
+test("explicitly opted-in mocked ingest can queue without a Vercel Supabase key", async () => {
+  const previous = {
+    anon: process.env.SUPABASE_ANON_KEY,
+    url: process.env.SUPABASE_URL,
+    code: process.env.EVIDENCE_UPLOAD_CODE,
+    allow: process.env.BLINDBOXAI_ALLOW_TEST_INGEST,
+  };
   delete process.env.SUPABASE_ANON_KEY;
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.EVIDENCE_UPLOAD_CODE = "test-ingest-code";
+  process.env.BLINDBOXAI_ALLOW_TEST_INGEST = "true";
   let captured = null;
   try {
     const result = await recordKnowItAllQuestion({
@@ -199,12 +207,19 @@ test("unanswered research questions can queue without a Vercel Supabase key", as
     assert.equal(result.stored, true);
     assert.equal(result.queued, true);
     assert.equal(captured.init.headers.authorization, undefined);
+    assert.equal(captured.init.headers["x-mr-authorization"], "Bearer test-ingest-code");
     assert.equal(captured.payload.type, "question");
     assert.equal(captured.payload.vertical, "pokemon_tcg");
     assert.equal(captured.payload.answered, false);
     assert.match(captured.url, /mr-know-it-all-ingest$/);
   } finally {
-    if (previous === undefined) delete process.env.SUPABASE_ANON_KEY;
-    else process.env.SUPABASE_ANON_KEY = previous;
+    if (previous.anon === undefined) delete process.env.SUPABASE_ANON_KEY;
+    else process.env.SUPABASE_ANON_KEY = previous.anon;
+    if (previous.url === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previous.url;
+    if (previous.code === undefined) delete process.env.EVIDENCE_UPLOAD_CODE;
+    else process.env.EVIDENCE_UPLOAD_CODE = previous.code;
+    if (previous.allow === undefined) delete process.env.BLINDBOXAI_ALLOW_TEST_INGEST;
+    else process.env.BLINDBOXAI_ALLOW_TEST_INGEST = previous.allow;
   }
 });
