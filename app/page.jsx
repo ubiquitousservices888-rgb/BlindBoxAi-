@@ -8,15 +8,30 @@ export const revalidate = 300;
 
 const VIDEO_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
 
+function isPublicVideo(item) {
+  if (!item?.video_url || !String(item?.title ?? "").trim()) return false;
+  try {
+    return new URL(item.video_url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function videoVerticalLabel(vertical) {
+  const key = String(vertical ?? "").trim().toLowerCase();
+  if (key === "pokemon_tcg") return "POKÉMON";
+  if (key === "sports_cards") return "SPORTS CARDS";
+  if (["blind_box", "blind_boxes", "designer_toys", "labubu", "pop_mart"].includes(key)) return "BLIND BOXES";
+  return "COLLECTIBLES";
+}
+
 async function getPublishedVideos() {
   try {
     const response = await fetch(VIDEO_FEED_URL, { next: { revalidate: 300 } });
     if (!response.ok) return [];
     const payload = await response.json();
     const items = Array.isArray(payload?.items) ? payload.items : [];
-    return items
-      .filter((item) => ["sports_cards", "pokemon_tcg"].includes(item?.vertical))
-      .slice(0, 6);
+    return items.filter(isPublicVideo).slice(0, 6);
   } catch {
     return [];
   }
@@ -135,10 +150,10 @@ export default async function Home() {
           </div>
           <div className="bv-video-grid">
             {publishedVideos.map((video) => (
-              <article className="bv-video-card" key={video.research_run_id}>
+              <article className="bv-video-card" key={video.research_run_id ?? video.video_url}>
                 <video controls playsInline preload="metadata" src={video.video_url} />
                 <div className="bv-video-copy">
-                  <span>{video.vertical === "pokemon_tcg" ? "POKÉMON" : "SPORTS CARDS"}</span>
+                  <span>{videoVerticalLabel(video.vertical)}</span>
                   <h3>{video.title}</h3>
                   <p>Published collectible research from BlindBoxAI.</p>
                 </div>
