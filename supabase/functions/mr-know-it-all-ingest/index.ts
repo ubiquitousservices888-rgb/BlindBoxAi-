@@ -46,6 +46,11 @@ function publicRateAllowed(req: Request) {
     return true;
   }
   current.count += 1;
+  if (publicBuckets.size > 2_000) {
+    for (const [bucketKey, value] of publicBuckets) {
+      if (now >= value.resetAt) publicBuckets.delete(bucketKey);
+    }
+  }
   return current.count <= 30;
 }
 
@@ -53,6 +58,23 @@ async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value.trim().toLowerCase());
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function validateBlindBoxAuthorization(headerValue: string) {
+  if (!headerValue.startsWith("Bearer ")) return false;
+  try {
+    const response = await fetch("https://www.blindboxai.com/api/owner/storage-auth", {
+      method: "POST",
+      headers: { Authorization: headerValue },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function publicIngestAuthorized(req: Request) {
+  return validateBlindBoxAuthorization(req.headers.get("x-mr-authorization") || "");
 }
 
 async function githubBotAuthorized(req: Request) {
@@ -278,6 +300,7 @@ Deno.serve(async (req: Request) => {
 
   if (type === "question" || type === "audience_response") {
     if (!publicRateAllowed(req)) return json({ error: "Rate limit exceeded" }, 429);
+    if (!await publicIngestAuthorized(req)) return json({ error: "BlindBoxAI ingest authorization required" }, 401);
     return type === "question" ? handleQuestion(body) : handleAudience(body);
   }
 
