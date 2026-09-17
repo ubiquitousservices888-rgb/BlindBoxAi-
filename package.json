@@ -38,7 +38,7 @@
     "mr:research": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs research",
     "mr:decrypt": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs decrypt",
     "mr:validate": "node scripts/mr-know-it-all-research.mjs validate",
-    "mr:test": "node --test scripts/mr-know-it-all.test.mjs scripts/deterministic-demand-research.test.mjs scripts/mr-know-it-all-tool-bot.test.mjs",
+    "mr:test": "node --test scripts/mr-know-it-all.test.mjs scripts/deterministic-demand-research.test.mjs scripts/mr-know-it-all-tool-bot.test.mjs scripts/private-question-supabase.test.mjs",
     "comp:test": "node --test scripts/deterministic-comp-lookup.test.mjs",
     "p0:test": "node --test scripts/p0-compliance.test.mjs",
     "daily:stage": "node scripts/daily-product-pipeline.mjs stage",
