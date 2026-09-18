@@ -127,7 +127,7 @@ for (const channel of channels) {
     campaignId: tracked.searchParams.get("campaign"),
     source: tracked.searchParams.get("source"),
   });
-  console.log(`REVIEWED_UPLOAD_PUBLISHED: ${channel}:${result.id}`);
+  console.log(dryRun\n    ? `REVIEWED_UPLOAD_DRY_RUN_CHANNEL: ${channel}:${result.id}`\n    : `REVIEWED_UPLOAD_PUBLISHED: ${channel}:${result.id}`);
 }
 
 if (!dryRun) {
