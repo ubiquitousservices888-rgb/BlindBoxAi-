@@ -2,7 +2,7 @@
   "schema": "blindboxai/know-it-all/transaction-verification/v1",
   "agent": "Mr. Know It All",
   "mode": "public-sales-with-readonly-provider-credential",
-  "researchedAt": "2026-09-17T19:14:02.099Z",
+  "researchedAt": "2026-09-18T08:28:39.986Z",
   "security": {
     "credentialsProvided": true,
     "secretsRead": true,
