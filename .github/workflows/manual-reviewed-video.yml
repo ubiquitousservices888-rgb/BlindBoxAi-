@@ -32,6 +32,11 @@ on:
         description: Stable per-upload research attribution ID
         required: true
         type: string
+      dry_run:
+        description: Validate the full owner-gated path without creating Buffer posts or published-feed records
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -85,6 +90,7 @@ jobs:
       REVIEWED_VIDEO_URL: ${{ inputs.video_url }}
       REVIEWED_VIDEO_TITLE: ${{ inputs.title }}
       RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
+      DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
@@ -103,6 +109,10 @@ jobs:
         run: npm ci
       - name: Verify Buffer configuration
         run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: Buffer mutation is disabled."
+            exit 0
+          fi
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
             echo "::error::Buffer is not configured."
             exit 1

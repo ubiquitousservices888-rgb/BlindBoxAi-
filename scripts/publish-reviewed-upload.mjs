@@ -22,6 +22,9 @@ function validateVideoUrl(value) {
   if (url.protocol !== "https:" || !/\.mp4$/i.test(url.pathname)) {
     throw new Error("REVIEWED_VIDEO_URL must be an HTTPS MP4");
   }
+  if (!url.hostname.endsWith(".public.blob.vercel-storage.com") || !url.pathname.startsWith("/media/review/")) {
+    throw new Error("REVIEWED_VIDEO_URL must use the approved Vercel Blob review-media namespace");
+  }
   return url.toString();
 }
 
@@ -90,7 +93,10 @@ const channels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tikto
   .filter(Boolean))];
 if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one service");
 
-const publisher = createBufferPublisher({
+const dryRun = /^(?:1|true|yes)$/i.test(String(process.env.DRY_RUN ?? ""));
+if (dryRun) console.log("REVIEWED_UPLOAD_DRY_RUN: true");
+
+const publisher = dryRun ? null : createBufferPublisher({
   token: process.env.BUFFER_API_TOKEN,
   organizationId: process.env.BUFFER_ORGANIZATION_ID,
 });
@@ -110,7 +116,9 @@ for (const channel of channels) {
   if (!caption.includes(trackedCta) || !caption.includes(DISCLOSURE)) {
     throw new Error(`${channel}: tracked CTA and affiliate disclosure are required`);
   }
-  const result = await publisher({ channel, videoUrl, caption });
+  const result = dryRun
+    ? { id: `dry-run-${channel}`, duplicate: false }
+    : await publisher({ channel, videoUrl, caption });
   const tracked = new URL(trackedCta);
   results.push({
     channel,
@@ -119,11 +127,15 @@ for (const channel of channels) {
     campaignId: tracked.searchParams.get("campaign"),
     source: tracked.searchParams.get("source"),
   });
-  console.log(`REVIEWED_UPLOAD_PUBLISHED: ${channel}:${result.id}`);
+  console.log(dryRun\n    ? `REVIEWED_UPLOAD_DRY_RUN_CHANNEL: ${channel}:${result.id}`\n    : `REVIEWED_UPLOAD_PUBLISHED: ${channel}:${result.id}`);
 }
 
-await recordPublishedVideo({ title, videoUrl, researchRunId, results });
-console.log(`REVIEWED_UPLOAD_HOMEPAGE_LINKED: ${researchRunId}`);
+if (!dryRun) {
+  await recordPublishedVideo({ title, videoUrl, researchRunId, results });
+  console.log(`REVIEWED_UPLOAD_HOMEPAGE_LINKED: ${researchRunId}`);
+} else {
+  console.log(`REVIEWED_UPLOAD_DRY_RUN_COMPLETE: ${researchRunId}`);
+}
 console.log(`REVIEWED_UPLOAD_RESEARCH_RUN: ${researchRunId}`);
 console.log(`REVIEWED_UPLOAD_CHANNELS: ${results.length}`);
 
