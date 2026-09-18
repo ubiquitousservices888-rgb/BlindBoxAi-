@@ -74,6 +74,23 @@ test("exact target match requires identifier, print-run denominator, aliases, an
   assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Autograph TTA-JA 25/100 PSA 10", target), false);
 });
 
+
+test("named parallels must match exactly and unresolved parallels never verify", () => {
+  const namedParallel = {
+    ...target,
+    printRunMax: undefined,
+    identity: { ...identity, edition: "Orange Laser" },
+  };
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA Orange Laser", namedParallel), true);
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA Blue Laser", namedParallel), false);
+  const unresolved = {
+    ...target,
+    printRunMax: undefined,
+    identity: { ...identity, edition: "parallel unresolved from photo" },
+  };
+  assert.equal(cardApiExactTargetMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA", unresolved), false);
+});
+
 test("identity terms use token boundaries and tolerate only narrow plural variation", () => {
   assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Auto TTA-JA 25/100", target.requiredTitleTerms), true);
   assert.equal(cardApiTitleMatches("2022 Topps Tier One Jose Abreu Automatic Insert TTA-JA 25/100", [...target.requiredTitleTerms, "Auto"]), false);
