@@ -99,11 +99,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="know-it-all/verification-${GITHUB_RUN_ID}"
+          branch="know-it-all/verification-latest"
           git switch -C "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/know-it-all/latest-transaction-verification.json
+          artifact="data/know-it-all/latest-transaction-verification.json"
+          if git show "HEAD:$artifact" > /tmp/previous-verification.json 2>/dev/null; then
+            if ARTIFACT="$artifact" node --input-type=module <<'NODE'
+import fs from "node:fs";
+const next = JSON.parse(fs.readFileSync(process.env.ARTIFACT, "utf8"));
+const previous = JSON.parse(fs.readFileSync("/tmp/previous-verification.json", "utf8"));
+delete next.researchedAt;
+delete previous.researchedAt;
+process.exit(JSON.stringify(next) === JSON.stringify(previous) ? 0 : 1);
+NODE
+            then
+              echo "Only researchedAt changed; no PR needed."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          git add "$artifact"
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
