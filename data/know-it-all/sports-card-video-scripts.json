@@ -13,24 +13,34 @@
   },
   "scripts": [
     {
-      "researchTargetId": "2022-topps-tier-one-jose-abreu-tta-ja-auto-100",
+      "researchTargetId": "2022-topps-tier-one-jose-abreu-t1ta-ja-auto-149",
       "replacementTitle": "Inside a 2022 Topps Tier One Jose Abreu Autograph",
-      "blockedOriginalClaims": ["steal", "$300 premium", "investment language"],
+      "blockedOriginalClaims": [
+        "steal",
+        "$300 premium",
+        "investment language"
+      ],
       "voiceover": [
         "Buying a premium hobby box means paying for a chance. This card lets you look at the exact hit instead.",
-        "Shown here is a 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, card TTA-JA.",
+        "Shown here is a 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, card T1TA-JA, serial-numbered 009/149.",
         "The back carries Topps' certified-autograph statement and says the signing was witnessed by a Topps representative.",
         "That verifies what the card is. It does not establish what the card is worth.",
         "Before quoting a market value, BlindBoxAI requires matching completed sold prices for this exact card and parallel. Active asking prices and audience guesses do not count.",
         "If exact sold comps are missing, the research question is: what would you pay raw, and what would you pay graded? Those answers are research signals only.",
         "See the verified research status at BlindBoxAI.com. Historical sales do not predict future prices."
       ],
-      "caption": "A photo-backed look at the 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, TTA-JA. Verified value uses completed sold prices only. If exact sold comps are missing: what would you pay raw, and what would you pay graded? Audience answers are research only. Collector research: https://www.blindboxai.com — Historical sales do not predict future prices. #ad BlindBoxAI may earn a commission from qualifying purchases."
+      "caption": "A photo-backed look at the 2022 Topps Tier One Jose Abreu Tier One Talent Autograph, T1TA-JA, numbered 009/149. Verified value uses completed sold prices only. If exact sold comps are missing: what would you pay raw, and what would you pay graded? Audience answers are research only. Collector research: https://www.blindboxai.com — Historical sales do not predict future prices. #ad BlindBoxAI may earn a commission from qualifying purchases."
     },
     {
       "researchTargetId": "2021-topps-triple-threads-david-ortiz-ttr-do2-18",
       "replacementTitle": "What This David Ortiz Triple Threads Relic Actually Is",
-      "blockedOriginalClaims": ["investors are chasing", "$5,000 market value", "$500+ market value", "autograph", "booklet"],
+      "blockedOriginalClaims": [
+        "investors are chasing",
+        "$5,000 market value",
+        "$500+ market value",
+        "autograph",
+        "booklet"
+      ],
       "voiceover": [
         "This David Ortiz card needs an exact description before anyone talks about value.",
         "It is a 2021 Topps Triple Threads relic card, TTR-DO2, serial-numbered 01 of 18.",
