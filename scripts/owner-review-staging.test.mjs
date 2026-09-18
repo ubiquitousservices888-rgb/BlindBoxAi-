@@ -8,7 +8,7 @@ function response(status = 204) {
 
 test("yellow review staging dispatches exact MP4 to main without approving it", async () => {
   let request;
-  const videoUrl = "https://blob.example/media/review/test.mp4";
+  const videoUrl = "https://blindboxai-test.public.blob.vercel-storage.com/media/review/test.mp4";
   const result = await stageOwnerReviewedVideo({
     token: "masked-test-token",
     videoUrl,
@@ -37,16 +37,16 @@ test("yellow review staging dispatches exact MP4 to main without approving it", 
 });
 
 test("research run id is stable for the exact uploaded video and changes for a different video", () => {
-  const first = researchRunIdForVideo("https://blob.example/media/review/a.mp4");
-  assert.equal(first, researchRunIdForVideo("https://blob.example/media/review/a.mp4"));
-  assert.notEqual(first, researchRunIdForVideo("https://blob.example/media/review/b.mp4"));
+  const first = researchRunIdForVideo("https://blindboxai-test.public.blob.vercel-storage.com/media/review/a.mp4");
+  assert.equal(first, researchRunIdForVideo("https://blindboxai-test.public.blob.vercel-storage.com/media/review/a.mp4"));
+  assert.notEqual(first, researchRunIdForVideo("https://blindboxai-test.public.blob.vercel-storage.com/media/review/b.mp4"));
 });
 
 test("yellow staging rejects non-MP4 and invalid media metadata", async () => {
   await assert.rejects(
     () => stageOwnerReviewedVideo({
       token: "masked-test-token",
-      videoUrl: "https://blob.example/media/review/test.mov",
+      videoUrl: "https://blindboxai-test.public.blob.vercel-storage.com/media/review/test.mov",
       title: "Bad format",
       sizeBytes: 100,
       durationSeconds: 10,
@@ -60,7 +60,7 @@ test("yellow staging rejects non-MP4 and invalid media metadata", async () => {
   await assert.rejects(
     () => stageOwnerReviewedVideo({
       token: "masked-test-token",
-      videoUrl: "https://blob.example/media/review/test.mp4",
+      videoUrl: "https://blindboxai-test.public.blob.vercel-storage.com/media/review/test.mp4",
       title: "Bad metadata",
       sizeBytes: 100,
       durationSeconds: 0,
@@ -77,7 +77,7 @@ test("yellow staging rejects MP4 URLs outside the review namespace", async () =>
   await assert.rejects(
     () => stageOwnerReviewedVideo({
       token: "masked-test-token",
-      videoUrl: "https://blob.example/media/approved/test.mp4",
+      videoUrl: "https://blindboxai-test.public.blob.vercel-storage.com/media/approved/test.mp4",
       title: "Wrong namespace",
       sizeBytes: 100,
       durationSeconds: 10,
@@ -86,5 +86,22 @@ test("yellow staging rejects MP4 URLs outside the review namespace", async () =>
       fetchImpl: async () => response(204),
     }),
     /\/media\/review\/ namespace/,
+  );
+});
+
+
+test("yellow staging rejects review MP4s from unapproved hosts", async () => {
+  await assert.rejects(
+    () => stageOwnerReviewedVideo({
+      token: "masked-test-token",
+      videoUrl: "https://example.com/media/review/test.mp4",
+      title: "Wrong host",
+      sizeBytes: 100,
+      durationSeconds: 10,
+      width: 1080,
+      height: 1920,
+      fetchImpl: async () => response(204),
+    }),
+    /approved Vercel Blob media host/,
   );
 });
