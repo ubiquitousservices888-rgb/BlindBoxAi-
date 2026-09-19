@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
+import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
@@ -13,6 +14,7 @@ const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/
 const legacyWorkflow = fs.readFileSync(new URL("../.github/workflows/manual-reviewed-video.yml", import.meta.url), "utf8");
 const queuedWorkflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
 const queuedPublisher = fs.readFileSync(new URL("../scripts/publish-approved-review-queue.mjs", import.meta.url), "utf8");
+const reviewedUploadPublisher = fs.readFileSync(new URL("../scripts/publish-reviewed-upload.mjs", import.meta.url), "utf8");
 const homepage = fs.readFileSync(new URL("../app/page.jsx", import.meta.url), "utf8");
 const stageRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/route.js", import.meta.url), "utf8");
 const approvalRoute = fs.readFileSync(new URL("../app/api/owner/approve-review/route.js", import.meta.url), "utf8");
@@ -56,6 +58,8 @@ test("phone upload uses owner-authenticated signed storage then enters research 
 
 test("yellow upload remains review-only", () => {
   assert.match(dashboard, /UPLOAD NEW REVIEW VIDEO/);
+  assert.match(dashboard, /Public video title/);
+  assert.match(dashboard, /Numeric file IDs are not allowed/);
   assert.match(uploadRoute, /media\\\/review/);
   assert.match(uploadRoute, /review_media_upload_completed/);
   assert.match(uploadRoute, /approved:\s*false/);
@@ -66,6 +70,17 @@ test("legacy protected manual workflow remains available", () => {
   assert.match(legacyWorkflow, /validate-review-upload/);
   assert.match(legacyWorkflow, /READY_FOR_REVIEW/);
   assert.match(legacyWorkflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(reviewedUploadPublisher, /createReviewBufferPublisher/);
+  assert.match(reviewedUploadPublisher, /youtubeCategoryId:\s*"17"/);
+});
+
+test("public video titles reject numeric internal IDs", () => {
+  assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
+  assert.throws(() => requirePublicVideoTitle("VID_20260919"), /must describe the video/);
+  assert.equal(
+    requirePublicVideoTitle("Pokémon 30th: Asking Price vs Sold Price"),
+    "Pokémon 30th: Asking Price vs Sold Price",
+  );
 });
 
 test("new queue publishing requires explicit approval before Buffer publishing", () => {
