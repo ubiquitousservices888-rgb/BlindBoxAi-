@@ -3,6 +3,7 @@
 import { upload } from "@vercel/blob/client";
 import { useEffect, useRef, useState } from "react";
 import { money, numberOrStatus } from "../../lib/revenue-status.mjs";
+import { cleanPublicVideoTitle, isPublicVideoTitle } from "../../lib/public-video-title.mjs";
 
 const REFRESH_INTERVAL_MS = 30_000;
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
@@ -21,15 +22,6 @@ function safeName(name) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
   return base.toLowerCase().endsWith(".mp4") ? base : `${base}.mp4`;
-}
-
-function videoTitle(name) {
-  return String(name || "BlindBoxAI review video")
-    .replace(/\.mp4$/i, "")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 120) || "BlindBoxAI review video";
 }
 
 function readVideoMetadata(url) {
@@ -79,6 +71,7 @@ export default function DashboardClient() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewTitle, setReviewTitle] = useState("");
   const [reviewProgress, setReviewProgress] = useState(0);
   const [reviewMessage, setReviewMessage] = useState("");
   const [reviewResult, setReviewResult] = useState(null);
@@ -167,7 +160,14 @@ export default function DashboardClient() {
   }
 
   function chooseReviewVideo() {
-    if (!reviewBusy) reviewFileInput.current?.click();
+    if (reviewBusy) return;
+    const publicTitle = cleanPublicVideoTitle(reviewTitle, 100);
+    if (!isPublicVideoTitle(publicTitle)) {
+      setError("Enter a descriptive public video title first. Numeric file IDs are not allowed.");
+      return;
+    }
+    setError("");
+    reviewFileInput.current?.click();
   }
 
   async function uploadAndStageReview(event) {
@@ -186,6 +186,11 @@ export default function DashboardClient() {
     }
     if (file.size <= 0 || file.size > MAX_VIDEO_SIZE) {
       setError("Video must be larger than 0 bytes and no more than 100 MB.");
+      return;
+    }
+    const publicTitle = cleanPublicVideoTitle(reviewTitle, 100);
+    if (!isPublicVideoTitle(publicTitle)) {
+      setError("Enter a descriptive public video title first. Numeric file IDs are not allowed.");
       return;
     }
 
@@ -218,7 +223,7 @@ export default function DashboardClient() {
         cache: "no-store",
         body: JSON.stringify({
           videoUrl: blob.url,
-          title: videoTitle(file.name),
+          title: publicTitle,
           sizeBytes: file.size,
           durationSeconds: metadata.durationSeconds,
           width: metadata.width,
@@ -230,6 +235,7 @@ export default function DashboardClient() {
 
       setReviewResult({ ...result, staged: true });
       setReviewMessage("READY FOR REVIEW — watch the exact video below, then use its blue approval button.");
+      setReviewTitle("");
       etagRef.current = "";
       await load(activeCode, false);
     } catch (cause) {
@@ -315,6 +321,19 @@ export default function DashboardClient() {
   return <div style={{ display: "grid", gap: 24 }}>
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h2 style={{ marginTop: 0 }}>Owner video control</h2>
+      <label style={{ display: "grid", gap: 6, maxWidth: 720 }}>
+        <strong>Public video title</strong>
+        <input
+          type="text"
+          value={reviewTitle}
+          onChange={(event) => setReviewTitle(event.target.value)}
+          maxLength={100}
+          disabled={reviewBusy}
+          placeholder="Pokémon 30th: Asking Price vs Sold Price"
+          style={{ padding: 12, fontSize: 16 }}
+        />
+      </label>
+      <p style={{ opacity: 0.75, marginTop: 0 }}>This exact title goes to YouTube and the BlindBoxAI video feed. Numeric file IDs are never used as public titles.</p>
       <input ref={reviewFileInput} type="file" accept="video/mp4,.mp4" onChange={uploadAndStageReview} hidden />
       <button type="button" onClick={chooseReviewVideo} disabled={reviewBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}>
         {reviewBusy ? `UPLOADING & CHECKING ${reviewProgress}%` : "UPLOAD NEW REVIEW VIDEO"}

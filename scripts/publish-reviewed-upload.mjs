@@ -1,8 +1,9 @@
 import {
   DISCLOSURE,
-  createBufferPublisher,
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
+import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
+import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 
 const BLINDBOXAI_URL = "https://www.blindboxai.com";
@@ -81,8 +82,7 @@ async function recordPublishedVideo({ title, videoUrl, researchRunId, results, f
 }
 
 const videoUrl = validateVideoUrl(process.env.REVIEWED_VIDEO_URL);
-const title = required(process.env.REVIEWED_VIDEO_TITLE, "REVIEWED_VIDEO_TITLE").slice(0, 120);
-if (/https?:\/\//i.test(title)) throw new Error("Reviewed video title must not contain URLs");
+const title = requirePublicVideoTitle(process.env.REVIEWED_VIDEO_TITLE, { label: "REVIEWED_VIDEO_TITLE", maxLength: 100 });
 
 const researchRunId = required(process.env.RESEARCH_RUN_ID, "RESEARCH_RUN_ID");
 if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) throw new Error("RESEARCH_RUN_ID is invalid");
@@ -96,7 +96,7 @@ if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one 
 const dryRun = /^(?:1|true|yes)$/i.test(String(process.env.DRY_RUN ?? ""));
 if (dryRun) console.log("REVIEWED_UPLOAD_DRY_RUN: true");
 
-const publisher = dryRun ? null : createBufferPublisher({
+const publisher = dryRun ? null : createReviewBufferPublisher({
   token: process.env.BUFFER_API_TOKEN,
   organizationId: process.env.BUFFER_ORGANIZATION_ID,
 });
@@ -118,7 +118,7 @@ for (const channel of channels) {
   }
   const result = dryRun
     ? { id: `dry-run-${channel}`, duplicate: false }
-    : await publisher({ channel, videoUrl, caption });
+    : await publisher({ channel, videoUrl, caption, title, youtubeCategoryId: "17" });
   const tracked = new URL(trackedCta);
   results.push({
     channel,
