@@ -4,6 +4,7 @@ import {
 } from "../lib/video-pipeline.mjs";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
+import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const PUBLISHED_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
@@ -47,6 +48,7 @@ if (!item) {
   console.log("REVIEW_QUEUE_EMPTY: true");
   process.exit(0);
 }
+const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
 
 const channels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",").map((value) => value.trim()).filter(Boolean))];
@@ -65,7 +67,7 @@ try {
       service: channel,
     });
     const script = {
-      title: item.title,
+      title: publicTitle,
       facts: [item.vertical === "pokemon_tcg" ? "Pokémon collectible research." : "Owner-reviewed BlindBoxAI collectible research."],
       productUrl: trackedCta,
     };
@@ -77,7 +79,7 @@ try {
       channel,
       videoUrl: item.video_url,
       caption,
-      title: item.title,
+      title: publicTitle,
       youtubeCategoryId: "17",
     });
     results.push({ channel, id: result.id, duplicate: result.duplicate === true, campaignId: new URL(trackedCta).searchParams.get("campaign") });
@@ -87,7 +89,7 @@ try {
   const feedToken = await getGithubOidcToken(FEED_OIDC_AUDIENCE);
   await postJson(PUBLISHED_FEED_URL, feedToken, {
     researchRunId: item.research_run_id,
-    title: item.title,
+    title: publicTitle,
     vertical: item.vertical,
     videoUrl: item.video_url,
     channels: results.map((entry) => entry.channel),
