@@ -57,9 +57,9 @@ test("phone upload uses owner-authenticated signed storage then enters research 
 });
 
 test("yellow upload remains review-only", () => {
-  assert.match(dashboard, /UPLOAD NEW REVIEW VIDEO/);
-  assert.match(dashboard, /Public video title/);
-  assert.match(dashboard, /Numeric file IDs are not allowed/);
+  assert.match(dashboard, /OPEN SAFE VIDEO UPLOADER/);
+  assert.match(dashboard, /href="\/media-upload"/);
+  assert.doesNotMatch(dashboard, /@vercel\/blob|\/api\/media\/review-upload/);
   assert.match(uploadRoute, /media\\\/review/);
   assert.match(uploadRoute, /review_media_upload_completed/);
   assert.match(uploadRoute, /approved:\s*false/);
@@ -143,6 +143,8 @@ test("review publisher sends required YouTube metadata while keeping TikTok meta
     youtube: { title: "YouTube Title", categoryId: "17" },
   });
   assert.equal(createRequests[1].variables.metadata, null);
+  assert.match(createRequests[0].query, /mode:\s*shareNow/);
+  assert.doesNotMatch(createRequests[0].query, /mode:\s*addToQueue/);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {

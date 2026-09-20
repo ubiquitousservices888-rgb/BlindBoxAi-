@@ -1,61 +1,14 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import { useEffect, useRef, useState } from "react";
 import { money, numberOrStatus } from "../../lib/revenue-status.mjs";
-import { cleanPublicVideoTitle, isPublicVideoTitle } from "../../lib/public-video-title.mjs";
 
 const REFRESH_INTERVAL_MS = 30_000;
-const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
-const MULTIPART_THRESHOLD_BYTES = 5 * 1024 * 1024;
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
 function when(value) {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
-}
-
-function safeName(name) {
-  const base = String(name || "review-video.mp4")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return base.toLowerCase().endsWith(".mp4") ? base : `${base}.mp4`;
-}
-
-function readVideoMetadata(url) {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    const timer = setTimeout(() => {
-      video.src = "";
-      reject(new Error("Could not read video metadata after upload."));
-    }, 30_000);
-
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      clearTimeout(timer);
-      const metadata = { durationSeconds: video.duration, width: video.videoWidth, height: video.videoHeight };
-      video.src = "";
-      if (!Number.isFinite(metadata.durationSeconds) || metadata.durationSeconds <= 0 || metadata.width <= 0 || metadata.height <= 0) {
-        reject(new Error("Uploaded MP4 has invalid duration or dimensions."));
-        return;
-      }
-      resolve(metadata);
-    };
-    video.onerror = () => {
-      clearTimeout(timer);
-      video.src = "";
-      reject(new Error("Browser could not open the uploaded MP4 for review."));
-    };
-    video.src = url;
-  });
-}
-
-function formatDuration(seconds) {
-  if (!Number.isFinite(seconds)) return "—";
-  const total = Math.round(seconds);
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function epnEpcStatus(status) {
@@ -70,11 +23,7 @@ export default function DashboardClient() {
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [reviewBusy, setReviewBusy] = useState(false);
-  const [reviewTitle, setReviewTitle] = useState("");
-  const [reviewProgress, setReviewProgress] = useState(0);
   const [reviewMessage, setReviewMessage] = useState("");
-  const [reviewResult, setReviewResult] = useState(null);
   const [watchingReviewUrl, setWatchingReviewUrl] = useState("");
   const [approvedReviewUrls, setApprovedReviewUrls] = useState(() => new Set());
   const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
@@ -84,7 +33,6 @@ export default function DashboardClient() {
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
   const requestInFlight = useRef(false);
-  const reviewFileInput = useRef(null);
   const epnFileInput = useRef(null);
 
   async function load(token, announce = false) {
@@ -157,94 +105,6 @@ export default function DashboardClient() {
     if (!("Notification" in window)) return setError("Browser notifications are not supported on this device/browser.");
     const permission = await Notification.requestPermission();
     if (permission !== "granted") setError("Browser notifications were not enabled.");
-  }
-
-  function chooseReviewVideo() {
-    if (reviewBusy) return;
-    const publicTitle = cleanPublicVideoTitle(reviewTitle, 100);
-    if (!isPublicVideoTitle(publicTitle)) {
-      setError("Enter a descriptive public video title first. Numeric file IDs are not allowed.");
-      return;
-    }
-    setError("");
-    reviewFileInput.current?.click();
-  }
-
-  async function uploadAndStageReview(event) {
-    const file = event.target.files?.[0] ?? null;
-    event.target.value = "";
-    if (!file || reviewBusy) return;
-
-    setError("");
-    setReviewMessage("");
-    setReviewResult(null);
-    setReviewProgress(0);
-
-    if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) {
-      setError("Review accepts MP4 video files only.");
-      return;
-    }
-    if (file.size <= 0 || file.size > MAX_VIDEO_SIZE) {
-      setError("Video must be larger than 0 bytes and no more than 100 MB.");
-      return;
-    }
-    const publicTitle = cleanPublicVideoTitle(reviewTitle, 100);
-    if (!isPublicVideoTitle(publicTitle)) {
-      setError("Enter a descriptive public video title first. Numeric file IDs are not allowed.");
-      return;
-    }
-
-    setReviewBusy(true);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), MOBILE_UPLOAD_TIMEOUT_MS);
-
-    try {
-      setReviewMessage("Uploading review copy…");
-      const pathname = `media/review/${Date.now()}-${safeName(file.name)}`;
-      const blob = await upload(pathname, file, {
-        access: "public",
-        handleUploadUrl: "/api/media/review-upload",
-        clientPayload: JSON.stringify({ accessCode: activeCode }),
-        multipart: file.size >= MULTIPART_THRESHOLD_BYTES,
-        abortSignal: controller.signal,
-        onUploadProgress: ({ percentage }) => setReviewProgress(Math.round(percentage)),
-      });
-
-      if (!blob?.url || !/^https:\/\//i.test(blob.url)) throw new Error("Vercel Blob did not return a public HTTPS review URL.");
-      setReviewMessage("Running mechanical video checks…");
-      const metadata = await readVideoMetadata(blob.url);
-      const result = { url: blob.url, fileName: file.name, sizeBytes: file.size, ...metadata, state: "READY_FOR_REVIEW", approved: false, staged: false };
-      setReviewResult(result);
-
-      setReviewMessage("Staging exact video behind the blue approval gate…");
-      const stageResponse = await fetch("/api/owner/stage-review", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({
-          videoUrl: blob.url,
-          title: publicTitle,
-          sizeBytes: file.size,
-          durationSeconds: metadata.durationSeconds,
-          width: metadata.width,
-          height: metadata.height,
-        }),
-      });
-      const stage = await stageResponse.json().catch(() => ({}));
-      if (!stageResponse.ok) throw new Error(stage.error || "Unable to stage the uploaded video for owner review.");
-
-      setReviewResult({ ...result, staged: true });
-      setReviewMessage("READY FOR REVIEW — watch the exact video below, then use its blue approval button.");
-      setReviewTitle("");
-      etagRef.current = "";
-      await load(activeCode, false);
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Review upload failed.";
-      setError(/abort|aborted/i.test(message) ? "Review upload timed out. Keep the dashboard open and retry once." : message);
-    } finally {
-      clearTimeout(timeout);
-      setReviewBusy(false);
-    }
   }
 
   async function approveReviewVideo(videoUrl) {
@@ -321,35 +181,11 @@ export default function DashboardClient() {
   return <div style={{ display: "grid", gap: 24 }}>
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h2 style={{ marginTop: 0 }}>Owner video control</h2>
-      <label style={{ display: "grid", gap: 6, maxWidth: 720 }}>
-        <strong>Public video title</strong>
-        <input
-          type="text"
-          value={reviewTitle}
-          onChange={(event) => setReviewTitle(event.target.value)}
-          maxLength={100}
-          disabled={reviewBusy}
-          placeholder="Pokémon 30th: Asking Price vs Sold Price"
-          style={{ padding: 12, fontSize: 16 }}
-        />
-      </label>
-      <p style={{ opacity: 0.75, marginTop: 0 }}>This exact title goes to YouTube and the BlindBoxAI video feed. Numeric file IDs are never used as public titles.</p>
-      <input ref={reviewFileInput} type="file" accept="video/mp4,.mp4" onChange={uploadAndStageReview} hidden />
-      <button type="button" onClick={chooseReviewVideo} disabled={reviewBusy} style={{ padding: "15px 18px", border: 0, borderRadius: 10, background: reviewBusy ? "#a16207" : "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, cursor: reviewBusy ? "wait" : "pointer" }}>
-        {reviewBusy ? `UPLOADING & CHECKING ${reviewProgress}%` : "UPLOAD NEW REVIEW VIDEO"}
-      </button>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>Yellow is the upload entry point. Each staged video below gets its own yellow WATCH button and blue APPROVE button. Approval is authenticated server-side and still passes through the protected social-production environment before publishing.</p>
+      <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
+        OPEN SAFE VIDEO UPLOADER
+      </a>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>The canonical uploader uses Supabase signed storage. Each staged video below gets its own yellow WATCH button and blue APPROVE button. Approval is authenticated server-side and still passes through the protected social-production environment before publishing.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
-
-      {reviewResult?.url ? (
-        <div style={{ marginTop: 16, display: "grid", gap: 12, maxWidth: 720 }}>
-          <div style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
-            <strong>{reviewResult.staged ? "READY_FOR_REVIEW — NOT APPROVED" : "UPLOADED — STAGING NOT COMPLETE"}</strong>
-            <video src={reviewResult.url} controls playsInline preload="metadata" style={{ width: "100%", marginTop: 10, borderRadius: 10, background: "black" }} />
-            <div style={{ marginTop: 10, fontSize: 14 }}>{reviewResult.width}×{reviewResult.height} · {formatDuration(reviewResult.durationSeconds)} · {(reviewResult.sizeBytes / (1024 * 1024)).toFixed(1)} MB</div>
-          </div>
-        </div>
-      ) : null}
 
       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
         <h3 style={{ marginBottom: 0 }}>Videos waiting for your review</h3>
