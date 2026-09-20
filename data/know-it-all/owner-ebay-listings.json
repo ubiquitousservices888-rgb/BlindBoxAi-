@@ -1,0 +1,37 @@
+{
+  "schema": "blindboxai/owner-ebay-listings/v1",
+  "verifiedAt": "2026-09-20",
+  "evidenceType": "ebay_listing_confirmation_email",
+  "policy": {
+    "allowArbitraryListingIds": false,
+    "epnGenAiPromotionApprovalEnv": "EPN_GENAI_PROMOTIONAL_METHOD_APPROVED",
+    "defaultWhenApprovalUnknown": "blocked"
+  },
+  "listings": [
+    {
+      "researchTargetId": "2022-topps-tier-one-jose-abreu-t1ta-ja-auto-149",
+      "legacyItemId": "800688862744",
+      "status": "live"
+    },
+    {
+      "researchTargetId": "2021-bowman-platinum-nick-gonzales-pe-23-auto",
+      "legacyItemId": "800688881524",
+      "status": "live"
+    },
+    {
+      "researchTargetId": "2020-21-panini-obsidian-killian-hayes-rji-klh-99",
+      "legacyItemId": "800688913602",
+      "status": "live"
+    },
+    {
+      "researchTargetId": "2021-topps-triple-threads-tanner-houck-asjr-th-99",
+      "legacyItemId": "800688924233",
+      "status": "live"
+    },
+    {
+      "researchTargetId": "2021-panini-chronicles-crusade-andrew-vaughn-15-green-75",
+      "legacyItemId": "800688873985",
+      "status": "live"
+    }
+  ]
+}
