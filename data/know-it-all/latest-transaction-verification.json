@@ -2,7 +2,7 @@
   "schema": "blindboxai/know-it-all/transaction-verification/v1",
   "agent": "Mr. Know It All",
   "mode": "public-sales-with-readonly-provider-credential",
-  "researchedAt": "2026-09-17T19:14:02.099Z",
+  "researchedAt": "2026-09-20T08:48:09.140Z",
   "security": {
     "credentialsProvided": true,
     "secretsRead": true,
@@ -280,15 +280,14 @@
       "sales": []
     }
   ],
-  "sportsCardTargetsChecked": 6,
+  "sportsCardTargetsChecked": 20,
   "sportsCardFindings": [
     {
-      "id": "2022-topps-tier-one-jose-abreu-tta-ja-auto-100",
+      "id": "2022-topps-tier-one-jose-abreu-t1ta-ja-auto-149",
       "video": "Why This Tier One Abreu Auto Is A Steal.mp4",
       "claims": [
-        "steal",
-        "$300 premium",
-        "only 100 exist"
+        "Topps-certified autograph",
+        "serial-numbered 009/149"
       ],
       "providerStatus": "ok",
       "providerReturnedCount": 0,
@@ -424,6 +423,361 @@
         "rookie card",
         "Topps-certified autograph",
         "player-worn memorabilia"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-panini-chronicles-prestige-dylan-cease-pr-dc-auto",
+      "claims": [
+        "autograph guaranteed by Panini"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2024-25-panini-obsidian-yves-missi-177-orange-125",
+      "claims": [
+        "rookie card",
+        "serial-numbered 083/125"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2022-topps-tier-one-yasmani-grandal-t1r-yg-349",
+      "claims": [
+        "game-used memorabilia",
+        "serial-numbered 103/349"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-panini-chronicles-overdrive-jonathan-india-24-pink-pulsar",
+      "claims": [
+        "rookie card",
+        "Pink Pulsar parallel"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-22-panini-contenders-giannis-antetokounmpo-superstar-8",
+      "claims": [
+        "parallel requires exact verification before pricing"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-panini-chronicles-crusade-andrew-vaughn-15-green-75",
+      "claims": [
+        "rookie card",
+        "serial-numbered 53/75"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "1994-sportflics-2000-cecil-fielder-mm3",
+      "claims": [
+        "vintage-style lenticular card; exact sold comps required"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2020-21-donruss-optic-giannis-antetokounmpo-29-parallel-unresolved",
+      "claims": [
+        "exact parallel must be verified before pricing"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-donruss-optic-bobby-bradley-rs87-bb-auto",
+      "claims": [
+        "autograph card"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-22-panini-contenders-devin-booker-suite-shots-13-parallel-unresolved",
+      "claims": [
+        "exact parallel must be verified before pricing"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-22-donruss-ayo-dosunmu-221-orange-laser",
+      "claims": [
+        "rated rookie",
+        "Orange Laser parallel"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-bowman-chrome-malvin-valdez-bcp-184-mega-box",
+      "claims": [
+        "1st Bowman prospect"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-bowman-chrome-helcris-olivarez-bcp-154-mega-box",
+      "claims": [
+        "1st Bowman prospect"
+      ],
+      "providerStatus": "ok",
+      "providerReturnedCount": 0,
+      "providerAcceptedCount": 0,
+      "verification": {
+        "status": "RESEARCH_ONLY",
+        "soldSampleCount": 0,
+        "minimumConfirmedExactSales": 2,
+        "soldMedianUSD": null,
+        "soldLowUSD": null,
+        "soldHighUSD": null,
+        "canClaimCompletedSalePriceSummary": false,
+        "canClaimOtherTargetClaims": false
+      },
+      "publicClaimsAllowed": false,
+      "completedSalePriceSummaryAllowed": false,
+      "verifiedClaimTypes": [],
+      "recommendedVideoMode": "AUDIENCE_PRICE_QUESTION",
+      "audiencePriceQuestionIsMarketEvidence": false,
+      "reviewState": "READY_FOR_REVIEW"
+    },
+    {
+      "id": "2021-panini-elite-extra-edition-christian-macleod-159-parallel-unresolved",
+      "claims": [
+        "exact parallel must be verified before pricing"
       ],
       "providerStatus": "ok",
       "providerReturnedCount": 0,
@@ -673,7 +1027,7 @@
     },
     {
       "source": "The Card API",
-      "target": "2022-topps-tier-one-jose-abreu-tta-ja-auto-100",
+      "target": "2022-topps-tier-one-jose-abreu-t1ta-ja-auto-149",
       "status": "ok",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
@@ -709,6 +1063,104 @@
     {
       "source": "The Card API",
       "target": "2021-topps-triple-threads-tanner-houck-asjr-th-99",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-panini-chronicles-prestige-dylan-cease-pr-dc-auto",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2024-25-panini-obsidian-yves-missi-177-orange-125",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2022-topps-tier-one-yasmani-grandal-t1r-yg-349",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-panini-chronicles-overdrive-jonathan-india-24-pink-pulsar",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-22-panini-contenders-giannis-antetokounmpo-superstar-8",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-panini-chronicles-crusade-andrew-vaughn-15-green-75",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "1994-sportflics-2000-cecil-fielder-mm3",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2020-21-donruss-optic-giannis-antetokounmpo-29-parallel-unresolved",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-donruss-optic-bobby-bradley-rs87-bb-auto",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-22-panini-contenders-devin-booker-suite-shots-13-parallel-unresolved",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-22-donruss-ayo-dosunmu-221-orange-laser",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-bowman-chrome-malvin-valdez-bcp-184-mega-box",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-bowman-chrome-helcris-olivarez-bcp-154-mega-box",
+      "status": "ok",
+      "returnedCount": 0,
+      "acceptedExactSaleCount": 0
+    },
+    {
+      "source": "The Card API",
+      "target": "2021-panini-elite-extra-edition-christian-macleod-159-parallel-unresolved",
       "status": "ok",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
