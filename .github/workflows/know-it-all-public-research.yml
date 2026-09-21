@@ -64,19 +64,19 @@ jobs:
           retention-days: 7
 
   persist:
-    name: Persist sanitized public research artifact
+    name: Validate and promote sanitized public research
     needs: research
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 40
     permissions:
+      actions: write
       contents: write
-      pull-requests: write
     steps:
       - name: Checkout current main with GitHub write token
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
-          fetch-depth: 1
+          fetch-depth: 2
 
       - name: Download public research artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -93,17 +93,19 @@ jobs:
           ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' "$artifact"
           ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' "$artifact"
 
-      - name: Commit sanitized artifact on protected branch
+      - name: Commit sanitized artifact on validation branch
         id: commit
         shell: bash
         run: |
           set -euo pipefail
           branch="know-it-all/public-research-latest"
+          artifact="data/know-it-all/latest-public-research.json"
+          base_sha="$(git rev-parse HEAD)"
           git switch -C "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          artifact="data/know-it-all/latest-public-research.json"
-          if git show "HEAD:$artifact" > /tmp/previous-public-research.json 2>/dev/null; then
+
+          if git show "$base_sha:$artifact" > /tmp/previous-public-research.json 2>/dev/null; then
             if ARTIFACT="$artifact" node --input-type=module <<'NODE'
           import fs from "node:fs";
           const next = JSON.parse(fs.readFileSync(process.env.ARTIFACT, "utf8"));
@@ -113,36 +115,73 @@ jobs:
           process.exit(JSON.stringify(next) === JSON.stringify(previous) ? 0 : 1);
           NODE
             then
-              echo "Only researchedAt changed; no PR needed."
+              echo "Only researchedAt changed; no promotion needed."
               echo "changed=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
           fi
+
           git add "$artifact"
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
           git commit -m "chore(know-it-all): refresh public research"
+          artifact_sha="$(git rev-parse HEAD)"
           git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
           git push --force-with-lease origin "HEAD:refs/heads/$branch"
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "artifact_sha=$artifact_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Open protected merge request
+      - name: Run required release gate on artifact commit
         if: steps.commit.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          ARTIFACT_SHA: ${{ steps.commit.outputs.artifact_sha }}
           BRANCH: ${{ steps.commit.outputs.branch }}
+        shell: bash
         run: |
           set -euo pipefail
-          existing_url="$(gh pr list --state open --base main --head "$BRANCH" --json url --jq '.[0].url // empty')"
-          if [ -n "$existing_url" ]; then
-            echo "Reused existing public research PR: $existing_url"
-            exit 0
+          gh workflow run release-gate.yml --ref "$BRANCH"
+
+          for attempt in $(seq 1 120); do
+            runs="$(gh run list --workflow release-gate.yml --branch "$BRANCH" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt)"
+            run_id="$(printf '%s' "$runs" | jq -r --arg sha "$ARTIFACT_SHA" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last | .databaseId // empty')"
+
+            if [ -n "$run_id" ]; then
+              status="$(printf '%s' "$runs" | jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .status')"
+              conclusion="$(printf '%s' "$runs" | jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .conclusion // ""')"
+              echo "Release gate run $run_id: $status ${conclusion:-pending}"
+
+              if [ "$status" = "completed" ]; then
+                if [ "$conclusion" = "success" ]; then
+                  exit 0
+                fi
+                echo "::error::Required release gate failed with conclusion: $conclusion"
+                exit 1
+              fi
+            fi
+            sleep 10
+          done
+
+          echo "::error::Timed out waiting for required release gate."
+          exit 1
+
+      - name: Promote already-validated commit to protected main
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          ARTIFACT_SHA: ${{ steps.commit.outputs.artifact_sha }}
+          BASE_SHA: ${{ steps.commit.outputs.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(git rev-parse origin/main)"
+          if [ "$current_main" != "$BASE_SHA" ]; then
+            echo "::error::Main moved during validation; refusing to promote stale commit."
+            exit 1
           fi
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore(know-it-all): refresh public research" \
-            --body "Automated sanitized credentialless public research artifact. The artifact was scanned for credential-like material before commit. Merge only after required repository checks pass."
+          git push origin "$ARTIFACT_SHA:refs/heads/main"
