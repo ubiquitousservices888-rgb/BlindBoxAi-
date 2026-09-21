@@ -1,0 +1,149 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
+import { createHash } from "node:crypto";
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
+
+const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
+const GITHUB_AUDIENCE = "blindboxai-review-publisher";
+const GITHUB_REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
+const GITHUB_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
+const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
+
+function cors() {
+  return {
+    "access-control-allow-origin": "https://www.blindboxai.com",
+    "access-control-allow-headers": "authorization, content-type",
+    "access-control-allow-methods": "POST, OPTIONS",
+  };
+}
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff", ...cors() } });
+}
+function clean(value: unknown, max = 240) { return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, max); }
+function safeHttps(value: unknown) { try { const url = new URL(clean(value, 500)); return url.protocol === "https:" ? url.toString() : null; } catch { return null; } }
+function verticalFor(title: string) {
+  const t = title.toLowerCase();
+  if (/pokemon|pokémon|pikachu|charizard|mewtwo|umbreon|jigglypuff|turtwig/.test(t)) return "pokemon_tcg";
+  if (/topps|panini|bowman|rookie|baseball|basketball|football|hockey|sports card/.test(t)) return "sports_cards";
+  if (/magic|mtg|black lotus/.test(t)) return "magic_the_gathering";
+  if (/labubu|pop mart|skullpanda|hirono|dimoo/.test(t)) return "pop_mart";
+  return "other_collectible";
+}
+async function ownerAuthorized(req: Request) {
+  const auth = req.headers.get("authorization") || "";
+  if (!auth.startsWith("Bearer ")) return false;
+  try {
+    const response = await fetch("https://www.blindboxai.com/api/owner/storage-auth", { method: "POST", headers: { Authorization: auth } });
+    return response.ok;
+  } catch { return false; }
+}
+async function githubAuthorized(req: Request) {
+  try {
+    const auth = req.headers.get("authorization") || "";
+    const token = auth.replace(/^Bearer\s+/i, "");
+    if (!token) return false;
+    const { payload } = await jwtVerify(token, githubJwks, { issuer: GITHUB_ISSUER, audience: GITHUB_AUDIENCE });
+    return payload.repository === GITHUB_REPOSITORY && payload.ref === "refs/heads/main" && payload.workflow_ref === GITHUB_WORKFLOW_REF;
+  } catch { return false; }
+}
+async function stage(req: Request, body: any) {
+  if (!await ownerAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  const videoUrl = safeHttps(body?.videoUrl); const title = clean(body?.title, 120);
+  const sizeBytes = Number(body?.sizeBytes || 0), durationSeconds = Number(body?.durationSeconds || 0), width = Number(body?.width || 0), height = Number(body?.height || 0);
+  if (!videoUrl || !title || !Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > 104857600 || ![durationSeconds,width,height].every((v) => Number.isFinite(v) && v > 0)) return json({ error: "Invalid review metadata" }, 400);
+  const researchRunId = `rv-${createHash("sha256").update(videoUrl).digest("hex").slice(0,16)}`;
+  const now = new Date().toISOString();
+  const { error } = await db.from("review_video_queue").upsert({ research_run_id: researchRunId, video_url: videoUrl, title, size_bytes: Math.round(sizeBytes), duration_seconds: durationSeconds, width: Math.round(width), height: Math.round(height), vertical: verticalFor(title), status: "ready_for_review", last_error: null, updated_at: now }, { onConflict: "research_run_id" });
+  if (error) return json({ error: "Unable to stage video" }, 500);
+  return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}` });
+}
+async function listReady(req: Request) {
+  if (!await ownerAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  const { data, error } = await db.from("review_video_queue")
+    .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
+    .in("status", ["ready_for_review","approved","publishing"])
+    .order("created_at", { ascending: false }).limit(20);
+  if (error) return json({ error: "Queue lookup failed" }, 500);
+  return json({ ok: true, items: data || [] });
+}
+async function approve(req: Request, body: any) {
+  if (!await ownerAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  const videoUrl = safeHttps(body?.videoUrl); if (!videoUrl) return json({ error: "Invalid video URL" }, 400);
+  const now = new Date().toISOString();
+  const { data, error } = await db.from("review_video_queue").update({ status: "approved", approved_at: now, updated_at: now, last_error: null }).eq("video_url", videoUrl).eq("status", "ready_for_review").select("research_run_id,video_url,title,vertical").maybeSingle();
+  if (error) return json({ error: "Approval failed" }, 500);
+  if (!data) return json({ error: "Video is not waiting for approval" }, 409);
+  return json({ ok: true, state: "APPROVED", ...data });
+}
+async function claim(req: Request) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const { data: item, error } = await db.from("review_video_queue").select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids").eq("status", "approved").order("approved_at", { ascending: true }).limit(1).maybeSingle();
+  if (error) return json({ error: "Queue lookup failed" }, 500); if (!item) return json({ ok: true, item: null });
+  const now = new Date().toISOString();
+  const { data: claimed } = await db.from("review_video_queue").update({ status: "publishing", publishing_at: now, updated_at: now }).eq("research_run_id", item.research_run_id).eq("status", "approved").select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids").maybeSingle();
+  return json({ ok: true, item: claimed || null });
+}
+async function recordChannel(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40);
+  const channel = clean(body?.channel, 32).toLowerCase();
+  const externalId = clean(body?.externalId, 200);
+  const targetChannels = [...new Set((Array.isArray(body?.targetChannels) ? body.targetChannels : [])
+    .map((value: unknown) => clean(value, 32).toLowerCase())
+    .filter((value: string) => /^[a-z0-9_-]{2,32}$/.test(value)))];
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  if (!/^[a-z0-9_-]{2,32}$/.test(channel) || !externalId) return json({ error: "Invalid channel publication" }, 400);
+  if (!targetChannels.length || !targetChannels.includes(channel)) return json({ error: "Invalid target channel set" }, 400);
+
+  const { data: current, error: readError } = await db.from("review_video_queue")
+    .select("published_channels,buffer_post_ids")
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .maybeSingle();
+  if (readError) return json({ error: "Queue lookup failed" }, 500);
+  if (!current) return json({ error: "Queue item is not currently publishing" }, 409);
+
+  const publishedChannels = [...new Set([...(Array.isArray(current.published_channels) ? current.published_channels : []), channel])];
+  const bufferPostIds = { ...(current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {}), [channel]: externalId };
+  const allDone = targetChannels.every((value: string) => publishedChannels.includes(value));
+  const now = new Date().toISOString();
+  const patch = allDone
+    ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, published_at: now, updated_at: now, last_error: null }
+    : { status: "approved", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, publishing_at: null, updated_at: now, last_error: null };
+
+  const { data, error } = await db.from("review_video_queue")
+    .update(patch)
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .select("research_run_id,video_url,title,vertical,status,published_channels,buffer_post_ids")
+    .maybeSingle();
+  if (error) return json({ error: "Queue channel update failed" }, 500);
+  if (!data) return json({ error: "Queue channel update lost its publishing lease" }, 409);
+  return json({ ok: true, item: data, complete: allDone });
+}
+
+async function complete(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40); const success = body?.success === true;
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  const now = new Date().toISOString(); const patch = success ? { status: "published", published_at: now, updated_at: now, last_error: null } : { status: "failed", updated_at: now, last_error: clean(body?.error, 500) || "Publish failed" };
+  const { error } = await db.from("review_video_queue").update(patch).eq("research_run_id", researchRunId).eq("status", "publishing");
+  if (error) return json({ error: "Queue update failed" }, 500); return json({ ok: true });
+}
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors() });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  let body: any; try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+  const action = clean(body?.action, 30);
+  if (action === "stage") return stage(req, body);
+  if (action === "list") return listReady(req);
+  if (action === "approve") return approve(req, body);
+  if (action === "claim") return claim(req);
+  if (action === "record_channel") return recordChannel(req, body);
+  if (action === "complete") return complete(req, body);
+  return json({ error: "Unknown action" }, 400);
+});
