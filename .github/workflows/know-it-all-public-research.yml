@@ -10,9 +10,6 @@ on:
     - cron: "17 2,14 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 concurrency:
   group: know-it-all-public-research
   cancel-in-progress: true
@@ -22,6 +19,8 @@ jobs:
     name: Research public sources without credentials
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - name: Checkout without persisted credentials
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -51,23 +50,99 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s data/know-it-all/latest-public-research.json
-          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' data/know-it-all/latest-public-research.json
-          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' data/know-it-all/latest-public-research.json
+          artifact="data/know-it-all/latest-public-research.json"
+          test -s "$artifact"
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' "$artifact"
+          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' "$artifact"
 
-      - name: Commit knowledge artifact only
+      - name: Upload sanitized public research artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: know-it-all-public-research
+          path: data/know-it-all/latest-public-research.json
+          if-no-files-found: error
+          retention-days: 7
+
+  persist:
+    name: Persist sanitized public research artifact
+    needs: research
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout current main with GitHub write token
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Download public research artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: know-it-all-public-research
+          path: data/know-it-all
+
+      - name: Verify artifact again before commit
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh auth setup-git
+          artifact="data/know-it-all/latest-public-research.json"
+          test -s "$artifact"
+          ! grep -Eiq 'sk-(proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN .*PRIVATE KEY-----' "$artifact"
+          ! grep -Eiq '(OPENAI_API_KEY|MR_RESEARCH_ENCRYPTION_KEY|MR_PRIVATE_BLOB_READ_WRITE_TOKEN)[[:space:]]*[:=][[:space:]]*[^" ]+' "$artifact"
+
+      - name: Commit sanitized artifact on protected branch
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="know-it-all/public-research-latest"
+          git switch -C "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/know-it-all/latest-public-research.json
+          artifact="data/know-it-all/latest-public-research.json"
+          if git show "HEAD:$artifact" > /tmp/previous-public-research.json 2>/dev/null; then
+            if ARTIFACT="$artifact" node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const next = JSON.parse(fs.readFileSync(process.env.ARTIFACT, "utf8"));
+          const previous = JSON.parse(fs.readFileSync("/tmp/previous-public-research.json", "utf8"));
+          delete next.researchedAt;
+          delete previous.researchedAt;
+          process.exit(JSON.stringify(next) === JSON.stringify(previous) ? 0 : 1);
+          NODE
+            then
+              echo "Only researchedAt changed; no PR needed."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          git add "$artifact"
           if git diff --cached --quiet; then
-            echo "No research changes to commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git commit -m "chore(know-it-all): refresh public research"
-          git push origin HEAD:main
+          git fetch --no-tags origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
+          git push --force-with-lease origin "HEAD:refs/heads/$branch"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Open protected merge request
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.commit.outputs.branch }}
+        run: |
+          set -euo pipefail
+          existing_url="$(gh pr list --state open --base main --head "$BRANCH" --json url --jq '.[0].url // empty')"
+          if [ -n "$existing_url" ]; then
+            echo "Reused existing public research PR: $existing_url"
+            exit 0
+          fi
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(know-it-all): refresh public research" \
+            --body "Automated sanitized credentialless public research artifact. The artifact was scanned for credential-like material before commit. Merge only after required repository checks pass."
