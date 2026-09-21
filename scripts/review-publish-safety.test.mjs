@@ -46,3 +46,22 @@ test("queue publisher exits before OIDC claim or Buffer creation in dry-run mode
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(process\.env\.VIDEO_CHANNELS\)/);
 });
+
+test("publisher resumes only deferred channels on later runs", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /published_channels/);
+  assert.match(source, /remainingChannels = targetChannels\.filter/);
+  assert.match(source, /action: "record_channel"/);
+  assert.match(source, /if \(!recorded\?\.complete\)/);
+  assert.doesNotMatch(source, /action: "complete", researchRunId: item\.research_run_id, success: true/);
+});
+
+test("queue edge function records one channel and re-approves until all target channels are complete", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  assert.match(source, /action === "record_channel"/);
+  assert.match(source, /published_channels/);
+  assert.match(source, /buffer_post_ids/);
+  assert.match(source, /status: "approved"/);
+  assert.match(source, /status: "published"/);
+  assert.match(source, /targetChannels\.every/);
+});
