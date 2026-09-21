@@ -48,16 +48,14 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 }
 
 const dryRun = isDryRun(process.env.DRY_RUN);
+const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
+const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, { action: dryRun ? "peek" : "claim" });
+const item = queueResult?.item;
 if (dryRun) {
   console.log("REVIEW_QUEUE_DRY_RUN: true");
   console.log("REVIEW_QUEUE_DRY_RUN_SIDE_EFFECTS: 0");
   console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
-  process.exit(0);
 }
-
-const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
-const claimed = await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "claim" });
-const item = claimed?.item;
 if (!item) {
   console.log("REVIEW_QUEUE_EMPTY: true");
   process.exit(0);
@@ -75,6 +73,13 @@ if (deferredChannels.length) {
   console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
 }
 console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
+if (dryRun) {
+  console.log(`REVIEW_QUEUE_WOULD_PUBLISH_RUN: ${item.research_run_id}`);
+  console.log(`REVIEW_QUEUE_WOULD_PUBLISH_TITLE: ${publicTitle}`);
+  console.log(`REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL: ${channels[0]}`);
+  console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
+  process.exit(0);
+}
 
 const publisher = createReviewBufferPublisher({
   token: process.env.BUFFER_API_TOKEN,

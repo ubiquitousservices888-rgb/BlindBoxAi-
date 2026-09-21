@@ -79,6 +79,18 @@ async function approve(req: Request, body: any) {
   if (!data) return json({ error: "Video is not waiting for approval" }, 409);
   return json({ ok: true, state: "APPROVED", ...data });
 }
+async function peek(req: Request) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const { data: item, error } = await db.from("review_video_queue")
+    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids")
+    .eq("status", "approved")
+    .order("approved_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) return json({ error: "Queue lookup failed" }, 500);
+  return json({ ok: true, item: item || null });
+}
+
 async function claim(req: Request) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   const { data: item, error } = await db.from("review_video_queue").select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids").eq("status", "approved").order("approved_at", { ascending: true }).limit(1).maybeSingle();
@@ -142,6 +154,7 @@ Deno.serve(async (req: Request) => {
   if (action === "stage") return stage(req, body);
   if (action === "list") return listReady(req);
   if (action === "approve") return approve(req, body);
+  if (action === "peek") return peek(req);
   if (action === "claim") return claim(req);
   if (action === "record_channel") return recordChannel(req, body);
   if (action === "complete") return complete(req, body);

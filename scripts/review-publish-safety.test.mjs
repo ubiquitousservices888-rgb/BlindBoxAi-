@@ -35,14 +35,14 @@ test("dry-run parsing is explicit", () => {
   assert.equal(isDryRun("false"), false);
 });
 
-test("queue publisher exits before OIDC claim or Buffer creation in dry-run mode", () => {
+test("queue publisher dry-run uses peek and exits before Buffer creation", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  const dryRunGate = source.indexOf("if (dryRun)");
-  const oidcClaim = source.indexOf("getGithubOidcToken(REVIEW_OIDC_AUDIENCE)");
+  const queueDecision = source.indexOf('action: dryRun ? "peek" : "claim"');
+  const dryPreview = source.indexOf("REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL");
   const bufferCreate = source.indexOf("createReviewBufferPublisher({");
-  assert.ok(dryRunGate >= 0);
-  assert.ok(oidcClaim > dryRunGate);
-  assert.ok(bufferCreate > dryRunGate);
+  assert.ok(queueDecision >= 0);
+  assert.ok(dryPreview > queueDecision);
+  assert.ok(bufferCreate > dryPreview);
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
 });
@@ -64,4 +64,25 @@ test("queue edge function records one channel and re-approves until all target c
   assert.match(source, /status: "approved"/);
   assert.match(source, /status: "published"/);
   assert.match(source, /targetChannels\.every/);
+});
+
+test("dry-run uses read-only peek and reports the exact next channel without Buffer", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /action: dryRun \? "peek" : "claim"/);
+  assert.match(source, /REVIEW_QUEUE_WOULD_PUBLISH_RUN/);
+  assert.match(source, /REVIEW_QUEUE_WOULD_PUBLISH_TITLE/);
+  assert.match(source, /REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL/);
+  const dryExit = source.indexOf("REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL");
+  const bufferCreate = source.indexOf("createReviewBufferPublisher({");
+  assert.ok(dryExit >= 0 && bufferCreate > dryExit);
+});
+
+test("queue peek is read-only and separately authorized", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  const start = source.indexOf("async function peek(req");
+  const end = source.indexOf("async function claim(req");
+  const peek = source.slice(start, end);
+  assert.match(peek, /githubAuthorized/);
+  assert.match(peek, /eq\("status", "approved"\)/);
+  assert.doesNotMatch(peek, /\.update\(/);
 });
