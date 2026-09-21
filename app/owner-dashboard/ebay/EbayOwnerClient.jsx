@@ -1,13 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function EbayOwnerClient() {
+export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) {
   const [code, setCode] = useState("");
   const [activeCode, setActiveCode] = useState("");
   const [status, setStatus] = useState(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(() => {
+    if (oauthResult === "connected") return "eBay authorization completed. Re-enter the owner code to verify the stored connection.";
+    if (oauthResult === "error" && oauthReason === "state") return "eBay authorization was rejected because the security state check failed.";
+    if (oauthResult === "error") return "eBay authorization did not complete. Re-enter the owner code and try again.";
+    return "";
+  });
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (oauthResult && typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/owner-dashboard/ebay");
+    }
+  }, [oauthResult]);
+
+  function resetOwnerSession() {
+    setActiveCode("");
+    setStatus(null);
+    setCode("");
+  }
+
+  async function readJson(response) {
+    return response.json().catch(() => ({}));
+  }
+
+  async function requireOk(response, data, fallback) {
+    if (response.status === 401) {
+      resetOwnerSession();
+      throw new Error("Owner code expired or is invalid. Enter the current owner code.");
+    }
+    if (!response.ok) throw new Error(data.error || fallback);
+  }
 
   async function loadStatus(token = activeCode || code.trim()) {
     if (!token) return;
@@ -18,8 +47,8 @@ export default function EbayOwnerClient() {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Unable to read eBay connection status.");
+      const data = await readJson(response);
+      await requireOk(response, data, "Unable to read eBay connection status.");
       setActiveCode(token);
       setStatus(data);
     } catch (error) {
@@ -39,8 +68,9 @@ export default function EbayOwnerClient() {
         headers: { Authorization: `Bearer ${activeCode}` },
         cache: "no-store",
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.authorizeUrl) throw new Error(data.error || "Unable to start eBay authorization.");
+      const data = await readJson(response);
+      await requireOk(response, data, "Unable to start eBay authorization.");
+      if (!data.authorizeUrl) throw new Error("eBay authorization URL was not returned.");
       window.location.assign(data.authorizeUrl);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to start eBay authorization.");
@@ -58,12 +88,12 @@ export default function EbayOwnerClient() {
         headers: { Authorization: `Bearer ${activeCode}` },
         cache: "no-store",
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Unable to disconnect eBay.");
+      const data = await readJson(response);
+      await requireOk(response, data, "Unable to revoke and disconnect eBay.");
       setStatus({ configured: true, connected: false });
-      setMessage("eBay seller-account research connection removed.");
+      setMessage("eBay OAuth access was revoked and the local research connection was removed.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to disconnect eBay.");
+      setMessage(error instanceof Error ? error.message : "Unable to revoke and disconnect eBay.");
     } finally {
       setBusy(false);
     }
@@ -93,14 +123,14 @@ export default function EbayOwnerClient() {
             {status?.connected ? "REAUTHORIZE EBAY" : "CONNECT MY EBAY"}
           </button>
           <button type="button" onClick={disconnect} disabled={busy || !status?.connected} style={{ padding: "11px 15px", fontWeight: 800 }}>
-            DISCONNECT
+            REVOKE & DISCONNECT
           </button>
           <button type="button" onClick={() => loadStatus()} disabled={busy} style={{ padding: "11px 15px" }}>REFRESH</button>
         </div>
       </div>
       <p style={{ opacity: 0.75 }}>
         This connection is for research only. It does not create/edit listings, send buyer messages, issue refunds, change fulfillment, or transfer ownership.
-        Reconnect, disconnect, or future scope changes stay behind this owner gate.
+        Reconnect, revoke/disconnect, or future scope changes stay behind this owner-only gate.
       </p>
       {message ? <p role="status">{message}</p> : null}
     </section>
