@@ -8,7 +8,8 @@ const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: fals
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_AUDIENCE = "blindboxai-research-bot";
 const GITHUB_REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
-const GITHUB_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/mr-know-it-all-tool-bot.yml@refs/heads/main`;
+const GITHUB_TOOL_BOT_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/mr-know-it-all-tool-bot.yml@refs/heads/main`;
+const GITHUB_PUBLIC_RESEARCH_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/know-it-all-public-research.yml@refs/heads/main`;
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const publicBuckets = new Map<string, { count: number; resetAt: number }>();
 
@@ -77,21 +78,30 @@ async function publicIngestAuthorized(req: Request) {
   return validateBlindBoxAuthorization(req.headers.get("x-mr-authorization") || "");
 }
 
-async function githubBotAuthorized(req: Request) {
+async function githubBotAuthorization(req: Request) {
   try {
     const auth = req.headers.get("authorization") || "";
     const token = auth.replace(/^Bearer\s+/i, "");
-    if (!token) return false;
+    if (!token) return null;
     const { payload } = await jwtVerify(token, githubJwks, {
       issuer: GITHUB_ISSUER,
       audience: GITHUB_AUDIENCE,
     });
-    return payload.repository === GITHUB_REPOSITORY &&
-      payload.ref === "refs/heads/main" &&
-      payload.workflow_ref === GITHUB_WORKFLOW_REF &&
-      ["schedule", "workflow_dispatch"].includes(String(payload.event_name || ""));
+    const workflowRef = String(payload.workflow_ref || "");
+    const allowedWorkflow = [
+      GITHUB_TOOL_BOT_WORKFLOW_REF,
+      GITHUB_PUBLIC_RESEARCH_WORKFLOW_REF,
+    ].includes(workflowRef);
+    const allowedEvent = ["schedule", "workflow_dispatch"].includes(String(payload.event_name || ""));
+    if (
+      payload.repository !== GITHUB_REPOSITORY ||
+      payload.ref !== "refs/heads/main" ||
+      !allowedWorkflow ||
+      !allowedEvent
+    ) return null;
+    return payload;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -157,6 +167,72 @@ async function handleAudience(body: any) {
   });
   if (error && error.code !== "23505") return json({ error: "Audience response storage failed" }, 500);
   return json({ ok: true, duplicate: error?.code === "23505" });
+}
+
+
+async function sha256Raw(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleBotPublicResearch(body: any, authPayload: any) {
+  const artifact = body?.artifact;
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
+    return json({ error: "Public research artifact required" }, 400);
+  }
+  if (
+    artifact.schema !== "blindboxai/know-it-all/public-research/v2" ||
+    artifact.mode !== "credentialless-autonomous-public-research"
+  ) return json({ error: "Public research artifact contract invalid" }, 400);
+
+  const researchedAt = String(artifact.researchedAt || "");
+  if (!Number.isFinite(Date.parse(researchedAt))) {
+    return json({ error: "Public research timestamp invalid" }, 400);
+  }
+
+  const security = artifact.security || {};
+  if (
+    security.credentialsProvided !== false ||
+    security.secretsRead !== false ||
+    security.environmentRead !== false ||
+    security.privateRepositoriesAccessed !== false ||
+    security.ownerApprovalRequiredForActions !== true ||
+    !Array.isArray(security.sideEffectsPerformed) ||
+    security.sideEffectsPerformed.length !== 0
+  ) return json({ error: "Public research security contract invalid" }, 400);
+
+  const findings = Array.isArray(artifact.findings) ? artifact.findings : null;
+  const sources = Array.isArray(artifact.sources) ? artifact.sources : null;
+  if (!findings || findings.length > 100 || !sources || sources.length > 100) {
+    return json({ error: "Public research collection bounds invalid" }, 400);
+  }
+
+  const serialized = JSON.stringify(artifact);
+  if (new TextEncoder().encode(serialized).byteLength > 1_000_000) {
+    return json({ error: "Public research artifact too large" }, 413);
+  }
+  const artifactHash = await sha256Raw(serialized);
+  const commitSha = cleanText(authPayload?.sha, 40);
+  const eventName = cleanText(authPayload?.event_name, 40);
+  const githubRunId = cleanText(authPayload?.run_id, 80) || null;
+
+  const { error } = await db.from("mr_know_it_all_public_research_runs").insert({
+    artifact_hash: artifactHash,
+    researched_at: new Date(researchedAt).toISOString(),
+    finding_count: findings.length,
+    source_count: sources.length,
+    github_run_id: githubRunId,
+    commit_sha: /^[a-f0-9]{40}$/.test(commitSha) ? commitSha : null,
+    event_name: ["schedule", "workflow_dispatch"].includes(eventName) ? eventName : null,
+    artifact,
+  });
+
+  if (error?.code === "23505") {
+    return json({ ok: true, duplicate: true, findingCount: findings.length, sourceCount: sources.length });
+  }
+  if (error) return json({ error: "Public research storage failed" }, 500);
+  return json({ ok: true, duplicate: false, findingCount: findings.length, sourceCount: sources.length });
 }
 
 async function handleBotSeed(body: any) {
@@ -304,8 +380,24 @@ Deno.serve(async (req: Request) => {
     return type === "question" ? handleQuestion(body) : handleAudience(body);
   }
 
-  if (!["bot_seed", "bot_pull", "bot_sold_observation", "bot_finish"].includes(type)) return json({ error: "Unknown ingestion type" }, 400);
-  if (!await githubBotAuthorized(req)) return json({ error: "GitHub research bot authorization required" }, 403);
+  if (!["bot_public_research", "bot_seed", "bot_pull", "bot_sold_observation", "bot_finish"].includes(type)) {
+    return json({ error: "Unknown ingestion type" }, 400);
+  }
+
+  const authPayload = await githubBotAuthorization(req);
+  if (!authPayload) return json({ error: "GitHub research bot authorization required" }, 403);
+
+  const workflowRef = String(authPayload.workflow_ref || "");
+  if (type === "bot_public_research") {
+    if (workflowRef !== GITHUB_PUBLIC_RESEARCH_WORKFLOW_REF) {
+      return json({ error: "Public research workflow authorization required" }, 403);
+    }
+    return handleBotPublicResearch(body, authPayload);
+  }
+
+  if (workflowRef !== GITHUB_TOOL_BOT_WORKFLOW_REF) {
+    return json({ error: "Research tool workflow authorization required" }, 403);
+  }
   if (type === "bot_seed") return handleBotSeed(body);
   if (type === "bot_pull") return handleBotPull(body);
   if (type === "bot_sold_observation") return handleBotSold(body);
