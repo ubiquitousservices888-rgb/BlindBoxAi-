@@ -7,7 +7,11 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function OwnerEbayPage() {
+export default async function OwnerEbayPage({ searchParams }) {
+  const params = await searchParams;
+  const oauthResult = String(params?.ebay || "");
+  const oauthReason = String(params?.reason || "");
+
   return (
     <main style={{ width: "min(820px, calc(100% - 32px))", margin: "40px auto 80px" }}>
       <p><Link href="/owner-dashboard">← Owner control room</Link></p>
@@ -16,7 +20,7 @@ export default function OwnerEbayPage() {
       <p style={{ lineHeight: 1.7 }}>
         Connect the owner eBay account for read-only seller research. Public market research and EPN affiliate routing remain separate.
       </p>
-      <EbayOwnerClient />
+      <EbayOwnerClient oauthResult={oauthResult} oauthReason={oauthReason} />
     </main>
   );
 }
