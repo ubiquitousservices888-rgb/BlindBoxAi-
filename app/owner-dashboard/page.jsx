@@ -27,6 +27,7 @@ export default function OwnerDashboardPage() {
         </Link>
       </section>
       <p><Link href="/owner-dashboard/revenue">Open the daily earnings & payout dashboard →</Link></p>
+      <p><Link href="/owner-dashboard/ebay">Connect eBay for owner-only research →</Link></p>
       <DashboardClient />
     </main>
   );
