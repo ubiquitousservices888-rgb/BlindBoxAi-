@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../lib/evidence";
+import { assertOwnerCode } from "../../../../lib/evidence";
 import { approveAllLaunchReadyVideos } from "../../../../lib/owner-batch-approval.mjs";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function POST(request) {
   const ownerCode = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
   try {
-    assertUploadCode(ownerCode);
+    assertOwnerCode(ownerCode);
   } catch {
     return unauthorized();
   }
