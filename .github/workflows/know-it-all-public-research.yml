@@ -1,6 +1,11 @@
 name: Know-It-All credentialless public research
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/know-it-all-public-research.yml"
   schedule:
     - cron: "17 2,14 * * *"
   workflow_dispatch:
