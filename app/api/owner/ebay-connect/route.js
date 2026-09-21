@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../lib/evidence";
+import { assertOwnerCode } from "../../../../lib/evidence";
 import {
   createEbayAuthorizeUrl,
   disconnectEbayOwner,
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 function ownerToken(request) {
   const auth = request.headers.get("authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  assertUploadCode(token);
+  assertOwnerCode(token);
 }
 
 export async function GET(request) {
@@ -23,15 +23,23 @@ export async function GET(request) {
   if (!ownerEbayConfigured()) return NextResponse.json({ configured: false, connected: false });
   try {
     const status = await ebayOwnerConnectionStatus();
-    return NextResponse.json({ configured: true, ...status }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json(
+      { configured: true, ...status },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch {
-    return NextResponse.json({ configured: true, connected: false, error: "Status unavailable" }, { status: 503 });
+    return NextResponse.json(
+      { configured: true, connected: false, error: "Status unavailable" },
+      { status: 503 },
+    );
   }
 }
 
 export async function POST(request) {
   try { ownerToken(request); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
-  if (!ownerEbayConfigured()) return NextResponse.json({ error: "eBay owner OAuth is not configured" }, { status: 503 });
+  if (!ownerEbayConfigured()) {
+    return NextResponse.json({ error: "eBay owner OAuth is not configured" }, { status: 503 });
+  }
 
   const state = crypto.randomBytes(32).toString("base64url");
   const response = NextResponse.json({ authorizeUrl: createEbayAuthorizeUrl(state) });
@@ -49,8 +57,8 @@ export async function DELETE(request) {
   try { ownerToken(request); } catch { return NextResponse.json({ error: "Unauthorized" }, { status: 401 }); }
   try {
     await disconnectEbayOwner();
-    return NextResponse.json({ connected: false });
+    return NextResponse.json({ connected: false, revoked: true });
   } catch {
-    return NextResponse.json({ error: "Unable to disconnect eBay" }, { status: 503 });
+    return NextResponse.json({ error: "Unable to revoke and disconnect eBay" }, { status: 503 });
   }
 }
