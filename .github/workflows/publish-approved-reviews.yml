@@ -2,6 +2,12 @@ name: Publish approved review videos
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate publisher safety without claiming queue items or posting to Buffer"
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -15,6 +21,7 @@ jobs:
   publish-approved:
     runs-on: ubuntu-latest
     env:
+      DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
@@ -31,6 +38,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Verify Buffer configuration
+        if: ${{ inputs.dry_run != true }}
         run: |
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
             echo "::error::Buffer is not configured."
