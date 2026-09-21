@@ -5,6 +5,12 @@ import {
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
+import {
+  assertApprovedReviewVideoUrl,
+  cappedPublishChannels,
+  isDryRun,
+  MAX_BUFFER_POSTS_PER_EXECUTION,
+} from "../lib/review-publish-safety.mjs";
 
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const PUBLISHED_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
@@ -41,6 +47,14 @@ async function postJson(url, token, body, fetchImpl = fetch) {
   return data;
 }
 
+const dryRun = isDryRun(process.env.DRY_RUN);
+if (dryRun) {
+  console.log("REVIEW_QUEUE_DRY_RUN: true");
+  console.log("REVIEW_QUEUE_DRY_RUN_SIDE_EFFECTS: 0");
+  console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
+  process.exit(0);
+}
+
 const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
 const claimed = await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "claim" });
 const item = claimed?.item;
@@ -49,10 +63,13 @@ if (!item) {
   process.exit(0);
 }
 const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
+const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 
-const channels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
-  .split(",").map((value) => value.trim()).filter(Boolean))];
-if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one service");
+const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(process.env.VIDEO_CHANNELS);
+if (deferredChannels.length) {
+  console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
+}
+console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
 
 const publisher = createReviewBufferPublisher({
   token: process.env.BUFFER_API_TOKEN,
@@ -77,7 +94,7 @@ try {
     }
     const result = await publisher({
       channel,
-      videoUrl: item.video_url,
+      videoUrl: safeVideoUrl,
       caption,
       title: publicTitle,
       youtubeCategoryId: "17",
@@ -91,7 +108,7 @@ try {
     researchRunId: item.research_run_id,
     title: publicTitle,
     vertical: item.vertical,
-    videoUrl: item.video_url,
+    videoUrl: safeVideoUrl,
     channels: results.map((entry) => entry.channel),
     bufferPostIds: Object.fromEntries(results.map((entry) => [entry.channel, entry.id])),
     campaignId: results[0]?.campaignId || null,
