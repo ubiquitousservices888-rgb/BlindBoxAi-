@@ -52,8 +52,11 @@ jobs:
 
       - name: Commit knowledge artifact only
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/know-it-all/latest-public-research.json
@@ -62,4 +65,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore(know-it-all): refresh public research"
-          git push
+          git push origin HEAD:main
