@@ -173,6 +173,12 @@ export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) 
             Inventory API: {verification.inventory?.ok ? "reachable" : `not verified (HTTP ${verification.inventory?.status ?? "unknown"})`}
             {verification.inventory?.total !== null && verification.inventory?.total !== undefined ? ` — total reported: ${verification.inventory.total}` : ""}
           </p>
+          {!verification.inventory?.ok && verification.inventory?.error ? (
+            <p style={{ opacity: 0.75 }}>
+              eBay error {verification.inventory.error.errorId || "unknown"}
+              {verification.inventory.error.message ? `: ${verification.inventory.error.message}` : ""}
+            </p>
+          ) : null}
           {verification.checkedAt ? <p style={{ opacity: 0.75 }}>Checked: {new Date(verification.checkedAt).toLocaleString()}</p> : null}
           <p style={{ opacity: 0.75 }}>No buyer names, addresses, order details, or OAuth tokens are returned to this page.</p>
         </div>
