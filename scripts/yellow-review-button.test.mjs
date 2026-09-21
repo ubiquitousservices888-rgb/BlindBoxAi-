@@ -90,7 +90,7 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(approvalRoute, /action:\s*"approve"/);
   assert.match(queuedWorkflow, /id-token:\s*write/);
   assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
-  assert.match(queuedPublisher, /action:\s*"claim"/);
+  assert.match(queuedPublisher, /action:\s*dryRun\s*\?\s*"peek"\s*:\s*"claim"/);
   assert.match(queuedPublisher, /createReviewBufferPublisher/);
   assert.match(queuedPublisher, /DISCLOSURE/);
   assert.match(queuedPublisher, /blindboxai-review-publisher/);
