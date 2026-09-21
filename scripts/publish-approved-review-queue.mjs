@@ -65,7 +65,12 @@ if (!item) {
 const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
 const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 
-const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(process.env.VIDEO_CHANNELS);
+const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
+  .split(",").map((value) => value.trim()).filter(Boolean))];
+const completedChannels = new Set(Array.isArray(item.published_channels) ? item.published_channels : []);
+const remainingChannels = targetChannels.filter((channel) => !completedChannels.has(channel));
+if (!remainingChannels.length) throw new Error("Review queue item has no remaining publish channels");
+const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
 if (deferredChannels.length) {
   console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
 }
@@ -101,6 +106,18 @@ try {
     });
     results.push({ channel, id: result.id, duplicate: result.duplicate === true, campaignId: new URL(trackedCta).searchParams.get("campaign") });
     console.log(`REVIEW_QUEUE_PUBLISHED: ${channel}:${result.id}`);
+    const recorded = await postJson(REVIEW_QUEUE_URL, reviewToken, {
+      action: "record_channel",
+      researchRunId: item.research_run_id,
+      channel,
+      externalId: result.id,
+      targetChannels,
+    });
+    console.log(`REVIEW_QUEUE_CHANNEL_RECORDED: ${channel}`);
+    if (!recorded?.complete) {
+      console.log(`REVIEW_QUEUE_CHANNELS_PENDING: ${targetChannels.filter((value) => !(recorded?.item?.published_channels || []).includes(value)).join(",")}`);
+      process.exit(0);
+    }
   }
 
   const feedToken = await getGithubOidcToken(FEED_OIDC_AUDIENCE);
@@ -109,12 +126,11 @@ try {
     title: publicTitle,
     vertical: item.vertical,
     videoUrl: safeVideoUrl,
-    channels: results.map((entry) => entry.channel),
-    bufferPostIds: Object.fromEntries(results.map((entry) => [entry.channel, entry.id])),
+    channels: targetChannels,
+    bufferPostIds: { ...(item.buffer_post_ids || {}), ...Object.fromEntries(results.map((entry) => [entry.channel, entry.id])) },
     campaignId: results[0]?.campaignId || null,
   });
 
-  await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "complete", researchRunId: item.research_run_id, success: true });
   console.log(`REVIEW_QUEUE_COMPLETE: ${item.research_run_id}`);
   console.log(`REVIEW_QUEUE_HOMEPAGE_LINKED: ${item.research_run_id}`);
 } catch (error) {
