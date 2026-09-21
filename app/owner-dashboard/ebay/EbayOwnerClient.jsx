@@ -169,6 +169,12 @@ export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) 
             Orders API: {verification.orders?.ok ? "reachable" : `not verified (HTTP ${verification.orders?.status ?? "unknown"})`}
             {verification.orders?.total !== null && verification.orders?.total !== undefined ? ` — total reported: ${verification.orders.total}` : ""}
           </p>
+          {!verification.orders?.ok && verification.orders?.error ? (
+            <p style={{ opacity: 0.75 }}>
+              eBay error {verification.orders.error.errorId || "unknown"}
+              {verification.orders.error.message ? `: ${verification.orders.error.message}` : ""}
+            </p>
+          ) : null}
           <p>
             Inventory API: {verification.inventory?.ok ? "reachable" : `not verified (HTTP ${verification.inventory?.status ?? "unknown"})`}
             {verification.inventory?.total !== null && verification.inventory?.total !== undefined ? ` — total reported: ${verification.inventory.total}` : ""}
