@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import {
   approveAllLaunchReadyVideos,
@@ -127,4 +128,10 @@ test("discovers eligible runs beyond the first workflow-runs page", async () => 
 
   assert.deepEqual(result.ready.map((item) => item.runId), [999]);
   assert.ok(requestedPages.some((item) => item.status === "waiting" && item.page === 2));
+});
+
+test("approve-launch route requires the dedicated owner control credential", () => {
+  const route = fs.readFileSync(new URL("../app/api/owner/approve-launch/route.js", import.meta.url), "utf8");
+  assert.match(route, /assertOwnerCode/);
+  assert.doesNotMatch(route, /assertUploadCode/);
 });
