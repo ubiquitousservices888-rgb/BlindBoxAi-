@@ -44,7 +44,7 @@ test("queue publisher exits before OIDC claim or Buffer creation in dry-run mode
   assert.ok(oidcClaim > dryRunGate);
   assert.ok(bufferCreate > dryRunGate);
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
-  assert.match(source, /cappedPublishChannels\(process\.env\.VIDEO_CHANNELS\)/);
+  assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
 });
 
 test("publisher resumes only deferred channels on later runs", () => {
