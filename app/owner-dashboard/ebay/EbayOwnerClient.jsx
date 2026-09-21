@@ -6,6 +6,7 @@ export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) 
   const [code, setCode] = useState("");
   const [activeCode, setActiveCode] = useState("");
   const [status, setStatus] = useState(null);
+  const [verification, setVerification] = useState(null);
   const [message, setMessage] = useState(() => {
     if (oauthResult === "connected") return "eBay authorization completed. Re-enter the owner code to verify the stored connection.";
     if (oauthResult === "error" && oauthReason === "state") return "eBay authorization was rejected because the security state check failed.";
@@ -23,6 +24,7 @@ export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) 
   function resetOwnerSession() {
     setActiveCode("");
     setStatus(null);
+    setVerification(null);
     setCode("");
   }
 
@@ -78,6 +80,37 @@ export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) 
     }
   }
 
+  async function verifySellerData() {
+    if (!activeCode) return;
+    setBusy(true);
+    setMessage("");
+    setVerification(null);
+    try {
+      const response = await fetch("/api/owner/ebay-verify", {
+        headers: { Authorization: `Bearer ${activeCode}` },
+        cache: "no-store",
+      });
+      const data = await readJson(response);
+      if (response.status === 401) {
+        resetOwnerSession();
+        throw new Error("Owner code expired or is invalid. Enter the current owner code.");
+      }
+      if (!response.ok && !data.orders && !data.inventory) {
+        throw new Error(data.error || "Unable to verify seller data.");
+      }
+      setVerification(data);
+      setMessage(
+        data.verified
+          ? "Live read-only eBay seller data access verified."
+          : "eBay responded, but one or more read-only seller endpoints did not verify.",
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to verify seller data.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function disconnect() {
     if (!activeCode) return;
     setBusy(true);
@@ -126,8 +159,24 @@ export default function EbayOwnerClient({ oauthResult = "", oauthReason = "" }) 
             REVOKE & DISCONNECT
           </button>
           <button type="button" onClick={() => loadStatus()} disabled={busy} style={{ padding: "11px 15px" }}>REFRESH</button>
+          <button type="button" onClick={verifySellerData} disabled={busy || !status?.connected} style={{ padding: "11px 15px", fontWeight: 800 }}>VERIFY SELLER DATA</button>
         </div>
       </div>
+      {verification ? (
+        <div style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
+          <strong>{verification.verified ? "LIVE SELLER DATA VERIFIED" : "SELLER DATA CHECK INCOMPLETE"}</strong>
+          <p style={{ marginTop: 8 }}>
+            Orders API: {verification.orders?.ok ? "reachable" : `not verified (HTTP ${verification.orders?.status ?? "unknown"})`}
+            {verification.orders?.total !== null && verification.orders?.total !== undefined ? ` — total reported: ${verification.orders.total}` : ""}
+          </p>
+          <p>
+            Inventory API: {verification.inventory?.ok ? "reachable" : `not verified (HTTP ${verification.inventory?.status ?? "unknown"})`}
+            {verification.inventory?.total !== null && verification.inventory?.total !== undefined ? ` — total reported: ${verification.inventory.total}` : ""}
+          </p>
+          {verification.checkedAt ? <p style={{ opacity: 0.75 }}>Checked: {new Date(verification.checkedAt).toLocaleString()}</p> : null}
+          <p style={{ opacity: 0.75 }}>No buyer names, addresses, order details, or OAuth tokens are returned to this page.</p>
+        </div>
+      ) : null}
       <p style={{ opacity: 0.75 }}>
         This connection is for research only. It does not create/edit listings, send buyer messages, issue refunds, change fulfillment, or transfer ownership.
         Reconnect, revoke/disconnect, or future scope changes stay behind this owner-only gate.
