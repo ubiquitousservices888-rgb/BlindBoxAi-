@@ -1,0 +1,934 @@
+{
+  "schema": "blindboxai/know-it-all/public-research/v2",
+  "agent": "Mr. Know It All",
+  "mode": "credentialless-autonomous-public-research",
+  "researchedAt": "2026-09-21T19:27:37.889Z",
+  "mandate": {
+    "scope": "All sports cards and collector cards, including blind-box products as one category rather than the whole market.",
+    "lanes": [
+      "baseball-cards",
+      "basketball-cards",
+      "football-cards",
+      "hockey-cards",
+      "soccer-cards",
+      "racing-and-motorsport-cards",
+      "golf-cards",
+      "tennis-cards",
+      "wrestling-cards",
+      "ufc-and-mma-cards",
+      "other-sports-cards",
+      "pokemon-and-tcg",
+      "magic-the-gathering",
+      "yu-gi-oh",
+      "one-piece-lorcana-and-other-tcg",
+      "non-sports-and-entertainment-cards",
+      "graded-cards-and-slabs",
+      "sealed-packs-boxes-and-cases",
+      "mystery-boxes-and-repack-products",
+      "japanese-exclusives-and-proxy-buying",
+      "premium-art-toys",
+      "pop-mart-and-labubu",
+      "sanrio-and-mass-market-blind-boxes",
+      "collectible-protection-and-authentication-accessories",
+      "autonomously-discovered-high-value-card-and-collectible-categories"
+    ],
+    "priority": "Rank opportunities by verified buyer intent, transaction value, monetization fit, evidence strength, liquidity, sell-through, and content opportunity.",
+    "evidenceRules": {
+      "marketValue": "Prefer completed/sold transactions over asking prices.",
+      "minimumIndependentSales": 2,
+      "affiliateEconomics": [
+        "program status",
+        "commission",
+        "attribution or cookie window",
+        "geographic eligibility",
+        "qualifying action",
+        "direct-link capability"
+      ],
+      "buyerRisk": [
+        "counterfeit evidence",
+        "reseal/tampering evidence",
+        "authentication procedure",
+        "grading or certification verification",
+        "documented buyer complaints"
+      ],
+      "demand": [
+        "search intent",
+        "YouTube/topic demand",
+        "marketplace activity",
+        "pre-purchase research behavior",
+        "competition/saturation"
+      ],
+      "sportsAndCollectorSignals": [
+        "rookie-card demand",
+        "autograph and memorabilia-card demand",
+        "serial-numbered and parallel scarcity",
+        "population-report and grade scarcity",
+        "set and case-break economics",
+        "seasonal and player/event catalysts",
+        "liquidity and sell-through"
+      ]
+    },
+    "ranking": {
+      "formula": "qualified buyer intent x transaction value x conversion opportunity x monetization fit x evidence confidence x liquidity x sell-through",
+      "reject": [
+        "unsupported asking-price claims",
+        "guaranteed-profit claims",
+        "unverified affiliate economics",
+        "single-source market conclusions"
+      ]
+    }
+  },
+  "security": {
+    "credentialsProvided": false,
+    "secretsRead": false,
+    "environmentRead": false,
+    "privateRepositoriesAccessed": false,
+    "sideEffectsPerformed": [],
+    "ownerApprovalRequiredForActions": true
+  },
+  "sources": [
+    {
+      "name": "baseball-cards",
+      "url": "https://news.google.com/rss/search?q=baseball%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "baseball-cards",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "basketball-cards",
+      "url": "https://news.google.com/rss/search?q=basketball%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "basketball-cards",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "football-cards",
+      "url": "https://news.google.com/rss/search?q=football%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "football-cards",
+      "status": "ok",
+      "itemCount": 5,
+      "error": null
+    },
+    {
+      "name": "hockey-cards",
+      "url": "https://news.google.com/rss/search?q=hockey%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "hockey-cards",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "soccer-cards",
+      "url": "https://news.google.com/rss/search?q=soccer%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "soccer-cards",
+      "status": "ok",
+      "itemCount": 3,
+      "error": null
+    },
+    {
+      "name": "racing-and-motorsport-cards",
+      "url": "https://news.google.com/rss/search?q=racing%20and%20motorsport%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "racing-and-motorsport-cards",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "golf-cards",
+      "url": "https://news.google.com/rss/search?q=golf%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "golf-cards",
+      "status": "ok",
+      "itemCount": 2,
+      "error": null
+    },
+    {
+      "name": "tennis-cards",
+      "url": "https://news.google.com/rss/search?q=tennis%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "tennis-cards",
+      "status": "ok",
+      "itemCount": 2,
+      "error": null
+    },
+    {
+      "name": "wrestling-cards",
+      "url": "https://news.google.com/rss/search?q=wrestling%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "wrestling-cards",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "ufc-and-mma-cards",
+      "url": "https://news.google.com/rss/search?q=ufc%20and%20mma%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "ufc-and-mma-cards",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "other-sports-cards",
+      "url": "https://news.google.com/rss/search?q=other%20sports%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "other-sports-cards",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "pokemon-and-tcg",
+      "url": "https://news.google.com/rss/search?q=Pokemon%20TCG%20sealed%20booster%20box%20completed%20sales%20authentication%20demand&hl=en-US&gl=US&ceid=US:en",
+      "topic": "pokemon-and-tcg",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "magic-the-gathering",
+      "url": "https://news.google.com/rss/search?q=magic%20the%20gathering%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "magic-the-gathering",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "yu-gi-oh",
+      "url": "https://news.google.com/rss/search?q=yu%20gi%20oh%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "yu-gi-oh",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "one-piece-lorcana-and-other-tcg",
+      "url": "https://news.google.com/rss/search?q=one%20piece%20lorcana%20and%20other%20tcg%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "one-piece-lorcana-and-other-tcg",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "non-sports-and-entertainment-cards",
+      "url": "https://news.google.com/rss/search?q=non%20sports%20and%20entertainment%20cards%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "non-sports-and-entertainment-cards",
+      "status": "ok",
+      "itemCount": 6,
+      "error": null
+    },
+    {
+      "name": "graded-cards-and-slabs",
+      "url": "https://news.google.com/rss/search?q=graded%20cards%20PSA%20slab%20completed%20sales%20population%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "graded-cards-and-slabs",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "sealed-packs-boxes-and-cases",
+      "url": "https://news.google.com/rss/search?q=sealed%20packs%20boxes%20and%20cases%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "sealed-packs-boxes-and-cases",
+      "status": "ok",
+      "itemCount": 2,
+      "error": null
+    },
+    {
+      "name": "mystery-boxes-and-repack-products",
+      "url": "https://news.google.com/rss/search?q=trading%20card%20mystery%20box%20repack%20completed%20sales%20buyer%20review&hl=en-US&gl=US&ceid=US:en",
+      "topic": "mystery-boxes-and-repack-products",
+      "status": "ok",
+      "itemCount": 5,
+      "error": null
+    },
+    {
+      "name": "japanese-exclusives-and-proxy-buying",
+      "url": "https://news.google.com/rss/search?q=Japanese%20exclusive%20collectible%20cards%20proxy%20buying%20completed%20sales%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "japanese-exclusives-and-proxy-buying",
+      "status": "ok",
+      "itemCount": 1,
+      "error": null
+    },
+    {
+      "name": "premium-art-toys",
+      "url": "https://news.google.com/rss/search?q=premium%20art%20toy%20collectible%20completed%20auction%20sales%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "premium-art-toys",
+      "status": "ok",
+      "itemCount": 3,
+      "error": null
+    },
+    {
+      "name": "pop-mart-and-labubu",
+      "url": "https://news.google.com/rss/search?q=Pop%20Mart%20Labubu%20blind%20box%20completed%20sales%20authentication%20demand&hl=en-US&gl=US&ceid=US:en",
+      "topic": "pop-mart-and-labubu",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    },
+    {
+      "name": "sanrio-and-mass-market-blind-boxes",
+      "url": "https://news.google.com/rss/search?q=sanrio%20and%20mass%20market%20blind%20boxes%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "sanrio-and-mass-market-blind-boxes",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "collectible-protection-and-authentication-accessories",
+      "url": "https://news.google.com/rss/search?q=collectible%20protection%20sleeves%20cases%20authentication%20accessories%20buyer%20demand&hl=en-US&gl=US&ceid=US:en",
+      "topic": "collectible-protection-and-authentication-accessories",
+      "status": "ok",
+      "itemCount": 0,
+      "error": null
+    },
+    {
+      "name": "autonomously-discovered-high-value-card-and-collectible-categories",
+      "url": "https://news.google.com/rss/search?q=emerging%20high%20value%20collectible%20category%20completed%20sales%20buyer%20demand%20authentication&hl=en-US&gl=US&ceid=US:en",
+      "topic": "autonomously-discovered-high-value-card-and-collectible-categories",
+      "status": "ok",
+      "itemCount": 8,
+      "error": null
+    }
+  ],
+  "findings": [
+    {
+      "source": "Tabletop Gaming",
+      "publisher": "Tabletop Gaming",
+      "topic": "baseball-cards",
+      "title": "UPDATE: eBay UK launches Authenticity Guarantee service for trading cards - Tabletop Gaming",
+      "url": "https://www.tabletopgaming.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5",
+      "published": "Wed, 16 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5\" target=\"_blank\">UPDATE: eBay UK launches Authenticity Guarantee service for trading cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Tabletop Gaming</font>"
+    },
+    {
+      "source": "Tabletop Gaming",
+      "publisher": "Tabletop Gaming",
+      "topic": "basketball-cards",
+      "title": "UPDATE: eBay UK launches Authenticity Guarantee service for trading cards - Tabletop Gaming",
+      "url": "https://www.tabletopgaming.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5",
+      "published": "Wed, 16 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5\" target=\"_blank\">UPDATE: eBay UK launches Authenticity Guarantee service for trading cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Tabletop Gaming</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "football-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Tabletop Gaming",
+      "publisher": "Tabletop Gaming",
+      "topic": "hockey-cards",
+      "title": "UPDATE: eBay UK launches Authenticity Guarantee service for trading cards - Tabletop Gaming",
+      "url": "https://www.tabletopgaming.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5",
+      "published": "Wed, 16 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5\" target=\"_blank\">UPDATE: eBay UK launches Authenticity Guarantee service for trading cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Tabletop Gaming</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "soccer-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "golf-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "tennis-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Tabletop Gaming",
+      "publisher": "Tabletop Gaming",
+      "topic": "wrestling-cards",
+      "title": "UPDATE: eBay UK launches Authenticity Guarantee service for trading cards - Tabletop Gaming",
+      "url": "https://www.tabletopgaming.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5",
+      "published": "Wed, 16 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5\" target=\"_blank\">UPDATE: eBay UK launches Authenticity Guarantee service for trading cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Tabletop Gaming</font>"
+    },
+    {
+      "source": "Tabletop Gaming",
+      "publisher": "Tabletop Gaming",
+      "topic": "other-sports-cards",
+      "title": "UPDATE: eBay UK launches Authenticity Guarantee service for trading cards - Tabletop Gaming",
+      "url": "https://www.tabletopgaming.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5",
+      "published": "Wed, 16 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5\" target=\"_blank\">UPDATE: eBay UK launches Authenticity Guarantee service for trading cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Tabletop Gaming</font>"
+    },
+    {
+      "source": "SNKRDUNK",
+      "publisher": "SNKRDUNK",
+      "topic": "pokemon-and-tcg",
+      "title": "The Hottest Collectibles: Top 30 Japanese Pokémon TCG Booster Boxes with Skyrocketing Value - SNKRDUNK",
+      "url": "https://snkrdunk.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMi0AFBVV95cUxNZDNDOWprWUM5SUdFTWlGazBKWlZJY29uVzZHR0gyZWdZTGh0aEVISVJRdkl1OTE0dnlFOFdBaFZwMk1TSTlMYlNROUtqdGNmZjdCWkJQbW82NC1UVUhWVnJ1S2IwNGZmMnZ2aHhrX1Q4R3FLSXNPaEFYSGNYaWVfV2g5SW5vOUY3eFlDUnRvMGJmcFZQOVFUUlM0UXAzYy1xS0hZYXhNaDEyTm42bXFodk9VbHAtYjFfdXpMVFE0S3U3UlhOZUtnQzZ4TEZhT1Zj?oc=5",
+      "published": "Mon, 08 Dec 2025 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMi0AFBVV95cUxNZDNDOWprWUM5SUdFTWlGazBKWlZJY29uVzZHR0gyZWdZTGh0aEVISVJRdkl1OTE0dnlFOFdBaFZwMk1TSTlMYlNROUtqdGNmZjdCWkJQbW82NC1UVUhWVnJ1S2IwNGZmMnZ2aHhrX1Q4R3FLSXNPaEFYSGNYaWVfV2g5SW5vOUY3eFlDUnRvMGJmcFZQOVFUUlM0UXAzYy1xS0hZYXhNaDEyTm42bXFodk9VbHAtYjFfdXpMVFE0S3U3UlhOZUtnQzZ4TEZhT1Zj?oc=5\" target=\"_blank\">The Hottest Collectibles: Top 30 Japanese Pokémon TCG Booster Boxes with Skyrocketing Value</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">SNKRDUNK</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "non-sports-and-entertainment-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "Bleeding Cool News",
+      "publisher": "Bleeding Cool News",
+      "topic": "graded-cards-and-slabs",
+      "title": "CBCS Closed By New Owners In Favour Of Their Own Slabbing Service, PSA - Bleeding Cool News",
+      "url": "https://bleedingcool.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipAFBVV95cUxNbjVCUElhbS1KV2xWdE1Cdlh0bGV5SnR3MUd6NkhTU3dnMU5fbE9UYmlNZVJETGVob2dhMFZkcXVFeW1QYmg0U1lmN3ZGN2pOdE8takpUTTEycXdDODdEemY0UkxscElzMWZ5dUpPUEJKR1lZV2hMZ1A2c2YtSDFxYnFkTnB0VUFaTWpMNnBoYktCZ2VUTW1COTlkSEVsN3JKUTBNUA?oc=5",
+      "published": "Tue, 24 Mar 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipAFBVV95cUxNbjVCUElhbS1KV2xWdE1Cdlh0bGV5SnR3MUd6NkhTU3dnMU5fbE9UYmlNZVJETGVob2dhMFZkcXVFeW1QYmg0U1lmN3ZGN2pOdE8takpUTTEycXdDODdEemY0UkxscElzMWZ5dUpPUEJKR1lZV2hMZ1A2c2YtSDFxYnFkTnB0VUFaTWpMNnBoYktCZ2VUTW1COTlkSEVsN3JKUTBNUA?oc=5\" target=\"_blank\">CBCS Closed By New Owners In Favour Of Their Own Slabbing Service, PSA</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Bleeding Cool News</font>"
+    },
+    {
+      "source": "The Straits Times",
+      "publisher": "The Straits Times",
+      "topic": "sealed-packs-boxes-and-cases",
+      "title": "Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards - The Straits Times",
+      "url": "https://www.straitstimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5",
+      "published": "Thu, 28 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5\" target=\"_blank\">Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The Straits Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "mystery-boxes-and-repack-products",
+      "title": "Customers accuse Whatnot of illegal gambling operation over sports card breaks, repacks - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMingFBVV95cUxPMTBTM3V1a0trMHJ4dzFEZ29ONmtheUlJRmpUVGgtd1FXV2J0S1VPZkpuaUg1NTFlWm1IbXA5WDJNUTdOVDhQaFd1SERTVlRNNGl4djJfbXAtQ1NVTWhiVHlubGMzanFMcHBEYzB5TWRaY295SXZ2ajhYTWlwS1FHNEVfZEhEMHpmV3VSbGFBQmNrUmZWNVJyeFZlYW9Mdw?oc=5",
+      "published": "Mon, 16 Mar 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMingFBVV95cUxPMTBTM3V1a0trMHJ4dzFEZ29ONmtheUlJRmpUVGgtd1FXV2J0S1VPZkpuaUg1NTFlWm1IbXA5WDJNUTdOVDhQaFd1SERTVlRNNGl4djJfbXAtQ1NVTWhiVHlubGMzanFMcHBEYzB5TWRaY295SXZ2ajhYTWlwS1FHNEVfZEhEMHpmV3VSbGFBQmNrUmZWNVJyeFZlYW9Mdw?oc=5\" target=\"_blank\">Customers accuse Whatnot of illegal gambling operation over sports card breaks, repacks</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "株式会社メルカリ",
+      "publisher": "株式会社メルカリ",
+      "topic": "japanese-exclusives-and-proxy-buying",
+      "title": "Mercari Launches the Mercari Global App in the United States - 株式会社メルカリ",
+      "url": "https://about.mercari.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMidkFVX3lxTE1GMGx2aFJRV1Rva3VheXRQUUYycEtPcG96VHNvcHl0ZHYwSVlrYXFKVGZ1MjE3QXBURWRHS3JMRHhsRmJKcmdhR2lXOVRtR3UzTnRWWmNlOWpTY01qeV80XzlEazBMS3duYjJ1N29oeTRsS2hFMUE?oc=5",
+      "published": "Fri, 19 Jun 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMidkFVX3lxTE1GMGx2aFJRV1Rva3VheXRQUUYycEtPcG96VHNvcHl0ZHYwSVlrYXFKVGZ1MjE3QXBURWRHS3JMRHhsRmJKcmdhR2lXOVRtR3UzTnRWWmNlOWpTY01qeV80XzlEazBMS3duYjJ1N29oeTRsS2hFMUE?oc=5\" target=\"_blank\">Mercari Launches the Mercari Global App in the United States</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">株式会社メルカリ</font>"
+    },
+    {
+      "source": "MoneyMagpie",
+      "publisher": "MoneyMagpie",
+      "topic": "premium-art-toys",
+      "title": "2026 Collectibles Prediction: Where the Smart Money Is Heading - MoneyMagpie",
+      "url": "https://www.moneymagpie.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMinwFBVV95cUxPVnFpUUk0ckhVVFlLU3JBMGthTjBaXzFRcHhKMWhBeWs2SFpqbk9BbUt1VXAzRFpWV2Q1ZnBXZ2ozOEtieDhuQWdvaEpHUkw0QjdKMnRlQ2JFSGFveHplQXlKeThhLUZXM3loYmRkTzEza1NnR0ZQM0RVSUJfMjNYazhVTzZvbWRGY1V4Qkh3Y29NR3huWVVMZ0JBZmdTVFk?oc=5",
+      "published": "Mon, 02 Feb 2026 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMinwFBVV95cUxPVnFpUUk0ckhVVFlLU3JBMGthTjBaXzFRcHhKMWhBeWs2SFpqbk9BbUt1VXAzRFpWV2Q1ZnBXZ2ozOEtieDhuQWdvaEpHUkw0QjdKMnRlQ2JFSGFveHplQXlKeThhLUZXM3loYmRkTzEza1NnR0ZQM0RVSUJfMjNYazhVTzZvbWRGY1V4Qkh3Y29NR3huWVVMZ0JBZmdTVFk?oc=5\" target=\"_blank\">2026 Collectibles Prediction: Where the Smart Money Is Heading</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">MoneyMagpie</font>"
+    },
+    {
+      "source": "qz.com",
+      "publisher": "qz.com",
+      "topic": "pop-mart-and-labubu",
+      "title": "10 collectibles worth buying now that Labubu cooled - qz.com",
+      "url": "https://qz.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE9SZG1OVDdEZFdvQnlvZnpZNFEydUVWSnFaRE5GTkV5V3VoN0xtOXluOHVSN2VITVVzU3JwNVAtTjdXMWNSMGZhcnVTQ1BnTDlSNHZ2bnRmX2VZa1E?oc=5",
+      "published": "Mon, 21 Sep 2026 15:27:35 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiW0FVX3lxTE9SZG1OVDdEZFdvQnlvZnpZNFEydUVWSnFaRE5GTkV5V3VoN0xtOXluOHVSN2VITVVzU3JwNVAtTjdXMWNSMGZhcnVTQ1BnTDlSNHZ2bnRmX2VZa1E?oc=5\" target=\"_blank\">10 collectibles worth buying now that Labubu cooled</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">qz.com</font>"
+    },
+    {
+      "source": "Tabletop Gaming",
+      "publisher": "Tabletop Gaming",
+      "topic": "autonomously-discovered-high-value-card-and-collectible-categories",
+      "title": "UPDATE: eBay UK launches Authenticity Guarantee service for trading cards - Tabletop Gaming",
+      "url": "https://www.tabletopgaming.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5",
+      "published": "Wed, 16 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipwFBVV95cUxNdmU2Y1JSRUx5WWtKSHBMaXpoMHkza1ppX2hIcWt0V2dmSFExcVFwaXR1THpKN1FaZm9yVXZXSlAyMWlfd0syOVNkRlBYZUNHZkRhN0lHd2V2VEhxc2NFb093bFBsS3llbkprSlVMU2dBT3Z4Qm5IRzZsSHVMU19vNEN0NzdEdUUyTXlfRVF3VUJyNmNrY0ttUHJPX0JoMVJJQWQ2ZVNNSQ?oc=5\" target=\"_blank\">UPDATE: eBay UK launches Authenticity Guarantee service for trading cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Tabletop Gaming</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "baseball-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Breaking AC News",
+      "publisher": "Breaking AC News",
+      "topic": "basketball-cards",
+      "title": "Building Wealth Through Basketball Card Investment Strategies - Breaking AC News",
+      "url": "https://breakingac.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipAFBVV95cUxNVU81N1ZYdWpDSHh6cU9BeHAwRE1CZkd4LUZMVUEyWTVRTTBZRG5PeVNieHlzdlYyUGl1UlpBVWx3WEFpRVpOM3NKcldwSkRfWEYyZzdBVVVBd1k2dzJKZzBnTjEtSmFud0s5T3RsaXpsMWdhQzh6TnAwY0sxSjdVbUxvUDdOZnVRTWZhV2VfMEJLcFVtbWpHbVAtbWtKamhia3BUdQ?oc=5",
+      "published": "Fri, 06 Mar 2026 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipAFBVV95cUxNVU81N1ZYdWpDSHh6cU9BeHAwRE1CZkd4LUZMVUEyWTVRTTBZRG5PeVNieHlzdlYyUGl1UlpBVWx3WEFpRVpOM3NKcldwSkRfWEYyZzdBVVVBd1k2dzJKZzBnTjEtSmFud0s5T3RsaXpsMWdhQzh6TnAwY0sxSjdVbUxvUDdOZnVRTWZhV2VfMEJLcFVtbWpHbVAtbWtKamhia3BUdQ?oc=5\" target=\"_blank\">Building Wealth Through Basketball Card Investment Strategies</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Breaking AC News</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "football-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "hockey-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "soccer-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "golf-cards",
+      "title": "The best Michael Jordan cards to collect: His unusual rookie card situation and more - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5",
+      "published": "Mon, 17 Mar 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5\" target=\"_blank\">The best Michael Jordan cards to collect: His unusual rookie card situation and more</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "tennis-cards",
+      "title": "The best Michael Jordan cards to collect: His unusual rookie card situation and more - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5",
+      "published": "Mon, 17 Mar 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5\" target=\"_blank\">The best Michael Jordan cards to collect: His unusual rookie card situation and more</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "wrestling-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "CoinDesk",
+      "publisher": "CoinDesk",
+      "topic": "other-sports-cards",
+      "title": "Pokémon cards are becoming a multibillion dollar asset class. Now crypto wants a piece - CoinDesk",
+      "url": "https://www.coindesk.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMizgFBVV95cUxQZnA2V2sxNjNRdmtETGxBT21aVExMY0RQUmc5TFp6NlQxNVQtMHFaU0pJaWxKNGlPZy0xSTN6NkNoeEh2a0VIelROcjUxRHdvYllKcXN0WHY3a1B0SVQyVmZlazNLZENacW9jWlNQWERpcEt1bmpwdWtmQkhvLWY4NnEzaG8zdzlwNFhCNVMwMHVDSWZqX0hnQ3F1Y0N4TmVqeThwZDhmTTVtRVkzNkt1M3p0Q2hBOXFITVpBTHJXTVM5QlY4eVNFakJtQm9zQQ?oc=5",
+      "published": "Tue, 11 Aug 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMizgFBVV95cUxQZnA2V2sxNjNRdmtETGxBT21aVExMY0RQUmc5TFp6NlQxNVQtMHFaU0pJaWxKNGlPZy0xSTN6NkNoeEh2a0VIelROcjUxRHdvYllKcXN0WHY3a1B0SVQyVmZlazNLZENacW9jWlNQWERpcEt1bmpwdWtmQkhvLWY4NnEzaG8zdzlwNFhCNVMwMHVDSWZqX0hnQ3F1Y0N4TmVqeThwZDhmTTVtRVkzNkt1M3p0Q2hBOXFITVpBTHJXTVM5QlY4eVNFakJtQm9zQQ?oc=5\" target=\"_blank\">Pokémon cards are becoming a multibillion dollar asset class. Now crypto wants a piece</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">CoinDesk</font>"
+    },
+    {
+      "source": "Athlon Sports",
+      "publisher": "Athlon Sports",
+      "topic": "pokemon-and-tcg",
+      "title": "Unlock One Piece TCG Investments in 2026 - Athlon Sports",
+      "url": "https://athlonsports.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMidkFVX3lxTFBFalhpaW5aMjhmTlJ3RENNd2hJTkI3akdCblhmLUNIbDdkbUpoSHUyZGcwUU9ZaldYT0V4MjBEOWEzMXp3VDE1MHpkWVRMR2E5X25BTGg4dV9Kb1Rva2xEcUcycW1ZMjh1V1pxRS0tdGQzQlM3U1E?oc=5",
+      "published": "Wed, 28 Jan 2026 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMidkFVX3lxTFBFalhpaW5aMjhmTlJ3RENNd2hJTkI3akdCblhmLUNIbDdkbUpoSHUyZGcwUU9ZaldYT0V4MjBEOWEzMXp3VDE1MHpkWVRMR2E5X25BTGg4dV9Kb1Rva2xEcUcycW1ZMjh1V1pxRS0tdGQzQlM3U1E?oc=5\" target=\"_blank\">Unlock One Piece TCG Investments in 2026</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Athlon Sports</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "non-sports-and-entertainment-cards",
+      "title": "The best Tom Brady cards to collect: What you need to know about his rookie cards before buying - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOb2lJOW02bWdTM01YR0lFWVJsNm5DM0l2SDBjczhiVXB2c3hxNG1pY0Rja2Nfb0FfUThLdGw5aldyZENXbmJjLWs0amNwb3ZNN0E3X2ZRV2pERGVDUFZ1VWFoQ3RSbXBHeVhSWWxTbDhjSDdueG5abzNNRDVOVTZ6TlJoWVdzRFU?oc=5",
+      "published": "Sat, 25 Oct 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxOb2lJOW02bWdTM01YR0lFWVJsNm5DM0l2SDBjczhiVXB2c3hxNG1pY0Rja2Nfb0FfUThLdGw5aldyZENXbmJjLWs0amNwb3ZNN0E3X2ZRV2pERGVDUFZ1VWFoQ3RSbXBHeVhSWWxTbDhjSDdueG5abzNNRDVOVTZ6TlJoWVdzRFU?oc=5\" target=\"_blank\">The best Tom Brady cards to collect: What you need to know about his rookie cards before buying</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "AOL.co.uk",
+      "publisher": "AOL.co.uk",
+      "topic": "graded-cards-and-slabs",
+      "title": "Inside This Week’s Pop Culture Elite Auction: From Sealed Video Games to Star Wars Rarities - AOL.co.uk",
+      "url": "https://www.aol.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMigAFBVV95cUxPX1dDaUswdHVDOVJuUnJCRDZvcC1fV083X2dqV3huMFVwSVVDVG1Lc1RxM3lyLWFsa2tXazRzcjlja0ZnalRNZEFRbUJ3a3lnYWVzazRpZXd2WUd5c2xIOUJNS0lmWjhWbWwwZVBVYU9WRVR1Z2g4UnJkV0Qyclh3Zw?oc=5",
+      "published": "Sat, 05 Sep 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMigAFBVV95cUxPX1dDaUswdHVDOVJuUnJCRDZvcC1fV083X2dqV3huMFVwSVVDVG1Lc1RxM3lyLWFsa2tXazRzcjlja0ZnalRNZEFRbUJ3a3lnYWVzazRpZXd2WUd5c2xIOUJNS0lmWjhWbWwwZVBVYU9WRVR1Z2g4UnJkV0Qyclh3Zw?oc=5\" target=\"_blank\">Inside This Week’s Pop Culture Elite Auction: From Sealed Video Games to Star Wars Rarities</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">AOL.co.uk</font>"
+    },
+    {
+      "source": "SNKRDUNK",
+      "publisher": "SNKRDUNK",
+      "topic": "sealed-packs-boxes-and-cases",
+      "title": "Using Pokémon TCG Databases for Card and Box Purchases - SNKRDUNK",
+      "url": "https://snkrdunk.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMivwFBVV95cUxNNnEtR0lucDhsSzljSVlsTGowXzVQRE5wZFlKT21VdlFwRmdlSVhDOW8zUjZBMS1Sa29JWF85clN4cFJNdEJWVVdtckVvZ1VycDRhWU9QZjJvMURlbXliQjExa3pCZXNyaFJuZV9KN3BDSENla0dVLXNpczMyRHp4Tk1hTmR0OTZHZVVxc2JNaVB1ZUFUbXBYdTRZOG4xbHVoaFhTaDA0dEwzS0FpUnFLT0ViVS1GcFNtTkNWN1ZSUQ?oc=5",
+      "published": "Thu, 06 Mar 2025 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMivwFBVV95cUxNNnEtR0lucDhsSzljSVlsTGowXzVQRE5wZFlKT21VdlFwRmdlSVhDOW8zUjZBMS1Sa29JWF85clN4cFJNdEJWVVdtckVvZ1VycDRhWU9QZjJvMURlbXliQjExa3pCZXNyaFJuZV9KN3BDSENla0dVLXNpczMyRHp4Tk1hTmR0OTZHZVVxc2JNaVB1ZUFUbXBYdTRZOG4xbHVoaFhTaDA0dEwzS0FpUnFLT0ViVS1GcFNtTkNWN1ZSUQ?oc=5\" target=\"_blank\">Using Pokémon TCG Databases for Card and Box Purchases</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">SNKRDUNK</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "mystery-boxes-and-repack-products",
+      "title": "Repacks: The big-money trend in sports cards prompting calls for transparency - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMifEFVX3lxTE83MEdmZ0dXVlpDQV9neWhvQVJpS0RhUmtRaFFNckxfVEF2b2lJemZDT2lfT0JyT240VkVYRkVWZGoyclB5Y2hXT29vTnkwNjhFdUpVMkxCSXc2LW9JYm9taUIwRzZPY3ZXWC1JYnR5MWUzaGx3dkt6NUEyb3I?oc=5",
+      "published": "Wed, 01 Oct 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMifEFVX3lxTE83MEdmZ0dXVlpDQV9neWhvQVJpS0RhUmtRaFFNckxfVEF2b2lJemZDT2lfT0JyT240VkVYRkVWZGoyclB5Y2hXT29vTnkwNjhFdUpVMkxCSXc2LW9JYm9taUIwRzZPY3ZXWC1JYnR5MWUzaGx3dkt6NUEyb3I?oc=5\" target=\"_blank\">Repacks: The big-money trend in sports cards prompting calls for transparency - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "premium-art-toys",
+      "title": "Collectibles Market Size, Growth Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihAFBVV95cUxOcmxXTDRaVHFhazVTdFplVVQtdGRZTGh1cm9xcWhubXZ6NmlmU1M1MWhOSDdLbGpfMXBpVzhuNC1lVXFkcTBCWmdHMXVodG94V3NYYy1IRDBSYmVhd0RyLXlrV25seTQ3LTVYU2RkbXlhZVo1eGE4N0V4T1R3aXBGajFBSmM?oc=5",
+      "published": "Fri, 16 Aug 2024 10:54:03 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihAFBVV95cUxOcmxXTDRaVHFhazVTdFplVVQtdGRZTGh1cm9xcWhubXZ6NmlmU1M1MWhOSDdLbGpfMXBpVzhuNC1lVXFkcTBCWmdHMXVodG94V3NYYy1IRDBSYmVhd0RyLXlrV25seTQ3LTVYU2RkbXlhZVo1eGE4N0V4T1R3aXBGajFBSmM?oc=5\" target=\"_blank\">Collectibles Market Size, Growth Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "tech-insider.org",
+      "publisher": "tech-insider.org",
+      "topic": "pop-mart-and-labubu",
+      "title": "Labubu Mystery Box 2026: 13 Steps, 1-in-72 Odds [Guide] - tech-insider.org",
+      "url": "https://tech-insider.org",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiakFVX3lxTE0zU0FLM3VPaUFRT0lHRDhSN1BiekIycDZuTDZ6UUJLYnpzdlA2V3loc3dweXFaRE8zSDRIbHd2TzJuR1FXOUZkbEZFdGtjX25qRU9iZ0VaWWxWVndWRTFZcmJmMHFwMmtqaHc?oc=5",
+      "published": "Fri, 29 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiakFVX3lxTE0zU0FLM3VPaUFRT0lHRDhSN1BiekIycDZuTDZ6UUJLYnpzdlA2V3loc3dweXFaRE8zSDRIbHd2TzJuR1FXOUZkbEZFdGtjX25qRU9iZ0VaWWxWVndWRTFZcmJmMHFwMmtqaHc?oc=5\" target=\"_blank\">Labubu Mystery Box 2026: 13 Steps, 1-in-72 Odds [Guide]</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">tech-insider.org</font>"
+    },
+    {
+      "source": "MyArtBroker",
+      "publisher": "MyArtBroker",
+      "topic": "autonomously-discovered-high-value-card-and-collectible-categories",
+      "title": "How to Sell Andy Warhol Art in 2026 - MyArtBroker",
+      "url": "https://www.myartbroker.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiiAFBVV95cUxQRHRQNEZTWWtKRTFyYXNCc05JMlBCNnBYZElQN2hBYjd1cl9vZHR4VnZHWFFEVkxqdUpqZEpLbW1nLS1FZjA4eEJDU0M2WlRfRTJ6UXEzQjNKM0w4VzliQnFoX0tiVVFDN3RXaktmYURXV3FvMWhyWDJKbzdHcmhtdnJVWHRtNU54?oc=5",
+      "published": "Wed, 26 Aug 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiiAFBVV95cUxQRHRQNEZTWWtKRTFyYXNCc05JMlBCNnBYZElQN2hBYjd1cl9vZHR4VnZHWFFEVkxqdUpqZEpLbW1nLS1FZjA4eEJDU0M2WlRfRTJ6UXEzQjNKM0w4VzliQnFoX0tiVVFDN3RXaktmYURXV3FvMWhyWDJKbzdHcmhtdnJVWHRtNU54?oc=5\" target=\"_blank\">How to Sell Andy Warhol Art in 2026</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">MyArtBroker</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "baseball-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "basketball-cards",
+      "title": "PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxPUy1RRmdBSW9PMXJaX2toLUtDaUJRc0ZQYXd6MXNPcEE2a3FJY1JhZVAzbl9zb2NERkplUXo4UDQ1MTdRRFI1VVFYQjB2QkxjRTg0ZXh0cHBndGs2ckk4cFV3T3J2SzRlbF9qY0FEZzJBTDRWOGhJWVJxdkNRYl9PYS1vc196TDg?oc=5\" target=\"_blank\">PSA explains $200 million investment, 1,000 new jobs as card grading demand surges - The Athletic</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Wandsworth Times",
+      "publisher": "Wandsworth Times",
+      "topic": "football-cards",
+      "title": "eBay makes major change to rules affecting millions of buyers and sellers - Wandsworth Times",
+      "url": "https://www.wandsworthguardian.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5\" target=\"_blank\">eBay makes major change to rules affecting millions of buyers and sellers</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Wandsworth Times</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "hockey-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "soccer-cards",
+      "title": "The best Michael Jordan cards to collect: His unusual rookie card situation and more - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5",
+      "published": "Mon, 17 Mar 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5\" target=\"_blank\">The best Michael Jordan cards to collect: His unusual rookie card situation and more</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Breaking AC News",
+      "publisher": "Breaking AC News",
+      "topic": "wrestling-cards",
+      "title": "Building Wealth Through Basketball Card Investment Strategies - Breaking AC News",
+      "url": "https://breakingac.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipAFBVV95cUxNVU81N1ZYdWpDSHh6cU9BeHAwRE1CZkd4LUZMVUEyWTVRTTBZRG5PeVNieHlzdlYyUGl1UlpBVWx3WEFpRVpOM3NKcldwSkRfWEYyZzdBVVVBd1k2dzJKZzBnTjEtSmFud0s5T3RsaXpsMWdhQzh6TnAwY0sxSjdVbUxvUDdOZnVRTWZhV2VfMEJLcFVtbWpHbVAtbWtKamhia3BUdQ?oc=5",
+      "published": "Fri, 06 Mar 2026 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipAFBVV95cUxNVU81N1ZYdWpDSHh6cU9BeHAwRE1CZkd4LUZMVUEyWTVRTTBZRG5PeVNieHlzdlYyUGl1UlpBVWx3WEFpRVpOM3NKcldwSkRfWEYyZzdBVVVBd1k2dzJKZzBnTjEtSmFud0s5T3RsaXpsMWdhQzh6TnAwY0sxSjdVbUxvUDdOZnVRTWZhV2VfMEJLcFVtbWpHbVAtbWtKamhia3BUdQ?oc=5\" target=\"_blank\">Building Wealth Through Basketball Card Investment Strategies</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Breaking AC News</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "other-sports-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "The Straits Times",
+      "publisher": "The Straits Times",
+      "topic": "pokemon-and-tcg",
+      "title": "Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards - The Straits Times",
+      "url": "https://www.straitstimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5",
+      "published": "Thu, 28 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5\" target=\"_blank\">Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The Straits Times</font>"
+    },
+    {
+      "source": "Wandsworth Times",
+      "publisher": "Wandsworth Times",
+      "topic": "non-sports-and-entertainment-cards",
+      "title": "eBay makes major change to rules affecting millions of buyers and sellers - Wandsworth Times",
+      "url": "https://www.wandsworthguardian.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5\" target=\"_blank\">eBay makes major change to rules affecting millions of buyers and sellers</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Wandsworth Times</font>"
+    },
+    {
+      "source": "Sports Illustrated",
+      "publisher": "Sports Illustrated",
+      "topic": "graded-cards-and-slabs",
+      "title": "Mickey Mantle Cards Are Still Breaking Records - Sports Illustrated",
+      "url": "https://www.si.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihAFBVV95cUxNR00yT21ORVdIMF9EbzhaVkJ1YTlUYm9rOVJ6MEt0c1lzYUpNWjR6dzVRYUpfOTJwWUtITjA4TXdfRUZabUMxbU1HMWpoQi1ORWx1aENlM1ZYSHdDTVowWXBRTEt3RmlsYlh3ZGNGdmVrOTdLbkRKdnhwN3pWcUpjSkVfc1Y?oc=5",
+      "published": "Thu, 13 Nov 2025 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihAFBVV95cUxNR00yT21ORVdIMF9EbzhaVkJ1YTlUYm9rOVJ6MEt0c1lzYUpNWjR6dzVRYUpfOTJwWUtITjA4TXdfRUZabUMxbU1HMWpoQi1ORWx1aENlM1ZYSHdDTVowWXBRTEt3RmlsYlh3ZGNGdmVrOTdLbkRKdnhwN3pWcUpjSkVfc1Y?oc=5\" target=\"_blank\">Mickey Mantle Cards Are Still Breaking Records</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Sports Illustrated</font>"
+    },
+    {
+      "source": "sportscollectorsdigest.com",
+      "publisher": "sportscollectorsdigest.com",
+      "topic": "mystery-boxes-and-repack-products",
+      "title": "PSA, CardsHQ look to curb repack scams with new Graded Grails Repack Certification service - sportscollectorsdigest.com",
+      "url": "https://sportscollectorsdigest.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiwgFBVV95cUxNdUtLTnhJUFB5bEIzRWo4aVE2S1diZ04xT0ZqdEl5cHJvQmFQOHpPaDJUUWFoc01RQzVhLVZLWkRVbFpKajZkWVNBSTltRzNDS1RNZUV5VXBrcFhkVGpDNDhUVFNtam10Zkx3YzIwX2NDYmlLQlRBQTMxbm5GVTVHbUpnYUV6cjRYMjNfZEl4Y0lEVDM4MUMxRml1djRlM2xwSDIzQWd3UUdYRnZJV0VMM3hlcEdxYmxJaXdOS25Cdmo5UQ?oc=5",
+      "published": "Wed, 23 Jul 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiwgFBVV95cUxNdUtLTnhJUFB5bEIzRWo4aVE2S1diZ04xT0ZqdEl5cHJvQmFQOHpPaDJUUWFoc01RQzVhLVZLWkRVbFpKajZkWVNBSTltRzNDS1RNZUV5VXBrcFhkVGpDNDhUVFNtam10Zkx3YzIwX2NDYmlLQlRBQTMxbm5GVTVHbUpnYUV6cjRYMjNfZEl4Y0lEVDM4MUMxRml1djRlM2xwSDIzQWd3UUdYRnZJV0VMM3hlcEdxYmxJaXdOS25Cdmo5UQ?oc=5\" target=\"_blank\">PSA, CardsHQ look to curb repack scams with new Graded Grails Repack Certification service</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">sportscollectorsdigest.com</font>"
+    },
+    {
+      "source": "Antique Trader",
+      "publisher": "Antique Trader",
+      "topic": "premium-art-toys",
+      "title": "Cracker Jack: A prize collection that’s a treat for the ages - Antique Trader",
+      "url": "https://www.antiquetrader.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMikAFBVV95cUxNblZSUVBiYXFrNWVTYVJzVlh6dUtLVGg2anM5MEdlMHg0Tm5jZUNUOVhQNVB0QmlzajkzMngwaWlXbTUtbkdmUlZzcVhFV3piQXN5cnQ2T2h2WDdYYVVDZjdYd09sSkwtYUhmYXRmd3hQRmZXRWNHMC00WkYyTVF3c2ZCVC1lZ0pZTE85bmNJejQ?oc=5",
+      "published": "Tue, 04 Oct 2016 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMikAFBVV95cUxNblZSUVBiYXFrNWVTYVJzVlh6dUtLVGg2anM5MEdlMHg0Tm5jZUNUOVhQNVB0QmlzajkzMngwaWlXbTUtbkdmUlZzcVhFV3piQXN5cnQ2T2h2WDdYYVVDZjdYd09sSkwtYUhmYXRmd3hQRmZXRWNHMC00WkYyTVF3c2ZCVC1lZ0pZTE85bmNJejQ?oc=5\" target=\"_blank\">Cracker Jack: A prize collection that’s a treat for the ages</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Antique Trader</font>"
+    },
+    {
+      "source": "Athlon Sports",
+      "publisher": "Athlon Sports",
+      "topic": "pop-mart-and-labubu",
+      "title": "2025 Collectibles Trends: Labubu, Pokémon & Repacks - Athlon Sports",
+      "url": "https://athlonsports.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMinAFBVV95cUxQT0VqdDhBVGtWRGZNOXB2MmZ4WXdFblpSeFhhMmh1WXZVYmVpTVNYWUJiS0dCSDB2c3J0ZHRnbWc4SmVLMGsyZ1FjWm5FMkFTWWZPb25EM2kzN3lHcUdHb3dKX044NUE3NEluQlU0T2xyajk2eU5iVmVEQThxbHEwckdfc0kzWWlMeWNCR0wxYlg1dnZ3ZG1LcG1ISlU?oc=5",
+      "published": "Tue, 27 Jan 2026 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMinAFBVV95cUxQT0VqdDhBVGtWRGZNOXB2MmZ4WXdFblpSeFhhMmh1WXZVYmVpTVNYWUJiS0dCSDB2c3J0ZHRnbWc4SmVLMGsyZ1FjWm5FMkFTWWZPb25EM2kzN3lHcUdHb3dKX044NUE3NEluQlU0T2xyajk2eU5iVmVEQThxbHEwckdfc0kzWWlMeWNCR0wxYlg1dnZ3ZG1LcG1ISlU?oc=5\" target=\"_blank\">2025 Collectibles Trends: Labubu, Pokémon & Repacks</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Athlon Sports</font>"
+    },
+    {
+      "source": "TradingView",
+      "publisher": "TradingView",
+      "topic": "autonomously-discovered-high-value-card-and-collectible-categories",
+      "title": "EBAY Q4 Deep Dive: Focus Category, C2C, and AI Drive Momentum, Depop Acquisition Expands Reach - TradingView",
+      "url": "https://www.tradingview.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMi5gFBVV95cUxNUnkwTlZWWnh3MEhRYzdqUGgtT2MwVWFJcnJ3VUNjaE92Q09raHFvbHQ5SGp5RWZScXdNZGFtNnZOQjZJOTA3eTlaeVZnZHNsdWYzUmFidFZEc2l6bjZqdXZTUTRQWTRlSnM4YzhKdFlySFpvQVJYMDB6UjRaRDlRUFBnWGt6UW5HVjRjc3dYUUVESmFQUVdUWC1vTUNOb1N5UUV5bU5CZXRROEZWcjJPU3VuZUFRblJZWElYZG43Y01HRXo0NHVQYU5nVVRyNWdKaUh0Y0lZaHBFQTlSSXo3MTg4WEg5Zw?oc=5",
+      "published": "Thu, 19 Feb 2026 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMi5gFBVV95cUxNUnkwTlZWWnh3MEhRYzdqUGgtT2MwVWFJcnJ3VUNjaE92Q09raHFvbHQ5SGp5RWZScXdNZGFtNnZOQjZJOTA3eTlaeVZnZHNsdWYzUmFidFZEc2l6bjZqdXZTUTRQWTRlSnM4YzhKdFlySFpvQVJYMDB6UjRaRDlRUFBnWGt6UW5HVjRjc3dYUUVESmFQUVdUWC1vTUNOb1N5UUV5bU5CZXRROEZWcjJPU3VuZUFRblJZWElYZG43Y01HRXo0NHVQYU5nVVRyNWdKaUh0Y0lZaHBFQTlSSXo3MTg4WEg5Zw?oc=5\" target=\"_blank\">EBAY Q4 Deep Dive: Focus Category, C2C, and AI Drive Momentum, Depop Acquisition Expands Reach</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">TradingView</font>"
+    },
+    {
+      "source": "Wandsworth Times",
+      "publisher": "Wandsworth Times",
+      "topic": "baseball-cards",
+      "title": "eBay makes major change to rules affecting millions of buyers and sellers - Wandsworth Times",
+      "url": "https://www.wandsworthguardian.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5\" target=\"_blank\">eBay makes major change to rules affecting millions of buyers and sellers</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Wandsworth Times</font>"
+    },
+    {
+      "source": "Grand View Research",
+      "publisher": "Grand View Research",
+      "topic": "basketball-cards",
+      "title": "Sports Trading Cards Market Size & Share Report, 2026-2033 - Grand View Research",
+      "url": "https://www.grandviewresearch.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5",
+      "published": "Tue, 25 Nov 2025 04:15:31 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQY1M4TldBYjF0QjRCdXdHckZFU2hqOG81bVZvM1lnMkxLYjlsWWJ1Nm0zb3l5bzY5UlhsZFdVNXZQWGx4SzVhcFJ0LWUta2JJT1ZhU2JEQ2MyUlJTWWxtdHhjbnBjSlBGTHBMU0dJOTFRc1lQTkVlMnp1NU9tTTFaTFhMYU5jclhtYTh0M2tLZw?oc=5\" target=\"_blank\">Sports Trading Cards Market Size & Share Report, 2026-2033</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Grand View Research</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "football-cards",
+      "title": "The best Tom Brady cards to collect: What you need to know about his rookie cards before buying - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOb2lJOW02bWdTM01YR0lFWVJsNm5DM0l2SDBjczhiVXB2c3hxNG1pY0Rja2Nfb0FfUThLdGw5aldyZENXbmJjLWs0amNwb3ZNN0E3X2ZRV2pERGVDUFZ1VWFoQ3RSbXBHeVhSWWxTbDhjSDdueG5abzNNRDVOVTZ6TlJoWVdzRFU?oc=5",
+      "published": "Sat, 25 Oct 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxOb2lJOW02bWdTM01YR0lFWVJsNm5DM0l2SDBjczhiVXB2c3hxNG1pY0Rja2Nfb0FfUThLdGw5aldyZENXbmJjLWs0amNwb3ZNN0E3X2ZRV2pERGVDUFZ1VWFoQ3RSbXBHeVhSWWxTbDhjSDdueG5abzNNRDVOVTZ6TlJoWVdzRFU?oc=5\" target=\"_blank\">The best Tom Brady cards to collect: What you need to know about his rookie cards before buying</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Wandsworth Times",
+      "publisher": "Wandsworth Times",
+      "topic": "hockey-cards",
+      "title": "eBay makes major change to rules affecting millions of buyers and sellers - Wandsworth Times",
+      "url": "https://www.wandsworthguardian.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5\" target=\"_blank\">eBay makes major change to rules affecting millions of buyers and sellers</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Wandsworth Times</font>"
+    },
+    {
+      "source": "PR Newswire UK",
+      "publisher": "PR Newswire UK",
+      "topic": "wrestling-cards",
+      "title": "eBay Launches Authenticity Guarantee for Trading Cards in the UK - PR Newswire UK",
+      "url": "https://www.prnewswire.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMivwFBVV95cUxQVml5T00zOHIzVTBUZkZNUVk4X2t1b01CM1Q1VWl3a1BZWjVRVVotdTd1VEZJeE0xUjBoazVMSm55ZEczYzBBNUJYcUJMZTZyX1d4THVCSmFjdmZTVnNmRkprOHRiSnlIWExyWnRfenRjMExjbjFyTjNORWM5Rm52X3paUGtPWmpQOWR5cy1VQ1NkYjlWck8wcnNPVmwzUTBGMklpa2IzdUVSaHpxdFVBcWxPTGd3dVU2OHZGVmRkbw?oc=5",
+      "published": "Tue, 05 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMivwFBVV95cUxQVml5T00zOHIzVTBUZkZNUVk4X2t1b01CM1Q1VWl3a1BZWjVRVVotdTd1VEZJeE0xUjBoazVMSm55ZEczYzBBNUJYcUJMZTZyX1d4THVCSmFjdmZTVnNmRkprOHRiSnlIWExyWnRfenRjMExjbjFyTjNORWM5Rm52X3paUGtPWmpQOWR5cy1VQ1NkYjlWck8wcnNPVmwzUTBGMklpa2IzdUVSaHpxdFVBcWxPTGd3dVU2OHZGVmRkbw?oc=5\" target=\"_blank\">eBay Launches Authenticity Guarantee for Trading Cards in the UK</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">PR Newswire UK</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "other-sports-cards",
+      "title": "The best Tom Brady cards to collect: What you need to know about his rookie cards before buying - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMihwFBVV95cUxOb2lJOW02bWdTM01YR0lFWVJsNm5DM0l2SDBjczhiVXB2c3hxNG1pY0Rja2Nfb0FfUThLdGw5aldyZENXbmJjLWs0amNwb3ZNN0E3X2ZRV2pERGVDUFZ1VWFoQ3RSbXBHeVhSWWxTbDhjSDdueG5abzNNRDVOVTZ6TlJoWVdzRFU?oc=5",
+      "published": "Sat, 25 Oct 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMihwFBVV95cUxOb2lJOW02bWdTM01YR0lFWVJsNm5DM0l2SDBjczhiVXB2c3hxNG1pY0Rja2Nfb0FfUThLdGw5aldyZENXbmJjLWs0amNwb3ZNN0E3X2ZRV2pERGVDUFZ1VWFoQ3RSbXBHeVhSWWxTbDhjSDdueG5abzNNRDVOVTZ6TlJoWVdzRFU?oc=5\" target=\"_blank\">The best Tom Brady cards to collect: What you need to know about his rookie cards before buying</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Highsnobiety",
+      "publisher": "Highsnobiety",
+      "topic": "pokemon-and-tcg",
+      "title": "Finally, Logan Paul's $3.5m Pokémon Cards Are Confirmed Fake - Highsnobiety",
+      "url": "https://www.highsnobiety.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMigAFBVV95cUxQUHNhQUp1N0ZDR2cyTTV6Q3BEYldiZXF3SHBjVnR2Rmp3NGctaUFOb1EzY2xpazV5S2p4WENBd2VUTXJza1JVZ1NlVWNGaXNTa1d6X1hLejVCSXJKT3AtQXhtQlg3aWlsaHVIai1pTUstQkNwaHlKcnF5NnlTTTJLTg?oc=5",
+      "published": "Thu, 13 Jan 2022 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMigAFBVV95cUxQUHNhQUp1N0ZDR2cyTTV6Q3BEYldiZXF3SHBjVnR2Rmp3NGctaUFOb1EzY2xpazV5S2p4WENBd2VUTXJza1JVZ1NlVWNGaXNTa1d6X1hLejVCSXJKT3AtQXhtQlg3aWlsaHVIai1pTUstQkNwaHlKcnF5NnlTTTJLTg?oc=5\" target=\"_blank\">Finally, Logan Paul's $3.5m Pokémon Cards Are Confirmed Fake</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Highsnobiety</font>"
+    },
+    {
+      "source": "The Straits Times",
+      "publisher": "The Straits Times",
+      "topic": "non-sports-and-entertainment-cards",
+      "title": "Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards - The Straits Times",
+      "url": "https://www.straitstimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5",
+      "published": "Thu, 28 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5\" target=\"_blank\">Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The Straits Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "graded-cards-and-slabs",
+      "title": "Why Ken Griffey Jr. rookie cards in bad condition can command premium prices - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMikgFBVV95cUxONU5GWEY0cGxqcWRpZnN1UUhCV1gwTDZmR0Z3TkxacFlJX2NLbzdta29zVGtYX2lhUGJPU25hSld5VC05R1JNX2ZxRHNBcDV6eHJKMm5SSkRFZmJSa1F3OFpKT1U5aUFxWnFoXzhIcFlzdE12azBmV2NRaG5pUDJFYjMxaEpFbGllemx2elZGZWFaZw?oc=5",
+      "published": "Wed, 13 Aug 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMikgFBVV95cUxONU5GWEY0cGxqcWRpZnN1UUhCV1gwTDZmR0Z3TkxacFlJX2NLbzdta29zVGtYX2lhUGJPU25hSld5VC05R1JNX2ZxRHNBcDV6eHJKMm5SSkRFZmJSa1F3OFpKT1U5aUFxWnFoXzhIcFlzdE12azBmV2NRaG5pUDJFYjMxaEpFbGllemx2elZGZWFaZw?oc=5\" target=\"_blank\">Why Ken Griffey Jr. rookie cards in bad condition can command premium prices</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    },
+    {
+      "source": "Ballerstatus",
+      "publisher": "Ballerstatus",
+      "topic": "mystery-boxes-and-repack-products",
+      "title": "PSA Will Now Certify Repack Boxes on eBay and Beyond — Here’s What It Means - Ballerstatus",
+      "url": "https://ballerstatus.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMisAFBVV95cUxQUGhxX0V0SktvYXE4Y1FSU3hKT3JkMVlRbndyR04yVTFUTEhYM18tWXdxWTk4MnJ1R19lWWZJZ2cxdElfTVhvNGk0NmdGQURsREtHRDJ3Skc3a1A0WEtHU3JFYVdEVnZRQXBCd19iSjM4TVdrck9mcjVZamZUUzExTE85alBHeHVkSlZYbEIwQ09VMmtNbkt1bU54OW1NUHdCbDhqcmhheGRXMmRZRko3Nw?oc=5",
+      "published": "Fri, 16 Jan 2026 17:43:29 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMisAFBVV95cUxQUGhxX0V0SktvYXE4Y1FSU3hKT3JkMVlRbndyR04yVTFUTEhYM18tWXdxWTk4MnJ1R19lWWZJZ2cxdElfTVhvNGk0NmdGQURsREtHRDJ3Skc3a1A0WEtHU3JFYVdEVnZRQXBCd19iSjM4TVdrck9mcjVZamZUUzExTE85alBHeHVkSlZYbEIwQ09VMmtNbkt1bU54OW1NUHdCbDhqcmhheGRXMmRZRko3Nw?oc=5\" target=\"_blank\">PSA Will Now Certify Repack Boxes on eBay and Beyond — Here’s What It Means</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Ballerstatus</font>"
+    },
+    {
+      "source": "The Drum",
+      "publisher": "The Drum",
+      "topic": "pop-mart-and-labubu",
+      "title": "Mark Ritson: The Labubu bubble is bursting but Pop Mart can still save the brand - The Drum",
+      "url": "https://www.thedrum.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMisAFBVV95cUxOUzV1RFF0UmpYT2NrS3E4aWhHRHlkYzdJdDRIbDh5aXJkcFktbGhJOC0yZTJKZENoTVRhUVhCYjV3b0pGWkVMSjhTQ2hsa181d0JVQ0g4M1VPei1KdXhCV3ZwNURFZVF4bTlObjdKRFdtNTJZLVVqT3VyYlhyM1ZlUnZEbVBwNl9NaGlxSjhmLXN6SkxlZlBiRWVDb0tSM0tfWXIyUm5oRkVhMDl6dThRMw?oc=5",
+      "published": "Mon, 10 Nov 2025 08:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMisAFBVV95cUxOUzV1RFF0UmpYT2NrS3E4aWhHRHlkYzdJdDRIbDh5aXJkcFktbGhJOC0yZTJKZENoTVRhUVhCYjV3b0pGWkVMSjhTQ2hsa181d0JVQ0g4M1VPei1KdXhCV3ZwNURFZVF4bTlObjdKRFdtNTJZLVVqT3VyYlhyM1ZlUnZEbVBwNl9NaGlxSjhmLXN6SkxlZlBiRWVDb0tSM0tfWXIyUm5oRkVhMDl6dThRMw?oc=5\" target=\"_blank\">Mark Ritson: The Labubu bubble is bursting but Pop Mart can still save the brand</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The Drum</font>"
+    },
+    {
+      "source": "WatchPro USA",
+      "publisher": "WatchPro USA",
+      "topic": "autonomously-discovered-high-value-card-and-collectible-categories",
+      "title": "WatchPro Power List: Vintage and Pre-Owned Pioneers - WatchPro USA",
+      "url": "https://usa.watchpro.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiggFBVV95cUxOclV2UU1vdUJFT3hlQ0tXb1NTOENERXNVQ1l1dGd5RW1nNzcyQzBxZ1E0UnMyQV9mMGZrRzNZX0R2OFUxeElZVlJGVkZqOTVScWJuWnBoU0xjZHpvc2J4THhhMzdUMU40SzBkSnFRbUdUb2VNVUdmVTNqT254dTh6NnF3?oc=5",
+      "published": "Sat, 30 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiggFBVV95cUxOclV2UU1vdUJFT3hlQ0tXb1NTOENERXNVQ1l1dGd5RW1nNzcyQzBxZ1E0UnMyQV9mMGZrRzNZX0R2OFUxeElZVlJGVkZqOTVScWJuWnBoU0xjZHpvc2J4THhhMzdUMU40SzBkSnFRbUdUb2VNVUdmVTNqT254dTh6NnF3?oc=5\" target=\"_blank\">WatchPro Power List: Vintage and Pre-Owned Pioneers</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">WatchPro USA</font>"
+    },
+    {
+      "source": "The Straits Times",
+      "publisher": "The Straits Times",
+      "topic": "baseball-cards",
+      "title": "Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards - The Straits Times",
+      "url": "https://www.straitstimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5",
+      "published": "Thu, 28 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMipgFBVV95cUxNamxETFU2UVQyczBJWEVsWExRZmo3bDg3MEpXWGZMRmhobDRVWldENmdQaTN4aWx6QmNvczJlTnFDX0FhdlRCSTFhemU0YUQzRXJtcFp2VkRZMENiLThBa1VOLThCMmdOWlpyVUdVU0JkM0NYaVEtWkJjbVc3d09DWXJ5RW51VVdXVDVCVnh4U1k5R1VvTFdqQVdfVWFOUDNJMEZfX1NB?oc=5\" target=\"_blank\">Inside Singapore’s Pokemon trading boom where millions in cash are swopped for rare cards</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The Straits Times</font>"
+    },
+    {
+      "source": "Wandsworth Times",
+      "publisher": "Wandsworth Times",
+      "topic": "basketball-cards",
+      "title": "eBay makes major change to rules affecting millions of buyers and sellers - Wandsworth Times",
+      "url": "https://www.wandsworthguardian.co.uk",
+      "feedUrl": "https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5",
+      "published": "Fri, 15 May 2026 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMiuwFBVV95cUxQdW5zMk5VcFRXWUt5TEJRclZKZGxkclB0cXpyV0FodFYtQlB2TE5POVZOc3dIM0o2U2RvaHc2V3RkSUJNV1QxSVlVMm9JMHdzeXZkRGt6YmRCTVlMRkFtVjRWYUNULVo0M1NRWFBxX1MxRXZzTHNRZDdONGhTNTRVZ29YSk5HdXlOMnR6aWpRSl9SVWdJcHYxbFhYZlZxQUFXeUt6ODUyU1RMNmJDdm5Hb3JLWFdDQmpIVXlv?oc=5\" target=\"_blank\">eBay makes major change to rules affecting millions of buyers and sellers</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">Wandsworth Times</font>"
+    },
+    {
+      "source": "The New York Times",
+      "publisher": "The New York Times",
+      "topic": "football-cards",
+      "title": "The best Michael Jordan cards to collect: His unusual rookie card situation and more - The New York Times",
+      "url": "https://www.nytimes.com",
+      "feedUrl": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5",
+      "published": "Mon, 17 Mar 2025 07:00:00 GMT",
+      "summary": "<a href=\"https://news.google.com/rss/articles/CBMijwFBVV95cUxQRFlaUUdpN0FQbzJwU0tkdFlfX1l3NUdYbWhJOXNTa1BMeEpSdXloaVFjRmRLVXA2SHZkRmpkSlVxQkRqeVFlRG1hQkUwQ1lEV0tnNmlqcGMzb2gzZHBJWWV3dEczZmM5OWtXZHNqYTBuZE5fME05c1VlVklfdWVtSldEcW9ua2toZUJnWnJyQQ?oc=5\" target=\"_blank\">The best Michael Jordan cards to collect: His unusual rookie card situation and more</a>&nbsp;&nbsp;<font color=\"#6f6f6f\">The New York Times</font>"
+    }
+  ],
+  "nextStep": "Validate public findings against independent completed-sale, official-program, and authentication evidence before scoring opportunities; research cannot authorize transactions, publishing, outreach, or credential access."
+}
