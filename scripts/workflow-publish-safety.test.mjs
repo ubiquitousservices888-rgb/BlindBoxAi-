@@ -15,6 +15,8 @@ const scheduledAllowlist = new Set([
   "evergreen-shopping-stage.yml",
   "know-it-all-public-research.yml",
   "know-it-all-transaction-verification.yml",
+  "heartbeat.yml",
+  "mislisting-scanner.yml",
   "mr-know-it-all-tool-bot.yml",
   "narrative-flywheel-stage.yml",
   "partnership-flywheel-stage.yml",
