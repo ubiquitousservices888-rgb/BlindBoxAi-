@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../lib/evidence";
+import { assertOwnerCode } from "../../../../lib/evidence";
 import { getOwnerDashboardSnapshot } from "../../../../lib/owner-dashboard";
 import { requestEtagMatches } from "../../../../lib/owner-dashboard-core.mjs";
 
@@ -108,7 +108,7 @@ export async function GET(request) {
   const auth = request.headers.get("authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   try {
-    assertUploadCode(token);
+    assertOwnerCode(token);
   } catch {
     return unauthorized();
   }
