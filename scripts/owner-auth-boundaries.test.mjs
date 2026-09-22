@@ -108,3 +108,17 @@ test("rejected review rows cannot be reopened by staging the same URL", () => {
   assert.match(stageHandler, /Rejected review rows are immutable/);
   assert.ok(stageHandler.includes('return json({ error: "Rejected review rows are immutable" }, 409);'));
 });
+
+
+test("rejected migration extends the queue status constraint before migrating rows", () => {
+  const migration = fs.readFileSync(
+    new URL("../supabase/migrations/20260922022000_review_video_rejected_status.sql", import.meta.url),
+    "utf8",
+  );
+  const statusConstraint = migration.indexOf("review_video_queue_status_check");
+  const rejectedStatus = migration.indexOf("'rejected'");
+  const duplicateMigration = migration.indexOf("rv-dc3fe87a26bf3dd7");
+  assert.ok(statusConstraint >= 0);
+  assert.ok(rejectedStatus > statusConstraint);
+  assert.ok(duplicateMigration > rejectedStatus);
+});
