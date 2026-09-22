@@ -45,12 +45,14 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.ok(bufferCreate > dryPreview);
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
+  assert.match(source, /PUBLISH_CHANNEL/);
+  assert.match(source, /eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
 });
 
 test("publisher resumes only deferred channels on later runs", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /published_channels/);
-  assert.match(source, /remainingChannels = targetChannels\.filter/);
+  assert.match(source, /remainingChannels = eligibleChannels\.filter/);
   assert.match(source, /action: "record_channel"/);
   assert.match(source, /if \(!recorded\?\.complete\)/);
   assert.doesNotMatch(source, /action: "complete", researchRunId: item\.research_run_id, success: true/);
@@ -77,12 +79,30 @@ test("dry-run uses read-only peek and reports the exact next channel without Buf
   assert.ok(dryExit >= 0 && bufferCreate > dryExit);
 });
 
+test("channel-aware queue claim skips rows that already completed the requested channel", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  assert.match(source, /requestedPublishChannel/);
+  assert.match(source, /nextApprovedForChannel/);
+  assert.match(source, /published_channels/);
+  assert.match(source, /includes\(channel\)/);
+  assert.match(source, /peek\(req, body\)/);
+  assert.match(source, /claim\(req, body\)/);
+});
+
+test("channel-specific publishing keeps youtube,tiktok as the completion target", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const targetChannels =/);
+  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /targetChannels,/);
+});
+
 test("queue peek is read-only and separately authorized", () => {
   const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   const start = source.indexOf("async function peek(req");
   const end = source.indexOf("async function claim(req");
   const peek = source.slice(start, end);
   assert.match(peek, /githubAuthorized/);
-  assert.match(peek, /eq\("status", "approved"\)/);
+  assert.match(source, /nextApprovedForChannel/);
+  assert.match(source, /eq\("status", "approved"\)/);
   assert.doesNotMatch(peek, /\.update\(/);
 });
