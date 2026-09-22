@@ -29,6 +29,7 @@ export default function DashboardClient() {
   const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
   const [epnBusy, setEpnBusy] = useState(false);
   const [epnMessage, setEpnMessage] = useState("");
+  const [dossierBusy, setDossierBusy] = useState(false);
   const seen = useRef(new Set());
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
@@ -131,6 +132,35 @@ export default function DashboardClient() {
     }
   }
 
+  async function downloadAcquisitionDossier() {
+    if (!activeCode || dossierBusy) return;
+    setDossierBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/owner/acquisition-dossier?format=markdown", {
+        headers: { Authorization: `Bearer ${activeCode}` },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Acquisition dossier unavailable.");
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = "blindboxai-acquisition-dossier.md";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(href);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Acquisition dossier unavailable.");
+    } finally {
+      setDossierBusy(false);
+    }
+  }
+
   function chooseEpnReport() {
     if (!epnBusy) epnFileInput.current?.click();
   }
@@ -216,6 +246,14 @@ export default function DashboardClient() {
       <button onClick={() => load(activeCode, false)} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       <button onClick={enableNotifications} style={{ padding: "10px 14px" }}>Enable browser notifications</button>
     </div>
+
+    <section>
+      <h2>Acquisition proof</h2>
+      <button type="button" onClick={downloadAcquisitionDossier} disabled={dossierBusy} style={{ padding: "11px 15px", fontWeight: 800 }}>
+        {dossierBusy ? "PREPARING DOSSIER…" : "DOWNLOAD LATEST ACQUISITION DOSSIER"}
+      </button>
+      <p style={{ opacity: 0.75 }}>Monthly owner-only proof report. Missing source metrics are labeled “no data”; they are never estimated.</p>
+    </section>
 
     <section>
       <h2>Revenue control room</h2>
