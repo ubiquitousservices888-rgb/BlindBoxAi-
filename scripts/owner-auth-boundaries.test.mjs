@@ -10,6 +10,8 @@ const stageReviewRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/
 const approveReviewRoute = fs.readFileSync(new URL("../app/api/owner/approve-review/route.js", import.meta.url), "utf8");
 const approveLaunchRoute = fs.readFileSync(new URL("../app/api/owner/approve-launch/route.js", import.meta.url), "utf8");
 const ebayConnectRoute = fs.readFileSync(new URL("../app/api/owner/ebay-connect/route.js", import.meta.url), "utf8");
+const controlAuthRoute = fs.readFileSync(new URL("../app/api/owner/control-auth/route.js", import.meta.url), "utf8");
+const reviewQueueEdge = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
 
 const OWNER = "owner-code-test-only";
 const UPLOAD = "upload-code-test-only";
@@ -55,7 +57,7 @@ test("only staging/upload routes contain the dual-code fallback", () => {
 });
 
 test("approval, launch, connect and revoke surfaces are owner-only and map failure to 401", () => {
-  for (const source of [approveReviewRoute, approveLaunchRoute, ebayConnectRoute]) {
+  for (const source of [approveReviewRoute, approveLaunchRoute, ebayConnectRoute, controlAuthRoute]) {
     assert.match(source, /assertOwnerCode/);
     assert.doesNotMatch(source, /assertUploadCode/);
     assert.match(source, /status:\s*401/);
@@ -76,4 +78,19 @@ test("upload credential is rejected by the checker used on privileged routes", (
     if (previousUpload === undefined) delete process.env.EVIDENCE_UPLOAD_CODE;
     else process.env.EVIDENCE_UPLOAD_CODE = previousUpload;
   }
+});
+
+
+test("review reject transition is owner-control only and audit preserving", () => {
+  assert.match(controlAuthRoute, /assertOwnerCode/);
+  assert.doesNotMatch(controlAuthRoute, /assertUploadCode/);
+  assert.match(reviewQueueEdge, /ownerControlAuthorized/);
+  assert.match(reviewQueueEdge, /action === "reject"/);
+  assert.match(reviewQueueEdge, /status: "rejected"/);
+  assert.match(reviewQueueEdge, /rejection_reason/);
+  assert.match(reviewQueueEdge, /rejected_at/);
+  assert.match(reviewQueueEdge, /duplicate/);
+  assert.match(reviewQueueEdge, /owner_rejected/);
+  assert.match(reviewQueueEdge, /test/);
+  assert.doesNotMatch(reviewQueueEdge, /\.delete\(/);
 });
