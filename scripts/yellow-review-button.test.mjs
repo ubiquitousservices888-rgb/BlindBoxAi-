@@ -128,7 +128,25 @@ test("review publisher sends required YouTube metadata while keeping TikTok meta
     }
     if (query.includes("mutation CreateReviewVideo")) {
       createRequests.push(body);
-      return jsonResponse({ data: { createPost: { post: { id: `post-${createRequests.length}`, text: body.variables.text, status: "scheduled", channelId: body.variables.channelId } } } });
+      return jsonResponse({ data: { createPost: { post: { id: `post-${createRequests.length}`, text: body.variables.text, status: "sending", channelId: body.variables.channelId } } } });
+    }
+    if (query.includes("query VerifySentPost")) {
+      const channelId = body.variables.channelIds[0];
+      const isYoutube = channelId === "channel-youtube";
+      const postIndex = isYoutube ? 0 : 1;
+      return jsonResponse({ data: { posts: {
+        edges: [{ node: {
+          id: `post-${postIndex + 1}`,
+          text: createRequests[postIndex].variables.text,
+          status: "sent",
+          channelId,
+          externalLink: isYoutube
+            ? "https://www.youtube.com/watch?v=verified123"
+            : "https://www.tiktok.com/@blindboxai/video/verified456",
+          sentAt: "2026-09-22T13:00:00Z",
+        } }],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      } } });
     }
     throw new Error("unexpected Buffer query");
   };
