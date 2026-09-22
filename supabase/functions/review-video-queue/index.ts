@@ -25,6 +25,16 @@ function json(body: unknown, status = 200) {
 }
 function clean(value: unknown, max = 240) { return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, max); }
 function safeHttps(value: unknown) { try { const url = new URL(clean(value, 500)); return url.protocol === "https:" ? url.toString() : null; } catch { return null; } }
+function safePublicUrl(channel: string, value: unknown) {
+  const raw = safeHttps(value);
+  if (!raw) return null;
+  const url = new URL(raw);
+  const host = url.hostname.toLowerCase();
+  const matches = (root: string) => host === root || host.endsWith(`.${root}`);
+  if (channel === "youtube" && (matches("youtube.com") || matches("youtu.be"))) return url.toString();
+  if (channel === "tiktok" && matches("tiktok.com")) return url.toString();
+  return null;
+}
 function verticalFor(title: string) {
   const t = title.toLowerCase();
   if (/pokemon|pokémon|pikachu|charizard|mewtwo|umbreon|jigglypuff|turtwig/.test(t)) return "pokemon_tcg";
@@ -119,7 +129,7 @@ function requestedPublishChannel(body: any) {
 
 async function nextApprovedForChannel(channel: string) {
   const { data, error } = await db.from("review_video_queue")
-    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids")
+    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
     .eq("status", "approved")
     .order("approved_at", { ascending: true })
     .limit(100);
@@ -154,7 +164,7 @@ async function claim(req: Request, body: any) {
     .update({ status: "publishing", publishing_at: now, updated_at: now })
     .eq("research_run_id", item.research_run_id)
     .eq("status", "approved")
-    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids")
+    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
     .maybeSingle();
   return json({ ok: true, item: claimed || null });
 }
@@ -163,15 +173,16 @@ async function recordChannel(req: Request, body: any) {
   const researchRunId = clean(body?.researchRunId, 40);
   const channel = clean(body?.channel, 32).toLowerCase();
   const externalId = clean(body?.externalId, 200);
+  const publicUrl = safePublicUrl(channel, body?.publicUrl);
   const targetChannels = [...new Set((Array.isArray(body?.targetChannels) ? body.targetChannels : [])
     .map((value: unknown) => clean(value, 32).toLowerCase())
     .filter((value: string) => /^[a-z0-9_-]{2,32}$/.test(value)))];
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
-  if (!/^[a-z0-9_-]{2,32}$/.test(channel) || !externalId) return json({ error: "Invalid channel publication" }, 400);
+  if (!/^[a-z0-9_-]{2,32}$/.test(channel) || !externalId || !publicUrl) return json({ error: "Invalid verified channel publication" }, 400);
   if (!targetChannels.length || !targetChannels.includes(channel)) return json({ error: "Invalid target channel set" }, 400);
 
   const { data: current, error: readError } = await db.from("review_video_queue")
-    .select("published_channels,buffer_post_ids")
+    .select("published_channels,buffer_post_ids,public_urls")
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
     .maybeSingle();
@@ -180,21 +191,40 @@ async function recordChannel(req: Request, body: any) {
 
   const publishedChannels = [...new Set([...(Array.isArray(current.published_channels) ? current.published_channels : []), channel])];
   const bufferPostIds = { ...(current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {}), [channel]: externalId };
+  const publicUrls = { ...(current.public_urls && typeof current.public_urls === "object" ? current.public_urls : {}), [channel]: publicUrl };
   const allDone = targetChannels.every((value: string) => publishedChannels.includes(value));
   const now = new Date().toISOString();
   const patch = allDone
-    ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, published_at: now, updated_at: now, last_error: null }
-    : { status: "approved", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, publishing_at: null, updated_at: now, last_error: null };
+    ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, published_at: now, updated_at: now, last_error: null }
+    : { status: "approved", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, publishing_at: null, updated_at: now, last_error: null };
 
   const { data, error } = await db.from("review_video_queue")
     .update(patch)
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
-    .select("research_run_id,video_url,title,vertical,status,published_channels,buffer_post_ids")
+    .select("research_run_id,video_url,title,vertical,status,published_channels,buffer_post_ids,public_urls")
     .maybeSingle();
   if (error) return json({ error: "Queue channel update failed" }, 500);
   if (!data) return json({ error: "Queue channel update lost its publishing lease" }, 409);
   return json({ ok: true, item: data, complete: allDone });
+}
+
+async function release(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40);
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  const now = new Date().toISOString();
+  const { error } = await db.from("review_video_queue")
+    .update({
+      status: "approved",
+      publishing_at: null,
+      updated_at: now,
+      last_error: clean(body?.error, 500) || "Public post verification pending",
+    })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing");
+  if (error) return json({ error: "Queue release failed" }, 500);
+  return json({ ok: true });
 }
 
 async function complete(req: Request, body: any) {
@@ -217,6 +247,7 @@ Deno.serve(async (req: Request) => {
   if (action === "peek") return peek(req, body);
   if (action === "claim") return claim(req, body);
   if (action === "record_channel") return recordChannel(req, body);
+  if (action === "release") return release(req, body);
   if (action === "complete") return complete(req, body);
   return json({ error: "Unknown action" }, 400);
 });
