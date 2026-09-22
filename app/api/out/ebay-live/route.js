@@ -4,6 +4,7 @@ import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.
 import { getSeries } from "../../../../lib/data";
 import { getEbayProductionItem, normalizeEbayAffiliateReference } from "../../../../lib/ebay-production-api.mjs";
 import { getRevenueOffer } from "../../../../lib/revenue-offers";
+import { classifyAffiliateRequest } from "../../../../lib/click-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -36,6 +37,7 @@ function sourcePathForContext(context) {
 }
 
 export async function GET(request) {
+  const clickQuality = classifyAffiliateRequest(request);
   const url = new URL(request.url);
   const itemId = String(url.searchParams.get("item") || "").trim();
   const context = resolveContext(String(url.searchParams.get("context") || "").trim(), String(url.searchParams.get("id") || "").trim());
@@ -86,6 +88,8 @@ export async function GET(request) {
       attributionRecoveredFrom: requestAttribution.recoveredFrom,
       ebayUserDataStored: false,
     },
+    clientClass: clickQuality.clientClass,
+    qualityReason: clickQuality.qualityReason,
     piiStored: false,
   };
 
