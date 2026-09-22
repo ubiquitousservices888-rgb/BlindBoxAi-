@@ -17,14 +17,14 @@ const plannedCalls=assertCallBudget(watchlist);
 let browseCalls=0;
 
 async function token(){
-  const basic=Buffer.from(\`\${CLIENT_ID}:\${CLIENT_SECRET}\`,"utf8").toString("base64");
+  const basic=Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`,"utf8").toString("base64");
   const response=await fetch(TOKEN_URL,{
     method:"POST",
-    headers:{Authorization:\`Basic \${basic}\`,"Content-Type":"application/x-www-form-urlencoded"},
+    headers:{Authorization:`Basic ${basic}`,"Content-Type":"application/x-www-form-urlencoded"},
     body:new URLSearchParams({grant_type:"client_credentials",scope:"https://api.ebay.com/oauth/api_scope"}),
   });
   const body=await response.json().catch(()=>({}));
-  if(!response.ok||!body.access_token) throw new Error(\`eBay OAuth failed: \${response.status}\`);
+  if(!response.ok||!body.access_token) throw new Error(`eBay OAuth failed: ${response.status}`);
   return body.access_token;
 }
 const accessToken=await token();
@@ -38,31 +38,31 @@ for(const item of watchlist){
   url.searchParams.set("filter","buyingOptions:{FIXED_PRICE}");
   const response=await fetch(url,{
     headers:{
-      Authorization:\`Bearer \${accessToken}\`,
+      Authorization:`Bearer ${accessToken}`,
       Accept:"application/json",
       "X-EBAY-C-MARKETPLACE-ID":"EBAY_US"
     }
   });
   const body=await response.json().catch(()=>({}));
-  if(!response.ok) throw new Error(\`eBay Browse search failed: \${response.status}\`);
+  if(!response.ok) throw new Error(`eBay Browse search failed: ${response.status}`);
   for(const listing of Array.isArray(body.itemSummaries)?body.itemSummaries:[]){
     const flag=flagIdentifierMismatch(item,listing);
     if(flag?.listingId) flags.push(flag);
   }
 }
 
-const oidcResponse=await fetch(\`\${REQUEST_URL}&audience=\${encodeURIComponent("blindboxai-mislisting-scanner")}\`,{
-  headers:{Authorization:\`Bearer \${REQUEST_TOKEN}\`}
+const oidcResponse=await fetch(`${REQUEST_URL}&audience=${encodeURIComponent("blindboxai-mislisting-scanner")}`,{
+  headers:{Authorization:`Bearer ${REQUEST_TOKEN}`}
 });
-if(!oidcResponse.ok) throw new Error(\`OIDC request failed: \${oidcResponse.status}\`);
+if(!oidcResponse.ok) throw new Error(`OIDC request failed: ${oidcResponse.status}`);
 const oidc=(await oidcResponse.json()).value;
-const ingest=await fetch(\`\${SUPABASE_URL}/functions/v1/mislisting-scanner-ingest\`,{
+const ingest=await fetch(`${SUPABASE_URL}/functions/v1/mislisting-scanner-ingest`,{
   method:"POST",
-  headers:{Authorization:\`Bearer \${oidc}\`,"Content-Type":"application/json"},
+  headers:{Authorization:`Bearer ${oidc}`,"Content-Type":"application/json"},
   body:JSON.stringify({action:"ingest",scannedAt:new Date().toISOString(),plannedCalls,browseCalls,flags})
 });
 const result=await ingest.json().catch(()=>({}));
-if(!ingest.ok) throw new Error(result?.error||\`Scanner ingest failed: \${ingest.status}\`);
-console.log(\`MISLISTING_SCANNER_BROWSE_CALLS=\${browseCalls}\`);
-console.log(\`MISLISTING_SCANNER_FLAGS=\${flags.length}\`);
+if(!ingest.ok) throw new Error(result?.error||`Scanner ingest failed: ${ingest.status}`);
+console.log(`MISLISTING_SCANNER_BROWSE_CALLS=${browseCalls}`);
+console.log(`MISLISTING_SCANNER_FLAGS=${flags.length}`);
 console.log("MISLISTING_SCANNER_STORED=true");
