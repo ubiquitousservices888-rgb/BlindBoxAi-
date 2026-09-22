@@ -75,3 +75,14 @@ test("series page requires explicit data-quality verification for retail and odd
   assert.match(page, /needs research/);
   assert.match(page, /Evidence note/);
 });
+
+
+test("confirmed waitlist signup is first-party and stores no email", () => {
+  const waitlist = read("app/pro/waitlist.jsx");
+  const analyticsRoute = read("app/api/analytics/event/route.js");
+  assert.match(waitlist, /\/api\/analytics\/event/);
+  assert.match(waitlist, /providerConfirmed:\s*true/);
+  assert.match(analyticsRoute, /"waitlist_signup"/);
+  assert.match(analyticsRoute, /providerConfirmed/);
+  assert.doesNotMatch(analyticsRoute, /email/);
+});
