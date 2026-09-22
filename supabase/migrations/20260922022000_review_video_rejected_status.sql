@@ -1,4 +1,11 @@
 alter table public.review_video_queue
+  drop constraint if exists review_video_queue_status_check;
+
+alter table public.review_video_queue
+  add constraint review_video_queue_status_check
+  check (status in ('ready_for_review','approved','publishing','published','failed','rejected'));
+
+alter table public.review_video_queue
   add column if not exists rejection_reason text,
   add column if not exists rejected_at timestamptz;
 
