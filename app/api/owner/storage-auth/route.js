@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../lib/evidence";
+import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +10,20 @@ const PRIVATE_HEADERS = {
   Vary: "Authorization",
 };
 
+function assertStagingCode(value) {
+  try {
+    assertOwnerCode(value);
+  } catch {
+    assertUploadCode(value);
+  }
+}
+
 export async function POST(request) {
   const auth = request.headers.get("authorization") || "";
   const ownerCode = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
   try {
-    assertUploadCode(ownerCode);
+    assertStagingCode(ownerCode);
   } catch {
     return NextResponse.json({ ok: false }, { status: 401, headers: PRIVATE_HEADERS });
   }
