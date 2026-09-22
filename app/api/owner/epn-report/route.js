@@ -1,7 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../lib/evidence";
+import { assertOwnerCode } from "../../../../lib/evidence";
 import { parseEpnReportCsv } from "../../../../lib/epn-reporting.mjs";
 
 export const runtime = "nodejs";
@@ -20,7 +20,7 @@ function unauthorized() {
 export async function POST(request) {
   const auth = request.headers.get("authorization") || "";
   const ownerCode = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  try { assertUploadCode(ownerCode); } catch { return unauthorized(); }
+  try { assertOwnerCode(ownerCode); } catch { return unauthorized(); }
 
   try {
     const form = await request.formData();

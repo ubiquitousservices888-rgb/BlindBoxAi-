@@ -18,6 +18,16 @@ export default function Waitlist({ endpoint }) {
       });
       if (res.ok) {
         track("waitlist_signup", { source: "blindboxai-pro-waitlist" });
+        fetch("/api/analytics/event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "waitlist_signup",
+            source: "blindboxai-pro-waitlist",
+            providerConfirmed: true,
+          }),
+          keepalive: true,
+        }).catch(() => {});
         setStatus("done");
       } else {
         setStatus("error");

@@ -12,6 +12,7 @@ const approveLaunchRoute = fs.readFileSync(new URL("../app/api/owner/approve-lau
 const ebayConnectRoute = fs.readFileSync(new URL("../app/api/owner/ebay-connect/route.js", import.meta.url), "utf8");
 const controlAuthRoute = fs.readFileSync(new URL("../app/api/owner/control-auth/route.js", import.meta.url), "utf8");
 const ownerDashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
+const epnReportRoute = fs.readFileSync(new URL("../app/api/owner/epn-report/route.js", import.meta.url), "utf8");
 const reviewQueueEdge = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
 
 const OWNER = "owner-code-test-only";
@@ -129,4 +130,11 @@ test("owner dashboard rejects upload credential and requires owner control code"
   assert.match(ownerDashboardRoute, /assertOwnerCode/);
   assert.doesNotMatch(ownerDashboardRoute, /assertUploadCode/);
   assert.match(ownerDashboardRoute, /Cache-Control": "private, no-store, max-age=0"/);
+});
+
+
+test("EPN report import is owner-only", () => {
+  assert.match(epnReportRoute, /assertOwnerCode/);
+  assert.doesNotMatch(epnReportRoute, /assertUploadCode/);
+  assert.match(epnReportRoute, /Cache-Control": "private, no-store, max-age=0"/);
 });
