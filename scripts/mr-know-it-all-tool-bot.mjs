@@ -250,18 +250,24 @@ async function researchQueueItem(item, oidcToken) {
   const rawSummary = summarizeCardApiSales(rawAccepted);
   const gradedSummary = summarizeCardApiSales(gradedAccepted);
   const verified = rawSummary.status === "VERIFIED" || gradedSummary.status === "VERIFIED";
+  const successfulEmptyCooldown =
+    !verified &&
+    accepted.length === 0 &&
+    Number(item?.attempts || 0) >= 8;
   await edgeCall("bot_finish", {
     queueId: item.id,
     status: verified ? "verified" : "queued",
     note: verified
       ? `Verified completed-sale evidence stored. raw=${rawSummary.soldSampleCount}, graded=${gradedSummary.soldSampleCount}`
-      : `Broad sold search returned ${providerInfo.returnedCount}; strict identity kept ${providerInfo.strictIdentityCount}; stored ${accepted.length}.`,
-    retryHours: 6,
+      : successfulEmptyCooldown
+        ? `No verified completed-sale evidence after ${Number(item?.attempts || 0)} attempts; retry deferred 30 days. Broad sold search returned ${providerInfo.returnedCount}; strict identity kept ${providerInfo.strictIdentityCount}; stored 0.`
+        : `Broad sold search returned ${providerInfo.returnedCount}; strict identity kept ${providerInfo.strictIdentityCount}; stored ${accepted.length}.`,
+    retryHours: successfulEmptyCooldown ? 720 : 6,
     result: { provider: providerInfo, raw: rawSummary, graded: gradedSummary },
   }, { oidcToken });
   return {
     id: item.id,
-    outcome: verified ? "verified" : "insufficient_evidence",
+    outcome: verified ? "verified" : successfulEmptyCooldown ? "cooldown_no_evidence" : "insufficient_evidence",
     provider: providerInfo,
     raw: rawSummary,
     graded: gradedSummary,
