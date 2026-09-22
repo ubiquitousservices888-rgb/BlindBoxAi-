@@ -12,8 +12,6 @@ on:
       - "scripts/autonomous-priority.test.mjs"
       - ".github/workflows/autonomous-affiliate-loop.yml"
   workflow_dispatch:
-  schedule:
-    - cron: "17 */6 * * *"
 
 permissions:
   contents: read
