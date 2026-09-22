@@ -9,7 +9,7 @@ const page=fs.readFileSync(new URL("../app/ask/page.jsx",import.meta.url),"utf8"
 
 test("fake reports are private and never auto-publish",()=>{
   assert.match(migration,/enable row level security/);
-  assert.match(migration,/public, false/);
+  assert.match(migration,/insert into storage\.buckets \(id, name, public,/);\n  assert.match(migration,/public = false/);
   assert.match(edge,/status:"pending_owner_review"/);
   assert.match(edge,/authenticity_tier:null/);
   assert.doesNotMatch(edge,/publish|published|Buffer|youtube|tiktok/i);
