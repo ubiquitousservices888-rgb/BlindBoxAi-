@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
@@ -124,4 +125,17 @@ test("provider evidence writer requires owner authorization and sends no raw CSV
     assert.equal(call.payload.evidence[0].providerEvidenceId, "txn-1");
     assert.equal("csv" in call.payload, false);
   });
+});
+
+
+test("provider evidence edge path uses owner-only control auth", () => {
+  const source = fs.readFileSync(
+    new URL("../supabase/functions/distribution-telemetry/index.ts", import.meta.url),
+    "utf8",
+  );
+  const ownerStart = source.indexOf("async function ownerAuthorized");
+  const ownerEnd = source.indexOf("async function recordClick", ownerStart);
+  const ownerBlock = source.slice(ownerStart, ownerEnd);
+  assert.match(ownerBlock, /\/api\/owner\/control-auth/);
+  assert.doesNotMatch(ownerBlock, /storage-auth/);
 });
