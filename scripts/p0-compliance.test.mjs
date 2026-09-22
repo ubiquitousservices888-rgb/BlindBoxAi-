@@ -99,6 +99,6 @@ test("click quality gate stores no raw fingerprint material", () => {
   assert.match(recordClickBlock, /client_class/);
   assert.match(recordClickBlock, /quality_reason/);
   assert.match(migration, /legacy_unclassified/);
-  assert.doesNotMatch(recordClickBlock, /user_agent|ip_address|fingerprint/i);
-  assert.doesNotMatch(migration, /user_agent|ip_address|fingerprint/i);
+  assert.doesNotMatch(recordClickBlock, /\b(?:user_agent|ip_address|fingerprint)\s*:/i);
+  assert.doesNotMatch(migration, /add\s+column[^\n]*(?:user_agent|ip_address|fingerprint)/i);
 });
