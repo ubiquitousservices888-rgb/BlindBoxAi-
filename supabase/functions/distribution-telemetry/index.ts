@@ -134,6 +134,47 @@ async function recordEvent(body: any) {
   return json({ ok: true }, 202);
 }
 
+async function recordProviderEvidence(req: Request, body: any) {
+  if (!await ownerAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  const evidence = Array.isArray(body?.evidence) ? body.evidence.slice(0, 100) : [];
+  if (!evidence.length) return json({ ok: true, inserted: 0, duplicates: 0 });
+
+  const observedAt = new Date().toISOString();
+  const rows = [];
+  for (const item of evidence) {
+    const providerEvidenceId = clean(item?.providerEvidenceId, 180);
+    const rawRevenue = Number(item?.confirmedRevenueUSD);
+    const occurredAt = clean(item?.occurredAt, 40);
+    if (!providerEvidenceId || !Number.isFinite(rawRevenue) || rawRevenue < 0 || rawRevenue > 100000000) {
+      return json({ error: "Invalid provider evidence" }, 400);
+    }
+    if (occurredAt && !Number.isFinite(Date.parse(occurredAt))) {
+      return json({ error: "Invalid provider evidence timestamp" }, 400);
+    }
+    rows.push({
+      provider: "ebay_epn",
+      provider_evidence_id: providerEvidenceId,
+      custom_id: clean(item?.customId, 220),
+      occurred_at: occurredAt || null,
+      observed_at: observedAt,
+      confirmed_revenue_usd: Math.round(rawRevenue * 100) / 100,
+      status: "provider_confirmed",
+      source: "ebay_partner_network_csv",
+      metadata: {},
+    });
+  }
+
+  const { data, error } = await db.from("provider_conversion_evidence")
+    .upsert(rows, { onConflict: "provider,provider_evidence_id", ignoreDuplicates: true })
+    .select("id");
+  if (error) {
+    console.error("provider_evidence_insert_failed", { code: error.code });
+    return json({ error: "Unable to store provider evidence" }, 500);
+  }
+  const inserted = Array.isArray(data) ? data.length : 0;
+  return json({ ok: true, inserted, duplicates: rows.length - inserted }, 202);
+}
+
 async function dashboard(req: Request, body: any) {
   if (!await ownerAuthorized(req)) return json({ error: "Unauthorized" }, 401);
   const lookbackDays = Math.max(1, Math.min(90, Number(body?.lookbackDays) || 30));
@@ -160,6 +201,7 @@ Deno.serve(async (req: Request) => {
   const type = clean(body?.type, 30);
   if (type === "click") return recordClick(body?.event || {});
   if (type === "event") return recordEvent(body?.event || {});
+  if (type === "provider_evidence") return recordProviderEvidence(req, body);
   if (type === "dashboard") return dashboard(req, body);
   return json({ error: "Unknown telemetry type" }, 400);
 });
