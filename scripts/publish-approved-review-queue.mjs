@@ -2,7 +2,10 @@ import {
   DISCLOSURE,
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
-import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
+import {
+  createReviewBufferPublisher,
+  isVerifiedPublicPostUrl,
+} from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import {
@@ -76,7 +79,7 @@ const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
 const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
 const completedChannels = new Set(
   (Array.isArray(item.published_channels) ? item.published_channels : [])
-    .filter((channel) => Boolean(recordedPublicUrls[channel])),
+    .filter((channel) => isVerifiedPublicPostUrl(channel, recordedPublicUrls[channel])),
 );
 const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
 if (!remainingChannels.length) throw new Error("Review queue item has no remaining publish channels");
