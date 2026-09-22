@@ -98,6 +98,7 @@ test("new queue publishing requires explicit approval before Buffer publishing",
 
 test("review publisher sends required YouTube metadata while keeping TikTok metadata null", async () => {
   const createRequests = [];
+  const createdPostsByChannel = new Map();
   let mediaChecks = 0;
   const videoUrl = "https://cdn.example/video.mp4";
   const fetchImpl = async (url, options = {}) => {
@@ -128,21 +129,28 @@ test("review publisher sends required YouTube metadata while keeping TikTok meta
     }
     if (query.includes("mutation CreateReviewVideo")) {
       createRequests.push(body);
-      return jsonResponse({ data: { createPost: { post: { id: `post-${createRequests.length}`, text: body.variables.text, status: "sending", channelId: body.variables.channelId } } } });
+      const channelId = body.variables.channelId;
+      const post = {
+        id: `post-${channelId}`,
+        text: body.variables.text,
+        status: "sending",
+        channelId,
+      };
+      createdPostsByChannel.set(channelId, post);
+      return jsonResponse({ data: { createPost: { post } } });
     }
     if (query.includes("query VerifySentPost")) {
       const channelId = body.variables.channelIds[0];
+      const created = createdPostsByChannel.get(channelId);
+      if (!created) throw new Error(`no created post for ${channelId}`);
       const isYoutube = channelId === "channel-youtube";
-      const postIndex = isYoutube ? 0 : 1;
       return jsonResponse({ data: { posts: {
         edges: [{ node: {
-          id: `post-${postIndex + 1}`,
-          text: createRequests[postIndex].variables.text,
+          ...created,
           status: "sent",
-          channelId,
           externalLink: isYoutube
             ? "https://www.youtube.com/watch?v=verified123"
-            : "https://www.tiktok.com/@blindboxai/video/verified456",
+            : "https://www.tiktok.com/@blindboxai/video/1234567890",
           sentAt: "2026-09-22T13:00:00Z",
         } }],
         pageInfo: { hasNextPage: false, endCursor: null },
@@ -153,10 +161,24 @@ test("review publisher sends required YouTube metadata while keeping TikTok meta
 
   const publisher = createReviewBufferPublisher({ token: "test-token", organizationId: "org-1", fetchImpl });
   const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
-  await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>" });
-  await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
+  const youtubeResult = await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>" });
+  const tiktokResult = await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
 
   assert.equal(mediaChecks, 2);
+  assert.deepEqual(youtubeResult, {
+    id: "post-channel-youtube",
+    publicUrl: "https://www.youtube.com/watch?v=verified123",
+    status: "sent",
+    sentAt: "2026-09-22T13:00:00Z",
+    duplicate: false,
+  });
+  assert.deepEqual(tiktokResult, {
+    id: "post-channel-tiktok",
+    publicUrl: "https://www.tiktok.com/@blindboxai/video/1234567890",
+    status: "sent",
+    sentAt: "2026-09-22T13:00:00Z",
+    duplicate: false,
+  });
   assert.deepEqual(createRequests[0].variables.metadata, {
     youtube: { title: "YouTube Title", categoryId: "17" },
   });
