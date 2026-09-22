@@ -86,3 +86,19 @@ test("confirmed waitlist signup is first-party and stores no email", () => {
   assert.match(analyticsRoute, /providerConfirmed/);
   assert.doesNotMatch(analyticsRoute, /email/);
 });
+
+
+test("click quality gate stores no raw fingerprint material", () => {
+  const classifier = read("lib/click-quality.mjs");
+  const edge = read("supabase/functions/distribution-telemetry/index.ts");
+  const migration = read("supabase/migrations/20260922211000_click_quality_gate.sql");
+  const recordClickStart = edge.indexOf("async function recordClick");
+  const recordClickEnd = edge.indexOf("async function recordEvent", recordClickStart);
+  const recordClickBlock = edge.slice(recordClickStart, recordClickEnd);
+  assert.match(classifier, /human_candidate/);
+  assert.match(recordClickBlock, /client_class/);
+  assert.match(recordClickBlock, /quality_reason/);
+  assert.match(migration, /legacy_unclassified/);
+  assert.doesNotMatch(recordClickBlock, /\b(?:user_agent|ip_address|fingerprint)\s*:/i);
+  assert.doesNotMatch(migration, /add\s+column[^\n]*(?:user_agent|ip_address|fingerprint)/i);
+});
