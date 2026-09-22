@@ -106,5 +106,5 @@ test("rejected review rows cannot be reopened by staging the same URL", () => {
   const stageHandler = reviewQueueEdge.slice(stageStart, stageEnd);
   assert.match(stageHandler, /existing\?\.status === "rejected"/);
   assert.match(stageHandler, /Rejected review rows are immutable/);
-  assert.match(stageHandler, /status:\s*409/);
+  assert.match(stageHandler, /Rejected review rows are immutable" \, 409\)/);
 });
