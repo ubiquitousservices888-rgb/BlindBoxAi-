@@ -11,6 +11,7 @@ on:
       - Video pipeline compliance gate (publishing paused)
       - Mr. Know It All deterministic compliance check
       - Visual rights validation (discovery paused)
+      - BlindBoxAI heartbeat
     types:
       - completed
 
