@@ -142,9 +142,12 @@ async function nextApprovedForChannel(channel: string) {
     .order("approved_at", { ascending: true })
     .limit(100);
   if (error) throw error;
-  return (data || []).find((item: any) =>
-    !channel || !(Array.isArray(item.published_channels) ? item.published_channels : []).includes(channel)
-  ) || null;
+  return (data || []).find((item: any) => {
+    if (!channel) return true;
+    const channels = Array.isArray(item.published_channels) ? item.published_channels : [];
+    const urls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
+    return !channels.includes(channel) || !safePublicUrl(channel, urls[channel]);
+  }) || null;
 }
 
 async function peek(req: Request, body: any) {
@@ -239,11 +242,18 @@ async function release(req: Request, body: any) {
 
 async function complete(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
-  const researchRunId = clean(body?.researchRunId, 40); const success = body?.success === true;
+  const researchRunId = clean(body?.researchRunId, 40);
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
-  const now = new Date().toISOString(); const patch = success ? { status: "published", published_at: now, updated_at: now, last_error: null } : { status: "failed", updated_at: now, last_error: clean(body?.error, 500) || "Publish failed" };
-  const { error } = await db.from("review_video_queue").update(patch).eq("research_run_id", researchRunId).eq("status", "publishing");
-  if (error) return json({ error: "Queue update failed" }, 500); return json({ ok: true });
+  if (body?.success === true) {
+    return json({ error: "Verified channel URLs must be recorded with record_channel" }, 409);
+  }
+  const now = new Date().toISOString();
+  const { error } = await db.from("review_video_queue")
+    .update({ status: "failed", updated_at: now, last_error: clean(body?.error, 500) || "Publish failed" })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing");
+  if (error) return json({ error: "Queue update failed" }, 500);
+  return json({ ok: true });
 }
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors() });
