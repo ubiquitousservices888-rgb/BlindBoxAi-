@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { assertOwnerCode } from "../../../../lib/evidence";
 import { parseEpnReportCsv } from "../../../../lib/epn-reporting.mjs";
+import { recordProviderEvidence } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,14 +37,25 @@ export async function POST(request) {
     }
 
     const report = parseEpnReportCsv(await file.text());
-    await put("owner/epn-report/latest.json", JSON.stringify(report, null, 2), {
+    const evidence = Array.isArray(report.evidence) ? report.evidence : [];
+    let evidenceResult = { inserted: 0, duplicates: 0 };
+    if (evidence.length) {
+      evidenceResult = await recordProviderEvidence(evidence, { ownerCode });
+    }
+    const { evidence: _evidence, ...summary } = report;
+    const storedReport = {
+      ...summary,
+      providerEvidenceImported: Number(evidenceResult?.inserted || 0),
+      providerEvidenceDuplicates: Number(evidenceResult?.duplicates || 0),
+    };
+    await put("owner/epn-report/latest.json", JSON.stringify(storedReport, null, 2), {
       access: "private",
       contentType: "application/json",
       addRandomSuffix: false,
       allowOverwrite: true,
     });
 
-    return NextResponse.json(report, { headers: PRIVATE_HEADERS });
+    return NextResponse.json(storedReport, { headers: PRIVATE_HEADERS });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to import EPN report." },
