@@ -26,7 +26,7 @@ jobs:
           node-version: "24"
       - name: Scan active eBay listings for identifier mismatches
         env:
-          EBAY_CLIENT_ID: \${{ secrets.EBAY_CLIENT_ID }}
-          EBAY_CLIENT_SECRET: \${{ secrets.EBAY_CLIENT_SECRET }}
+          EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
+          EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
           SUPABASE_URL: https://lazzdoadoqzrzlarerfx.supabase.co
         run: node scripts/mislisting-scanner.mjs
