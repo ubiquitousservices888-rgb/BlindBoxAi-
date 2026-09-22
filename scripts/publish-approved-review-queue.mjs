@@ -73,7 +73,11 @@ if (requestedChannel && !targetChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
 }
 const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
-const completedChannels = new Set(Array.isArray(item.published_channels) ? item.published_channels : []);
+const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
+const completedChannels = new Set(
+  (Array.isArray(item.published_channels) ? item.published_channels : [])
+    .filter((channel) => Boolean(recordedPublicUrls[channel])),
+);
 const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
 if (!remainingChannels.length) throw new Error("Review queue item has no remaining publish channels");
 const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
