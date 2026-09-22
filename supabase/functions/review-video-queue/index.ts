@@ -31,8 +31,16 @@ function safePublicUrl(channel: string, value: unknown) {
   const url = new URL(raw);
   const host = url.hostname.toLowerCase();
   const matches = (root: string) => host === root || host.endsWith(`.${root}`);
-  if (channel === "youtube" && (matches("youtube.com") || matches("youtu.be"))) return url.toString();
-  if (channel === "tiktok" && matches("tiktok.com")) return url.toString();
+  if (channel === "youtube") {
+    if (matches("youtu.be") && /^\/[A-Za-z0-9_-]{6,}(?:\/)?$/.test(url.pathname)) return url.toString();
+    if (!matches("youtube.com")) return null;
+    if (url.pathname === "/watch" && /^[A-Za-z0-9_-]{6,}$/.test(url.searchParams.get("v") || "")) return url.toString();
+    if (/^\/(?:shorts|live)\/[A-Za-z0-9_-]{6,}(?:\/)?$/.test(url.pathname)) return url.toString();
+    return null;
+  }
+  if (channel === "tiktok" && matches("tiktok.com") && /^\/@[^/]+\/video\/\d+(?:\/)?$/.test(url.pathname)) {
+    return url.toString();
+  }
   return null;
 }
 function verticalFor(title: string) {
@@ -192,7 +200,9 @@ async function recordChannel(req: Request, body: any) {
   const publishedChannels = [...new Set([...(Array.isArray(current.published_channels) ? current.published_channels : []), channel])];
   const bufferPostIds = { ...(current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {}), [channel]: externalId };
   const publicUrls = { ...(current.public_urls && typeof current.public_urls === "object" ? current.public_urls : {}), [channel]: publicUrl };
-  const allDone = targetChannels.every((value: string) => publishedChannels.includes(value));
+  const allDone = targetChannels.every((value: string) =>
+    publishedChannels.includes(value) && Boolean(safePublicUrl(value, publicUrls[value]))
+  );
   const now = new Date().toISOString();
   const patch = allDone
     ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, published_at: now, updated_at: now, last_error: null }
