@@ -18,8 +18,8 @@ jobs:
         run: curl --fail --silent --show-error --max-time 20 https://www.blindboxai.com/ >/dev/null
       - name: Check latest mislisting scanner run
         env:
-          GH_TOKEN: \${{ github.token }}
-          GH_REPO: \${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
@@ -33,6 +33,6 @@ jobs:
           const started=Date.parse(process.env.STARTED||"");
           if(!Number.isFinite(started)) throw new Error("Scanner start time missing");
           const ageHours=(Date.now()-started)/3600000;
-          if(ageHours>30) throw new Error(\`Scanner stale: \${ageHours.toFixed(1)}h\`);
-          console.log(\`SCANNER_AGE_HOURS=\${ageHours.toFixed(1)}\`);
+          if(ageHours>30) throw new Error(`Scanner stale: ${ageHours.toFixed(1)}h`);
+          console.log(`SCANNER_AGE_HOURS=${ageHours.toFixed(1)}`);
           NODE
