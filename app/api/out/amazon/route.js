@@ -5,6 +5,7 @@ import {
   getAmazonAccessoryOffer,
 } from "../../../../lib/amazon-associates.mjs";
 import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
+import { classifyAffiliateRequest } from "../../../../lib/click-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -15,6 +16,7 @@ function error(message, status = 400) {
 }
 
 export async function GET(request) {
+  const clickQuality = classifyAffiliateRequest(request);
   const url = new URL(request.url);
   const offerId = url.searchParams.get("offer")?.trim().toLowerCase() || "";
   const requestAttribution = resolveRequestAttribution({
@@ -47,6 +49,8 @@ export async function GET(request) {
       offerTitle: offer.title,
       attributionRecoveredFrom: requestAttribution.recoveredFrom,
     },
+    clientClass: clickQuality.clientClass,
+    qualityReason: clickQuality.qualityReason,
     piiStored: false,
   };
 
