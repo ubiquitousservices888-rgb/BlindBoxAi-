@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
+import { assertVerifiedPublicPost } from "../lib/buffer-review-publisher.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -20,6 +21,40 @@ test("allows only BlindBoxAI review-media hosts and MP4 paths", () => {
   assert.throws(() => assertApprovedReviewVideoUrl("https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/other/media/review/example.mp4"), /approved BlindBoxAI media host/);
   assert.throws(() => assertApprovedReviewVideoUrl("http://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/example.mp4"), /HTTPS/);
   assert.throws(() => assertApprovedReviewVideoUrl("https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/example.txt"), /MP4/);
+});
+
+test("requires a verified public platform URL and exact linked disclosure text", () => {
+  const caption = "Research only. https://www.blindboxai.com/?campaign=test\nAffiliate disclosure";
+  assert.equal(
+    assertVerifiedPublicPost({
+      channel: "youtube",
+      externalLink: "https://www.youtube.com/watch?v=abc123",
+      text: caption,
+      expectedCaption: caption,
+    }),
+    "https://www.youtube.com/watch?v=abc123",
+  );
+  assert.equal(
+    assertVerifiedPublicPost({
+      channel: "tiktok",
+      externalLink: "https://www.tiktok.com/@blindboxai/video/123",
+      text: caption,
+      expectedCaption: caption,
+    }),
+    "https://www.tiktok.com/@blindboxai/video/123",
+  );
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "youtube",
+    externalLink: "https://example.com/watch?v=abc123",
+    text: caption,
+    expectedCaption: caption,
+  }), /expected public host/);
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "youtube",
+    externalLink: "https://www.youtube.com/watch?v=abc123",
+    text: "Research only.",
+    expectedCaption: caption,
+  }), /does not match/);
 });
 
 test("caps one execution to exactly one Buffer post", () => {
@@ -94,6 +129,22 @@ test("channel-specific publishing keeps youtube,tiktok as the completion target"
   assert.match(source, /const targetChannels =/);
   assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
   assert.match(source, /targetChannels,/);
+  assert.match(source, /publicUrl: result\.publicUrl/);
+  assert.match(source, /PUBLIC_VERIFICATION_PENDING/);
+  assert.match(source, /action: "release"/);
+});
+
+test("queue stores only channel records with verified public URLs", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  assert.match(source, /safePublicUrl\(channel, body\?\.publicUrl\)/);
+  assert.match(source, /public_urls/);
+  assert.match(source, /action === "release"/);
+
+  const migration = fs.readFileSync(
+    new URL("../supabase/migrations/20260922141500_review_video_public_urls.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /add column if not exists public_urls jsonb/);
 });
 
 test("queue peek is read-only and separately authorized", () => {
