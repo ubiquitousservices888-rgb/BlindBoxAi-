@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import test from "node:test";
 
-import { assertVerifiedPublicPost } from "../lib/buffer-review-publisher.mjs";
+import { assertVerifiedPublicPost, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -55,6 +56,121 @@ test("requires a verified public platform URL and exact linked disclosure text",
     text: "Research only.",
     expectedCaption: caption,
   }), /does not match/);
+});
+
+test("public post verification rejects homepages, text drift, and missing required caption content", () => {
+  const caption = "Research only. https://www.blindboxai.com/?campaign=test\n#ad BlindBoxAI may earn a commission from qualifying purchases.";
+
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "youtube",
+    externalLink: "https://www.youtube.com/",
+    text: caption,
+    expectedCaption: caption,
+  }), /valid public post URL/);
+
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "tiktok",
+    externalLink: "https://www.tiktok.com/",
+    text: caption,
+    expectedCaption: caption,
+  }), /valid public post URL/);
+
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "youtube",
+    externalLink: "https://www.youtube.com/watch?v=abc123",
+    text: `${caption} `,
+    expectedCaption: caption,
+  }), /does not match/);
+
+  const noSite = `Research only.\n${DISCLOSURE}`;
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "youtube",
+    externalLink: "https://www.youtube.com/watch?v=abc123",
+    text: noSite,
+    expectedCaption: noSite,
+  }), /missing blindboxai\.com/);
+
+  const noDisclosure = "Research only. https://www.blindboxai.com/?campaign=test";
+  assert.throws(() => assertVerifiedPublicPost({
+    channel: "youtube",
+    externalLink: "https://www.youtube.com/watch?v=abc123",
+    text: noDisclosure,
+    expectedCaption: noDisclosure,
+  }), /missing the affiliate disclosure/);
+});
+
+test("public verification retries transient Buffer lookup failures and returns verified evidence", async () => {
+  const caption = `Research only. https://www.blindboxai.com/?campaign=test\n${DISCLOSURE}`;
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error("temporary Buffer outage");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { posts: {
+        edges: [{ node: {
+          id: "post-1",
+          text: caption,
+          status: "sent",
+          channelId: "channel-youtube",
+          externalLink: "https://www.youtube.com/watch?v=abc123",
+          sentAt: "2026-09-22T13:00:00Z",
+        } }],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      } } }),
+    };
+  };
+
+  const result = await waitForVerifiedSentPost({
+    token: "test-token",
+    organizationId: "org-1",
+    channelId: "channel-youtube",
+    channel: "youtube",
+    postId: "post-1",
+    expectedCaption: caption,
+    fetchImpl,
+    attempts: 2,
+    delayMs: 0,
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(result, {
+    id: "post-1",
+    publicUrl: "https://www.youtube.com/watch?v=abc123",
+    status: "sent",
+    sentAt: "2026-09-22T13:00:00Z",
+  });
+});
+
+test("public verification emits PUBLIC_VERIFICATION_PENDING after its bounded window", async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ data: { posts: {
+      edges: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    } } }),
+  });
+
+  await assert.rejects(
+    () => waitForVerifiedSentPost({
+      token: "test-token",
+      organizationId: "org-1",
+      channelId: "channel-youtube",
+      channel: "youtube",
+      postId: "missing-post",
+      expectedCaption: `Research only. https://blindboxai.com\n${DISCLOSURE}`,
+      fetchImpl,
+      attempts: 2,
+      delayMs: 0,
+    }),
+    (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+  );
+});
+
+test("verification searches the same 45-day window as duplicate detection", () => {
+  const source = fs.readFileSync(new URL("../lib/buffer-review-publisher.mjs", import.meta.url), "utf8");
+  assert.match(source, /45 \* 86400000/);
 });
 
 test("caps one execution to exactly one Buffer post", () => {
