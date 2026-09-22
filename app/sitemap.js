@@ -3,7 +3,23 @@ import { allRevenueOffers } from "../lib/revenue-offers";
 
 const SITE = "https://www.blindboxai.com";
 
-export default function sitemap() {
+async function verifiedPriceRoutes() {
+  try {
+    const response = await fetch("https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/public-price-items", { next: { revalidate: 300 } });
+    if (!response.ok) return [];
+    const body = await response.json();
+    return (Array.isArray(body?.items) ? body.items : []).map((item) => ({
+      url: `${SITE}/price/${item.slug}`,
+      changeFrequency: "daily",
+      priority: 0.8,
+      lastModified: item.lastCheckedAt ? new Date(item.lastCheckedAt) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export default async function sitemap() {
   const stable = [
     { url: `${SITE}/`, changeFrequency: "daily", priority: 1 },
     { url: `${SITE}/tools/buy-or-pass`, changeFrequency: "daily", priority: 0.95 },
