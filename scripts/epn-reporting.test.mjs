@@ -82,3 +82,24 @@ test("long metadata preambles and ISO currency labels are tolerated", () => {
   assert.equal(report.networkClicks, 15);
   assert.equal(report.epc, 0.2);
 });
+
+
+test("transaction detail preserves immutable provider evidence without raw CSV", () => {
+  const csv = [
+    "Status,Partner Network Transaction ID,Custom ID,Transaction Date,Earnings,Item",
+    "Approved,abc,bb-ch-yt-profile,2026-09-20,$2.25,Card",
+    "Approved,abc,bb-ch-yt-profile,2026-09-20,$1.00,Accessory",
+    "Approved,def,bb-other,2026-09-21,$3.00,Plush",
+    "Reversed,ghi,bb-reversed,2026-09-21,-$5.00,Returned",
+  ].join("\n");
+  const report = parseEpnReportCsv(csv, { now: new Date("2026-09-22T12:00:00Z") });
+  assert.equal(report.evidence.length, 2);
+  assert.deepEqual(report.evidence[0], {
+    providerEvidenceId: "abc",
+    customId: "bb-ch-yt-profile",
+    occurredAt: "2026-09-20T00:00:00.000Z",
+    confirmedRevenueUSD: 3.25,
+    status: "provider_confirmed",
+  });
+  assert.equal(report.evidence[1].providerEvidenceId, "def");
+});
