@@ -4,7 +4,7 @@ import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
 
 const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
 const REPO="ubiquitousservices888-rgb/BlindBoxAi-";
-const WORKFLOW=\`\${REPO}/.github/workflows/mislisting-scanner.yml@refs/heads/main\`;
+const WORKFLOW=`${REPO}/.github/workflows/mislisting-scanner.yml@refs/heads/main`;
 const JWKS=createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const AUDIENCE="blindboxai-mislisting-scanner";
 const TTL_MS=6*60*60*1000;
