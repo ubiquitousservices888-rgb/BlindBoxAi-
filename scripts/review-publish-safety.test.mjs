@@ -24,7 +24,7 @@ test("allows only BlindBoxAI review-media hosts and MP4 paths", () => {
 });
 
 test("requires a verified public platform URL and exact linked disclosure text", () => {
-  const caption = "Research only. https://www.blindboxai.com/?campaign=test\nAffiliate disclosure";
+  const caption = "Research only. https://www.blindboxai.com/?campaign=test\n#ad BlindBoxAI may earn a commission from qualifying purchases.";
   assert.equal(
     assertVerifiedPublicPost({
       channel: "youtube",
