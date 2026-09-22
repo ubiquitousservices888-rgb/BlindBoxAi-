@@ -6,6 +6,15 @@ const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
+const CLIENT_CLASSES = new Set(["human_candidate", "bot", "prefetch", "head"]);
+const QUALITY_REASONS = new Set([
+  "default_candidate",
+  "method_head",
+  "prefetch_header",
+  "missing_user_agent",
+  "bot_signature",
+]);
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -113,6 +122,8 @@ async function recordClick(body: any) {
     placement: clean(body?.placement, 80),
     source_path: clean(body?.sourcePath, 220),
     destination: clean(body?.destination, 180),
+    client_class: CLIENT_CLASSES.has(String(body?.clientClass || "")) ? String(body.clientClass) : null,
+    quality_reason: QUALITY_REASONS.has(String(body?.qualityReason || "")) ? String(body.qualityReason) : null,
     metadata: cleanObject(body?.metadata),
     pii_stored: false,
   };
