@@ -1,0 +1,20 @@
+[
+  {
+    "id": "pokemon-30th-mew-ex-152",
+    "canonicalName": "Mew ex #152",
+    "query": "Mew ex 152 30th",
+    "expectedIdentifier": "152",
+    "conflictingIdentifiers": [
+      "158"
+    ]
+  },
+  {
+    "id": "pokemon-30th-mew-ex-158",
+    "canonicalName": "Mew ex #158",
+    "query": "Mew ex 158 30th",
+    "expectedIdentifier": "158",
+    "conflictingIdentifiers": [
+      "152"
+    ]
+  }
+]
