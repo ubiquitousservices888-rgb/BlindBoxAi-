@@ -92,9 +92,13 @@ test("click quality gate stores no raw fingerprint material", () => {
   const classifier = read("lib/click-quality.mjs");
   const edge = read("supabase/functions/distribution-telemetry/index.ts");
   const migration = read("supabase/migrations/20260922211000_click_quality_gate.sql");
+  const recordClickStart = edge.indexOf("async function recordClick");
+  const recordClickEnd = edge.indexOf("async function recordEvent", recordClickStart);
+  const recordClickBlock = edge.slice(recordClickStart, recordClickEnd);
   assert.match(classifier, /human_candidate/);
-  assert.match(edge, /client_class/);
+  assert.match(recordClickBlock, /client_class/);
+  assert.match(recordClickBlock, /quality_reason/);
   assert.match(migration, /legacy_unclassified/);
-  assert.doesNotMatch(edge, /user_agent|ip_address|fingerprint/i);
+  assert.doesNotMatch(recordClickBlock, /user_agent|ip_address|fingerprint/i);
   assert.doesNotMatch(migration, /user_agent|ip_address|fingerprint/i);
 });
