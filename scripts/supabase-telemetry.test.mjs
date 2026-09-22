@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
   getDistributionTelemetry,
   recordAffiliateClick,
   recordAnalyticsEvent,
+  recordProviderEvidence,
 } from "../lib/supabase-telemetry.mjs";
 
 async function withTelemetryTestConfig(fn) {
@@ -103,4 +105,37 @@ test("telemetry fails closed when existing BlindBoxAI authorization is missing",
       if (previous !== undefined) process.env.EVIDENCE_UPLOAD_CODE = previous;
     }
   });
+});
+
+
+test("provider evidence writer requires owner authorization and sends no raw CSV", async () => {
+  await withTelemetryTestConfig(async () => {
+    let call;
+    await recordProviderEvidence([
+      { providerEvidenceId: "txn-1", customId: "bb-test", occurredAt: "2026-09-20T00:00:00Z", confirmedRevenueUSD: 2.5 },
+    ], {
+      ownerCode: "owner-test-code",
+      fetchImpl: async (url, options) => {
+        call = { url: String(url), options, payload: JSON.parse(options.body) };
+        return response({ ok: true, inserted: 1, duplicates: 0 }, 202);
+      },
+    });
+    assert.equal(call.payload.type, "provider_evidence");
+    assert.equal(call.options.headers["x-owner-authorization"], "Bearer owner-test-code");
+    assert.equal(call.payload.evidence[0].providerEvidenceId, "txn-1");
+    assert.equal("csv" in call.payload, false);
+  });
+});
+
+
+test("provider evidence edge path uses owner-only control auth", () => {
+  const source = fs.readFileSync(
+    new URL("../supabase/functions/distribution-telemetry/index.ts", import.meta.url),
+    "utf8",
+  );
+  const ownerStart = source.indexOf("async function ownerAuthorized");
+  const ownerEnd = source.indexOf("async function recordClick", ownerStart);
+  const ownerBlock = source.slice(ownerStart, ownerEnd);
+  assert.match(ownerBlock, /\/api\/owner\/control-auth/);
+  assert.doesNotMatch(ownerBlock, /storage-auth/);
 });

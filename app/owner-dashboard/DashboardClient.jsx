@@ -174,6 +174,7 @@ export default function DashboardClient() {
   }
 
   const revenue = snapshot.revenue || {};
+  const funnel = snapshot.funnel || {};
   const epn = revenue.epn || {};
   const amazon = revenue.amazon || {};
   const reviewNotifications = (snapshot.notifications || []).filter((item) => item?.reviewState === "READY_FOR_REVIEW" && item?.approved !== true && item?.mediaUrl);
@@ -216,6 +217,20 @@ export default function DashboardClient() {
       <button onClick={() => load(activeCode, false)} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       <button onClick={enableNotifications} style={{ padding: "10px 14px" }}>Enable browser notifications</button>
     </div>
+
+    <section>
+      <h2>Verified funnel</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 12 }}>
+        <Stat label="Page views" value={funnel.pageViews ?? 0} />
+        <Stat label="Landing sources" value={funnel.landingSources ?? 0} />
+        <Stat label="Questions" value={funnel.questions ?? 0} />
+        <Stat label="Confirmed signups" value={funnel.confirmedSignups ?? 0} />
+        <Stat label="Outbound clicks" value={funnel.outboundClicks ?? 0} />
+        <Stat label="Confirmed conversions" value={funnel.providerConfirmedConversions ?? 0} />
+        <Stat label="Confirmed revenue" value={money(funnel.confirmedRevenueUSD)} />
+      </div>
+      {funnel.zeroState ? <p style={{ opacity: 0.75 }}>{funnel.zeroState}</p> : null}
+    </section>
 
     <section>
       <h2>Revenue control room</h2>

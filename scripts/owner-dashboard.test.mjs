@@ -151,3 +151,11 @@ test("dashboard uses Supabase telemetry without Blob list calls", () => {
   assert.match(dashboardRoute, /getOwnerDashboardSnapshot\(\{ ifNoneMatch: "", ownerCode \}\)/);
   assert.match(dashboardRoute, /if \(forceRefresh \|\| cacheExpired\)/);
 });
+
+
+test("owner dashboard renders verified funnel outcomes separately from clicks", () => {
+  assert.match(dashboardClient, /Verified funnel/);
+  assert.match(dashboardClient, /Confirmed conversions/);
+  assert.match(dashboardClient, /Confirmed revenue/);
+  assert.match(dashboardLib, /funnel:\s*telemetry\?\.funnel/);
+});
