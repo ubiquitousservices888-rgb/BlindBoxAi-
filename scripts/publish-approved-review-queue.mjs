@@ -48,8 +48,12 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 }
 
 const dryRun = isDryRun(process.env.DRY_RUN);
+const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
 const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
-const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, { action: dryRun ? "peek" : "claim" });
+const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, {
+  action: dryRun ? "peek" : "claim",
+  channel: requestedChannel || undefined,
+});
 const item = queueResult?.item;
 if (dryRun) {
   console.log("REVIEW_QUEUE_DRY_RUN: true");
@@ -65,8 +69,12 @@ const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 
 const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",").map((value) => value.trim()).filter(Boolean))];
+if (requestedChannel && !targetChannels.includes(requestedChannel)) {
+  throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
+}
+const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
 const completedChannels = new Set(Array.isArray(item.published_channels) ? item.published_channels : []);
-const remainingChannels = targetChannels.filter((channel) => !completedChannels.has(channel));
+const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
 if (!remainingChannels.length) throw new Error("Review queue item has no remaining publish channels");
 const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
 if (deferredChannels.length) {
