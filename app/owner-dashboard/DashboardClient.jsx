@@ -29,6 +29,7 @@ export default function DashboardClient() {
   const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
   const [epnBusy, setEpnBusy] = useState(false);
   const [epnMessage, setEpnMessage] = useState("");
+  const [mislistingFlags, setMislistingFlags] = useState([]);
   const seen = useRef(new Set());
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
@@ -56,6 +57,18 @@ export default function DashboardClient() {
         throw new Error(response.status === 401 ? "Invalid owner code." : "Dashboard unavailable.");
       }
       const data = await response.json();
+      try {
+        const flagsResponse = await fetch("/api/owner/mislisting-flags", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (flagsResponse.ok) {
+          const flagsBody = await flagsResponse.json();
+          setMislistingFlags(Array.isArray(flagsBody?.flags) ? flagsBody.flags : []);
+        }
+      } catch {
+        setMislistingFlags([]);
+      }
       if (announce && snapshotRef.current && "Notification" in window && Notification.permission === "granted") {
         const fresh = [];
         for (const item of data.epnClicks || []) {
@@ -216,6 +229,20 @@ export default function DashboardClient() {
       <button onClick={() => load(activeCode, false)} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       <button onClick={enableNotifications} style={{ padding: "10px 14px" }}>Enable browser notifications</button>
     </div>
+
+    <section>
+      <h2>Possible mislistings</h2>
+      <p style={{ opacity: 0.75 }}>Research-only flags from active eBay listings. Always check listing photos and condition before acting.</p>
+      {mislistingFlags.length ? mislistingFlags.map((flag) => (
+        <article key={`${flag.watch_item_id}:${flag.listing_id}`} style={{ border: "1px solid currentColor", borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <strong>Possible mislisting — check photos</strong>
+          <div style={{ marginTop: 6 }}>{flag.title}</div>
+          <div style={{ opacity: 0.75, marginTop: 5 }}>{flag.price == null ? "Price unavailable" : `${flag.currency || "USD"} ${flag.price}`} · {flag.reason}</div>
+          <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 5 }}>listing: {flag.listing_id}</div>
+          <div style={{ opacity: 0.65, fontSize: 12, marginTop: 5 }}>First seen: {when(flag.first_seen)} · expires: {when(flag.expires_at)}</div>
+        </article>
+      )) : <p>No current mismatch flags.</p>}
+    </section>
 
     <section>
       <h2>Revenue control room</h2>
