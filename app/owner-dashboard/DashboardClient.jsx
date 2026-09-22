@@ -225,11 +225,14 @@ export default function DashboardClient() {
         <Stat label="Landing sources" value={funnel.landingSources ?? 0} />
         <Stat label="Questions" value={funnel.questions ?? 0} />
         <Stat label="Confirmed signups" value={funnel.confirmedSignups ?? 0} />
-        <Stat label="Outbound clicks" value={funnel.outboundClicks ?? 0} />
+        <Stat label="Consented commerce intents" value={funnel.commerceIntentClicks ?? 0} />
+        <Stat label="Qualified affiliate clicks" value={funnel.outboundClicks ?? 0} />
+        <Stat label="Raw affiliate clicks" value={funnel.rawAffiliateClicks ?? snapshot.totals?.epnClicksLoaded ?? 0} />
         <Stat label="Confirmed conversions" value={funnel.providerConfirmedConversions ?? 0} />
         <Stat label="Confirmed revenue" value={money(funnel.confirmedRevenueUSD)} />
       </div>
       {funnel.zeroState ? <p style={{ opacity: 0.75 }}>{funnel.zeroState}</p> : null}
+      <p style={{ opacity: 0.75 }}>Qualified affiliate clicks count only post-gate requests classified as human candidates. Legacy/pre-gate rows and bot, prefetch, or HEAD traffic are excluded. Page views and commerce intents remain consent-gated and should not be compared directly with raw affiliate-click records.</p>
     </section>
 
     <section>
