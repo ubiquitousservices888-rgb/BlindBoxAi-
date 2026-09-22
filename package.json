@@ -48,7 +48,7 @@
     "daily:publish": "node scripts/daily-product-pipeline.mjs publish",
     "daily:validate": "node scripts/daily-product-pipeline.mjs validate",
     "daily:test": "node --test scripts/daily-product-pipeline.test.mjs scripts/daily-product-publish-safety.test.mjs scripts/social-card.test.mjs scripts/social-attribution.test.mjs scripts/market-eligibility-regression.test.mjs",
-    "release:test": "node --test scripts/release-gate.test.mjs",
+    "release:test": "node --test scripts/release-gate.test.mjs scripts/workflow-publish-safety.test.mjs",
     "privacy:test": "node --test scripts/privacy-consent.test.mjs",
     "intent:test": "node --test scripts/buy-or-pass-core.test.mjs",
     "predeploy": "bash scripts/predeploy.sh .",
