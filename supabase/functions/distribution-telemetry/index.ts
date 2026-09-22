@@ -55,10 +55,10 @@ function requestRateAllowed(req: Request) {
   return current.count <= 60;
 }
 
-async function validateBlindBoxAuthorization(headerValue: string) {
+async function validateBlindBoxAuthorization(headerValue: string, path = "/api/owner/storage-auth") {
   if (!headerValue.startsWith("Bearer ")) return false;
   try {
-    const response = await fetch("https://www.blindboxai.com/api/owner/storage-auth", {
+    const response = await fetch(`https://www.blindboxai.com${path}`, {
       method: "POST",
       headers: { Authorization: headerValue },
     });
@@ -73,7 +73,10 @@ async function requestAuthorized(req: Request) {
 }
 
 async function ownerAuthorized(req: Request) {
-  return validateBlindBoxAuthorization(req.headers.get("x-owner-authorization") || "");
+  return validateBlindBoxAuthorization(
+    req.headers.get("x-owner-authorization") || "",
+    "/api/owner/control-auth",
+  );
 }
 
 async function recordClick(body: any) {
