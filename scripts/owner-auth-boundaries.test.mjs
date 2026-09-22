@@ -10,6 +10,8 @@ const stageReviewRoute = fs.readFileSync(new URL("../app/api/owner/stage-review/
 const approveReviewRoute = fs.readFileSync(new URL("../app/api/owner/approve-review/route.js", import.meta.url), "utf8");
 const approveLaunchRoute = fs.readFileSync(new URL("../app/api/owner/approve-launch/route.js", import.meta.url), "utf8");
 const ebayConnectRoute = fs.readFileSync(new URL("../app/api/owner/ebay-connect/route.js", import.meta.url), "utf8");
+const controlAuthRoute = fs.readFileSync(new URL("../app/api/owner/control-auth/route.js", import.meta.url), "utf8");
+const reviewQueueEdge = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
 
 const OWNER = "owner-code-test-only";
 const UPLOAD = "upload-code-test-only";
@@ -55,7 +57,7 @@ test("only staging/upload routes contain the dual-code fallback", () => {
 });
 
 test("approval, launch, connect and revoke surfaces are owner-only and map failure to 401", () => {
-  for (const source of [approveReviewRoute, approveLaunchRoute, ebayConnectRoute]) {
+  for (const source of [approveReviewRoute, approveLaunchRoute, ebayConnectRoute, controlAuthRoute]) {
     assert.match(source, /assertOwnerCode/);
     assert.doesNotMatch(source, /assertUploadCode/);
     assert.match(source, /status:\s*401/);
@@ -76,4 +78,33 @@ test("upload credential is rejected by the checker used on privileged routes", (
     if (previousUpload === undefined) delete process.env.EVIDENCE_UPLOAD_CODE;
     else process.env.EVIDENCE_UPLOAD_CODE = previousUpload;
   }
+});
+
+
+
+test("review reject transition is owner-control only and audit preserving", () => {
+  assert.match(controlAuthRoute, /assertOwnerCode/);
+  assert.doesNotMatch(controlAuthRoute, /assertUploadCode/);
+  const rejectStart = reviewQueueEdge.indexOf("async function reject(req");
+  const rejectEnd = reviewQueueEdge.indexOf("function requestedPublishChannel", rejectStart);
+  const rejectHandler = reviewQueueEdge.slice(rejectStart, rejectEnd);
+  assert.ok(rejectStart >= 0 && rejectEnd > rejectStart);
+  assert.match(rejectHandler, /ownerControlAuthorized/);
+  assert.doesNotMatch(rejectHandler, /stagingAuthorized/);
+  assert.match(rejectHandler, /status: "rejected"/);
+  assert.match(rejectHandler, /rejection_reason/);
+  assert.match(rejectHandler, /rejected_at/);
+  assert.match(rejectHandler, /"duplicate"/);
+  assert.match(rejectHandler, /"owner_rejected"/);
+  assert.match(rejectHandler, /"test"/);
+  assert.doesNotMatch(rejectHandler, /\.delete\(/);
+});
+
+test("rejected review rows cannot be reopened by staging the same URL", () => {
+  const stageStart = reviewQueueEdge.indexOf("async function stage(req");
+  const stageEnd = reviewQueueEdge.indexOf("async function listReady", stageStart);
+  const stageHandler = reviewQueueEdge.slice(stageStart, stageEnd);
+  assert.match(stageHandler, /existing\?\.status === "rejected"/);
+  assert.match(stageHandler, /Rejected review rows are immutable/);
+  assert.ok(stageHandler.includes('return json({ error: "Rejected review rows are immutable" }, 409);'));
 });
