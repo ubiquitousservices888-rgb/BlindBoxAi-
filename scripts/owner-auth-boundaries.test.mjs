@@ -81,16 +81,30 @@ test("upload credential is rejected by the checker used on privileged routes", (
 });
 
 
+
 test("review reject transition is owner-control only and audit preserving", () => {
   assert.match(controlAuthRoute, /assertOwnerCode/);
   assert.doesNotMatch(controlAuthRoute, /assertUploadCode/);
-  assert.match(reviewQueueEdge, /ownerControlAuthorized/);
-  assert.match(reviewQueueEdge, /action === "reject"/);
-  assert.match(reviewQueueEdge, /status: "rejected"/);
-  assert.match(reviewQueueEdge, /rejection_reason/);
-  assert.match(reviewQueueEdge, /rejected_at/);
-  assert.match(reviewQueueEdge, /duplicate/);
-  assert.match(reviewQueueEdge, /owner_rejected/);
-  assert.match(reviewQueueEdge, /test/);
-  assert.doesNotMatch(reviewQueueEdge, /\.delete\(/);
+  const rejectStart = reviewQueueEdge.indexOf("async function reject(req");
+  const rejectEnd = reviewQueueEdge.indexOf("function requestedPublishChannel", rejectStart);
+  const rejectHandler = reviewQueueEdge.slice(rejectStart, rejectEnd);
+  assert.ok(rejectStart >= 0 && rejectEnd > rejectStart);
+  assert.match(rejectHandler, /ownerControlAuthorized/);
+  assert.doesNotMatch(rejectHandler, /stagingAuthorized/);
+  assert.match(rejectHandler, /status: "rejected"/);
+  assert.match(rejectHandler, /rejection_reason/);
+  assert.match(rejectHandler, /rejected_at/);
+  assert.match(rejectHandler, /"duplicate"/);
+  assert.match(rejectHandler, /"owner_rejected"/);
+  assert.match(rejectHandler, /"test"/);
+  assert.doesNotMatch(rejectHandler, /\.delete\(/);
+});
+
+test("rejected review rows cannot be reopened by staging the same URL", () => {
+  const stageStart = reviewQueueEdge.indexOf("async function stage(req");
+  const stageEnd = reviewQueueEdge.indexOf("async function listReady", stageStart);
+  const stageHandler = reviewQueueEdge.slice(stageStart, stageEnd);
+  assert.match(stageHandler, /existing\?\.status === "rejected"/);
+  assert.match(stageHandler, /Rejected review rows are immutable/);
+  assert.match(stageHandler, /status:\s*409/);
 });
