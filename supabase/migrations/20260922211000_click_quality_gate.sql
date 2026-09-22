@@ -9,7 +9,7 @@ alter table public.affiliate_clicks
 comment on column public.affiliate_clicks.client_class is
 'Coarse server-side request class. Historical pre-gate rows remain null and are excluded from qualified-click KPIs.';
 comment on column public.affiliate_clicks.quality_reason is
-'Bounded non-PII reason for click classification; raw user-agent and client fingerprint data are not stored.';
+'Bounded non-PII reason for click classification; raw request identifiers are not stored.';
 
 create or replace function public.owner_telemetry_snapshot(
   p_now timestamptz default now(),
