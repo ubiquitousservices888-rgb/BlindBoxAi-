@@ -52,7 +52,7 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
 test("publisher resumes only deferred channels on later runs", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /published_channels/);
-  assert.match(source, /remainingChannels = targetChannels\.filter/);
+  assert.match(source, /remainingChannels = eligibleChannels\.filter/);
   assert.match(source, /action: "record_channel"/);
   assert.match(source, /if \(!recorded\?\.complete\)/);
   assert.doesNotMatch(source, /action: "complete", researchRunId: item\.research_run_id, success: true/);
@@ -102,6 +102,7 @@ test("queue peek is read-only and separately authorized", () => {
   const end = source.indexOf("async function claim(req");
   const peek = source.slice(start, end);
   assert.match(peek, /githubAuthorized/);
-  assert.match(peek, /eq\("status", "approved"\)/);
+  assert.match(source, /nextApprovedForChannel/);
+  assert.match(source, /eq\("status", "approved"\)/);
   assert.doesNotMatch(peek, /\.update\(/);
 });
