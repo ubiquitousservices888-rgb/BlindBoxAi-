@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { assertUploadCode } from "../../../../lib/evidence";
+import { assertOwnerCode } from "../../../../lib/evidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function POST(request) {
   const ownerCode = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
   try {
-    assertUploadCode(ownerCode);
+    assertOwnerCode(ownerCode);
   } catch {
     return unauthorized();
   }
