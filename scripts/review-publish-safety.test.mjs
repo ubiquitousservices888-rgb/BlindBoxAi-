@@ -45,6 +45,8 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.ok(bufferCreate > dryPreview);
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
+  assert.match(source, /PUBLISH_CHANNEL/);
+  assert.match(source, /eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
 });
 
 test("publisher resumes only deferred channels on later runs", () => {
@@ -75,6 +77,23 @@ test("dry-run uses read-only peek and reports the exact next channel without Buf
   const dryExit = source.indexOf("REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL");
   const bufferCreate = source.indexOf("createReviewBufferPublisher({");
   assert.ok(dryExit >= 0 && bufferCreate > dryExit);
+});
+
+test("channel-aware queue claim skips rows that already completed the requested channel", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  assert.match(source, /requestedPublishChannel/);
+  assert.match(source, /nextApprovedForChannel/);
+  assert.match(source, /published_channels/);
+  assert.match(source, /includes\(channel\)/);
+  assert.match(source, /peek\(req, body\)/);
+  assert.match(source, /claim\(req, body\)/);
+});
+
+test("channel-specific publishing keeps youtube,tiktok as the completion target", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const targetChannels =/);
+  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /targetChannels,/);
 });
 
 test("queue peek is read-only and separately authorized", () => {
