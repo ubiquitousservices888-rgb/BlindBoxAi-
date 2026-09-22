@@ -11,7 +11,7 @@ test("public Mr Know It All route cannot invoke an LLM or require an OpenAI key"
   assert.match(route, /buildDeterministicCompResponse/);
 });
 
-test("scheduled video rendering cannot bypass owner-gated Buffer publishing", () => {
+test("video rendering cannot bypass owner-gated Buffer publishing", () => {
   const workflow = read(".github/workflows/autonomous-video.yml");
   assert.match(workflow, /\bschedule\s*:/);
   assert.match(workflow, /workflow_dispatch/);
