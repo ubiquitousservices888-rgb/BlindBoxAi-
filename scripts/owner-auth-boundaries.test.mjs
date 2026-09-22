@@ -11,6 +11,7 @@ const approveReviewRoute = fs.readFileSync(new URL("../app/api/owner/approve-rev
 const approveLaunchRoute = fs.readFileSync(new URL("../app/api/owner/approve-launch/route.js", import.meta.url), "utf8");
 const ebayConnectRoute = fs.readFileSync(new URL("../app/api/owner/ebay-connect/route.js", import.meta.url), "utf8");
 const controlAuthRoute = fs.readFileSync(new URL("../app/api/owner/control-auth/route.js", import.meta.url), "utf8");
+const ownerDashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
 const reviewQueueEdge = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
 
 const OWNER = "owner-code-test-only";
@@ -121,4 +122,11 @@ test("rejected migration extends the queue status constraint before migrating ro
   assert.ok(statusConstraint >= 0);
   assert.ok(rejectedStatus > statusConstraint);
   assert.ok(duplicateMigration > rejectedStatus);
+});
+
+
+test("owner dashboard rejects upload credential and requires owner control code", () => {
+  assert.match(ownerDashboardRoute, /assertOwnerCode/);
+  assert.doesNotMatch(ownerDashboardRoute, /assertUploadCode/);
+  assert.match(ownerDashboardRoute, /Cache-Control": "private, no-store, max-age=0"/);
 });
