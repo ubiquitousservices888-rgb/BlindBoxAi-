@@ -18,7 +18,7 @@
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node scripts/video-pipeline.mjs publish",
     "video:zapier": "node scripts/zapier-video-payload.mjs",
-    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/gemini-video-renderer.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs scripts/yellow-review-button.test.mjs scripts/review-publish-safety.test.mjs",
+    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/gemini-video-renderer.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs scripts/yellow-review-button.test.mjs scripts/review-publish-safety.test.mjs scripts/owner-auth-boundaries.test.mjs",
     "shopping:stage": "node scripts/evergreen-shopping-stage.mjs",
     "shopping:test": "node --test scripts/evergreen-shopping.test.mjs",
     "narrative:stage": "node scripts/narrative-flywheel-stage.mjs",
