@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { askingVsSoldGapPct } from "../../../lib/price-page-core.mjs";
+import AskingSoldGapBadge from "../../_components/AskingSoldGapBadge.jsx";
 
 export const revalidate = 300;
 const API = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/public-price-items";
@@ -28,7 +28,6 @@ export default async function PriceItemPage({ params }) {
   const { itemSlug } = await params;
   const item = await getItem(itemSlug);
   if (!item || item.verifiedSaleCount < 2) notFound();
-  const gap = askingVsSoldGapPct(item.askingMedian, item.soldMedian);
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -48,7 +47,7 @@ export default async function PriceItemPage({ params }) {
         <dt>Sold median</dt><dd>{usd(item.soldMedian)}</dd>
         <dt>Sold range</dt><dd>{usd(item.soldLow)} – {usd(item.soldHigh)}</dd>
         <dt>Asking median</dt><dd>{usd(item.askingMedian)}</dd>
-        <dt>Asking vs sold gap</dt><dd>{gap === null ? "no data" : `${gap}%`}</dd>
+        <dt>Asking vs sold gap</dt><dd><AskingSoldGapBadge askingMedian={item.askingMedian} soldMedian={item.soldMedian} /></dd>
         <dt>Sale dates</dt><dd>{item.saleDates?.length ? item.saleDates.map(x=>new Date(x).toLocaleDateString()).join(", ") : "no data"}</dd>
         <dt>Last checked</dt><dd>{item.lastCheckedAt ? new Date(item.lastCheckedAt).toLocaleString() : "no data"}</dd>
       </dl>
