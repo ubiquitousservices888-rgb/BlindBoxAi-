@@ -79,24 +79,52 @@ async function approve(req: Request, body: any) {
   if (!data) return json({ error: "Video is not waiting for approval" }, 409);
   return json({ ok: true, state: "APPROVED", ...data });
 }
-async function peek(req: Request) {
-  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
-  const { data: item, error } = await db.from("review_video_queue")
+function requestedPublishChannel(body: any) {
+  const channel = clean(body?.channel, 32).toLowerCase();
+  if (!channel) return "";
+  if (!/^[a-z0-9_-]{2,32}$/.test(channel)) throw new Error("Invalid publish channel");
+  return channel;
+}
+
+async function nextApprovedForChannel(channel: string) {
+  const { data, error } = await db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids")
     .eq("status", "approved")
     .order("approved_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (error) return json({ error: "Queue lookup failed" }, 500);
-  return json({ ok: true, item: item || null });
+    .limit(100);
+  if (error) throw error;
+  return (data || []).find((item: any) =>
+    !channel || !(Array.isArray(item.published_channels) ? item.published_channels : []).includes(channel)
+  ) || null;
 }
 
-async function claim(req: Request) {
+async function peek(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
-  const { data: item, error } = await db.from("review_video_queue").select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids").eq("status", "approved").order("approved_at", { ascending: true }).limit(1).maybeSingle();
-  if (error) return json({ error: "Queue lookup failed" }, 500); if (!item) return json({ ok: true, item: null });
+  let channel = "";
+  try { channel = requestedPublishChannel(body); } catch { return json({ error: "Invalid publish channel" }, 400); }
+  try {
+    const item = await nextApprovedForChannel(channel);
+    return json({ ok: true, item });
+  } catch {
+    return json({ error: "Queue lookup failed" }, 500);
+  }
+}
+
+async function claim(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  let channel = "";
+  try { channel = requestedPublishChannel(body); } catch { return json({ error: "Invalid publish channel" }, 400); }
+  let item: any;
+  try { item = await nextApprovedForChannel(channel); }
+  catch { return json({ error: "Queue lookup failed" }, 500); }
+  if (!item) return json({ ok: true, item: null });
   const now = new Date().toISOString();
-  const { data: claimed } = await db.from("review_video_queue").update({ status: "publishing", publishing_at: now, updated_at: now }).eq("research_run_id", item.research_run_id).eq("status", "approved").select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids").maybeSingle();
+  const { data: claimed } = await db.from("review_video_queue")
+    .update({ status: "publishing", publishing_at: now, updated_at: now })
+    .eq("research_run_id", item.research_run_id)
+    .eq("status", "approved")
+    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids")
+    .maybeSingle();
   return json({ ok: true, item: claimed || null });
 }
 async function recordChannel(req: Request, body: any) {
@@ -154,8 +182,8 @@ Deno.serve(async (req: Request) => {
   if (action === "stage") return stage(req, body);
   if (action === "list") return listReady(req);
   if (action === "approve") return approve(req, body);
-  if (action === "peek") return peek(req);
-  if (action === "claim") return claim(req);
+  if (action === "peek") return peek(req, body);
+  if (action === "claim") return claim(req, body);
   if (action === "record_channel") return recordChannel(req, body);
   if (action === "complete") return complete(req, body);
   return json({ error: "Unknown action" }, 400);
