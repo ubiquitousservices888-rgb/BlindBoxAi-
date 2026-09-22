@@ -1,18 +1,57 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
-import { askingVsSoldGapPct, median, priceSlug } from "../lib/price-page-core.mjs";
 
-test("one-sale item is below public page threshold", () => {
-  const sales=[185];
-  assert.equal(sales.length >= 2, false);
+import {
+  askingVsSoldGapPct,
+  hasPublicPriceEvidence,
+  median,
+  parsePriceSlug,
+  priceSlug,
+} from "../lib/price-page-core.mjs";
+
+test("public price threshold requires two positive verified observations", () => {
+  assert.equal(hasPublicPriceEvidence([{ amount: 185 }]), false);
+  assert.equal(hasPublicPriceEvidence([{ amount: 185 }, { amount: 190 }]), true);
+  assert.equal(hasPublicPriceEvidence([{ amount: null }, { amount: 190 }]), false);
 });
-test("gap percentage matches fixture math", () => {
-  assert.equal(median([100,200]),150);
-  assert.equal(askingVsSoldGapPct(225,150),50);
+
+test("median ignores missing, empty, non-finite, and non-positive values", () => {
+  assert.equal(median([null, "", 0, -4, 100, 200, Number.NaN]), 150);
+  assert.equal(median([null, "", 0]), null);
 });
-test("missing asking data produces no gap", () => {
-  assert.equal(askingVsSoldGapPct(null,150),null);
+
+test("gap percentage preserves explicit no-data semantics", () => {
+  assert.equal(askingVsSoldGapPct(225, 150), 50);
+  assert.equal(askingVsSoldGapPct(null, 150), null);
+  assert.equal(askingVsSoldGapPct(0, 150), null);
+  assert.equal(askingVsSoldGapPct(225, 0), null);
 });
-test("slugs are deterministic", () => {
-  assert.equal(priceSlug("Mew ex #152 / 30th"),"mew-ex-152-30th");
+
+test("slugs are stable, condition-specific, and parseable", () => {
+  const raw = priceSlug({ canonicalName: "Mew ex #152 / 30th", id: "abc-123", conditionType: "raw" });
+  const graded = priceSlug({ canonicalName: "Mew ex #152 / 30th", id: "abc-123", conditionType: "graded" });
+  assert.notEqual(raw, graded);
+  assert.deepEqual(parsePriceSlug(raw), { conditionType: "raw", id: "abc-123" });
+});
+
+test("slug normalization strips diacritics and has a non-Latin fallback", () => {
+  assert.match(priceSlug({ canonicalName: "Naïve", id: "id-1", conditionType: "raw" }), /^naive--raw--id-1$/);
+  assert.match(priceSlug({ canonicalName: "ポケモン", id: "id-2", conditionType: "raw" }), /^collectible--raw--id-2$/);
+});
+
+test("public price edge function batches data and keeps conditions separate", () => {
+  const edge = fs.readFileSync(new URL("../supabase/functions/public-price-items/index.ts", import.meta.url), "utf8");
+  assert.match(edge, /async function paged/);
+  assert.match(edge, /condition_type/);
+  assert.match(edge, /\.eq\("condition_type", conditionType\)/);
+  assert.doesNotMatch(edge, /for \(const item of items[\s\S]*db\.from\("sold_price_observations"\)/);
+  assert.match(edge, /status >= 400 \? ERROR_HEADERS : SUCCESS_HEADERS/);
+});
+
+test("public page escapes JSON-LD and formats sale dates in UTC", () => {
+  const page = fs.readFileSync(new URL("../app/price/[itemSlug]/page.jsx", import.meta.url), "utf8");
+  assert.match(page, /replace\(\/<\/g, "\\\\u003c"\)/);
+  assert.match(page, /timeZone: "UTC"/);
+  assert.match(page, /Condition:/);
 });
