@@ -14,3 +14,22 @@ begin
       check (jsonb_typeof(public_urls) = 'object');
   end if;
 end $$;
+
+
+-- Historical rows may have channel completion markers from before public URL
+-- evidence was required. Return those rows to the already-owner-approved state
+-- so the protected publisher can re-verify the existing Buffer post before any
+-- future completion is accepted.
+update public.review_video_queue
+set
+  status = 'approved',
+  published_at = null,
+  publishing_at = null,
+  last_error = 'Public URL verification required after schema upgrade',
+  updated_at = now()
+where status = 'published'
+  and exists (
+    select 1
+    from unnest(coalesce(published_channels, array[]::text[])) as channel_name
+    where not (public_urls ? channel_name)
+  );
