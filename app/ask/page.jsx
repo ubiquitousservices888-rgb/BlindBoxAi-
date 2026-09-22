@@ -39,6 +39,10 @@ export default function AskPage() {
   const [gradedOffer, setGradedOffer] = useState("");
   const [gradeAssumption, setGradeAssumption] = useState("PSA 10");
   const [researchStatus, setResearchStatus] = useState("");
+  const [fakeItem, setFakeItem] = useState("");
+  const [fakeDetails, setFakeDetails] = useState("");
+  const [fakePhoto, setFakePhoto] = useState(null);
+  const [fakeStatus, setFakeStatus] = useState("");
 
   async function submit(event) {
     event.preventDefault();
@@ -98,6 +102,26 @@ export default function AskPage() {
     setRawOffer("");
     setGradedOffer("");
     track("audience_value_research", { has_raw: Boolean(rawOffer), has_graded: Boolean(gradedOffer) });
+  }
+
+  async function submitFakeReport(event) {
+    event.preventDefault();
+    setFakeStatus("Saving privately…");
+    const form = new FormData();
+    form.append("type", "fake_report");
+    form.append("itemQuery", fakeItem.trim());
+    form.append("reportText", fakeDetails.trim());
+    if (fakePhoto) form.append("photo", fakePhoto);
+    const response = await fetch("/api/research/fake-report", { method: "POST", body: form });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setFakeStatus(body?.error || "Could not save the report.");
+      return;
+    }
+    setFakeStatus("Saved for private owner review. Nothing was published.");
+    setFakeItem("");
+    setFakeDetails("");
+    setFakePhoto(null);
   }
 
   return (
@@ -203,7 +227,22 @@ export default function AskPage() {
         </article>
       )}
 
-      <p className="privacy-note">Questions are stored only in redacted research form so repeated gaps can be prioritized. Audience raw/graded answers are research signals only. Verified evidence remains completed sold-price evidence only.</p>
+      <section className="answer">
+        <h2>Report a possible fake</h2>
+        <p className="answer-copy">Send a private authenticity lead for owner review. Reports never publish automatically and do not become authenticity evidence until reviewed.</p>
+        <form onSubmit={submitFakeReport}>
+          <label htmlFor="fake-item">Item or collectible</label>
+          <input id="fake-item" value={fakeItem} maxLength={160} onChange={(e)=>setFakeItem(e.target.value)} required />
+          <label htmlFor="fake-details">What looks wrong?</label>
+          <textarea id="fake-details" value={fakeDetails} maxLength={1200} onChange={(e)=>setFakeDetails(e.target.value)} required style={{display:"block",width:"100%",minHeight:120,padding:12}} />
+          <label htmlFor="fake-photo">Optional photo (JPG, PNG, WebP; private)</label>
+          <input id="fake-photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e)=>setFakePhoto(e.target.files?.[0]||null)} />
+          <button type="submit" disabled={fakeItem.trim().length<2 || fakeDetails.trim().length<8}>Save private report</button>
+        </form>
+        {fakeStatus && <p className="research-status">{fakeStatus}</p>}
+      </section>
+
+      <p className="privacy-note">Questions are stored only in redacted research form so repeated gaps can be prioritized. Audience raw/graded answers are research signals only. Fake reports store no name, email, IP address, user-agent, or referrer. Optional photos remain private until owner review. Verified evidence remains completed sold-price evidence only.</p>
 
       <style jsx>{`
         .ask-main{max-width:760px;margin:0 auto;padding:28px 0 72px}.ask-intro{padding:20px 0 22px}.ask-intro h1{font-size:clamp(2.1rem,8vw,3.1rem);margin:.3em 0 .25em}.ask-intro p:last-child{max-width:62ch;color:var(--muted)}
