@@ -1,3 +1,4 @@
+// CI contract: scanner stays research-only, bounded, seller-free, and heartbeat-covered.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
