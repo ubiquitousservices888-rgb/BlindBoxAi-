@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import { cardApiExactTargetMatches } from "../lib/the-card-api.mjs";
@@ -75,4 +76,24 @@ test("card matcher never mixes graded sale into a raw target", () => {
   };
   assert.equal(cardApiExactTargetMatches("Pokemon Charizard 30th Celebrations raw", { ...base, identity: { condition: "raw" } }), true);
   assert.equal(cardApiExactTargetMatches("Pokemon Charizard 30th Celebration PSA 10", { ...base, identity: { condition: "raw" } }), false);
+});
+
+
+test("research queue controls bound backlog, reserve public capacity, drain orphans, and allow 30-day cooldowns", () => {
+  const edgeSource = fs.readFileSync(
+    new URL("../supabase/functions/mr-know-it-all-ingest/index.ts", import.meta.url),
+    "utf8",
+  );
+  const workerSource = fs.readFileSync(
+    new URL("./mr-know-it-all-tool-bot.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(edgeSource, /eligibleAutomaticBacklog/);
+  assert.match(edgeSource, /reason", "unanswered_public_question"/);
+  assert.match(edgeSource, /status: "dismissed"/);
+  assert.match(edgeSource, /Math\.min\(720,/);
+  assert.match(workerSource, /successfulEmptyCooldown/);
+  assert.match(workerSource, /accepted\.length === 0/);
+  assert.match(workerSource, /retryHours: successfulEmptyCooldown \? 720 : 6/);
 });

@@ -236,6 +236,24 @@ async function handleBotPublicResearch(body: any, authPayload: any) {
 }
 
 async function handleBotSeed(body: any) {
+  const now = new Date().toISOString();
+  const { count: eligibleAutomaticBacklog, error: backlogError } = await db
+    .from("mr_know_it_all_research_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "queued")
+    .eq("reason", "automatic_repeater")
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`);
+
+  if (backlogError) return json({ error: "Queue backlog lookup failed" }, 500);
+  if (Number(eligibleAutomaticBacklog || 0) >= 20) {
+    return json({
+      ok: true,
+      seeded: 0,
+      reason: "backlog_high",
+      eligibleAutomaticBacklog: Number(eligibleAutomaticBacklog || 0),
+    });
+  }
+
   const seeds = Array.isArray(body?.seeds) ? body.seeds.slice(0, 10) : [];
   let seeded = 0;
   for (const seed of seeds) {
@@ -276,24 +294,65 @@ async function handleBotSeed(body: any) {
 async function handleBotPull(body: any) {
   const limit = Math.max(1, Math.min(10, Number(body?.limit) || 5));
   const now = new Date().toISOString();
-  const { data: queue, error } = await db.from("mr_know_it_all_research_queue")
-    .select("id,query_key,vertical,reason,priority,status,attempts,next_attempt_at,created_at")
+  const selectColumns = "id,query_key,vertical,reason,priority,status,attempts,next_attempt_at,created_at";
+  const reservedPublicLimit = Math.min(4, limit);
+
+  const { data: publicQueue, error: publicError } = await db
+    .from("mr_know_it_all_research_queue")
+    .select(selectColumns)
     .eq("status", "queued")
+    .eq("reason", "unanswered_public_question")
     .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: true })
-    .limit(limit);
-  if (error) return json({ error: "Queue lookup failed" }, 500);
+    .limit(reservedPublicLimit);
+  if (publicError) return json({ error: "Public queue lookup failed" }, 500);
 
+  const reservedRows = publicQueue || [];
+  const remaining = Math.max(0, limit - reservedRows.length);
+  let fillRows: any[] = [];
+
+  if (remaining > 0) {
+    let fillQuery = db
+      .from("mr_know_it_all_research_queue")
+      .select(selectColumns)
+      .eq("status", "queued")
+      .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`)
+      .order("priority", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(remaining);
+
+    if (reservedRows.length > 0) {
+      fillQuery = fillQuery.not("id", "in", `(${reservedRows.map((row) => row.id).join(",")})`);
+    }
+
+    const { data: fillQueue, error: fillError } = await fillQuery;
+    if (fillError) return json({ error: "Queue lookup failed" }, 500);
+    fillRows = fillQueue || [];
+  }
+
+  const queue = [...reservedRows, ...fillRows];
   const items = [];
-  for (const row of queue || []) {
+
+  for (const row of queue) {
     const { data: questions } = await db.from("mr_know_it_all_questions")
       .select("question_redacted")
       .eq("question_hash", row.query_key)
       .order("created_at", { ascending: false })
       .limit(1);
     const questionRedacted = cleanText(questions?.[0]?.question_redacted, 180);
-    if (!questionRedacted) continue;
+
+    if (!questionRedacted) {
+      const { error: dismissError } = await db.from("mr_know_it_all_research_queue").update({
+        status: "dismissed",
+        next_attempt_at: null,
+        updated_at: now,
+        last_note: "Queue row dismissed because no matching question record exists.",
+      }).eq("id", row.id).eq("status", "queued");
+      if (dismissError) return json({ error: "Queue orphan cleanup failed" }, 500);
+      continue;
+    }
+
     const attempts = Number(row.attempts || 0) + 1;
     const { error: claimError } = await db.from("mr_know_it_all_research_queue").update({
       status: "researching",
@@ -303,6 +362,7 @@ async function handleBotPull(body: any) {
       last_note: "Claimed by Mr. Know It All research tool bot.",
     }).eq("id", row.id).eq("status", "queued");
     if (claimError) continue;
+
     items.push({
       id: row.id,
       queryKey: row.query_key,
@@ -353,7 +413,7 @@ async function handleBotFinish(body: any) {
   const queueId = cleanText(body?.queueId, 80);
   const status = cleanText(body?.status, 20);
   if (!queueId || !["queued", "verified", "blocked"].includes(status)) return json({ error: "Queue finish fields invalid" }, 400);
-  const retryHours = Math.max(1, Math.min(168, Number(body?.retryHours) || 6));
+  const retryHours = Math.max(1, Math.min(720, Number(body?.retryHours) || 6));
   const nextAttemptAt = status === "queued" ? new Date(Date.now() + retryHours * 3600_000).toISOString() : null;
   const lastResult = body?.result && typeof body.result === "object" ? body.result : {};
   const { error } = await db.from("mr_know_it_all_research_queue").update({
