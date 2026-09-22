@@ -49,7 +49,7 @@ test("requires a verified public platform URL and exact linked disclosure text",
     externalLink: "https://example.com/watch?v=abc123",
     text: caption,
     expectedCaption: caption,
-  }), /expected public host/);
+  }), /valid public post URL/);
   assert.throws(() => assertVerifiedPublicPost({
     channel: "youtube",
     externalLink: "https://www.youtube.com/watch?v=abc123",
