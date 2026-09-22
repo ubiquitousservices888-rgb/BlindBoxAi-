@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 
 import { getAmazonAccessoryOffer } from "../../../../lib/amazon-associates.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
+import { classifyAffiliateRequest } from "../../../../lib/click-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 const PRIVATE_HEADERS = { "Cache-Control": "no-store" };
 
 export async function POST(request) {
+  const clickQuality = classifyAffiliateRequest(request);
   let body;
   try {
     body = await request.json();
@@ -37,6 +39,8 @@ export async function POST(request) {
     placement: "amazon_accessories",
     sourcePath: "/shop/accessories",
     metadata: { offerTitle: offer.title, directProviderLink: true },
+    clientClass: clickQuality.clientClass,
+    qualityReason: clickQuality.qualityReason,
     piiStored: false,
   };
 
