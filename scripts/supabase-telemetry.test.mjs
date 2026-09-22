@@ -139,3 +139,21 @@ test("provider evidence edge path uses owner-only control auth", () => {
   assert.match(ownerBlock, /\/api\/owner\/control-auth/);
   assert.doesNotMatch(ownerBlock, /storage-auth/);
 });
+
+
+test("public telemetry writes use a durable Supabase throttle without client identifiers", () => {
+  const source = fs.readFileSync(
+    new URL("../supabase/functions/distribution-telemetry/index.ts", import.meta.url),
+    "utf8",
+  );
+  const migration = fs.readFileSync(
+    new URL("../supabase/migrations/20260922205200_durable_telemetry_rate_limit.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /claim_telemetry_slot/);
+  assert.match(source, /type === "click" \|\| type === "event"/);
+  assert.match(source, /Telemetry limiter unavailable/);
+  assert.match(migration, /telemetry_rate_limit_state/);
+  assert.match(migration, /Stores no client identifiers or PII/);
+  assert.doesNotMatch(migration, /ip_address|user_agent|fingerprint/i);
+});

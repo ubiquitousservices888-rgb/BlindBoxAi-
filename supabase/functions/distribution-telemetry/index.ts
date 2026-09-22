@@ -55,6 +55,19 @@ function requestRateAllowed(req: Request) {
   return current.count <= 60;
 }
 
+async function durableWriteAllowed(scope = "public_telemetry") {
+  const { data, error } = await db.rpc("claim_telemetry_slot", {
+    p_scope: scope,
+    p_limit: 600,
+    p_now: new Date().toISOString(),
+  });
+  if (error) {
+    console.error("telemetry_rate_limit_failed", { code: error.code });
+    return null;
+  }
+  return data === true;
+}
+
 async function validateBlindBoxAuthorization(headerValue: string, path = "/api/owner/storage-auth") {
   if (!headerValue.startsWith("Bearer ")) return false;
   try {
@@ -202,6 +215,11 @@ Deno.serve(async (req: Request) => {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const type = clean(body?.type, 30);
+  if (type === "click" || type === "event") {
+    const durableAllowed = await durableWriteAllowed();
+    if (durableAllowed === null) return json({ error: "Telemetry limiter unavailable" }, 503);
+    if (!durableAllowed) return json({ error: "Rate limit exceeded" }, 429);
+  }
   if (type === "click") return recordClick(body?.event || {});
   if (type === "event") return recordEvent(body?.event || {});
   if (type === "provider_evidence") return recordProviderEvidence(req, body);
