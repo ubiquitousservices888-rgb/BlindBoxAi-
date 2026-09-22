@@ -9,6 +9,7 @@ const ALLOWED_EVENTS = new Set([
   "page_view",
   "landing_session_source",
   "commerce_intent_click",
+  "waitlist_signup",
 ]);
 
 function cleanText(value, max = 120) {
@@ -63,6 +64,7 @@ export async function POST(request) {
     campaign,
     contentId: cleanDimension(body?.contentId) || campaign,
     vertical: cleanDimension(body?.vertical, 20),
+    metadata: eventName === "waitlist_signup" ? { providerConfirmed: body?.providerConfirmed === true } : undefined,
     piiStored: false,
   };
 
