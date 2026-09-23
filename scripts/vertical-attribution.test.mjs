@@ -10,10 +10,12 @@ import {
   verticalFromSource,
 } from "../lib/attribution.mjs";
 import { buildAmazonSearchUrl, amazonOutboundPath } from "../lib/amazon-associates.mjs";
+import { AMAZON_VIDEO_CTA } from "../lib/video-pipeline.mjs";
 
 const ebayRoute = readFileSync("app/api/out/ebay/route.js", "utf8");
 const analytics = readFileSync("app/_components/CoreAnalytics.jsx", "utf8");
 const amazonRoute = readFileSync("app/api/out/amazon/route.js", "utf8");
+const videoPipeline = readFileSync("lib/video-pipeline.mjs", "utf8");
 const attribution = readFileSync("lib/attribution.mjs", "utf8");
 
 const CUSTOM_ID_RE = /^[a-z0-9._-]+$/;
@@ -89,9 +91,13 @@ test("eBay attribution preserves native new-tab and modified-click behavior", ()
   assert.match(analytics, /event\.preventDefault\(\);\s*window\.location\.assign\(decoratedHref\)/s);
 });
 
-test("Amazon remains direct and uses the fixed Associates tag", () => {
+test("Amazon shop remains direct while video CTA lands on BlindBoxAI", () => {
   const url = buildAmazonSearchUrl("acrylic-display-case");
   assert.equal(new URL(url).searchParams.get("tag"), "blindboxai-20");
+  assert.equal(AMAZON_VIDEO_CTA, "https://blindboxai.com/shop/accessories");
+  assert.doesNotMatch(AMAZON_VIDEO_CTA, /\/api\/out\/amazon|amazon\.com/i);
+  assert.doesNotMatch(videoPipeline, /amazonOutboundPath/);
+  assert.match(videoPipeline, /amazon_cta:/);
   assert.doesNotMatch(amazonRoute, /\/api\/out\/amazon.*amazonOutboundPath/);
   assert.match(amazonRoute, /buildAmazonSearchUrl\(offer\.id\)/);
   assert.match(amazonOutboundPath("acrylic-display-case"), /^\/api\/out\/amazon\?/);
