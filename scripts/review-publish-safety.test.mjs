@@ -37,6 +37,24 @@ test("requires a verified public platform URL and exact linked disclosure text",
   );
   assert.equal(
     assertVerifiedPublicPost({
+      channel: "youtube",
+      externalLink: "https://m.youtube.com/watch?v=abc123",
+      text: caption,
+      expectedCaption: caption,
+    }),
+    "https://m.youtube.com/watch?v=abc123",
+  );
+  assert.equal(
+    assertVerifiedPublicPost({
+      channel: "youtube",
+      externalLink: "https://music.youtube.com/watch?v=abc123",
+      text: caption,
+      expectedCaption: caption,
+    }),
+    "https://music.youtube.com/watch?v=abc123",
+  );
+  assert.equal(
+    assertVerifiedPublicPost({
       channel: "tiktok",
       externalLink: "https://www.tiktok.com/@blindboxai/video/123",
       text: caption,
