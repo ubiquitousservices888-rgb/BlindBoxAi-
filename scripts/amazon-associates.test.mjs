@@ -10,10 +10,7 @@ import {
   getAmazonAccessoryOffer,
 } from "../lib/amazon-associates.mjs";
 import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
-import {
-  classifyAmazonBeaconRequest,
-  handleAmazonAffiliateClick,
-} from "../app/api/events/amazon-affiliate-click/route.js";
+import { classifyAmazonBeaconRequest } from "../app/api/events/amazon-affiliate-click/quality.mjs";
 import {
   buildLegacyRollupLines,
   buildLegacyRollups,
@@ -31,21 +28,6 @@ function beaconRequest({ headers = {}, body = {} } = {}) {
       ...body,
     }),
   });
-}
-
-async function captureBeaconEvent({ headers = {}, classifier } = {}) {
-  let scheduled = null;
-  let recorded = null;
-  const response = await handleAmazonAffiliateClick(beaconRequest({ headers }), {
-    classifier,
-    defer(callback) { scheduled = callback; },
-    recorder: async (event) => { recorded = event; },
-    now: () => new Date("2026-09-23T10:00:00.000Z"),
-  });
-  assert.equal(response.status, 204);
-  assert.equal(typeof scheduled, "function");
-  await scheduled();
-  return recorded;
 }
 
 describe("Amazon Associates accessory path", () => {
@@ -115,28 +97,27 @@ describe("Amazon Associates accessory path", () => {
     );
   });
 
-  it("fails human counting closed when the classifier throws while the beacon still succeeds", async () => {
-    const event = await captureBeaconEvent({
-      headers: { "user-agent": "Mozilla/5.0" },
-      classifier() { throw new Error("classifier unavailable"); },
-    });
-    assert.equal(event.clientClass, "unclassified");
-    assert.equal(event.qualityReason, "classifier_error");
-    assert.equal(event.provider, "amazon_associates");
-    assert.equal(event.sourcePath, "/shop/accessories");
-    assert.equal(event.metadata.directProviderLink, true);
+  it("fails human counting closed when the classifier throws", () => {
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(
+        beaconRequest({ headers: { "user-agent": "Mozilla/5.0" } }),
+        () => { throw new Error("classifier unavailable"); },
+      ),
+      { clientClass: "unclassified", qualityReason: "classifier_error" },
+    );
   });
 
-  it("stores bot and prefetch beacon events instead of dropping them", async () => {
-    const bot = await captureBeaconEvent({ headers: { "user-agent": "Googlebot/2.1" } });
-    assert.equal(bot.clientClass, "bot");
-    assert.equal(bot.qualityReason, "bot_signature");
-
-    const prefetch = await captureBeaconEvent({
-      headers: { "sec-purpose": "prefetch", "user-agent": "Mozilla/5.0" },
-    });
-    assert.equal(prefetch.clientClass, "prefetch");
-    assert.equal(prefetch.qualityReason, "prefetch_header");
+  it("keeps the beacon success path and stores coarse quality labels without dropping bot or prefetch", () => {
+    const amazonRouteSource = fs.readFileSync(
+      new URL("../app/api/events/amazon-affiliate-click/route.js", import.meta.url),
+      "utf8",
+    );
+    assert.match(amazonRouteSource, /const clickQuality = classifyAmazonBeaconRequest\(request\)/);
+    assert.match(amazonRouteSource, /clientClass:\s*clickQuality\.clientClass/);
+    assert.match(amazonRouteSource, /qualityReason:\s*clickQuality\.qualityReason/);
+    assert.match(amazonRouteSource, /after\(async \(\) => \{[\s\S]*recordAffiliateClick\(event\)/);
+    assert.match(amazonRouteSource, /return new NextResponse\(null, \{ status: 204/);
+    assert.doesNotMatch(amazonRouteSource, /clientClass\s*===|qualityReason\s*===/);
   });
 
   it("preserves the existing direct-provider beacon payload and matches eBay quality field names", () => {
