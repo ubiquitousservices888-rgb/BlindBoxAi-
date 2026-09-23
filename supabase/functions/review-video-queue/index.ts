@@ -41,6 +41,10 @@ function safePublicUrl(channel: string, value: unknown) {
   if (channel === "tiktok" && ["tiktok.com", "www.tiktok.com"].includes(host) && /^\/@[^/]+\/video\/\d+(?:\/)?$/.test(url.pathname)) {
     return url.toString();
   }
+  if (channel === "linkedin" && ["linkedin.com", "www.linkedin.com"].includes(host)) {
+    if (/^\/feed\/update\/urn:li:(?:activity|share):\d+(?:\/)?$/.test(url.pathname)) return url.toString();
+    if (/^\/posts\/[^/]+(?:\/)?$/.test(url.pathname)) return url.toString();
+  }
   return null;
 }
 function verticalFor(title: string) {
