@@ -33,6 +33,15 @@ test("slugs are stable, condition-specific, and parseable", () => {
   const graded = priceSlug({ canonicalName: "Mew ex #152 / 30th", id: "abc-123", conditionType: "graded" });
   assert.notEqual(raw, graded);
   assert.deepEqual(parsePriceSlug(raw), { conditionType: "raw", id: "abc-123" });
+  const longId = "a".repeat(64);
+  assert.deepEqual(parsePriceSlug(priceSlug({ canonicalName: "Long ID", id: longId, conditionType: "graded" })), {
+    conditionType: "graded",
+    id: longId,
+  });
+  assert.deepEqual(parsePriceSlug(priceSlug({ canonicalName: "Pikachu", id: "ab--cd", conditionType: "raw" })), {
+    conditionType: "raw",
+    id: "ab-cd",
+  });
 });
 
 test("slug normalization strips diacritics and has a non-Latin fallback", () => {
@@ -45,7 +54,7 @@ test("public price edge function batches data and keeps conditions separate", ()
   assert.match(edge, /async function paged/);
   assert.match(edge, /condition_type/);
   assert.match(edge, /\.eq\("condition_type", conditionType\)/);
-  assert.doesNotMatch(edge, /for \(const item of items[\s\S]*db\.from\("sold_price_observations"\)/);
+  assert.match(edge, /paged\(\s*"sold_price_observations"[\s\S]*\.order\("collectible_id"[\s\S]*\.order\("sold_at"[\s\S]*\.order\("id"/);
   assert.match(edge, /status >= 400 \? ERROR_HEADERS : SUCCESS_HEADERS/);
 });
 
