@@ -64,7 +64,7 @@ export default function LiveEbayListings({
             key={item.itemId}
             href={item.clickPath}
             target="_blank"
-            rel="sponsored nofollow noopener noreferrer"
+            rel="sponsored nofollow noopener"
             style={{
               display: "flex",
               flexDirection: "column",
