@@ -2,7 +2,10 @@ import {
   DISCLOSURE,
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
-import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
+import {
+  createReviewBufferPublisher,
+  isVerifiedPublicPostUrl,
+} from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import {
@@ -73,7 +76,11 @@ if (requestedChannel && !targetChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
 }
 const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
-const completedChannels = new Set(Array.isArray(item.published_channels) ? item.published_channels : []);
+const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
+const completedChannels = new Set(
+  (Array.isArray(item.published_channels) ? item.published_channels : [])
+    .filter((channel) => isVerifiedPublicPostUrl(channel, recordedPublicUrls[channel])),
+);
 const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
 if (!remainingChannels.length) throw new Error("Review queue item has no remaining publish channels");
 const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
@@ -117,13 +124,21 @@ try {
       title: publicTitle,
       youtubeCategoryId: "17",
     });
-    results.push({ channel, id: result.id, duplicate: result.duplicate === true, campaignId: new URL(trackedCta).searchParams.get("campaign") });
+    results.push({
+      channel,
+      id: result.id,
+      publicUrl: result.publicUrl,
+      duplicate: result.duplicate === true,
+      campaignId: new URL(trackedCta).searchParams.get("campaign"),
+    });
     console.log(`REVIEW_QUEUE_PUBLISHED: ${channel}:${result.id}`);
+    console.log(`REVIEW_QUEUE_PUBLIC_URL: ${channel}:${result.publicUrl}`);
     const recorded = await postJson(REVIEW_QUEUE_URL, reviewToken, {
       action: "record_channel",
       researchRunId: item.research_run_id,
       channel,
       externalId: result.id,
+      publicUrl: result.publicUrl,
       targetChannels,
     });
     console.log(`REVIEW_QUEUE_CHANNEL_RECORDED: ${channel}`);
@@ -141,12 +156,27 @@ try {
     videoUrl: safeVideoUrl,
     channels: targetChannels,
     bufferPostIds: { ...(item.buffer_post_ids || {}), ...Object.fromEntries(results.map((entry) => [entry.channel, entry.id])) },
+    publicUrls: { ...(item.public_urls || {}), ...Object.fromEntries(results.map((entry) => [entry.channel, entry.publicUrl])) },
     campaignId: results[0]?.campaignId || null,
   });
 
   console.log(`REVIEW_QUEUE_COMPLETE: ${item.research_run_id}`);
   console.log(`REVIEW_QUEUE_HOMEPAGE_LINKED: ${item.research_run_id}`);
 } catch (error) {
-  await postJson(REVIEW_QUEUE_URL, reviewToken, { action: "complete", researchRunId: item.research_run_id, success: false, error: error instanceof Error ? error.message : String(error) }).catch(() => {});
+  const message = error instanceof Error ? error.message : String(error);
+  if (error?.code === "PUBLIC_VERIFICATION_PENDING") {
+    await postJson(REVIEW_QUEUE_URL, reviewToken, {
+      action: "release",
+      researchRunId: item.research_run_id,
+      error: message,
+    }).catch(() => {});
+  } else {
+    await postJson(REVIEW_QUEUE_URL, reviewToken, {
+      action: "complete",
+      researchRunId: item.research_run_id,
+      success: false,
+      error: message,
+    }).catch(() => {});
+  }
   throw error;
 }
