@@ -8,7 +8,7 @@ import {
 } from "../../../../lib/data";
 import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
 import { buildCustomId, parseAttribution, verticalFromSource } from "../../../../lib/attribution.mjs";
-import { classifyAffiliateRequest } from "../../../../lib/click-quality.mjs";
+import { classifyEbayAffiliateRequest } from "../ebay-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ function error(message, status = 400) {
 }
 
 export async function GET(request) {
-  const clickQuality = classifyAffiliateRequest(request);
+  const clickQuality = classifyEbayAffiliateRequest(request);
   const url = new URL(request.url);
   const seriesSlug = url.searchParams.get("series")?.trim() || "";
   const figureName = url.searchParams.get("figure")?.trim() || "";
