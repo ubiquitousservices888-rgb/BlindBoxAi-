@@ -39,6 +39,13 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
       if (specifier === "next/server") {
         return { url: nextServerStub.href, shortCircuit: true };
       }
+      if ((specifier.startsWith("./") || specifier.startsWith("../")) && !/\.[a-z0-9]+$/i.test(specifier)) {
+        for (const suffix of [".js", ".mjs"]) {
+          try {
+            return nextResolve(`${specifier}${suffix}`, context);
+          } catch {}
+        }
+      }
       return nextResolve(specifier, context);
     },
   });
