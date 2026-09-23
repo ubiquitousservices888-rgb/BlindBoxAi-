@@ -6,6 +6,7 @@ import { EPN_MKRID, auditEpnUrl, buildEbaySearchUrl } from "../lib/affiliate-pol
 import {
   AMAZON_VIDEO_CTA,
   STATES,
+  assertAmazonVideoCta,
   assertPublishableState,
   createRenderRecord,
   generateVideoScript,
@@ -155,9 +156,10 @@ describe("product classifier and monetization router", () => {
     printResult("Amazon BlindBoxAI landing path", product, classification, route, pass);
     assert.equal(validation.status, "AMAZON");
     assert.ok(validation.audit.includes(`amazon_cta:${AMAZON_VIDEO_CTA}`));
-    assert.equal(AMAZON_VIDEO_CTA, "https://blindboxai.com/shop/accessories");
-    assert.ok(!AMAZON_VIDEO_CTA.includes("/api/out/amazon"));
-    assert.doesNotMatch(AMAZON_VIDEO_CTA, /amazon\.com/i);
+    assert.equal(assertAmazonVideoCta(AMAZON_VIDEO_CTA), "https://blindboxai.com/shop/accessories");
+    assert.throws(() => assertAmazonVideoCta("https://blindboxai.com/api/out/amazon?offer=display-turntable"), /accessories landing page/);
+    assert.throws(() => assertAmazonVideoCta("https://www.amazon.com/s?tag=blindboxai-20"), /accessories landing page/);
+    assert.throws(() => assertAmazonVideoCta("https://blindboxai.com/series/not-the-accessories-page"), /accessories landing page/);
   });
 
   it("11. Human approval remains required before publishing", () => {
