@@ -9,7 +9,7 @@ on:
         default: true
         type: boolean
       publish_channel:
-        description: "Optional single channel to publish while preserving youtube,tiktok,linkedin as the completion target"
+        description: "Optional single channel to publish while preserving youtube,tiktok,twitter as the completion target"
         required: false
         default: ""
         type: string
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DRY_RUN: ${{ inputs.dry_run }}
-      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok,linkedin' }}
+      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok,twitter' }}
       PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}

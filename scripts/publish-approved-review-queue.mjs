@@ -70,7 +70,7 @@ if (!item) {
 const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
 const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 
-const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok,linkedin")
+const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok,twitter")
   .split(",").map((value) => value.trim()).filter(Boolean))];
 if (requestedChannel && !targetChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);

@@ -64,12 +64,21 @@ test("requires a verified public platform URL and exact linked disclosure text",
   );
   assert.equal(
     assertVerifiedPublicPost({
-      channel: "linkedin",
-      externalLink: "https://www.linkedin.com/feed/update/urn:li:activity:7314004047894646785/",
+      channel: "twitter",
+      externalLink: "https://x.com/blindboxai/status/1837264512345678901",
       text: caption,
       expectedCaption: caption,
     }),
-    "https://www.linkedin.com/feed/update/urn:li:activity:7314004047894646785/",
+    "https://x.com/blindboxai/status/1837264512345678901",
+  );
+  assert.equal(
+    assertVerifiedPublicPost({
+      channel: "twitter",
+      externalLink: "https://twitter.com/blindboxai/status/1837264512345678901",
+      text: caption,
+      expectedCaption: caption,
+    }),
+    "https://twitter.com/blindboxai/status/1837264512345678901",
   );
   assert.throws(() => assertVerifiedPublicPost({
     channel: "youtube",
@@ -103,8 +112,8 @@ test("public post verification rejects homepages, text drift, and missing requir
   }), /valid public post URL/);
 
   assert.throws(() => assertVerifiedPublicPost({
-    channel: "linkedin",
-    externalLink: "https://www.linkedin.com/",
+    channel: "twitter",
+    externalLink: "https://x.com/",
     text: caption,
     expectedCaption: caption,
   }), /valid public post URL/);
@@ -209,9 +218,9 @@ test("verification searches the same 45-day window as duplicate detection", () =
 
 test("caps one execution to exactly one Buffer post", () => {
   assert.equal(MAX_BUFFER_POSTS_PER_EXECUTION, 1);
-  const { selected, deferred } = cappedPublishChannels("youtube,tiktok,linkedin");
+  const { selected, deferred } = cappedPublishChannels("youtube,tiktok,twitter");
   assert.deepEqual(selected, ["youtube"]);
-  assert.deepEqual(deferred, ["tiktok", "linkedin"]);
+  assert.deepEqual(deferred, ["tiktok", "twitter"]);
 });
 
 test("dry-run parsing is explicit", () => {
@@ -274,7 +283,7 @@ test("channel-aware queue claim skips rows that already completed the requested 
   assert.match(source, /claim\(req, body\)/);
 });
 
-test("channel-specific publishing keeps youtube,tiktok,linkedin as the completion target", () => {
+test("channel-specific publishing keeps youtube,tiktok,twitter as the completion target", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /const targetChannels =/);
   assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
@@ -282,7 +291,7 @@ test("channel-specific publishing keeps youtube,tiktok,linkedin as the completio
   assert.match(source, /publicUrl: result\.publicUrl/);
   assert.match(source, /PUBLIC_VERIFICATION_PENDING/);
   assert.match(source, /action: "release"/);
-  assert.match(source, /youtube,tiktok,linkedin/);
+  assert.match(source, /youtube,tiktok,twitter/);
 });
 
 test("queue stores only channel records with verified public URLs", () => {
