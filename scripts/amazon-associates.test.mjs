@@ -35,7 +35,7 @@ describe("Amazon Associates accessory path", () => {
     assert.equal(url.searchParams.get("tag"), AMAZON_ASSOCIATE_TAG);
   });
 
-  it("keeps campaign attribution on the legacy BlindBoxAI redirect", () => {
+  it("keeps the legacy redirect helper isolated from the video pipeline until compatibility cleanup", () => {
     const path = amazonOutboundPath("display-turntable", {
       campaignId: "fall_launch",
       source: "youtube",
@@ -45,6 +45,13 @@ describe("Amazon Associates accessory path", () => {
     assert.equal(url.searchParams.get("offer"), "display-turntable");
     assert.equal(url.searchParams.get("campaign"), "fall_launch");
     assert.equal(url.searchParams.get("source"), "youtube");
+
+    const videoPipelineSource = fs.readFileSync(
+      new URL("../lib/video-pipeline.mjs", import.meta.url),
+      "utf8",
+    );
+    assert.doesNotMatch(videoPipelineSource, /amazonOutboundPath/);
+    assert.match(videoPipelineSource, /AMAZON_VIDEO_CTA = "https:\/\/blindboxai\.com\/shop\/accessories"/);
   });
 
   it("primary Amazon shop links go directly to Amazon while first-party logging stays non-blocking", () => {
