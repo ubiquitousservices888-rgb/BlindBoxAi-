@@ -63,7 +63,7 @@ export default async function OwnerCardPage({ params, searchParams }) {
           <a
             href={`/api/out/owner-card?${outbound.toString()}`}
             target="_blank"
-            rel="sponsored nofollow noopener noreferrer"
+            rel="sponsored nofollow noopener"
             style={{ display: "inline-block", padding: "12px 18px", border: "1px solid currentColor", borderRadius: 10, fontWeight: 700 }}
           >
             View the live card on eBay
