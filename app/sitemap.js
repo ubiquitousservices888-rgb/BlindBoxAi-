@@ -27,6 +27,7 @@ export default async function sitemap() {
     { url: `${SITE}/tools/buy-or-pass`, changeFrequency: "daily", priority: 0.95 },
     { url: `${SITE}/ask`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE}/ai-family`, changeFrequency: "weekly", priority: 0.75 },
+    { url: `${SITE}/guides/mew-ex-152-vs-158`, changeFrequency: "daily", priority: 0.9 },
   ];
 
   const offerPages = allRevenueOffers().map((offer) => ({
