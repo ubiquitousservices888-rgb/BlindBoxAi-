@@ -50,6 +50,19 @@ export async function POST(request) {
 
   const capturedAt = new Date().toISOString();
   const campaign = cleanDimension(body?.campaign);
+  const metadata = {};
+  const utmSource = cleanDimension(body?.utmSource);
+  const utmMedium = cleanDimension(body?.utmMedium);
+  const utmCampaign = cleanDimension(body?.utmCampaign);
+  const utmContent = cleanDimension(body?.utmContent);
+  if (utmSource) metadata.utmSource = utmSource;
+  if (utmMedium) metadata.utmMedium = utmMedium;
+  if (utmCampaign) metadata.utmCampaign = utmCampaign;
+  if (utmContent) metadata.utmContent = utmContent;
+  if (eventName === "waitlist_signup") {
+    metadata.providerConfirmed = body?.providerConfirmed === true;
+  }
+
   const event = {
     schemaVersion: 1,
     namespace: "production",
@@ -64,7 +77,7 @@ export async function POST(request) {
     campaign,
     contentId: cleanDimension(body?.contentId) || campaign,
     vertical: cleanDimension(body?.vertical, 20),
-    metadata: eventName === "waitlist_signup" ? { providerConfirmed: body?.providerConfirmed === true } : undefined,
+    metadata: Object.keys(metadata).length ? metadata : undefined,
     piiStored: false,
   };
 
