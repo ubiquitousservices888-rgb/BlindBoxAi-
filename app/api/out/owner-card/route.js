@@ -9,7 +9,7 @@ import {
   getOwnerCardListing,
   isEpnGenAiPromotionApproved,
 } from "../../../../lib/owner-card-listings.mjs";
-import { classifyAffiliateRequest } from "../../../../lib/click-quality.mjs";
+import { classifyEbayAffiliateRequest } from "../ebay-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ function error(message, status = 400) {
 }
 
 export async function GET(request) {
-  const clickQuality = classifyAffiliateRequest(request);
+  const clickQuality = classifyEbayAffiliateRequest(request);
   const url = new URL(request.url);
   const researchTargetId = String(url.searchParams.get("id") || "").trim();
   const listing = getOwnerCardListing(researchTargetId);
