@@ -261,6 +261,8 @@ test("queue stores only channel records with verified public URLs", () => {
     "utf8",
   );
   assert.match(migration, /add column if not exists public_urls jsonb/);
+  assert.doesNotMatch(migration, /update\\s+public\\.review_video_queue[\\s\\S]*status\\s*=\\s*['"]approved['"]/i);
+  assert.match(migration, /Historical published rows must remain published/);
 });
 
 test("queue peek is read-only and separately authorized", () => {
