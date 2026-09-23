@@ -15,16 +15,7 @@ begin
   end if;
 end $$;
 
-
--- Historical published rows predate strict platform URL validation. Requeue all
--- of them to the already-owner-approved state so the protected publisher must
--- locate and strictly verify the actual public post URL before completion.
-update public.review_video_queue
-set
-  status = 'approved',
-  published_at = null,
-  publishing_at = null,
-  last_error = 'Public URL re-verification required after schema upgrade',
-  updated_at = now()
-where status = 'published'
-  and cardinality(coalesce(published_channels, array[]::text[])) > 0;
+-- Historical published rows must remain published. They predate strict public URL
+-- verification, and changing them back to approved would make already-published
+-- videos eligible for creation again. Backfill/verification of public_urls is a
+-- separate read/reconciliation task and must never reactivate publication state.
