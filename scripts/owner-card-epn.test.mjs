@@ -60,6 +60,6 @@ test("owner-card outbound route is allowlisted, attributed, disclosed, and appro
   assert.match(route, /recordAffiliateClick/);
   assert.doesNotMatch(route, /searchParams\.get\(["']item["']\)/);
   assert.match(page, /As an eBay Partner, BlindBoxAI may be compensated/);
-  assert.match(page, /rel="sponsored nofollow noopener noreferrer"/);
+  assert.match(page, /rel="sponsored nofollow noopener"/);
   assert.match(page, /\/api\/out\/owner-card/);
 });

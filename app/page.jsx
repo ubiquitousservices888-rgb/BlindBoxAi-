@@ -195,7 +195,7 @@ export default async function Home() {
                 <div className="bv-card-links">
                   <Link href={`/series/${s.slug}`}>Open knowledge →</Link>
                   {outbound && (
-                    <a href={outbound} target="_blank" rel="nofollow sponsored noopener noreferrer">
+                    <a href={outbound} target="_blank" rel="sponsored nofollow noopener">
                       Current eBay listings ↗
                     </a>
                   )}

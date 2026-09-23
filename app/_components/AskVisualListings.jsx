@@ -90,7 +90,7 @@ export default function AskVisualListings({ query = "" }) {
               key={item.itemId}
               href={item.clickPath}
               target="_blank"
-              rel="sponsored nofollow noopener noreferrer"
+              rel="sponsored nofollow noopener"
             >
               <div className="visual-image-wrap">
                 {item.imageUrl ? (

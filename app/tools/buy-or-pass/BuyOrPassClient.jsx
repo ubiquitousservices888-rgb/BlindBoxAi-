@@ -90,10 +90,10 @@ export default function BuyOrPassClient({ offer, activePath, soldPath, campaignI
           Disclosure: As an eBay Partner, BlindBoxAI may earn a commission from qualifying purchases.
         </p>
         <div className="market-actions">
-          <a className="cta" href={activePath} target="_blank" rel="sponsored nofollow noopener noreferrer">
+          <a className="cta" href={activePath} target="_blank" rel="sponsored nofollow noopener">
             View active listings on eBay ↗
           </a>
-          <a className="market-secondary" href={soldPath} target="_blank" rel="sponsored nofollow noopener noreferrer">
+          <a className="market-secondary" href={soldPath} target="_blank" rel="sponsored nofollow noopener">
             View sold comps on eBay ↗
           </a>
         </div>
