@@ -11,10 +11,42 @@ import {
 } from "../lib/amazon-associates.mjs";
 import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
 import {
+  classifyAmazonBeaconRequest,
+  handleAmazonAffiliateClick,
+} from "../app/api/events/amazon-affiliate-click/route.js";
+import {
   buildLegacyRollupLines,
   buildLegacyRollups,
   legacyRollupHeaders,
 } from "./affiliate-click-report.mjs";
+
+function beaconRequest({ headers = {}, body = {} } = {}) {
+  return new Request("https://blindboxai.com/api/events/amazon-affiliate-click", {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify({
+      offerId: "acrylic-display-case",
+      campaignId: "fall_launch",
+      source: "youtube",
+      ...body,
+    }),
+  });
+}
+
+async function captureBeaconEvent({ headers = {}, classifier } = {}) {
+  let scheduled = null;
+  let recorded = null;
+  const response = await handleAmazonAffiliateClick(beaconRequest({ headers }), {
+    classifier,
+    defer(callback) { scheduled = callback; },
+    recorder: async (event) => { recorded = event; },
+    now: () => new Date("2026-09-23T10:00:00.000Z"),
+  });
+  assert.equal(response.status, 204);
+  assert.equal(typeof scheduled, "function");
+  await scheduled();
+  return recorded;
+}
 
 describe("Amazon Associates accessory path", () => {
   it("uses a fixed allowlist of evergreen accessory categories", () => {
@@ -66,6 +98,64 @@ describe("Amazon Associates accessory path", () => {
     assert.doesNotMatch(linkSource, /preventDefault\(|window\.location\.assign/);
     assert.match(loggerSource, /provider:\s*"amazon_associates"/);
     assert.match(loggerSource, /piiStored:\s*false/);
+  });
+
+  it("classifies Amazon beacon traffic with the shared click-quality values", () => {
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(beaconRequest({ headers: { "user-agent": "Mozilla/5.0 Chrome/140 Safari/537.36" } })),
+      { clientClass: "human_candidate", qualityReason: "default_candidate" },
+    );
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(beaconRequest({ headers: { "user-agent": "Googlebot/2.1" } })),
+      { clientClass: "bot", qualityReason: "bot_signature" },
+    );
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(beaconRequest({ headers: { "sec-purpose": "prefetch", "user-agent": "Mozilla/5.0" } })),
+      { clientClass: "prefetch", qualityReason: "prefetch_header" },
+    );
+  });
+
+  it("fails human counting closed when the classifier throws while the beacon still succeeds", async () => {
+    const event = await captureBeaconEvent({
+      headers: { "user-agent": "Mozilla/5.0" },
+      classifier() { throw new Error("classifier unavailable"); },
+    });
+    assert.equal(event.clientClass, "unclassified");
+    assert.equal(event.qualityReason, "classifier_error");
+    assert.equal(event.provider, "amazon_associates");
+    assert.equal(event.sourcePath, "/shop/accessories");
+    assert.equal(event.metadata.directProviderLink, true);
+  });
+
+  it("stores bot and prefetch beacon events instead of dropping them", async () => {
+    const bot = await captureBeaconEvent({ headers: { "user-agent": "Googlebot/2.1" } });
+    assert.equal(bot.clientClass, "bot");
+    assert.equal(bot.qualityReason, "bot_signature");
+
+    const prefetch = await captureBeaconEvent({
+      headers: { "sec-purpose": "prefetch", "user-agent": "Mozilla/5.0" },
+    });
+    assert.equal(prefetch.clientClass, "prefetch");
+    assert.equal(prefetch.qualityReason, "prefetch_header");
+  });
+
+  it("preserves the existing direct-provider beacon payload and matches eBay quality field names", () => {
+    const amazonRouteSource = fs.readFileSync(
+      new URL("../app/api/events/amazon-affiliate-click/route.js", import.meta.url),
+      "utf8",
+    );
+    const ebayRouteSource = fs.readFileSync(
+      new URL("../app/api/out/ebay/route.js", import.meta.url),
+      "utf8",
+    );
+
+    for (const field of ["clientClass", "qualityReason"]) {
+      assert.match(amazonRouteSource, new RegExp(`${field}: clickQuality\\.${field}`));
+      assert.match(ebayRouteSource, new RegExp(`${field}: clickQuality\\.${field}`));
+    }
+    assert.match(amazonRouteSource, /directProviderLink:\s*true/);
+    assert.match(amazonRouteSource, /provider:\s*"amazon_associates"/);
+    assert.match(amazonRouteSource, /sourcePath:\s*"\/shop\/accessories"/);
   });
 
   it("rejects unknown offer ids instead of becoming an open redirect", () => {
