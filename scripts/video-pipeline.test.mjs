@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { AMAZON_VIDEO_CTA, AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 
 const now = new Date("2026-08-09T12:00:00.000Z");
 const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
@@ -21,6 +21,22 @@ describe("verified-data gate", () => {
     assert.match(script.caption, new RegExp(DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(script.caption, /https:\/\/blindboxai\.com\/series\/verified-one/);
   });
+  it("uses the BlindBoxAI accessories landing page for Amazon-path video CTAs", () => {
+    const accessory = {
+      ...product,
+      id: "display-turntable",
+      name: "Motorized display turntable for collectibles",
+      productUrl: "https://blindboxai.com/series/legacy-accessory",
+      claims: [{ text: "The official listing describes a motorized display turntable.", sourceId: "official" }],
+    };
+    const script = generateVideoScript(accessory, now);
+    assert.equal(script.productUrl, AMAZON_VIDEO_CTA);
+    assert.equal(script.productUrl, "https://blindboxai.com/shop/accessories");
+    assert.match(script.caption, /https:\/\/blindboxai\.com\/shop\/accessories/);
+    assert.match(script.narration, /https:\/\/blindboxai\.com\/shop\/accessories/);
+    assert.doesNotMatch(script.caption, /\/api\/out\/amazon|amazon\.com/i);
+  });
+
   it("asks raw and graded when no sold comps exist while blocking unsupported prices", () => {
     const noSales = { ...product, videoMode: AUDIENCE_PRICE_MODE };
     const script = generateVideoScript(noSales, now);
