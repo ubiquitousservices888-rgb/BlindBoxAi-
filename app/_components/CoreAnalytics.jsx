@@ -15,6 +15,10 @@ const CONSENT_STORAGE_KEY = "blindboxai_consent_v1";
 const ATTRIBUTION_STORAGE_KEY = "bbai_src";
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
+const UTM_SOURCE_STORAGE_KEY = "bbai_utm_source";
+const UTM_MEDIUM_STORAGE_KEY = "bbai_utm_medium";
+const UTM_CAMPAIGN_STORAGE_KEY = "bbai_utm_campaign";
+const UTM_CONTENT_STORAGE_KEY = "bbai_utm_content";
 const LANDING_SOURCE_STORAGE_KEY = "bbai_landing_source_v1";
 
 function analyticsAllowed() {
@@ -84,23 +88,61 @@ function captureValidatedAttribution() {
 function captureCampaignAttribution() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const incomingCampaignId = normalizeCampaignId(params.get("campaign"));
-    if (incomingCampaignId) {
-      const campaignSource = normalizeSource(params.get("source") || params.get("utm_source") || "social");
-      sessionStorage.setItem(CAMPAIGN_STORAGE_KEY, incomingCampaignId);
+    const queryCampaignId =
+      normalizeCampaignId(params.get("campaign")) ||
+      normalizeCampaignId(params.get("utm_campaign"));
+    const utmSource = normalizeAttributionSource(params.get("utm_source"));
+    const utmMedium = normalizeAttributionSource(params.get("utm_medium"));
+    const utmCampaign = normalizeCampaignId(params.get("utm_campaign"));
+    const utmContent = normalizeAttributionSource(params.get("utm_content"));
+
+    if (queryCampaignId || utmSource !== "none") {
+      const campaignSource = normalizeSource(
+        params.get("source") || (utmSource !== "none" ? utmSource : "social"),
+      );
+      if (queryCampaignId) sessionStorage.setItem(CAMPAIGN_STORAGE_KEY, queryCampaignId);
       sessionStorage.setItem(CAMPAIGN_SOURCE_STORAGE_KEY, campaignSource);
-      return { campaignId: incomingCampaignId, campaignSource };
+      if (utmSource !== "none") sessionStorage.setItem(UTM_SOURCE_STORAGE_KEY, utmSource);
+      if (utmMedium !== "none") sessionStorage.setItem(UTM_MEDIUM_STORAGE_KEY, utmMedium);
+      if (utmCampaign) sessionStorage.setItem(UTM_CAMPAIGN_STORAGE_KEY, utmCampaign);
+      if (utmContent !== "none") sessionStorage.setItem(UTM_CONTENT_STORAGE_KEY, utmContent);
+      return {
+        campaignId: queryCampaignId,
+        campaignSource,
+        utmSource: utmSource !== "none" ? utmSource : "",
+        utmMedium: utmMedium !== "none" ? utmMedium : "",
+        utmCampaign,
+        utmContent: utmContent !== "none" ? utmContent : "",
+      };
     }
 
     const storedCampaignId = normalizeCampaignId(sessionStorage.getItem(CAMPAIGN_STORAGE_KEY));
-    if (!storedCampaignId) return { campaignId: "", campaignSource: "" };
-    const campaignSource = normalizeSource(sessionStorage.getItem(CAMPAIGN_SOURCE_STORAGE_KEY) || "social");
-    return { campaignId: storedCampaignId, campaignSource };
+    const storedSource = normalizeAttributionSource(sessionStorage.getItem(CAMPAIGN_SOURCE_STORAGE_KEY));
+    return {
+      campaignId: storedCampaignId,
+      campaignSource: storedSource !== "none" ? normalizeSource(storedSource) : "",
+      utmSource: normalizeAttributionSource(sessionStorage.getItem(UTM_SOURCE_STORAGE_KEY)) === "none"
+        ? ""
+        : normalizeAttributionSource(sessionStorage.getItem(UTM_SOURCE_STORAGE_KEY)),
+      utmMedium: normalizeAttributionSource(sessionStorage.getItem(UTM_MEDIUM_STORAGE_KEY)) === "none"
+        ? ""
+        : normalizeAttributionSource(sessionStorage.getItem(UTM_MEDIUM_STORAGE_KEY)),
+      utmCampaign: normalizeCampaignId(sessionStorage.getItem(UTM_CAMPAIGN_STORAGE_KEY)),
+      utmContent: normalizeAttributionSource(sessionStorage.getItem(UTM_CONTENT_STORAGE_KEY)) === "none"
+        ? ""
+        : normalizeAttributionSource(sessionStorage.getItem(UTM_CONTENT_STORAGE_KEY)),
+    };
   } catch {
-    return { campaignId: "", campaignSource: "" };
+    return {
+      campaignId: "",
+      campaignSource: "",
+      utmSource: "",
+      utmMedium: "",
+      utmCampaign: "",
+      utmContent: "",
+    };
   }
 }
-
 function currentAttribution(pathname) {
   let source = "none";
   try {
@@ -166,6 +208,10 @@ export default function CoreAnalytics() {
       path,
       source: campaign.campaignSource || (landingSource !== "none" ? landingSource : "direct"),
       campaign: campaign.campaignId || "none",
+      utmSource: campaign.utmSource,
+      utmMedium: campaign.utmMedium,
+      utmCampaign: campaign.utmCampaign,
+      utmContent: campaign.utmContent,
     };
     track("page_view", payload);
     captureFirstParty("page_view", payload);
@@ -181,6 +227,10 @@ export default function CoreAnalytics() {
       source,
       path: window.location.pathname.slice(0, 120),
       campaign: campaign.campaignId || "none",
+      utmSource: campaign.utmSource,
+      utmMedium: campaign.utmMedium,
+      utmCampaign: campaign.utmCampaign,
+      utmContent: campaign.utmContent,
     };
     try {
       if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
