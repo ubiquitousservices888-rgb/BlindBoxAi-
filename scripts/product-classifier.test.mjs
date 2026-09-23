@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { AMAZON_ASSOCIATE_TAG, amazonOutboundPath, buildAmazonSearchUrl } from "../lib/amazon-associates.mjs";
+import { AMAZON_ASSOCIATE_TAG, buildAmazonSearchUrl } from "../lib/amazon-associates.mjs";
 import { EPN_MKRID, auditEpnUrl, buildEbaySearchUrl } from "../lib/affiliate-policy.mjs";
 import {
+  AMAZON_VIDEO_CTA,
   STATES,
+  assertAmazonVideoCta,
   assertPublishableState,
   createRenderRecord,
   generateVideoScript,
@@ -140,16 +142,24 @@ describe("product classifier and monetization router", () => {
     assert.equal(target.searchParams.get("tag"), "blindboxai-20");
   });
 
-  it("10. Amazon path stays direct and not via eBay out route", () => {
+  it("10. Amazon video path lands on BlindBoxAI and never on an Amazon redirect", () => {
     const product = { ...baseProduct, id: "turntable", name: "Motorized display turntable for figures" };
     const classification = classifyProduct(product);
     const route = routeProductToAffiliate(product);
-    const offerId = resolveAccessoryOfferId(product);
-    const outbound = amazonOutboundPath(offerId, { source: "video_pipeline" });
-    const pass = classification.type === "accessory" && route.path === "amazon" && outbound.startsWith("/api/out/amazon?") && !outbound.includes("/api/out/ebay");
-    printResult("Amazon direct path", product, classification, route, pass);
-    assert.ok(outbound.startsWith("/api/out/amazon?"));
-    assert.ok(!outbound.includes("/api/out/ebay"));
+    const validation = validateAffiliatePathForProduct(product);
+    const pass =
+      classification.type === "accessory" &&
+      route.path === "amazon" &&
+      AMAZON_VIDEO_CTA === "https://blindboxai.com/shop/accessories" &&
+      !AMAZON_VIDEO_CTA.includes("/api/out/amazon") &&
+      !/amazon\.com/i.test(AMAZON_VIDEO_CTA);
+    printResult("Amazon BlindBoxAI landing path", product, classification, route, pass);
+    assert.equal(validation.status, "AMAZON");
+    assert.ok(validation.audit.includes(`amazon_cta:${AMAZON_VIDEO_CTA}`));
+    assert.equal(assertAmazonVideoCta(AMAZON_VIDEO_CTA), "https://blindboxai.com/shop/accessories");
+    assert.throws(() => assertAmazonVideoCta("https://blindboxai.com/api/out/amazon?offer=display-turntable"), /accessories landing page/);
+    assert.throws(() => assertAmazonVideoCta("https://www.amazon.com/s?tag=blindboxai-20"), /accessories landing page/);
+    assert.throws(() => assertAmazonVideoCta("https://blindboxai.com/series/not-the-accessories-page"), /accessories landing page/);
   });
 
   it("11. Human approval remains required before publishing", () => {
