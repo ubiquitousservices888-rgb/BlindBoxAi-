@@ -90,13 +90,14 @@ async function oneItem(id:string, conditionType:string) {
   if (!item) return null;
   const sales = await paged(
     "sold_price_observations",
-    "amount,sold_at,observed_at,condition_type",
+    "id,amount,sold_at,observed_at,condition_type",
     (query) => query
       .eq("collectible_id", id)
       .eq("verified", true)
       .eq("exact_match", true)
       .eq("condition_type", conditionType)
-      .order("sold_at", { ascending: true }),
+      .order("sold_at", { ascending: true })
+      .order("id", { ascending: true }),
   );
   return summarize(item, conditionType, sales);
 }
@@ -110,11 +111,13 @@ async function eligibleItems() {
     ),
     paged(
       "sold_price_observations",
-      "collectible_id,amount,sold_at,observed_at,condition_type",
+      "id,collectible_id,amount,sold_at,observed_at,condition_type",
       (query) => query
         .eq("verified", true)
         .eq("exact_match", true)
-        .order("collectible_id", { ascending: true }),
+        .order("collectible_id", { ascending: true })
+        .order("sold_at", { ascending: true })
+        .order("id", { ascending: true }),
       1000,
     ),
   ]);
