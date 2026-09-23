@@ -2,8 +2,8 @@ import { after, NextResponse } from "next/server";
 
 import { getAmazonAccessoryOffer } from "../../../../lib/amazon-associates.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../../lib/campaign-attribution.mjs";
-import { classifyAffiliateRequest } from "../../../../lib/click-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
+import { classifyAmazonBeaconRequest } from "./quality.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const PRIVATE_HEADERS = { "Cache-Control": "no-store" };
 
 export async function POST(request) {
-  const clickQuality = classifyAffiliateRequest(request);
+  const clickQuality = classifyAmazonBeaconRequest(request);
   let body;
   try {
     body = await request.json();
@@ -57,3 +57,4 @@ export async function POST(request) {
 
   return new NextResponse(null, { status: 204, headers: PRIVATE_HEADERS });
 }
+

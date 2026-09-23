@@ -10,11 +10,25 @@ import {
   getAmazonAccessoryOffer,
 } from "../lib/amazon-associates.mjs";
 import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
+import { classifyAmazonBeaconRequest } from "../app/api/events/amazon-affiliate-click/quality.mjs";
 import {
   buildLegacyRollupLines,
   buildLegacyRollups,
   legacyRollupHeaders,
 } from "./affiliate-click-report.mjs";
+
+function beaconRequest({ headers = {}, body = {} } = {}) {
+  return new Request("https://blindboxai.com/api/events/amazon-affiliate-click", {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify({
+      offerId: "acrylic-display-case",
+      campaignId: "fall_launch",
+      source: "youtube",
+      ...body,
+    }),
+  });
+}
 
 describe("Amazon Associates accessory path", () => {
   it("uses a fixed allowlist of evergreen accessory categories", () => {
@@ -66,6 +80,63 @@ describe("Amazon Associates accessory path", () => {
     assert.doesNotMatch(linkSource, /preventDefault\(|window\.location\.assign/);
     assert.match(loggerSource, /provider:\s*"amazon_associates"/);
     assert.match(loggerSource, /piiStored:\s*false/);
+  });
+
+  it("classifies Amazon beacon traffic with the shared click-quality values", () => {
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(beaconRequest({ headers: { "user-agent": "Mozilla/5.0 Chrome/140 Safari/537.36" } })),
+      { clientClass: "human_candidate", qualityReason: "default_candidate" },
+    );
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(beaconRequest({ headers: { "user-agent": "Googlebot/2.1" } })),
+      { clientClass: "bot", qualityReason: "bot_signature" },
+    );
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(beaconRequest({ headers: { "sec-purpose": "prefetch", "user-agent": "Mozilla/5.0" } })),
+      { clientClass: "prefetch", qualityReason: "prefetch_header" },
+    );
+  });
+
+  it("fails human counting closed when the classifier throws", () => {
+    assert.deepEqual(
+      classifyAmazonBeaconRequest(
+        beaconRequest({ headers: { "user-agent": "Mozilla/5.0" } }),
+        () => { throw new Error("classifier unavailable"); },
+      ),
+      { clientClass: "unclassified", qualityReason: "classifier_error" },
+    );
+  });
+
+  it("keeps the beacon success path and stores coarse quality labels without dropping bot or prefetch", () => {
+    const amazonRouteSource = fs.readFileSync(
+      new URL("../app/api/events/amazon-affiliate-click/route.js", import.meta.url),
+      "utf8",
+    );
+    assert.match(amazonRouteSource, /const clickQuality = classifyAmazonBeaconRequest\(request\)/);
+    assert.match(amazonRouteSource, /clientClass:\s*clickQuality\.clientClass/);
+    assert.match(amazonRouteSource, /qualityReason:\s*clickQuality\.qualityReason/);
+    assert.match(amazonRouteSource, /after\(async \(\) => \{[\s\S]*recordAffiliateClick\(event\)/);
+    assert.match(amazonRouteSource, /return new NextResponse\(null, \{ status: 204/);
+    assert.doesNotMatch(amazonRouteSource, /clientClass\s*===|qualityReason\s*===/);
+  });
+
+  it("preserves the existing direct-provider beacon payload and matches eBay quality field names", () => {
+    const amazonRouteSource = fs.readFileSync(
+      new URL("../app/api/events/amazon-affiliate-click/route.js", import.meta.url),
+      "utf8",
+    );
+    const ebayRouteSource = fs.readFileSync(
+      new URL("../app/api/out/ebay/route.js", import.meta.url),
+      "utf8",
+    );
+
+    for (const field of ["clientClass", "qualityReason"]) {
+      assert.match(amazonRouteSource, new RegExp(`${field}: clickQuality\\.${field}`));
+      assert.match(ebayRouteSource, new RegExp(`${field}: clickQuality\\.${field}`));
+    }
+    assert.match(amazonRouteSource, /directProviderLink:\s*true/);
+    assert.match(amazonRouteSource, /provider:\s*"amazon_associates"/);
+    assert.match(amazonRouteSource, /sourcePath:\s*"\/shop\/accessories"/);
   });
 
   it("rejects unknown offer ids instead of becoming an open redirect", () => {
