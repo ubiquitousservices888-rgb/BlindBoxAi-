@@ -2,6 +2,66 @@
 import { track } from "@vercel/analytics";
 import { useState } from "react";
 
+import {
+  normalizeAttributionSource,
+  normalizeCampaignId,
+  normalizeSource,
+} from "../../lib/campaign-attribution.mjs";
+
+const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
+const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
+const UTM_SOURCE_STORAGE_KEY = "bbai_utm_source";
+const UTM_MEDIUM_STORAGE_KEY = "bbai_utm_medium";
+const UTM_CAMPAIGN_STORAGE_KEY = "bbai_utm_campaign";
+const UTM_CONTENT_STORAGE_KEY = "bbai_utm_content";
+
+function currentMarketingAttribution() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const campaign =
+      normalizeCampaignId(params.get("campaign")) ||
+      normalizeCampaignId(params.get("utm_campaign")) ||
+      normalizeCampaignId(sessionStorage.getItem(CAMPAIGN_STORAGE_KEY));
+    const explicitSource = normalizeAttributionSource(
+      params.get("source") ||
+      params.get("utm_source") ||
+      sessionStorage.getItem(CAMPAIGN_SOURCE_STORAGE_KEY),
+    );
+    const utmSource = normalizeAttributionSource(
+      params.get("utm_source") || sessionStorage.getItem(UTM_SOURCE_STORAGE_KEY),
+    );
+    const utmMedium = normalizeAttributionSource(
+      params.get("utm_medium") || sessionStorage.getItem(UTM_MEDIUM_STORAGE_KEY),
+    );
+    const utmCampaign =
+      normalizeCampaignId(params.get("utm_campaign")) ||
+      normalizeCampaignId(sessionStorage.getItem(UTM_CAMPAIGN_STORAGE_KEY));
+    const utmContent = normalizeAttributionSource(
+      params.get("utm_content") || sessionStorage.getItem(UTM_CONTENT_STORAGE_KEY),
+    );
+
+    return {
+      path: window.location.pathname.slice(0, 120),
+      source: explicitSource !== "none" ? normalizeSource(explicitSource) : "direct",
+      campaign: campaign || "none",
+      utmSource: utmSource !== "none" ? utmSource : "",
+      utmMedium: utmMedium !== "none" ? utmMedium : "",
+      utmCampaign,
+      utmContent: utmContent !== "none" ? utmContent : "",
+    };
+  } catch {
+    return {
+      path: "/pro",
+      source: "direct",
+      campaign: "none",
+      utmSource: "",
+      utmMedium: "",
+      utmCampaign: "",
+      utmContent: "",
+    };
+  }
+}
+
 export default function Waitlist({ endpoint }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
@@ -17,13 +77,14 @@ export default function Waitlist({ endpoint }) {
         body: JSON.stringify({ email, source: "blindboxai-pro-waitlist" }),
       });
       if (res.ok) {
-        track("waitlist_signup", { source: "blindboxai-pro-waitlist" });
+        const attribution = currentMarketingAttribution();
+        track("waitlist_signup", attribution);
         fetch("/api/analytics/event", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             event: "waitlist_signup",
-            source: "blindboxai-pro-waitlist",
+            ...attribution,
             providerConfirmed: true,
           }),
           keepalive: true,
