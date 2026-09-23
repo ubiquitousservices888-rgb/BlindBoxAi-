@@ -28,8 +28,13 @@ export function classifyAmazonBeaconRequest(request, classifier = classifyAffili
   }
 }
 
-export async function POST(request) {
-  const clickQuality = classifyAmazonBeaconRequest(request);
+export async function handleAmazonAffiliateClick(request, {
+  classifier = classifyAffiliateRequest,
+  recorder = recordAffiliateClick,
+  defer = after,
+  now = () => new Date(),
+} = {}) {
+  const clickQuality = classifyAmazonBeaconRequest(request, classifier);
   let body;
   try {
     body = await request.json();
@@ -43,7 +48,7 @@ export async function POST(request) {
 
   const campaignId = normalizeCampaignId(body?.campaignId);
   const source = normalizeSource(body?.source || "amazon_accessories");
-  const clickedAt = new Date().toISOString();
+  const clickedAt = now().toISOString();
   const customId = ["amazon", offer.id, source, campaignId || "none"].join(":");
   const event = {
     schemaVersion: 5,
@@ -62,9 +67,9 @@ export async function POST(request) {
     piiStored: false,
   };
 
-  after(async () => {
+  defer(async () => {
     try {
-      await recordAffiliateClick(event);
+      await recorder(event);
     } catch (cause) {
       console.error("amazon_affiliate_click_log_failed", {
         offerId: offer.id,
@@ -74,4 +79,8 @@ export async function POST(request) {
   });
 
   return new NextResponse(null, { status: 204, headers: PRIVATE_HEADERS });
+}
+
+export async function POST(request) {
+  return handleAmazonAffiliateClick(request);
 }
