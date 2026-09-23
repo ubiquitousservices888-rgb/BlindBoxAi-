@@ -32,7 +32,7 @@ function safePublicUrl(channel: string, value: unknown) {
   if (url.port) return null;
   const host = url.hostname.toLowerCase();
   if (channel === "youtube") {
-    if (!["youtube.com", "www.youtube.com", "youtu.be"].includes(host)) return null;
+    if (!["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(host)) return null;
     if (host === "youtu.be" && /^\/[A-Za-z0-9_-]{6,}(?:\/)?$/.test(url.pathname)) return url.toString();
     if (url.pathname === "/watch" && /^[A-Za-z0-9_-]{6,}$/.test(url.searchParams.get("v") || "")) return url.toString();
     if (/^\/(?:shorts|live)\/[A-Za-z0-9_-]{6,}(?:\/)?$/.test(url.pathname)) return url.toString();
