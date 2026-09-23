@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import test from "node:test";
 
 const CAMPID = "5339171775";
@@ -32,25 +33,16 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
     else process.env.EPN_GENAI_PROMOTIONAL_METHOD_APPROVED = prior.genaiApproval;
   });
 
-  t.mock.module("next/server", {
-    exports: {
-      after() {},
-      NextResponse: class NextResponse {
-        static json(body, { status = 200, headers = {} } = {}) {
-          return new Response(JSON.stringify(body), {
-            status,
-            headers: { "content-type": "application/json", ...headers },
-          });
-        }
-        static redirect(target, status = 307) {
-          return new Response(null, {
-            status,
-            headers: { location: String(target) },
-          });
-        }
-      },
+  const nextServerStub = new URL("./fixtures/next-server-test-stub.mjs", import.meta.url);
+  const hooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === "next/server") {
+        return { url: nextServerStub.href, shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
     },
   });
+  t.after(() => hooks.deregister());
 
   t.mock.module(new URL("../lib/click-quality.mjs", import.meta.url), {
     exports: {
