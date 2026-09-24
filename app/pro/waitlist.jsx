@@ -64,6 +64,7 @@ function currentMarketingAttribution() {
 
 export default function Waitlist() {
   const [email, setEmail] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
   const [status, setStatus] = useState("idle");
 
   async function submit(e) {
@@ -75,9 +76,12 @@ export default function Waitlist() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email, ...attribution }),
+        body: JSON.stringify({ email, companyWebsite, ...attribution }),
       });
-      if (res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body?.duplicate === true) {
+        setStatus("duplicate");
+      } else if (res.ok) {
         track("waitlist_signup", attribution);
         setStatus("done");
       } else {
@@ -89,11 +93,29 @@ export default function Waitlist() {
   }
 
   if (status === "done") {
-    return <p className="nodata">You're on the list — we'll email you once alerts go live.</p>;
+    return <p className="nodata">You're on the list — we'll email you when reseller tools launch.</p>;
+  }
+  if (status === "duplicate") {
+    return <p className="nodata">You're already on the list — we'll email you when reseller tools launch.</p>;
   }
 
   return (
     <form onSubmit={submit} style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      <div
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-10000px", width: "1px", height: "1px", overflow: "hidden" }}
+      >
+        <label htmlFor="company-website">Leave this field blank</label>
+        <input
+          id="company-website"
+          name="company_website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={companyWebsite}
+          onChange={(e) => setCompanyWebsite(e.target.value)}
+        />
+      </div>
       <input
         type="email"
         required
