@@ -32,6 +32,20 @@ export default function CookieNoticePage() {
       </section>
 
       <section className="block">
+        <h2>Reseller tools waitlist</h2>
+        <p>
+          If you join the reseller tools waitlist, BlindBoxAI stores the email address
+          you submit so Ubiquitous Enlightened Services can notify you about those tools.
+          Waitlist emails are not placed into analytics or affiliate telemetry. Campaign
+          and source labels may be stored separately to measure where signups came from.
+        </p>
+        <p>
+          Waitlist messages will include an unsubscribe option. You can opt out at any
+          time, and the address will no longer be used for waitlist marketing messages.
+        </p>
+      </section>
+
+      <section className="block">
         <h2>Affiliate links</h2>
         <p>
           Some outbound links may be affiliate links. If you follow one, the destination marketplace may use its own cookies or similar technologies under its own privacy terms. BlindBoxAI does not control cookies set after you leave this site.
