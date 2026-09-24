@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DRY_RUN: ${{ inputs.dry_run }}
-      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok,twitter' }}
+      VIDEO_CHANNELS: youtube,tiktok,twitter
       PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
