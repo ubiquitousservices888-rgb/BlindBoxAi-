@@ -111,6 +111,11 @@ export default function Waitlist() {
           We couldn't save your email. Nothing was charged. Please try again later.
         </p>
       )}
+      <p className="fine" style={{ flexBasis: "100%" }}>
+        We store your email only to notify you about BlindBoxAI reseller tools. No spam.
+        You can opt out at any time using the unsubscribe link in any waitlist email.
+        See our <a href="/cookies">privacy notice</a>.
+      </p>
     </form>
   );
 }
