@@ -27,7 +27,7 @@ test("pro waitlist posts only to the first-party API route", () => {
 });
 
 test("first-party waitlist preserves attribution without putting email into analytics", () => {
-  assert.match(waitlist, /body:\s*JSON\.stringify\(\{ email, \.\.\.attribution \}\)/);
+  assert.match(waitlist, /body:\s*JSON\.stringify\(\{ email, companyWebsite, \.\.\.attribution \}\)/);
   assert.match(waitlistRoute, /waitlist_submit_attempt/);
   assert.match(waitlistRoute, /waitlist_submit_failed/);
   assert.match(waitlistRoute, /waitlist_signup/);
@@ -62,4 +62,25 @@ test("analytics API still stores bounded UTM fields as metadata", () => {
   assert.match(analyticsRoute, /const utmMedium = cleanDimension\(body\?\.utmMedium\)/);
   assert.match(analyticsRoute, /const utmCampaign = cleanDimension\(body\?\.utmCampaign\)/);
   assert.match(analyticsRoute, /const utmContent = cleanDimension\(body\?\.utmContent\)/);
+});
+
+
+test("waitlist hardening rejects duplicate inserts, traps bots, and uses friendly copy", () => {
+  assert.match(waitlistRoute, /on_conflict=email&select=id/);
+  assert.match(waitlistRoute, /resolution=ignore-duplicates,return=representation/);
+  assert.match(waitlistRoute, /waitlist_submit_duplicate/);
+  assert.match(waitlistRoute, /companyWebsite/);
+  assert.match(waitlistRoute, /bot_honeypot/);
+  assert.match(waitlist, /You're already on the list/);
+  assert.match(waitlist, /You're on the list — we'll email you when reseller tools launch/);
+});
+
+test("waitlist demand reporting excludes owner tests", () => {
+  const migration = fs.readFileSync(
+    new URL("../supabase/migrations/20260924151500_waitlist_hardening_reporting.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /event_name = 'waitlist_signup'/);
+  assert.match(migration, /coalesce\(source,''\) <> 'owner_test'/);
+  assert.match(migration, /metadata->>'ownedStorage'/);
 });
