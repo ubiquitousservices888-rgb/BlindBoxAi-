@@ -7,14 +7,13 @@ export const metadata = {
 };
 
 export default function Pro() {
-  const endpoint = process.env.NEXT_PUBLIC_WAITLIST_ENDPOINT;
   return (
     <main>
       <Link className="crumb" href="/">← All series</Link>
       <h1 className="ptitle">Reseller tools</h1>
       <p style={{ maxWidth: "52ch", color: "var(--muted)", marginBottom: "20px" }}>
         For people flipping blind boxes, not chasing them: email price alerts when a
-        figure's range moves, bulk valuation of a whole lot, CSV export, and saved
+        figure&apos;s range moves, bulk valuation of a whole lot, CSV export, and saved
         set-completion tracking. In build now.
       </p>
       <div className="plan">
@@ -30,9 +29,7 @@ export default function Pro() {
           <li>CSV export of every range</li>
           <li>Saved set-completion tracking</li>
         </ul>
-        {endpoint
-          ? <Waitlist endpoint={endpoint} />
-          : <p className="nodata">Waitlist opening soon — configure NEXT_PUBLIC_WAITLIST_ENDPOINT.</p>}
+        <Waitlist />
         <p className="fine" style={{ marginTop: "14px" }}>
           No charge now, and no spam — one email when it launches. This tool helps you
           avoid fakes and overpaying; it will never push you to buy more.
