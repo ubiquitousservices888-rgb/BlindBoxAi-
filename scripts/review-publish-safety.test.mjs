@@ -323,7 +323,7 @@ test("queue peek is read-only and separately authorized", () => {
 
 test("workflow pins review-video target channels and ignores repo override", () => {
   const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
-  assert.match(source, /VIDEO_CHANNELS: youtube,tiktok,twitter/);
+  assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok,twitter\s*$/m);
   assert.doesNotMatch(source, /vars\.VIDEO_CHANNELS/);
   assert.doesNotMatch(source, /schedule:|cron:/);
 });
