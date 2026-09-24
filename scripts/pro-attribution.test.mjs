@@ -38,6 +38,16 @@ test("first-party waitlist preserves attribution without putting email into anal
   assert.doesNotMatch(eventBuilder[0], /email/);
 });
 
+test("waitlist shows collection purpose and unsubscribe disclosure", () => {
+  const privacy = fs.readFileSync(new URL("../app/cookies/page.jsx", import.meta.url), "utf8");
+  assert.match(waitlist, /store your email only to notify you about BlindBoxAI reseller tools/i);
+  assert.match(waitlist, /unsubscribe link/i);
+  assert.match(waitlist, /href="\/cookies"/);
+  assert.match(privacy, /Reseller tools waitlist/);
+  assert.match(privacy, /Waitlist emails are not placed into analytics or affiliate telemetry/);
+  assert.match(privacy, /unsubscribe option/);
+});
+
 test("waitlist storage is server-only Supabase with RLS", () => {
   assert.match(waitlistRoute, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(waitlist, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_URL/);
