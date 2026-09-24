@@ -64,18 +64,23 @@ async function record(body, event, metadata) {
 async function storeSignup(row) {
   const base = required("SUPABASE_URL").replace(/\/$/, "");
   const key = required("SUPABASE_SERVICE_ROLE_KEY");
-  const response = await fetch(`${base}/rest/v1/waitlist_signups?on_conflict=email`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Prefer: "resolution=ignore-duplicates,return=minimal",
+  const response = await fetch(
+    `${base}/rest/v1/waitlist_signups?on_conflict=email&select=id`,
+    {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=ignore-duplicates,return=representation",
+      },
+      body: JSON.stringify(row),
+      cache: "no-store",
     },
-    body: JSON.stringify(row),
-    cache: "no-store",
-  });
+  );
   if (!response.ok) throw new Error(`waitlist_storage_${response.status}`);
+  const data = await response.json().catch(() => []);
+  return Array.isArray(data) && data.length > 0;
 }
 
 export async function POST(request) {
@@ -89,6 +94,11 @@ export async function POST(request) {
   }
 
   await record(body, "waitlist_submit_attempt");
+
+  if (cleanText(body?.companyWebsite, 120)) {
+    await record(body, "waitlist_submit_failed", { reason: "bot_honeypot" });
+    return NextResponse.json({ ok: true }, { status: 202 });
+  }
 
   const email = normalizedEmail(body?.email);
   if (!email) {
@@ -107,8 +117,9 @@ export async function POST(request) {
     updated_at: new Date().toISOString(),
   };
 
+  let inserted = false;
   try {
-    await storeSignup(row);
+    inserted = await storeSignup(row);
   } catch (cause) {
     const reason = cause instanceof Error && /^waitlist_storage_\d+$/.test(cause.message)
       ? cause.message
@@ -118,6 +129,11 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: "storage_unavailable" }, { status: 503 });
   }
 
+  if (!inserted) {
+    await record(body, "waitlist_submit_duplicate", { ownedStorage: true });
+    return NextResponse.json({ ok: true, duplicate: true }, { status: 200 });
+  }
+
   await record(body, "waitlist_signup", { ownedStorage: true });
-  return NextResponse.json({ ok: true }, { status: 201 });
+  return NextResponse.json({ ok: true, duplicate: false }, { status: 201 });
 }
