@@ -77,14 +77,15 @@ test("series page requires explicit data-quality verification for retail and odd
 });
 
 
-test("confirmed waitlist signup is first-party and stores no email", () => {
+test("confirmed waitlist signup is first-party and keeps email out of analytics", () => {
   const waitlist = read("app/pro/waitlist.jsx");
-  const analyticsRoute = read("app/api/analytics/event/route.js");
-  assert.match(waitlist, /\/api\/analytics\/event/);
-  assert.match(waitlist, /providerConfirmed:\s*true/);
-  assert.match(analyticsRoute, /"waitlist_signup"/);
-  assert.match(analyticsRoute, /providerConfirmed/);
-  assert.doesNotMatch(analyticsRoute, /email/);
+  const waitlistRoute = read("app/api/waitlist/route.js");
+  assert.match(waitlist, /fetch\("\/api\/waitlist"/);
+  assert.match(waitlistRoute, /"waitlist_signup"/);
+  assert.match(waitlistRoute, /SUPABASE_SERVICE_ROLE_KEY/);
+  const eventBuilder = waitlistRoute.match(/function eventFrom[\s\S]*?\n\}/);
+  assert.ok(eventBuilder);
+  assert.doesNotMatch(eventBuilder[0], /email/);
 });
 
 
