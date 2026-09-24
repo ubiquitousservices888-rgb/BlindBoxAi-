@@ -57,14 +57,19 @@ test("an outbound click is never counted as a conversion", () => {
   assert.equal(result.zeroState, "No verified conversions yet");
 });
 
-test("only provider-confirmed signups enter the confirmed-signup KPI", () => {
+test("only confirmed real waitlist signups enter the confirmed-signup KPI", () => {
   const result = aggregateFunnel([
     production(FUNNEL_EVENTS.WAITLIST_SIGNUP),
     production(FUNNEL_EVENTS.WAITLIST_SIGNUP, { providerConfirmed: false }),
     production(FUNNEL_EVENTS.WAITLIST_SIGNUP, { providerConfirmed: true }),
+    production(FUNNEL_EVENTS.WAITLIST_SIGNUP, { metadata: { ownedStorage: true } }),
+    production(FUNNEL_EVENTS.WAITLIST_SIGNUP, {
+      source: "owner_test",
+      metadata: { ownedStorage: true },
+    }),
   ]);
 
-  assert.equal(result.confirmedSignups, 1);
+  assert.equal(result.confirmedSignups, 2);
 });
 
 test("conversion and revenue require valid provider evidence", () => {

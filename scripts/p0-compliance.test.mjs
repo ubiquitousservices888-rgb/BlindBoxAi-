@@ -103,3 +103,23 @@ test("click quality gate stores no raw fingerprint material", () => {
   assert.doesNotMatch(recordClickBlock, /\b(?:user_agent|ip_address|fingerprint)\s*:/i);
   assert.doesNotMatch(migration, /add\s+column[^\n]*(?:user_agent|ip_address|fingerprint)/i);
 });
+
+
+test("waitlist route keeps PII out of failure telemetry and logs", () => {
+  const route = read("app/api/waitlist/route.js");
+  assert.doesNotMatch(route, /reason\s*:\s*(?:email|body\?\.email|row\.?email)/);
+  assert.doesNotMatch(route, /reason\s*:\s*`[^`]*\$\{[^}]*email/i);
+  for (const line of route.split("\n").filter((value) => /console\.(?:log|info|warn|error)/.test(value))) {
+    assert.doesNotMatch(line, /\b(?:email|body|row)\b/i);
+  }
+});
+
+test("service-role credentials never appear in client components", () => {
+  const appRoot = new URL("../app/", import.meta.url);
+  for (const relative of fs.readdirSync(appRoot, { recursive: true })) {
+    if (!/\.(?:js|jsx|mjs|ts|tsx)$/.test(relative)) continue;
+    const source = fs.readFileSync(new URL(relative, appRoot), "utf8");
+    if (!/^\s*["']use client["'];/m.test(source)) continue;
+    assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY/);
+  }
+});
