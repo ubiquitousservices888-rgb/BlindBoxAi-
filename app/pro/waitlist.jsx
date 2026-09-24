@@ -62,7 +62,7 @@ function currentMarketingAttribution() {
   }
 }
 
-export default function Waitlist({ endpoint }) {
+export default function Waitlist() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("idle");
 
@@ -70,25 +70,15 @@ export default function Waitlist({ endpoint }) {
     e.preventDefault();
     if (!email) return;
     setStatus("sending");
+    const attribution = currentMarketingAttribution();
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email, source: "blindboxai-pro-waitlist" }),
+        body: JSON.stringify({ email, ...attribution }),
       });
       if (res.ok) {
-        const attribution = currentMarketingAttribution();
         track("waitlist_signup", attribution);
-        fetch("/api/analytics/event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event: "waitlist_signup",
-            ...attribution,
-            providerConfirmed: true,
-          }),
-          keepalive: true,
-        }).catch(() => {});
         setStatus("done");
       } else {
         setStatus("error");
@@ -118,7 +108,7 @@ export default function Waitlist({ endpoint }) {
       </button>
       {status === "error" && (
         <p className="fine" style={{ color: "crimson", flexBasis: "100%" }}>
-          Something went wrong — please try again.
+          We couldn't save your email. Nothing was charged. Please try again later.
         </p>
       )}
     </form>
