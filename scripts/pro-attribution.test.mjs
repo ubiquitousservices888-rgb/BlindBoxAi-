@@ -3,8 +3,11 @@ import fs from "node:fs";
 import test from "node:test";
 
 const analytics = fs.readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
+const page = fs.readFileSync(new URL("../app/pro/page.jsx", import.meta.url), "utf8");
 const waitlist = fs.readFileSync(new URL("../app/pro/waitlist.jsx", import.meta.url), "utf8");
-const route = fs.readFileSync(new URL("../app/api/analytics/event/route.js", import.meta.url), "utf8");
+const analyticsRoute = fs.readFileSync(new URL("../app/api/analytics/event/route.js", import.meta.url), "utf8");
+const waitlistRoute = fs.readFileSync(new URL("../app/api/waitlist/route.js", import.meta.url), "utf8");
+const migration = fs.readFileSync(new URL("../supabase/migrations/20260924144500_owned_waitlist.sql", import.meta.url), "utf8");
 
 test("page analytics accepts standard campaign and UTM campaign attribution", () => {
   assert.match(analytics, /params\.get\("campaign"\)/);
@@ -16,23 +19,37 @@ test("page analytics accepts standard campaign and UTM campaign attribution", ()
   assert.match(analytics, /utmCampaign:\s*campaign\.utmCampaign/);
 });
 
-test("pro waitlist success records path and attribution separately from email submission", () => {
-  assert.match(waitlist, /function currentMarketingAttribution\(\)/);
-  assert.match(waitlist, /path:\s*window\.location\.pathname\.slice/);
-  assert.match(waitlist, /campaign:\s*campaign\s*\|\|\s*"none"/);
-  assert.match(waitlist, /track\("waitlist_signup",\s*attribution\)/);
-  assert.match(waitlist, /event:\s*"waitlist_signup",[\s\S]*\.\.\.attribution,[\s\S]*providerConfirmed:\s*true/);
-
-  const analyticsBlock = waitlist.match(/body:\s*JSON\.stringify\(\{\s*event:\s*"waitlist_signup",[\s\S]*?\}\),/);
-  assert.ok(analyticsBlock, "waitlist analytics request must exist");
-  assert.doesNotMatch(analyticsBlock[0], /\bemail\b/);
+test("pro waitlist posts only to the first-party API route", () => {
+  assert.doesNotMatch(page, /NEXT_PUBLIC_WAITLIST_ENDPOINT/);
+  assert.match(page, /<Waitlist\s*\/>/);
+  assert.match(waitlist, /fetch\("\/api\/waitlist"/);
+  assert.doesNotMatch(waitlist, /NEXT_PUBLIC_WAITLIST_ENDPOINT|endpoint\s*\}/);
 });
 
-test("analytics API stores bounded UTM fields as metadata", () => {
-  assert.match(route, /const utmSource = cleanDimension\(body\?\.utmSource\)/);
-  assert.match(route, /const utmMedium = cleanDimension\(body\?\.utmMedium\)/);
-  assert.match(route, /const utmCampaign = cleanDimension\(body\?\.utmCampaign\)/);
-  assert.match(route, /const utmContent = cleanDimension\(body\?\.utmContent\)/);
-  assert.match(route, /metadata\.providerConfirmed = body\?\.providerConfirmed === true/);
-  assert.match(route, /metadata:\s*Object\.keys\(metadata\)\.length \? metadata : undefined/);
+test("first-party waitlist preserves attribution without putting email into analytics", () => {
+  assert.match(waitlist, /body:\s*JSON\.stringify\(\{ email, \.\.\.attribution \}\)/);
+  assert.match(waitlistRoute, /waitlist_submit_attempt/);
+  assert.match(waitlistRoute, /waitlist_submit_failed/);
+  assert.match(waitlistRoute, /waitlist_signup/);
+  assert.match(waitlistRoute, /ownedStorage:\s*true/);
+  assert.match(waitlistRoute, /piiStored:\s*false/);
+  const eventBuilder = waitlistRoute.match(/function eventFrom[\s\S]*?\n\}/);
+  assert.ok(eventBuilder);
+  assert.doesNotMatch(eventBuilder[0], /email/);
+});
+
+test("waitlist storage is server-only Supabase with RLS", () => {
+  assert.match(waitlistRoute, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(waitlist, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_URL/);
+  assert.match(migration, /create table if not exists public\.waitlist_signups/);
+  assert.match(migration, /email text not null unique/);
+  assert.match(migration, /enable row level security/);
+  assert.doesNotMatch(migration, /create policy/i);
+});
+
+test("analytics API still stores bounded UTM fields as metadata", () => {
+  assert.match(analyticsRoute, /const utmSource = cleanDimension\(body\?\.utmSource\)/);
+  assert.match(analyticsRoute, /const utmMedium = cleanDimension\(body\?\.utmMedium\)/);
+  assert.match(analyticsRoute, /const utmCampaign = cleanDimension\(body\?\.utmCampaign\)/);
+  assert.match(analyticsRoute, /const utmContent = cleanDimension\(body\?\.utmContent\)/);
 });
