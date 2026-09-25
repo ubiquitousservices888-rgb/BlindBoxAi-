@@ -137,13 +137,20 @@ function requestedPublishChannel(body: any) {
   if (!/^[a-z0-9_-]{2,32}$/.test(channel)) throw new Error("Invalid publish channel");
   return channel;
 }
+function requestedResearchRunId(body: any) {
+  const researchRunId = clean(body?.researchRunId, 40).toLowerCase();
+  if (!researchRunId) return "";
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) throw new Error("Invalid researchRunId");
+  return researchRunId;
+}
 
-async function nextApprovedForChannel(channel: string) {
-  const { data, error } = await db.from("review_video_queue")
+async function nextApprovedForChannel(channel: string, researchRunId = "") {
+  let query = db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
     .eq("status", "approved")
-    .order("approved_at", { ascending: true })
-    .limit(100);
+    .order("approved_at", { ascending: true });
+  if (researchRunId) query = query.eq("research_run_id", researchRunId);
+  const { data, error } = await query.limit(researchRunId ? 1 : 100);
   if (error) throw error;
   return (data || []).find((item: any) => {
     if (!channel) return true;
@@ -155,10 +162,13 @@ async function nextApprovedForChannel(channel: string) {
 
 async function peek(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
-  let channel = "";
-  try { channel = requestedPublishChannel(body); } catch { return json({ error: "Invalid publish channel" }, 400); }
+  let channel = "", researchRunId = "";
   try {
-    const item = await nextApprovedForChannel(channel);
+    channel = requestedPublishChannel(body);
+    researchRunId = requestedResearchRunId(body);
+  } catch { return json({ error: "Invalid publish selector" }, 400); }
+  try {
+    const item = await nextApprovedForChannel(channel, researchRunId);
     return json({ ok: true, item });
   } catch {
     return json({ error: "Queue lookup failed" }, 500);
@@ -167,10 +177,13 @@ async function peek(req: Request, body: any) {
 
 async function claim(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
-  let channel = "";
-  try { channel = requestedPublishChannel(body); } catch { return json({ error: "Invalid publish channel" }, 400); }
+  let channel = "", researchRunId = "";
+  try {
+    channel = requestedPublishChannel(body);
+    researchRunId = requestedResearchRunId(body);
+  } catch { return json({ error: "Invalid publish selector" }, 400); }
   let item: any;
-  try { item = await nextApprovedForChannel(channel); }
+  try { item = await nextApprovedForChannel(channel, researchRunId); }
   catch { return json({ error: "Queue lookup failed" }, 500); }
   if (!item) return json({ ok: true, item: null });
   const now = new Date().toISOString();
