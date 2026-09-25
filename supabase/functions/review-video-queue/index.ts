@@ -138,7 +138,7 @@ function requestedPublishChannel(body: any) {
   return channel;
 }
 function requestedResearchRunId(body: any) {
-  const researchRunId = clean(body?.researchRunId, 40).toLowerCase();
+  const researchRunId = String(body?.researchRunId ?? "");
   if (!researchRunId) return "";
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) throw new Error("Invalid researchRunId");
   return researchRunId;
@@ -163,10 +163,10 @@ async function nextApprovedForChannel(channel: string, researchRunId = "") {
 async function peek(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   let channel = "", researchRunId = "";
-  try {
-    channel = requestedPublishChannel(body);
-    researchRunId = requestedResearchRunId(body);
-  } catch { return json({ error: "Invalid publish selector" }, 400); }
+  try { channel = requestedPublishChannel(body); }
+  catch (error) { return json({ error: error instanceof Error ? error.message : "Invalid publish channel" }, 400); }
+  try { researchRunId = requestedResearchRunId(body); }
+  catch (error) { return json({ error: error instanceof Error ? error.message : "Invalid researchRunId" }, 400); }
   try {
     const item = await nextApprovedForChannel(channel, researchRunId);
     return json({ ok: true, item });
@@ -178,10 +178,10 @@ async function peek(req: Request, body: any) {
 async function claim(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   let channel = "", researchRunId = "";
-  try {
-    channel = requestedPublishChannel(body);
-    researchRunId = requestedResearchRunId(body);
-  } catch { return json({ error: "Invalid publish selector" }, 400); }
+  try { channel = requestedPublishChannel(body); }
+  catch (error) { return json({ error: error instanceof Error ? error.message : "Invalid publish channel" }, 400); }
+  try { researchRunId = requestedResearchRunId(body); }
+  catch (error) { return json({ error: error instanceof Error ? error.message : "Invalid researchRunId" }, 400); }
   let item: any;
   try { item = await nextApprovedForChannel(channel, researchRunId); }
   catch { return json({ error: "Queue lookup failed" }, 500); }
