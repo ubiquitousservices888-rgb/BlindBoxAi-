@@ -30,6 +30,7 @@ concurrency:
 jobs:
   publish-approved:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: youtube,tiktok,twitter

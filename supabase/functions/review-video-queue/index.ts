@@ -187,12 +187,13 @@ async function claim(req: Request, body: any) {
   catch { return json({ error: "Queue lookup failed" }, 500); }
   if (!item) return json({ ok: true, item: null });
   const now = new Date().toISOString();
-  const { data: claimed } = await db.from("review_video_queue")
+  const { data: claimed, error: claimError } = await db.from("review_video_queue")
     .update({ status: "publishing", publishing_at: now, updated_at: now })
     .eq("research_run_id", item.research_run_id)
     .eq("status", "approved")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
     .maybeSingle();
+  if (claimError) return json({ error: "Queue claim failed" }, 500);
   return json({ ok: true, item: claimed || null });
 }
 async function recordChannel(req: Request, body: any) {
