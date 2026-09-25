@@ -6,7 +6,13 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
 const fn = read("../supabase/functions/review-video-queue/index.ts");
 const wf = read("../.github/workflows/publish-approved-reviews.yml");
 const runner = read("./publish-approved-review-queue.mjs");
-const between = (a, b) => fn.slice(fn.indexOf(a), fn.indexOf(b));
+const between = (a, b) => {
+  const start = fn.indexOf(a);
+  const end = fn.indexOf(b);
+  assert.ok(start >= 0, `section start not found: ${a}`);
+  assert.ok(end > start, `section end not found after ${a}: ${b}`);
+  return fn.slice(start, end);
+};
 const claimBody = between("async function claim(", "async function recordChannel(");
 const recordBody = between("async function recordChannel(", "async function release(");
 const releaseBody = between("async function release(", "async function complete(");
