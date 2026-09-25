@@ -129,10 +129,10 @@ test("review publisher sends required YouTube metadata while keeping TikTok meta
     }
     if (query.includes("mutation CreateReviewVideo")) {
       createRequests.push(body);
-      const channelId = body.variables.channelId;
+      const channelId = body.variables.input.channelId;
       const post = {
         id: `post-${channelId}`,
-        text: body.variables.text,
+        text: body.variables.input.text,
         status: "sending",
         channelId,
       };
@@ -179,12 +179,24 @@ test("review publisher sends required YouTube metadata while keeping TikTok meta
     sentAt: "2026-09-22T13:00:00Z",
     duplicate: false,
   });
-  assert.deepEqual(createRequests[0].variables.metadata, {
-    youtube: { title: "YouTube Title", categoryId: "17" },
+  assert.deepEqual(createRequests[0].variables.input, {
+    text: caption,
+    channelId: "channel-youtube",
+    schedulingType: "automatic",
+    mode: "shareNow",
+    assets: [{ video: { url: videoUrl } }],
+    metadata: { youtube: { title: "YouTube Title", categoryId: "17" } },
   });
-  assert.equal(createRequests[1].variables.metadata, null);
-  assert.match(createRequests[0].query, /mode:\s*shareNow/);
-  assert.doesNotMatch(createRequests[0].query, /mode:\s*addToQueue/);
+  assert.deepEqual(createRequests[1].variables.input, {
+    text: caption,
+    channelId: "channel-tiktok",
+    schedulingType: "automatic",
+    mode: "shareNow",
+    assets: [{ video: { url: videoUrl } }],
+  });
+  assert.match(createRequests[0].query, /CreateReviewVideo\(\$input: CreatePostInput!\)/);
+  assert.match(createRequests[0].query, /createPost\(input: \$input\)/);
+  assert.doesNotMatch(createRequests[0].query, /PostInputMetaData/);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {
