@@ -52,7 +52,7 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 
 const dryRun = isDryRun(process.env.DRY_RUN);
 const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
-const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "").trim().toLowerCase();
+const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "");
 if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
   throw new Error("PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters");
 }
