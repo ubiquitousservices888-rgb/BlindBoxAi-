@@ -96,7 +96,7 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(queuedPublisher, /blindboxai-review-publisher/);
 });
 
-test("review publisher sends required YouTube metadata while keeping TikTok metadata null", async () => {
+test("review publisher sends required YouTube metadata while omitting metadata for non-YouTube channels", async () => {
   const createRequests = [];
   const createdPostsByChannel = new Map();
   let mediaChecks = 0;
