@@ -52,16 +52,22 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 
 const dryRun = isDryRun(process.env.DRY_RUN);
 const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
+const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "");
+if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
+  throw new Error("PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters");
+}
 const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
 const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, {
   action: dryRun ? "peek" : "claim",
   channel: requestedChannel || undefined,
+  researchRunId: requestedRunId || undefined,
 });
 const item = queueResult?.item;
 if (dryRun) {
   console.log("REVIEW_QUEUE_DRY_RUN: true");
   console.log("REVIEW_QUEUE_DRY_RUN_SIDE_EFFECTS: 0");
   console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
+  if (requestedRunId) console.log(`REVIEW_QUEUE_REQUESTED_RUN: ${requestedRunId}`);
 }
 if (!item) {
   console.log("REVIEW_QUEUE_EMPTY: true");

@@ -327,3 +327,27 @@ test("workflow pins review-video target channels and ignores repo override", () 
   assert.doesNotMatch(source, /vars\.VIDEO_CHANNELS/);
   assert.doesNotMatch(source, /schedule:|cron:/);
 });
+
+
+test("exact review row selector is validated and enforced end to end", () => {
+  const workflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
+  const publisher = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+
+  assert.match(workflow, /research_run_id:/);
+  assert.match(workflow, /PUBLISH_RESEARCH_RUN_ID:/);
+  assert.match(publisher, /PUBLISH_RESEARCH_RUN_ID/);
+  assert.match(publisher, /const requestedRunId = String\(process\.env\.PUBLISH_RESEARCH_RUN_ID \?\? ""\);/);
+  assert.match(publisher, /\^rv-\[a-f0-9\]\{16\}\$/);
+  assert.doesNotMatch(publisher, /PUBLISH_RESEARCH_RUN_ID[^\n]*(?:trim|toLowerCase)/);
+  assert.match(publisher, /researchRunId: requestedRunId \|\| undefined/);
+  assert.match(queue, /function requestedResearchRunId/);
+  assert.match(queue, /const researchRunId = String\(body\?\.researchRunId \?\? ""\);/);
+  assert.match(queue, /if \(!\/\^rv-\[a-f0-9\]\{16\}\$\/\.test\(researchRunId\)\) throw new Error\("Invalid researchRunId"\)/);
+  assert.doesNotMatch(queue, /researchRunId = .*toLowerCase\(\)/);
+  assert.match(queue, /query = query\.eq\("research_run_id", researchRunId\)/);
+  assert.match(queue, /nextApprovedForChannel\(channel, researchRunId\)/);
+  assert.match(queue, /query\.limit\(researchRunId \? 1 : 100\)/);
+  assert.match(queue, /Invalid publish channel/);
+  assert.match(queue, /Invalid researchRunId/);
+});
