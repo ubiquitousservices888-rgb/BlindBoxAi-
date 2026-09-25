@@ -240,7 +240,8 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
   assert.match(source, /PUBLISH_CHANNEL/);
-  assert.match(source, /eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
+  assert.match(source, /const eligibleChannels = targetChannels/);
 });
 
 test("publisher resumes only deferred channels on later runs", () => {
@@ -283,15 +284,19 @@ test("channel-aware queue claim skips rows that already completed the requested 
   assert.match(source, /claim\(req, body\)/);
 });
 
-test("channel-specific publishing keeps youtube,tiktok,twitter as the completion target", () => {
+test("channel-specific publishing completes only the requested platform", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  assert.match(source, /const targetChannels =/);
-  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /const configuredChannels =/);
+  assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
+  assert.match(source, /const eligibleChannels = targetChannels/);
+  assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
+  assert.match(source, /const eligibleChannels = targetChannels/);
   assert.match(source, /targetChannels,/);
   assert.match(source, /publicUrl: result\.publicUrl/);
   assert.match(source, /PUBLIC_VERIFICATION_PENDING/);
   assert.match(source, /action: "release"/);
-  assert.match(source, /youtube,tiktok,twitter/);
+  assert.doesNotMatch(source, /youtube,tiktok,twitter/);
+  assert.match(source, /youtube,tiktok/);
 });
 
 test("queue stores only channel records with verified public URLs", () => {
@@ -323,7 +328,8 @@ test("queue peek is read-only and separately authorized", () => {
 
 test("workflow pins review-video target channels and ignores repo override", () => {
   const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
-  assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok,twitter\s*$/m);
+  assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m);
+  assert.doesNotMatch(source, /^\s*VIDEO_CHANNELS:.*twitter/m);
   assert.doesNotMatch(source, /vars\.VIDEO_CHANNELS/);
   assert.doesNotMatch(source, /schedule:|cron:/);
 });
