@@ -144,10 +144,16 @@ function requestedResearchRunId(body: any) {
   return researchRunId;
 }
 
+const STALE_PUBLISHING_LEASE_MS = 45 * 60 * 1000;
+function claimableStatusFilter() {
+  const cutoff = new Date(Date.now() - STALE_PUBLISHING_LEASE_MS).toISOString();
+  return `status.eq.approved,and(status.eq.publishing,publishing_at.lt."${cutoff}")`;
+}
+
 async function nextApprovedForChannel(channel: string, researchRunId = "") {
   let query = db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
-    .eq("status", "approved")
+    .or(claimableStatusFilter())
     .order("approved_at", { ascending: true });
   if (researchRunId) query = query.eq("research_run_id", researchRunId);
   const { data, error } = await query.limit(researchRunId ? 1 : 100);
@@ -190,7 +196,7 @@ async function claim(req: Request, body: any) {
   const { data: claimed, error: claimError } = await db.from("review_video_queue")
     .update({ status: "publishing", publishing_at: now, updated_at: now })
     .eq("research_run_id", item.research_run_id)
-    .eq("status", "approved")
+    .or(claimableStatusFilter())
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
     .maybeSingle();
   if (claimError) return json({ error: "Queue claim failed" }, 500);

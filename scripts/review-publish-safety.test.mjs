@@ -316,7 +316,7 @@ test("queue peek is read-only and separately authorized", () => {
   const peek = source.slice(start, end);
   assert.match(peek, /githubAuthorized/);
   assert.match(source, /nextApprovedForChannel/);
-  assert.match(source, /eq\("status", "approved"\)/);
+  assert.match(source, /claimableStatusFilter\(\)/);
   assert.doesNotMatch(peek, /\.update\(/);
 });
 
