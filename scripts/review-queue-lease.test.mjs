@@ -2,30 +2,54 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const fn = readFileSync("supabase/functions/review-video-queue/index.ts", "utf8");
-const wf = readFileSync(".github/workflows/publish-approved-reviews.yml", "utf8");
-const claimBody = fn.slice(fn.indexOf("async function claim("), fn.indexOf("async function recordChannel("));
+const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
+const fn = read("../supabase/functions/review-video-queue/index.ts");
+const wf = read("../.github/workflows/publish-approved-reviews.yml");
+const runner = read("./publish-approved-review-queue.mjs");
+const between = (a, b) => fn.slice(fn.indexOf(a), fn.indexOf(b));
+const claimBody = between("async function claim(", "async function recordChannel(");
+const recordBody = between("async function recordChannel(", "async function release(");
+const releaseBody = between("async function release(", "async function complete(");
+const completeBody = between("async function complete(", "Deno.serve(");
+const peekBody = between("async function peek(", "async function claim(");
+const count = (s, re) => (s.match(re) || []).length;
 
 test("claim surfaces database errors instead of reporting an empty queue", () => {
   assert.match(claimBody, /error: claimError/);
   assert.match(claimBody, /if \(claimError\) return json\(\{ error: "Queue claim failed" \}, 500\)/);
 });
 
-test("stale publishing leases are reclaimable after the lease window", () => {
-  assert.match(fn, /STALE_PUBLISHING_LEASE_MS = 45 \* 60 \* 1000/);
+test("stale publishing leases are reclaimable", () => {
   assert.match(claimBody, /\.or\(claimableStatusFilter\(\)\)/);
   assert.doesNotMatch(claimBody, /\.eq\("status", "approved"\)/);
 });
 
-test("workflow timeout is shorter than the publishing lease", () => {
-  const m = wf.match(/timeout-minutes:\s*(\d+)/);
-  assert.ok(m, "timeout-minutes missing");
-  assert.ok(Number(m[1]) < 45, "job timeout must be shorter than the 45-minute lease");
+test("workflow timeout is shorter than the publishing lease (derived, not hardcoded)", () => {
+  const lease = fn.match(/STALE_PUBLISHING_LEASE_MS = (\d+) \* 60 \* 1000/);
+  const timeout = wf.match(/timeout-minutes:\s*(\d+)/);
+  assert.ok(lease, "STALE_PUBLISHING_LEASE_MS missing");
+  assert.ok(timeout, "timeout-minutes missing");
+  assert.ok(Number(timeout[1]) < Number(lease[1]), "job timeout must be shorter than the lease");
 });
 
 test("peek stays read-only and the claimable filter still requires approval", () => {
-  const peekBody = fn.slice(fn.indexOf("async function peek("), fn.indexOf("async function claim("));
   assert.ok(peekBody.length > 0, "peek function not found before claim");
   assert.doesNotMatch(peekBody, /\.update\(|\.upsert\(|\.delete\(/);
   assert.match(fn, /status\.eq\.approved,and\(status\.eq\.publishing,publishing_at\.lt\./);
+});
+
+test("claim hands the lease token to the publisher", () => {
+  assert.match(claimBody, /public_urls,publishing_at"\)/);
+});
+
+test("every lease-holder write is fenced by the lease token", () => {
+  for (const [name, b, min] of [["record_channel", recordBody, 2], ["release", releaseBody, 1], ["complete", completeBody, 1]]) {
+    assert.match(b, /if \(!leaseToken\) return json\(\{ error: "Invalid lease token" \}, 400\)/, `${name} must reject missing lease`);
+    assert.ok(count(b, /\.eq\("publishing_at", leaseToken\)/g) >= min, `${name} must fence on publishing_at`);
+  }
+});
+
+test("runner sends the lease token on record, release, and complete", () => {
+  assert.match(runner, /required\(item\.publishing_at, "queue lease token"\)/);
+  assert.equal(count(runner, /^\s+leaseToken,$/gm), 3);
 });
