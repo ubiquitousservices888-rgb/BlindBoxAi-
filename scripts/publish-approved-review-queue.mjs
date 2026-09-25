@@ -77,12 +77,13 @@ const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue t
 const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 const leaseToken = dryRun ? "" : required(item.publishing_at, "queue lease token");
 
-const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok,twitter")
+const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",").map((value) => value.trim()).filter(Boolean))];
-if (requestedChannel && !targetChannels.includes(requestedChannel)) {
+if (requestedChannel && !configuredChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
 }
-const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
+const targetChannels = requestedChannel ? [requestedChannel] : configuredChannels;
+const eligibleChannels = targetChannels;
 const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
 const completedChannels = new Set(
   (Array.isArray(item.published_channels) ? item.published_channels : [])

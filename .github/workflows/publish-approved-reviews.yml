@@ -9,7 +9,7 @@ on:
         default: true
         type: boolean
       publish_channel:
-        description: "Optional single channel to publish while preserving youtube,tiktok,twitter as the completion target"
+        description: "Optional single channel to publish; exact-channel runs complete only that platform"
         required: false
         default: ""
         type: string
@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 30
     env:
       DRY_RUN: ${{ inputs.dry_run }}
-      VIDEO_CHANNELS: youtube,tiktok,twitter
+      VIDEO_CHANNELS: youtube,tiktok
       PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
       PUBLISH_RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
