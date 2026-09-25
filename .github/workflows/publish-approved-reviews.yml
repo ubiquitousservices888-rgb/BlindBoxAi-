@@ -13,6 +13,11 @@ on:
         required: false
         default: ""
         type: string
+      research_run_id:
+        description: "Optional exact approved review row (rv- followed by 16 hex characters)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -29,6 +34,7 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: youtube,tiktok,twitter
       PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
+      PUBLISH_RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
     steps:
