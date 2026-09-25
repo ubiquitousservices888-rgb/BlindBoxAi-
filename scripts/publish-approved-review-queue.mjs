@@ -75,6 +75,7 @@ if (!item) {
 }
 const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
 const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
+const leaseToken = dryRun ? "" : required(item.publishing_at, "queue lease token");
 
 const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok,twitter")
   .split(",").map((value) => value.trim()).filter(Boolean))];
@@ -142,6 +143,7 @@ try {
     const recorded = await postJson(REVIEW_QUEUE_URL, reviewToken, {
       action: "record_channel",
       researchRunId: item.research_run_id,
+      leaseToken,
       channel,
       externalId: result.id,
       publicUrl: result.publicUrl,
@@ -174,12 +176,14 @@ try {
     await postJson(REVIEW_QUEUE_URL, reviewToken, {
       action: "release",
       researchRunId: item.research_run_id,
+      leaseToken,
       error: message,
     }).catch(() => {});
   } else {
     await postJson(REVIEW_QUEUE_URL, reviewToken, {
       action: "complete",
       researchRunId: item.research_run_id,
+      leaseToken,
       success: false,
       error: message,
     }).catch(() => {});

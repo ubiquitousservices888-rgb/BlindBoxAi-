@@ -144,10 +144,16 @@ function requestedResearchRunId(body: any) {
   return researchRunId;
 }
 
+const STALE_PUBLISHING_LEASE_MS = 45 * 60 * 1000;
+function claimableStatusFilter() {
+  const cutoff = new Date(Date.now() - STALE_PUBLISHING_LEASE_MS).toISOString();
+  return `status.eq.approved,and(status.eq.publishing,publishing_at.lt."${cutoff}")`;
+}
+
 async function nextApprovedForChannel(channel: string, researchRunId = "") {
   let query = db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
-    .eq("status", "approved")
+    .or(claimableStatusFilter())
     .order("approved_at", { ascending: true });
   if (researchRunId) query = query.eq("research_run_id", researchRunId);
   const { data, error } = await query.limit(researchRunId ? 1 : 100);
@@ -187,13 +193,18 @@ async function claim(req: Request, body: any) {
   catch { return json({ error: "Queue lookup failed" }, 500); }
   if (!item) return json({ ok: true, item: null });
   const now = new Date().toISOString();
-  const { data: claimed } = await db.from("review_video_queue")
+  const { data: claimed, error: claimError } = await db.from("review_video_queue")
     .update({ status: "publishing", publishing_at: now, updated_at: now })
     .eq("research_run_id", item.research_run_id)
-    .eq("status", "approved")
-    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
+    .or(claimableStatusFilter())
+    .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls,publishing_at")
     .maybeSingle();
+  if (claimError) return json({ error: "Queue claim failed" }, 500);
   return json({ ok: true, item: claimed || null });
+}
+function leaseTokenFrom(body: any) {
+  const token = clean(body?.leaseToken, 40);
+  return token && !Number.isNaN(Date.parse(token)) ? token : "";
 }
 async function recordChannel(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
@@ -205,6 +216,8 @@ async function recordChannel(req: Request, body: any) {
     .map((value: unknown) => clean(value, 32).toLowerCase())
     .filter((value: string) => /^[a-z0-9_-]{2,32}$/.test(value)))];
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  const leaseToken = leaseTokenFrom(body);
+  if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
   if (!/^[a-z0-9_-]{2,32}$/.test(channel) || !externalId || !publicUrl) return json({ error: "Invalid verified channel publication" }, 400);
   if (!targetChannels.length || !targetChannels.includes(channel)) return json({ error: "Invalid target channel set" }, 400);
 
@@ -212,6 +225,7 @@ async function recordChannel(req: Request, body: any) {
     .select("published_channels,buffer_post_ids,public_urls")
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
     .maybeSingle();
   if (readError) return json({ error: "Queue lookup failed" }, 500);
   if (!current) return json({ error: "Queue item is not currently publishing" }, 409);
@@ -231,6 +245,7 @@ async function recordChannel(req: Request, body: any) {
     .update(patch)
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
     .select("research_run_id,video_url,title,vertical,status,published_channels,buffer_post_ids,public_urls")
     .maybeSingle();
   if (error) return json({ error: "Queue channel update failed" }, 500);
@@ -242,6 +257,8 @@ async function release(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   const researchRunId = clean(body?.researchRunId, 40);
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  const leaseToken = leaseTokenFrom(body);
+  if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
   const now = new Date().toISOString();
   const { error } = await db.from("review_video_queue")
     .update({
@@ -251,7 +268,8 @@ async function release(req: Request, body: any) {
       last_error: clean(body?.error, 500) || "Public post verification pending",
     })
     .eq("research_run_id", researchRunId)
-    .eq("status", "publishing");
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken);
   if (error) return json({ error: "Queue release failed" }, 500);
   return json({ ok: true });
 }
@@ -260,6 +278,8 @@ async function complete(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   const researchRunId = clean(body?.researchRunId, 40);
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  const leaseToken = leaseTokenFrom(body);
+  if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
   if (body?.success === true) {
     return json({ error: "Verified channel URLs must be recorded with record_channel" }, 409);
   }
@@ -267,7 +287,8 @@ async function complete(req: Request, body: any) {
   const { error } = await db.from("review_video_queue")
     .update({ status: "failed", updated_at: now, last_error: clean(body?.error, 500) || "Publish failed" })
     .eq("research_run_id", researchRunId)
-    .eq("status", "publishing");
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken);
   if (error) return json({ error: "Queue update failed" }, 500);
   return json({ ok: true });
 }
