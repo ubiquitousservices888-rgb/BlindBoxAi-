@@ -58,7 +58,9 @@
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate",
     "price:test": "node --test scripts/collectible-price-verification.test.mjs scripts/price-page.test.mjs scripts/gap-badge.test.mjs scripts/mew-30th-guide.test.mjs",
     "card-api:test": "node --test scripts/the-card-api.test.mjs scripts/owner-card-epn.test.mjs",
-    "product-classifier:test": "node --test scripts/product-classifier.test.mjs"
+    "product-classifier:test": "node --test scripts/product-classifier.test.mjs",
+    "diagram:architecture": "python tools/diagrams/blindbox_architecture.py",
+    "diagram:check": "python -m py_compile tools/diagrams/blindbox_architecture.py"
   },
   "dependencies": {
     "@openai/agents": "0.16.0",
