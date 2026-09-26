@@ -1,5 +1,7 @@
 # Daily BlindBox product pipeline
 
+> **Documentation status: ACTIVE SPECIALIST.** This is the daily affiliate/social product path. It does not define the canonical owner-reviewed video publisher. See [CURRENT_STATE.md](./CURRENT_STATE.md).
+
 The scheduled workflow stages exactly one unused, affiliate-eligible `data/series/*.json` record, verifies its live BlindBoxAI CTA and generated social card, writes a review artifact, and then waits at the protected `social-production` GitHub Environment. Buffer credentials are referenced only by the protected publish job.
 
 ## Category-wide scope and eligibility
