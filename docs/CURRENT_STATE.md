@@ -117,7 +117,8 @@ Use the exact canonical vocabulary defined in [`AGENTS.md`](../AGENTS.md). Do no
 Run:
 
 ```bash
+npm run docs:state-test
 npm run docs:state-check
 ```
 
-The check is deterministic and local. It verifies the key documentation/publisher invariants without using credentials or making network calls.
+The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing protected files. The state check is deterministic and local; neither command uses credentials or makes network calls.
