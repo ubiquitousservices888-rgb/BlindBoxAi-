@@ -13,6 +13,8 @@ This file is a point-in-time summary of GitHub branch state, open/closed pull re
 Reproduce the snapshot inputs with GitHub CLI:
 
 ```bash
+set -euo pipefail
+
 REPO='ubiquitousservices888-rgb/BlindBoxAi-'
 
 # Branch names and exact head SHAs.
