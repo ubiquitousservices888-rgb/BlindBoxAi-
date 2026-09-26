@@ -1,65 +1,65 @@
 # Autonomous verified video pipeline
 
-The pipeline selects one eligible product per day, builds a script only from source-linked claims, renders with Creatomate, and stops in `READY_FOR_REVIEW`. Buffer is unreachable until a person approves the exact hosted MP4 and caption.
+> **Documentation status: ACTIVE SPECIALIST.** This describes `.github/workflows/autonomous-video.yml`, not the canonical Supabase review-queue publisher. For the current topology and source-of-truth rules, read [CURRENT_STATE.md](./CURRENT_STATE.md).
+
+This path selects verified product input, renders one production-quality video, stops at owner review, and can publish only after the `social-production` approval gate.
+
+## Current workflow behavior
+
+`.github/workflows/autonomous-video.yml` currently:
+
+1. runs validation when `data/verified-video-products.json` changes on `main`, or by manual dispatch;
+2. runs the video safety tests and validates source data;
+3. tries the configured Creatomate renderer first;
+4. may use the guarded Gemini renderer when its required configuration is present;
+5. fails closed if no production-quality renderer succeeds;
+6. rejects placeholder/mock/deterministic low-quality render providers;
+7. requires a hosted HTTPS MP4 and `READY_FOR_REVIEW` state;
+8. stores the exact review state as an artifact;
+9. waits at the `social-production` GitHub Environment;
+10. restores the exact reviewed state and verifies that the video URL did not change;
+11. records approval and then calls the Buffer publishing path.
+
+The default video channel set is `youtube,tiktok` unless the approved environment variable `VIDEO_CHANNELS` explicitly changes this specialist workflow. Do not use that variable to infer the canonical review-queue publisher; that publisher is separately pinned in `publish-approved-reviews.yml`.
 
 ## Safety model
 
-- Sources must be HTTPS, marked `verified`, and checked within 30 days.
-- Every generated factual claim must cite a verified source ID.
-- No eligible product means the daily job fails closed.
-- Creatomate must return a public HTTPS `.mp4` URL.
-- Every caption must contain the EPN disclosure.
-- Only `READY_FOR_REVIEW` can become `APPROVED` or `REJECTED`.
-- Only `APPROVED` or `PARTIALLY_PUBLISHED` can call Buffer.
-- Published channels are skipped permanently; retries target failed channels only.
-- The stable `<record-id>:<channel>` key is sent as Buffer's idempotency key.
+- Source data must pass the repository's verification checks.
+- No eligible/valid product means the path fails closed.
+- Review media must be a public HTTPS MP4.
+- Low-quality placeholder/mock providers cannot reach review or publication.
+- The exact reviewed URL must survive unchanged into the approval job.
+- Buffer configuration is checked before publication.
+- Owner approval remains outside the render job.
 
-## Required secrets
+## Configuration names
 
-Add these under GitHub **Settings → Secrets and variables → Actions**:
+Secret or variable **names** used by this specialist workflow include:
 
-| Secret | Value |
-|---|---|
-| `CREATOMATE_API_KEY` | Creatomate project API key |
-| `CREATOMATE_TEMPLATE_ID` | Approved vertical-video template ID |
-| `BUFFER_API_TOKEN` | Buffer API token |
-| `BUFFER_CHANNEL_PROFILES` | JSON map such as `{"tiktok":"profile-id","instagram":"profile-id"}` |
+- `CREATOMATE_API_KEY`
+- `CREATOMATE_TEMPLATE_ID`
+- `GEMINI_API_KEY`
+- `BLOB_READ_WRITE_TOKEN`
+- `BUFFER_API_TOKEN`
+- `BUFFER_ORGANIZATION_ID`
+- `VIDEO_CHANNELS`
+- `GEMINI_VIDEO_RESOLUTION`
 
-Create a protected GitHub environment named `video-publish-approval` and add yourself as a required reviewer.
-
-After a daily run, open its `ready-for-review-<run-id>` artifact to inspect the caption, state, and hosted MP4 URL. To reject or publish, manually run the workflow with that original run ID in `state_run_id`. A publish run pauses at the protected environment until you approve it; a reject run requires a reason and saves a rejection receipt.
+Never place secret values in documentation, logs, commits, or Context Transfers.
 
 ## Verified product input
 
-Add products to `data/verified-video-products.json`. Keep claims narrow and attach each claim to a source:
+Products are sourced from `data/verified-video-products.json`. Claims must remain narrow and source-linked. The code and validators on `main` are authoritative for the current schema.
 
-```json
-{
-  "id": "product-slug",
-  "name": "Exact product name",
-  "productUrl": "https://blindboxai.com/series/product-slug",
-  "sources": [{
-    "id": "official-listing",
-    "url": "https://official-brand.example/product",
-    "checkedAt": "2026-08-09T12:00:00.000Z",
-    "status": "verified"
-  }],
-  "claims": [{
-    "text": "A fact stated by the official listing.",
-    "sourceId": "official-listing"
-  }]
-}
-```
-
-## Commands
+## Local commands
 
 ```bash
-npm test
-npm run validate
+npm run video:test
+node scripts/video-pipeline.mjs validate
 npm run video:daily
 npm run video:approve
 npm run video:reject -- --reason "Audio needs correction"
 npm run video:publish
 ```
 
-The state file is `output/video-pipeline/state.json`. Keep it as the review/publish receipt; do not commit it.
+The local state file is `output/video-pipeline/state.json`. It is a review/publish receipt and must not be committed.
