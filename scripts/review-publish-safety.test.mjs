@@ -240,7 +240,10 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
   assert.match(source, /PUBLISH_CHANNEL/);
-  assert.match(source, /eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /const configuredChannels =/);
+  assert.match(source, /Requested channel is not in VIDEO_CHANNELS/);
+  assert.match(source, /const targetChannels = configuredChannels/);
+  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
 });
 
 test("publisher resumes only deferred channels on later runs", () => {
@@ -283,15 +286,19 @@ test("channel-aware queue claim skips rows that already completed the requested 
   assert.match(source, /claim\(req, body\)/);
 });
 
-test("channel-specific publishing keeps youtube,tiktok,twitter as the completion target", () => {
+test("channel-specific publishing runs one requested platform while preserving the full completion target", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  assert.match(source, /const targetChannels =/);
+  assert.match(source, /const configuredChannels =/);
+  assert.match(source, /const targetChannels = configuredChannels/);
   assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
   assert.match(source, /targetChannels,/);
+  assert.match(source, /const feedChannels =/);
+  assert.match(source, /channels: feedChannels/);
   assert.match(source, /publicUrl: result\.publicUrl/);
   assert.match(source, /PUBLIC_VERIFICATION_PENDING/);
   assert.match(source, /action: "release"/);
-  assert.match(source, /youtube,tiktok,twitter/);
+  assert.doesNotMatch(source, /youtube,tiktok,twitter/);
+  assert.match(source, /youtube,tiktok/);
 });
 
 test("queue stores only channel records with verified public URLs", () => {
@@ -323,7 +330,8 @@ test("queue peek is read-only and separately authorized", () => {
 
 test("workflow pins review-video target channels and ignores repo override", () => {
   const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
-  assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok,twitter\s*$/m);
+  assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m);
+  assert.doesNotMatch(source, /^\s*VIDEO_CHANNELS:.*twitter/m);
   assert.doesNotMatch(source, /vars\.VIDEO_CHANNELS/);
   assert.doesNotMatch(source, /schedule:|cron:/);
 });
@@ -351,3 +359,41 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(queue, /Invalid publish channel/);
   assert.match(queue, /Invalid researchRunId/);
 });
+
+
+test("publisher validates requested channel before claiming a queue lease", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const validation = source.indexOf("Requested channel is not in VIDEO_CHANNELS");
+  const claim = source.indexOf('action: dryRun ? "peek" : "claim"');
+  assert.ok(validation >= 0 && claim > validation);
+});
+
+test("publisher releases a claimed row before exiting when no eligible channels remain", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const start = source.indexOf("if (!remainingChannels.length)");
+  const end = source.indexOf("const { selected: channels", start);
+  assert.ok(start >= 0 && end > start);
+  const block = source.slice(start, end);
+  const release = block.indexOf('action: "release"');
+  const error = block.indexOf('error: "No remaining configured publish channels"');
+  const marker = block.indexOf("REVIEW_QUEUE_NO_REMAINING_CHANNELS");
+  assert.ok(release >= 0 && error > release && marker > error);
+});
+
+test("published feed preserves previously verified channels across exact-channel runs", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const feedChannels =/);
+  assert.match(source, /item\.published_channels/);
+  assert.match(source, /results\.map\(\(entry\) => entry\.channel\)/);
+  assert.match(source, /isVerifiedPublicPostUrl\(channel, mergedPublicUrls\[channel\]\)/);
+  assert.match(source, /channels: feedChannels/);
+});
+
+
+test("publisher rejects an empty configured channel set before claiming", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const guard = source.indexOf("VIDEO_CHANNELS must contain at least one service");
+  const claim = source.indexOf('action: dryRun ? "peek" : "claim"');
+  assert.ok(guard >= 0 && claim > guard);
+});
+

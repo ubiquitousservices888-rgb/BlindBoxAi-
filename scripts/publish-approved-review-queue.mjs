@@ -53,8 +53,16 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 const dryRun = isDryRun(process.env.DRY_RUN);
 const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
 const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "");
+const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
+  .split(",").map((value) => value.trim()).filter(Boolean))];
 if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
   throw new Error("PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters");
+}
+if (!configuredChannels.length) {
+  throw new Error("VIDEO_CHANNELS must contain at least one service");
+}
+if (requestedChannel && !configuredChannels.includes(requestedChannel)) {
+  throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
 }
 const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
 const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, {
@@ -77,11 +85,7 @@ const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue t
 const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 const leaseToken = dryRun ? "" : required(item.publishing_at, "queue lease token");
 
-const targetChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok,twitter")
-  .split(",").map((value) => value.trim()).filter(Boolean))];
-if (requestedChannel && !targetChannels.includes(requestedChannel)) {
-  throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
-}
+const targetChannels = configuredChannels;
 const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
 const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
 const completedChannels = new Set(
@@ -89,7 +93,18 @@ const completedChannels = new Set(
     .filter((channel) => isVerifiedPublicPostUrl(channel, recordedPublicUrls[channel])),
 );
 const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
-if (!remainingChannels.length) throw new Error("Review queue item has no remaining publish channels");
+if (!remainingChannels.length) {
+  if (!dryRun) {
+    await postJson(REVIEW_QUEUE_URL, reviewToken, {
+      action: "release",
+      researchRunId: item.research_run_id,
+      leaseToken,
+      error: "No remaining configured publish channels",
+    });
+  }
+  console.log("REVIEW_QUEUE_NO_REMAINING_CHANNELS: true");
+  process.exit(0);
+}
 const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
 if (deferredChannels.length) {
   console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
@@ -157,14 +172,26 @@ try {
   }
 
   const feedToken = await getGithubOidcToken(FEED_OIDC_AUDIENCE);
+  const mergedBufferPostIds = {
+    ...(item.buffer_post_ids || {}),
+    ...Object.fromEntries(results.map((entry) => [entry.channel, entry.id])),
+  };
+  const mergedPublicUrls = {
+    ...(item.public_urls || {}),
+    ...Object.fromEntries(results.map((entry) => [entry.channel, entry.publicUrl])),
+  };
+  const feedChannels = [...new Set([
+    ...(Array.isArray(item.published_channels) ? item.published_channels : []),
+    ...results.map((entry) => entry.channel),
+  ])].filter((channel) => isVerifiedPublicPostUrl(channel, mergedPublicUrls[channel]));
   await postJson(PUBLISHED_FEED_URL, feedToken, {
     researchRunId: item.research_run_id,
     title: publicTitle,
     vertical: item.vertical,
     videoUrl: safeVideoUrl,
-    channels: targetChannels,
-    bufferPostIds: { ...(item.buffer_post_ids || {}), ...Object.fromEntries(results.map((entry) => [entry.channel, entry.id])) },
-    publicUrls: { ...(item.public_urls || {}), ...Object.fromEntries(results.map((entry) => [entry.channel, entry.publicUrl])) },
+    channels: feedChannels,
+    bufferPostIds: mergedBufferPostIds,
+    publicUrls: mergedPublicUrls,
     campaignId: results[0]?.campaignId || null,
   });
 
