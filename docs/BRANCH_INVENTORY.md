@@ -26,7 +26,7 @@ gh pr list --repo "$REPO" --state all --limit 1000 \
 # Per-branch comparison against main. URL-encode branch names containing '/'.
 gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' |
 while IFS= read -r branch; do
-  encoded="$(python -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")"
+  encoded="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")"
   gh api "repos/$REPO/compare/main...$encoded" \
     --jq "[\"$branch\", .status, .ahead_by, .behind_by, .head_commit.sha] | @tsv"
 done
