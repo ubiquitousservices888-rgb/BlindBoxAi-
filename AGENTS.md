@@ -23,6 +23,22 @@ CODED, COMMITTED, PUSHED, PR OPEN, CI PASSED, MERGED, DEPLOYED, LIVE VERIFIED
 
 No evidence means report it as UNVERIFIED. That is an acceptable answer and is preferred over an unsupported claim.
 
+## Familiarization and documentation authority
+
+Before writing to a resumed or unfamiliar project:
+
+1. Read `docs/CURRENT_STATE.md`.
+2. Inspect current `main` and relevant open PRs.
+3. Trace the actual execution path for any protected action.
+4. Mark unsupported claims `UNVERIFIED`.
+5. Identify and flag superseded documentation before changing architecture.
+
+When sources disagree, observable production behavior and raw evidence outrank `main`; `main` outranks documentation; documentation outranks historical branches and summaries.
+
+Use `docs/CONTEXT_TRANSFER.md` for every substantial agent/thread handoff. A Context Transfer is orientation, not evidence.
+
+Run `npm run docs:state-check` after changing protected workflow topology or pipeline documentation.
+
 ## Protected paths
 
 Protected actions: public publishing, payments, authentication, deletion, anything reaching an external account.
