@@ -240,6 +240,8 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
   assert.match(source, /PUBLISH_CHANNEL/);
+  assert.match(source, /const configuredChannels =/);
+  assert.match(source, /Requested channel is not in VIDEO_CHANNELS/);
   assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
   assert.match(source, /const eligibleChannels = targetChannels/);
 });
@@ -289,9 +291,9 @@ test("channel-specific publishing completes only the requested platform", () => 
   assert.match(source, /const configuredChannels =/);
   assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
   assert.match(source, /const eligibleChannels = targetChannels/);
-  assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
-  assert.match(source, /const eligibleChannels = targetChannels/);
   assert.match(source, /targetChannels,/);
+  assert.match(source, /const feedChannels =/);
+  assert.match(source, /channels: feedChannels/);
   assert.match(source, /publicUrl: result\.publicUrl/);
   assert.match(source, /PUBLIC_VERIFICATION_PENDING/);
   assert.match(source, /action: "release"/);
@@ -356,4 +358,28 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(queue, /query\.limit\(researchRunId \? 1 : 100\)/);
   assert.match(queue, /Invalid publish channel/);
   assert.match(queue, /Invalid researchRunId/);
+});
+
+
+test("publisher validates requested channel before claiming a queue lease", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const validation = source.indexOf("Requested channel is not in VIDEO_CHANNELS");
+  const claim = source.indexOf('action: dryRun ? "peek" : "claim"');
+  assert.ok(validation >= 0 && claim > validation);
+});
+
+test("publisher releases a claimed row when no configured channels remain", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /REVIEW_QUEUE_NO_REMAINING_CHANNELS/);
+  assert.match(source, /error: "No remaining configured publish channels"/);
+  assert.match(source, /action: "release"/);
+});
+
+test("published feed preserves previously verified channels across exact-channel runs", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const feedChannels =/);
+  assert.match(source, /item\.published_channels/);
+  assert.match(source, /results\.map\(\(entry\) => entry\.channel\)/);
+  assert.match(source, /isVerifiedPublicPostUrl\(channel, mergedPublicUrls\[channel\]\)/);
+  assert.match(source, /channels: feedChannels/);
 });
