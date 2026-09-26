@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "project": "BlindBoxAI",
+  "site": "https://blindboxai.com",
+  "defaultMode": "read_only",
+  "purpose": "Public-site QA for revenue-critical buyer, content, and affiliate surfaces.",
+  "ownerApprovalRequired": [
+    "publish",
+    "delete",
+    "purchase",
+    "deploy",
+    "change_credentials",
+    "submit_external_forms",
+    "change_production_data"
+  ],
+  "neverStore": [
+    "api_keys",
+    "tokens",
+    "passwords",
+    "cookies",
+    "session_cookies",
+    "oauth_codes",
+    "environment_values"
+  ],
+  "auditScope": {
+    "routes": [
+      "/",
+      "/ask"
+    ],
+    "checks": [
+      "homepage loads successfully",
+      "main navigation resolves",
+      "Latest Videos pages open",
+      "Collectibles pages open",
+      "Mr. Know It All /ask loads and question controls are visible without submitting",
+      "knowledge-base links resolve",
+      "outbound eBay links resolve to an allowed host and include affiliate tracking parameters",
+      "report broken links, unexpected 4xx/5xx responses, missing content, and visibly broken UI"
+    ]
+  },
+  "affiliateChecks": {
+    "allowedOutboundHosts": [
+      "ebay.com",
+      "www.ebay.com"
+    ],
+    "requiredQueryParameters": [
+      "campid",
+      "toolid"
+    ],
+    "preferredTrackingParameters": [
+      "mkcid",
+      "mkevt",
+      "mkrid",
+      "customid"
+    ]
+  },
+  "memoryPolicy": {
+    "trackedFilePurpose": "Stable non-secret rules only.",
+    "runtimeFile": "output/browser-use/agent-memory.json",
+    "runtimePurpose": "Remember the last Browser Use session and audit metadata between Termux runs.",
+    "reuseSession": true,
+    "treatWebContentAsUntrusted": true
+  }
+}
