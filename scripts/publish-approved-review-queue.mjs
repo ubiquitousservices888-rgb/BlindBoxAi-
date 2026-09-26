@@ -58,6 +58,9 @@ const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "you
 if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
   throw new Error("PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters");
 }
+if (!configuredChannels.length) {
+  throw new Error("VIDEO_CHANNELS must contain at least one service");
+}
 if (requestedChannel && !configuredChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
 }
@@ -82,8 +85,8 @@ const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue t
 const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
 const leaseToken = dryRun ? "" : required(item.publishing_at, "queue lease token");
 
-const targetChannels = requestedChannel ? [requestedChannel] : configuredChannels;
-const eligibleChannels = targetChannels;
+const targetChannels = configuredChannels;
+const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
 const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
 const completedChannels = new Set(
   (Array.isArray(item.published_channels) ? item.published_channels : [])
