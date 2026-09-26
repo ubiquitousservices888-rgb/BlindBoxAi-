@@ -7,13 +7,9 @@
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
-## Source-of-truth order
+## Governance authority
 
-1. Observable production behavior plus complete raw evidence
-2. Current files on `main`
-3. This file
-4. Subsystem documentation
-5. Historical branches, closed PRs, old artifacts, and conversation summaries
+[`AGENTS.md`](../AGENTS.md) is the single canonical source for the evidence hierarchy, state vocabulary, and protected-action rules. This file only maps current repository topology.
 
 Do not use an old branch as evidence of current behavior.
 
@@ -27,7 +23,8 @@ Current invariants:
 
 - trigger: `workflow_dispatch` only;
 - default mode: `dry_run: true`;
-- production video channels are pinned to `youtube,tiktok`;
+- production video channels are pinned exactly to `youtube,tiktok`;
+- X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
 - a run can target one exact channel with `publish_channel`;
 - a run can target one exact approved row with `research_run_id`;
 - the workflow calls `scripts/publish-approved-review-queue.mjs`;
@@ -41,29 +38,41 @@ This is the canonical publisher when discussing an already-approved review-queue
 
 `.github/workflows/manual-reviewed-video.yml`
 
-This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. Its default video channels are also `youtube,tiktok`.
+This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
 
 ### Verified-product render pipeline
 
 `.github/workflows/autonomous-video.yml`
 
-This is a separate render → review → owner-approval → Buffer path for `data/verified-video-products.json`. It does not redefine the Supabase review-queue publisher above.
+This is a separate render → review → owner-approval → Buffer path for `data/verified-video-products.json`. Its `VIDEO_CHANNELS` value also uses the repository variable with a `youtube,tiktok` fallback. It does not redefine the Supabase review-queue publisher above.
 
 ## Social / affiliate specialist paths
 
 The repository also contains specialist social pipelines. They must not be used to infer the channel set or approval model of the canonical review-video publisher.
 
-- `.github/workflows/daily-blindbox-product.yml` — product/social affiliate pipeline.
-- `.github/workflows/labubu-buffer.yml` — Labubu specialist generation/validation path.
+- `.github/workflows/daily-blindbox-product.yml` — validation-only; publishing is paused.
+- `.github/workflows/labubu-buffer.yml` — validation-only; scheduling/publishing is paused.
 - `docs/daily-product-pipeline.md` — documentation for the daily affiliate/social path.
 - `docs/labubu-buffer-automation.md` — specialist Labubu/Buffer documentation.
 - `docs/autonomous-video-pipeline.md` — documentation for the separate verified-product render path.
 
 A subsystem document is authoritative only for that subsystem.
 
-## Branch inventory snapshot
+### Current social-channel decisions
 
-As of 2026-09-26, the repository had **237 branches**. The evidence-backed inventory in [BRANCH_INVENTORY.md](./BRANCH_INVENTORY.md) classified **192 as deletion candidates with preservation evidence**, **41 as diverged/review-required**, and **4 as main/open-PR branches**.
+- **Review-queue video:** YouTube + TikTok only. X/Twitter is parked by merged PR #227.
+- **LinkedIn:** not an active production target. LinkedIn-capable daily-product code remains in the repository, but the daily workflow is validation-only with publishing paused.
+- Other specialist pipelines may contain additional service support. That capability must not be read as an active production target unless the owning workflow is enabled and its current configuration proves it.
+
+## Review-video upload paths
+
+- **Canonical phone uploader:** `/media-upload` requests a signed Supabase Storage upload ticket through `/api/media/free-upload-ticket`, uploads under `media/review/*.mp4`, then stages the resulting HTTPS URL through `/api/owner/stage-review` into the Supabase review queue. See [`free-video-storage.md`](./free-video-storage.md).
+- **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
+- These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
+
+## Branch inventory
+
+For the dated branch-cleanup snapshot and its reproduction commands, see [`BRANCH_INVENTORY.md`](./BRANCH_INVENTORY.md).
 
 Deletion candidates are not deletion authorization. Re-run the safety gate immediately before any destructive cleanup.
 
@@ -101,11 +110,7 @@ Before modifying a resumed or unfamiliar project:
 
 ## State vocabulary
 
-Use only:
-
-`CODED → COMMITTED → PUSHED → PR OPEN → CI PASSED → MERGED → DEPLOYED → LIVE VERIFIED`
-
-"Done", "working", and "shipped" are not states.
+Use the exact canonical vocabulary defined in [`AGENTS.md`](../AGENTS.md). Do not redefine it in this file.
 
 ## Drift check
 

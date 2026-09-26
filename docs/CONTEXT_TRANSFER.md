@@ -21,9 +21,7 @@ Return one self-contained text block containing:
 - Rejected approaches and why.
 
 ### 3. Verified current state
-Classify work using:
-
-`CODED → COMMITTED → PUSHED → PR OPEN → CI PASSED → MERGED → DEPLOYED → LIVE VERIFIED`
+Classify work using the exact state vocabulary defined in [`AGENTS.md`](../AGENTS.md). Do not restate or redefine it here.
 
 Never claim a later state without evidence.
 

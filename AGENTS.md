@@ -8,7 +8,7 @@ A summary of a command is not evidence. Paste the command and its complete, uned
 
 ## State vocabulary
 
-CODED, COMMITTED, PUSHED, PR OPEN, CI PASSED, MERGED, DEPLOYED, LIVE VERIFIED
+CODED → COMMITTED → PUSHED → PR OPEN → CI PASSED → MERGED → DEPLOYED → LIVE VERIFIED
 
 "Working", "done", and "shipped" are not states.
 

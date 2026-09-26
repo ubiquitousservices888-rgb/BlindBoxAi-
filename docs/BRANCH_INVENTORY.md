@@ -8,7 +8,31 @@ This is a read-only cleanup manifest. **Nothing in this file authorizes deletion
 
 ## Classification method
 
-Evidence was collected from GitHub branch state, open/closed pull requests, merged PR head SHAs, and `main...branch` comparisons.
+This file is a point-in-time summary of GitHub branch state, open/closed pull requests, merged PR head SHAs, and `main...branch` comparisons. It is not embedded raw evidence and must be regenerated before any cleanup action.
+
+Reproduce the snapshot inputs with GitHub CLI:
+
+```bash
+REPO='ubiquitousservices888-rgb/BlindBoxAi-'
+
+# Branch names and exact head SHAs.
+gh api --paginate "repos/$REPO/branches?per_page=100" \
+  --jq '.[] | [.name, .commit.sha] | @tsv'
+
+# PR state and merged head references.
+gh pr list --repo "$REPO" --state all --limit 1000 \
+  --json number,state,mergedAt,headRefName,headRefOid,title
+
+# Per-branch comparison against main. URL-encode branch names containing '/'.
+gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' |
+while IFS= read -r branch; do
+  encoded="$(python -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch")"
+  gh api "repos/$REPO/compare/main...$encoded" \
+    --jq --arg branch "$branch" '[ $branch, .status, .ahead_by, .behind_by, .head_commit.sha ] | @tsv'
+done
+```
+
+Each inventory row records the branch head SHA observed for this snapshot. Because PR #230 changes while this file is being reviewed, its own listed head is necessarily a historical snapshot value rather than a self-updating live head.
 
 A branch is a deletion candidate only when at least one of these is true:
 
@@ -23,7 +47,7 @@ Anything with commits ahead of `main` stays in review, even when an older PR fro
 | Group | Count |
 |---|---:|
 | Keep: main/open PR | 4 |
-| Deletion candidates with preservation evidence | 192 |
+| Deletion candidates (snapshot classification) | 192 |
 | Diverged/review required | 41 |
 | Total | 237 |
 
