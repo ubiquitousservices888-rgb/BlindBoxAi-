@@ -40,11 +40,14 @@ function topLevelMappingKeys(text, key) {
   return keys;
 }
 
-requireMatch(
-  "AGENTS.md",
-  /CODED\s*→\s*COMMITTED\s*→\s*PUSHED\s*→\s*PR OPEN\s*→\s*CI PASSED\s*→\s*MERGED\s*→\s*DEPLOYED\s*→\s*LIVE VERIFIED/,
-  "must define the single canonical state vocabulary",
-);
+const canonicalStateVocabulary = /CODED\s*→\s*COMMITTED\s*→\s*PUSHED\s*→\s*PR OPEN\s*→\s*CI PASSED\s*→\s*MERGED\s*→\s*DEPLOYED\s*→\s*LIVE VERIFIED/;
+requireMatch("AGENTS.md", canonicalStateVocabulary, "must define the single canonical state vocabulary");
+for (const secondaryDoc of ["README.md", "docs/CURRENT_STATE.md", "docs/CONTEXT_TRANSFER.md"]) {
+  const text = read(secondaryDoc);
+  if (text !== null && canonicalStateVocabulary.test(text)) {
+    failures.push(`${secondaryDoc}: must link to AGENTS.md instead of redefining the canonical state vocabulary`);
+  }
+}
 requireMatch("AGENTS.md", /docs\/CURRENT_STATE\.md/, "must point agents to the canonical current-state document");
 requireMatch("AGENTS.md", /docs\/CONTEXT_TRANSFER\.md/, "must require the canonical handoff protocol");
 requireMatch("docs/CURRENT_STATE.md", /publish-approved-reviews\.yml/, "must name the canonical review-queue publisher");
@@ -58,7 +61,7 @@ if (publisher !== null) {
       `.github/workflows/publish-approved-reviews.yml: triggers must equal {workflow_dispatch}; found {${triggers.join(",") || "none"}}`,
     );
   }
-  if (!/^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m.test(publisher)) {
+  if (!/^[ \t]*VIDEO_CHANNELS:[ \t]*youtube,tiktok[ \t]*$/m.test(publisher)) {
     failures.push(
       ".github/workflows/publish-approved-reviews.yml: reviewed-video channels must equal youtube,tiktok exactly",
     );
@@ -66,7 +69,7 @@ if (publisher !== null) {
 }
 
 const manual = read(".github/workflows/manual-reviewed-video.yml");
-if (manual !== null && !/^\s*VIDEO_CHANNELS:\s*\$\{\{\s*vars\.VIDEO_CHANNELS\s*\|\|\s*'youtube,tiktok'\s*\}\}\s*$/m.test(manual)) {
+if (manual !== null && !/^[ \t]*VIDEO_CHANNELS:[ \t]*\$\{\{[ \t]*vars\.VIDEO_CHANNELS[ \t]*\|\|[ \t]*'youtube,tiktok'[ \t]*\}\}[ \t]*$/m.test(manual)) {
   failures.push(
     ".github/workflows/manual-reviewed-video.yml: VIDEO_CHANNELS fallback must equal youtube,tiktok exactly",
   );
