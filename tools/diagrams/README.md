@@ -6,6 +6,8 @@ Vercel builds, publishing workflows, or the BlindBoxAI application unless you in
 The generator uses [mingrammer/diagrams](https://github.com/mingrammer/diagrams) and Graphviz
 to render a version-controlled system map.
 
+Architecture labels must be reconciled against the workflows on `main`; historical branches and subsystem documents are not authority for current production behavior.
+
 ## Android / Termux
 
 From the BlindBoxAI repository:
