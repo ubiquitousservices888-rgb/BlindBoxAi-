@@ -57,5 +57,5 @@ test("every lease-holder write is fenced by the lease token", () => {
 
 test("runner sends the lease token on record, release, and complete", () => {
   assert.match(runner, /required\(item\.publishing_at, "queue lease token"\)/);
-  assert.equal(count(runner, /^\s+leaseToken,$/gm), 3);
+  assert.equal(count(runner, /^\s+leaseToken,$/gm), 4);
 });
