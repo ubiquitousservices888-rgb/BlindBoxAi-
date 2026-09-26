@@ -1,5 +1,7 @@
 # Labubu Buffer Automation
 
+> **Documentation status: ACTIVE SPECIALIST.** This document covers the Labubu CSV/manifest subsystem only. It does not describe the canonical BlindBoxAI review-video publisher. See [CURRENT_STATE.md](./CURRENT_STATE.md).
+
 Automated social-content pipeline for Labubu series inside BlindBoxAI.
 Generates platform-specific posts and per-channel Buffer CSV files from validated market data.
 
@@ -85,7 +87,7 @@ To publish BlindBoxAI MP4 videos to TikTok, Instagram Reels, or YouTube Shorts:
 4. Use the **Buffer API** (or Buffer Composer manually) to schedule the video.
 5. Store your `BUFFER_API_TOKEN` in **GitHub Secrets only** — never in code or CSV files.
 
-> ⚠️ Automatic video publishing via the Buffer API is **not yet activated**. The manifest is ready; a publish step must be added after the API token is obtained and the video URL is confirmed publicly accessible.
+> **Scope note:** automatic video publishing is not implemented by this Labubu manifest/CSV subsystem. Other BlindBoxAI workflows do publish owner-approved videos through Buffer; do not infer global Buffer capability or credential state from this document.
 
 ### Video manifest fields
 
@@ -119,7 +121,7 @@ No secrets are required for local data validation or post generation.
 
 | Secret name | Where to set | Used by |
 |---|---|---|
-| `BUFFER_API_TOKEN` | GitHub Actions → Settings → Secrets | Video publishing via Buffer API only (not yet activated) |
+| `BUFFER_API_TOKEN` | Protected GitHub configuration | Not consumed by the Labubu CSV generator; other approved publishers may use it |
 | `BLOB_READ_WRITE_TOKEN` | GitHub Actions → Settings → Secrets | `affiliate-click-report.mjs` only |
 
 ---
@@ -241,10 +243,10 @@ Until verified, the retail price line is omitted from generated posts.
 
 ---
 
-## One-time setup remaining
+## Specialist-path setup checks
 
-| Item | Status |
-|------|--------|
-| `BUFFER_API_TOKEN` GitHub Secret | Not yet added — required for video API publishing |
-| Hosted video URLs in `labubu-video-manifest.json` | Placeholder — replace `REPLACE_WITH_HOSTED_VIDEO_URL` with real CDN URLs |
-| Series page URL live validation | Skipped in CI (`--skip-url-check`) — confirm URLs resolve before enabling |
+Do not record account-level secret presence/absence in this document; verify configuration at runtime without printing values.
+
+- Confirm any manifest entry used by this subsystem has a real hosted HTTPS media URL rather than a placeholder.
+- Confirm series-page URLs resolve before enabling live URL validation.
+- Treat Buffer account/channel configuration as external state that must be verified independently.
