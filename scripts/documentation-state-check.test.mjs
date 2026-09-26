@@ -22,7 +22,9 @@ function fixture() {
     "CODED → COMMITTED → PUSHED → PR OPEN → CI PASSED → MERGED → DEPLOYED → LIVE VERIFIED",
     "",
   ].join("\n"));
-  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nChannels: youtube,tiktok\n");
+  write(root, "README.md", "Governance: see AGENTS.md.\n");
+  write(root, "docs/CONTEXT_TRANSFER.md", "Use the state vocabulary defined in AGENTS.md.\n");
+  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nChannels: youtube,tiktok\nState vocabulary: see AGENTS.md.\n");
   write(root, ".github/workflows/publish-approved-reviews.yml", [
     "name: Publish approved review videos",
     "on:",
@@ -67,6 +69,17 @@ test("baseline documentation state passes", () => {
   const result = run(root);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /DOCUMENTATION_STATE_CHECK: PASS/);
+});
+
+test("secondary docs cannot redefine the canonical state vocabulary", () => {
+  const root = fixture();
+  fs.appendFileSync(
+    path.join(root, "README.md"),
+    "CODED → COMMITTED → PUSHED → PR OPEN → CI PASSED → MERGED → DEPLOYED → LIVE VERIFIED\n",
+  );
+  const result = run(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must link to AGENTS\.md instead of redefining/);
 });
 
 test("extended canonical channel list fails", () => {
