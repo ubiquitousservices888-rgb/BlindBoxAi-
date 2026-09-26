@@ -14,8 +14,9 @@ function write(root, relativePath, content) {
   fs.writeFileSync(target, content);
 }
 
-function fixture() {
+function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "blindbox-doc-state-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   write(root, "AGENTS.md", [
     "# AGENTS",
     "Read docs/CURRENT_STATE.md and docs/CONTEXT_TRANSFER.md.",
@@ -64,15 +65,15 @@ function run(root) {
   });
 }
 
-test("baseline documentation state passes", () => {
-  const root = fixture();
+test("baseline documentation state passes", (t) => {
+  const root = fixture(t);
   const result = run(root);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /DOCUMENTATION_STATE_CHECK: PASS/);
 });
 
-test("secondary docs cannot redefine the canonical state vocabulary", () => {
-  const root = fixture();
+test("secondary docs cannot redefine the canonical state vocabulary", (t) => {
+  const root = fixture(t);
   fs.appendFileSync(
     path.join(root, "README.md"),
     "CODED → COMMITTED → PUSHED → PR OPEN → CI PASSED → MERGED → DEPLOYED → LIVE VERIFIED\n",
@@ -82,8 +83,8 @@ test("secondary docs cannot redefine the canonical state vocabulary", () => {
   assert.match(result.stderr, /must link to AGENTS\.md instead of redefining/);
 });
 
-test("extended canonical channel list fails", () => {
-  const root = fixture();
+test("extended canonical channel list fails", (t) => {
+  const root = fixture(t);
   const file = path.join(root, ".github/workflows/publish-approved-reviews.yml");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("youtube,tiktok", "youtube,tiktok,facebook"));
   const result = run(root);
@@ -91,8 +92,8 @@ test("extended canonical channel list fails", () => {
   assert.match(result.stderr, /channels must equal youtube,tiktok exactly/);
 });
 
-test("extended manual fallback channel list fails", () => {
-  const root = fixture();
+test("extended manual fallback channel list fails", (t) => {
+  const root = fixture(t);
   const file = path.join(root, ".github/workflows/manual-reviewed-video.yml");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("youtube,tiktok", "youtube,tiktok,facebook"));
   const result = run(root);
@@ -100,8 +101,8 @@ test("extended manual fallback channel list fails", () => {
   assert.match(result.stderr, /fallback must equal youtube,tiktok exactly/);
 });
 
-test("adding push beside workflow_dispatch fails", () => {
-  const root = fixture();
+test("adding push beside workflow_dispatch fails", (t) => {
+  const root = fixture(t);
   const file = path.join(root, ".github/workflows/publish-approved-reviews.yml");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  push:\n    branches: [main]\n"));
   const result = run(root);
@@ -109,8 +110,8 @@ test("adding push beside workflow_dispatch fails", () => {
   assert.match(result.stderr, /triggers must equal \{workflow_dispatch\}/);
 });
 
-test("adding schedule beside workflow_dispatch fails", () => {
-  const root = fixture();
+test("adding schedule beside workflow_dispatch fails", (t) => {
+  const root = fixture(t);
   const file = path.join(root, ".github/workflows/publish-approved-reviews.yml");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  schedule:\n    - cron: '0 0 * * *'\n"));
   const result = run(root);
@@ -118,8 +119,8 @@ test("adding schedule beside workflow_dispatch fails", () => {
   assert.match(result.stderr, /triggers must equal \{workflow_dispatch\}/);
 });
 
-test("missing files are collected into one consolidated failure report", () => {
-  const root = fixture();
+test("missing files are collected into one consolidated failure report", (t) => {
+  const root = fixture(t);
   fs.rmSync(path.join(root, "docs/autonomous-video-pipeline.md"));
   fs.rmSync(path.join(root, "docs/labubu-buffer-automation.md"));
   const result = run(root);
