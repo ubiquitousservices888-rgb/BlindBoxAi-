@@ -61,6 +61,12 @@ The repository also contains specialist social pipelines. They must not be used 
 
 A subsystem document is authoritative only for that subsystem.
 
+## Branch inventory snapshot
+
+As of 2026-09-26, the repository had **237 branches**. The evidence-backed inventory in [BRANCH_INVENTORY.md](./BRANCH_INVENTORY.md) classified **192 as deletion candidates with preservation evidence**, **41 as diverged/review-required**, and **4 as main/open-PR branches**.
+
+Deletion candidates are not deletion authorization. Re-run the safety gate immediately before any destructive cleanup.
+
 ## Branch rule
 
 The repository has substantial historical branch accumulation. Therefore:
