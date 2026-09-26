@@ -121,4 +121,4 @@ npm run docs:state-test
 npm run docs:state-check
 ```
 
-The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing protected files. The state check is deterministic and local; neither command uses credentials or makes network calls.
+The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing required documentation files. The state check is deterministic and local; neither command uses credentials or makes network calls.
