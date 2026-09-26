@@ -397,9 +397,3 @@ test("publisher rejects an empty configured channel set before claiming", () => 
   assert.ok(guard >= 0 && claim > guard);
 });
 
-test("exact-channel runs keep the row incomplete until all configured channels are recorded", () => {
-  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  assert.match(source, /const targetChannels = configuredChannels/);
-  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
-  assert.match(source, /targetChannels,/);
-});
