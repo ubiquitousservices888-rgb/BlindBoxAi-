@@ -30,7 +30,7 @@ test('run payload has a spend cap and recording disabled', () => {
 });
 
 test('valid prior Browser Use session is reused; invalid one is not', () => {
-  const valid = '123e4567-e89b-42d3-a456-426614174000';
+  const valid = '0199a2d1-7abc-7def-8123-426614174000';
   assert.equal(validSessionId(valid), true);
   assert.equal(validSessionId('not-a-session'), false);
   assert.equal(buildRunPayload('test', { sessionId: valid }).sessionId, valid);
