@@ -76,7 +76,7 @@ def build_diagram() -> Path:
             render = Action("Creatomate render")
             review = Inspection("Owner approval")
             publisher = Action("Buffer publisher")
-            channels = Display("YouTube / TikTok / X / Facebook")
+            channels = Display("Reviewed video: YouTube / TikTok")
 
             supabase >> Edge(label="review queue") >> video
             video >> render >> review
