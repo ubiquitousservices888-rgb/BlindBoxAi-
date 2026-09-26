@@ -242,8 +242,8 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.match(source, /PUBLISH_CHANNEL/);
   assert.match(source, /const configuredChannels =/);
   assert.match(source, /Requested channel is not in VIDEO_CHANNELS/);
-  assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
-  assert.match(source, /const eligibleChannels = targetChannels/);
+  assert.match(source, /const targetChannels = configuredChannels/);
+  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
 });
 
 test("publisher resumes only deferred channels on later runs", () => {
@@ -286,11 +286,11 @@ test("channel-aware queue claim skips rows that already completed the requested 
   assert.match(source, /claim\(req, body\)/);
 });
 
-test("channel-specific publishing completes only the requested platform", () => {
+test("channel-specific publishing runs one requested platform while preserving the full completion target", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /const configuredChannels =/);
-  assert.match(source, /const targetChannels = requestedChannel \? \[requestedChannel\] : configuredChannels/);
-  assert.match(source, /const eligibleChannels = targetChannels/);
+  assert.match(source, /const targetChannels = configuredChannels/);
+  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
   assert.match(source, /targetChannels,/);
   assert.match(source, /const feedChannels =/);
   assert.match(source, /channels: feedChannels/);
@@ -368,11 +368,16 @@ test("publisher validates requested channel before claiming a queue lease", () =
   assert.ok(validation >= 0 && claim > validation);
 });
 
-test("publisher releases a claimed row when no configured channels remain", () => {
+test("publisher releases a claimed row before exiting when no eligible channels remain", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  assert.match(source, /REVIEW_QUEUE_NO_REMAINING_CHANNELS/);
-  assert.match(source, /error: "No remaining configured publish channels"/);
-  assert.match(source, /action: "release"/);
+  const start = source.indexOf("if (!remainingChannels.length)");
+  const end = source.indexOf("const { selected: channels", start);
+  assert.ok(start >= 0 && end > start);
+  const block = source.slice(start, end);
+  const release = block.indexOf('action: "release"');
+  const error = block.indexOf('error: "No remaining configured publish channels"');
+  const marker = block.indexOf("REVIEW_QUEUE_NO_REMAINING_CHANNELS");
+  assert.ok(release >= 0 && error > release && marker > error);
 });
 
 test("published feed preserves previously verified channels across exact-channel runs", () => {
@@ -382,4 +387,19 @@ test("published feed preserves previously verified channels across exact-channel
   assert.match(source, /results\.map\(\(entry\) => entry\.channel\)/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, mergedPublicUrls\[channel\]\)/);
   assert.match(source, /channels: feedChannels/);
+});
+
+
+test("publisher rejects an empty configured channel set before claiming", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const guard = source.indexOf("VIDEO_CHANNELS must contain at least one service");
+  const claim = source.indexOf('action: dryRun ? "peek" : "claim"');
+  assert.ok(guard >= 0 && claim > guard);
+});
+
+test("exact-channel runs keep the row incomplete until all configured channels are recorded", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const targetChannels = configuredChannels/);
+  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /targetChannels,/);
 });
