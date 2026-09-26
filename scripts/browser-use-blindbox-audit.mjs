@@ -46,7 +46,7 @@ Return a concise PASS/FAIL/BLOCKED report with exact URLs and observed failures.
 }
 
 export function validSessionId(value) {
-  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 export function buildRunPayload(task, { maxCostUsd = 0.25, sessionId = null } = {}) {
