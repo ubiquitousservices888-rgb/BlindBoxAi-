@@ -2,8 +2,9 @@ import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { cardApiExactTargetMatches, fetchCardApiSales, summarizeCardApiSales } from "../lib/the-card-api.mjs";
+import { assertBlindBoxSupabaseOrigin, BLINDBOXAI_SUPABASE_ORIGIN } from "../lib/blindbox-supabase-boundary.mjs";
 
-const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://lazzdoadoqzrzlarerfx.supabase.co").replace(/\/$/, "");
+const SUPABASE_URL = assertBlindBoxSupabaseOrigin(process.env.SUPABASE_URL || BLINDBOXAI_SUPABASE_ORIGIN);
 const EDGE_URL = `${SUPABASE_URL}/functions/v1/mr-know-it-all-ingest`;
 const OIDC_AUDIENCE = "blindboxai-research-bot";
 const BATCH_SIZE = Math.min(100, Math.max(1, Number(process.env.RESEARCH_BATCH_SIZE) || 25));

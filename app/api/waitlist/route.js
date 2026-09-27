@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { assertBlindBoxSupabaseOrigin } from "../../../lib/blindbox-supabase-boundary.mjs";
 import { recordAnalyticsEvent } from "../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -62,7 +63,7 @@ async function record(body, event, metadata) {
 }
 
 async function storeSignup(row) {
-  const base = required("SUPABASE_URL").replace(/\/$/, "");
+  const base = assertBlindBoxSupabaseOrigin(required("SUPABASE_URL"));
   const key = required("SUPABASE_SERVICE_ROLE_KEY");
   const response = await fetch(
     `${base}/rest/v1/waitlist_signups?on_conflict=email&select=id`,
