@@ -59,6 +59,8 @@ test("separate visitors do not share consent or campaign state", async ({ browse
     await one.goto(`${SERIES_PATH}?campaign=${CAMPAIGN}&source=youtube`);
     await two.goto(SERIES_PATH);
     await one.waitForFunction(() => sessionStorage.getItem("bbai_landing_source_v1") === "youtube");
+    await one.getByRole("button", { name: "Accept optional analytics" }).click();
+    await expect.poll(() => one.evaluate(() => JSON.parse(localStorage.getItem("blindboxai_consent_v1") || "null")?.analytics)).toBe(true);
     expect(await two.evaluate(() => sessionStorage.getItem("bbai_landing_source_v1"))).toBeNull();
     expect(await two.evaluate(() => localStorage.getItem("blindboxai_consent_v1"))).toBeNull();
     const secondLink = new URL(await two.getByRole("link", { name: /View active listings on eBay/ }).first().getAttribute("href"), "http://127.0.0.1:3205");

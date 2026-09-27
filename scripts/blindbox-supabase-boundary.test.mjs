@@ -15,6 +15,7 @@ test("accepts only the dedicated project origin", () => {
   ]) {
     assert.throws(() => assertBlindBoxSupabaseOrigin(candidate), /dedicated BlindBoxAI project/);
   }
+  assert.throws(() => assertBlindBoxSupabaseOrigin("not a URL"), /not a valid URL/);
 });
 
 test("a local test service requires explicit ingest isolation", () => {
