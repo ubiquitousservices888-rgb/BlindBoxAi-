@@ -60,6 +60,14 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Ensure video probe is available
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffprobe >/dev/null 2>&1
+          ffprobe -version | head -n 1
       - name: Verify Buffer configuration
         run: |
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
