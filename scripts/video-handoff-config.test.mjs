@@ -29,3 +29,18 @@ test("production video path avoids the former Zapier handoff and preserves exact
   assert.match(workflow, /ready-for-review-/);
   assert.match(workflow, /social-production approval gate/i);
 });
+
+const reviewOnlyWorkflow = fs.readFileSync(new URL("../.github/workflows/gemini-video-stage.yml", import.meta.url), "utf8");
+
+test("review-only video workflow validates attribution, uses configured renderers, and cannot publish", () => {
+  assert.match(reviewOnlyWorkflow, /workflow_dispatch/);
+  assert.doesNotMatch(reviewOnlyWorkflow, /\bschedule\s*:/);
+  assert.match(reviewOnlyWorkflow, /NEXT_PUBLIC_EPN_CAMPID:/);
+  assert.match(reviewOnlyWorkflow, /CREATOMATE_API_KEY/);
+  assert.match(reviewOnlyWorkflow, /npm run video:daily/);
+  assert.match(reviewOnlyWorkflow, /npm run video:gemini-stage/);
+  assert.match(reviewOnlyWorkflow, /VIDEO_CHANNELS:.*youtube,tiktok/);
+  assert.match(reviewOnlyWorkflow, /ALLOW_MANUAL_VIDEO_PUBLISH:\s*"false"/);
+  assert.match(reviewOnlyWorkflow, /READY_FOR_REVIEW/);
+  assert.doesNotMatch(reviewOnlyWorkflow, /npm run video:publish|BUFFER_API_TOKEN|social-production/);
+});
