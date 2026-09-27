@@ -15,7 +15,7 @@ test("scheduled research collector covers every mandate lane with two bounded se
   assert.match(source, /const SEARCH_ANGLES = \[/);
   assert.match(source, /"market"/);
   assert.match(source, /"risk-demand"/);
-  assert.match(source, /mandate\\.lanes\\.flatMap\\(\\(lane\\) => SEARCH_ANGLES\\.map/);
+  assert.match(source, /mandate\.lanes\.flatMap\(\(lane\) => SEARCH_ANGLES\.map/);
   assert.match(source, /\.slice\(0, 96\)/);
 });
 
