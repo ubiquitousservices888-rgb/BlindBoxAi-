@@ -150,10 +150,15 @@ export default function AskPage() {
 
           {result.publicResearch && (
             <section className="public-research">
-              <h3>Twice-daily public research</h3>\n              {result.publicResearch.status !== "unavailable" && result.publicResearch.latestResearchedAt ? (\n                <p className="research-meta">Collected {new Date(result.publicResearch.latestResearchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}.</p>\n              ) : null}
+              <h3>Twice-daily public research</h3>
+              {result.publicResearch.status !== "unavailable" && result.publicResearch.latestResearchedAt ? (
+                <p className="research-meta">Collected {new Date(result.publicResearch.latestResearchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}.</p>
+              ) : null}
               {result.publicResearch.status === "unavailable" ? (
                 <p>Stored public research is temporarily unavailable. This is not treated as evidence that no results exist.</p>
-              ) : result.publicResearch.queryStatus === "no-search-terms" ? (\n                <p>The question did not contain enough specific collectible terms to search the stored research. Add a set, character, player, brand, year, or product name.</p>\n              ) : result.publicResearch.matches?.length > 0 ? (
+              ) : result.publicResearch.queryStatus === "no-search-terms" ? (
+                <p>The question did not contain enough specific collectible terms to search the stored research. Add a set, character, player, brand, year, or product name.</p>
+              ) : result.publicResearch.matches?.length > 0 ? (
                 <>
                   <p>These are public research leads from recent scheduled runs. They are not verified sold-price evidence until independently validated.</p>
                   <div className="research-leads">
