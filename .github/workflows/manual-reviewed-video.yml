@@ -37,6 +37,15 @@ on:
         required: false
         default: false
         type: boolean
+      youtube_audience:
+        description: Owner's audience decision for this exact YouTube upload
+        required: true
+        default: unreviewed
+        type: choice
+        options:
+          - unreviewed
+          - made_for_kids
+          - not_made_for_kids
 
 permissions:
   contents: read
@@ -91,6 +100,7 @@ jobs:
       REVIEWED_VIDEO_TITLE: ${{ inputs.title }}
       RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
       DRY_RUN: ${{ inputs.dry_run }}
+      YOUTUBE_AUDIENCE: ${{ inputs.youtube_audience }}
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}

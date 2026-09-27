@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import test from "node:test";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
@@ -72,6 +73,26 @@ test("legacy protected manual workflow remains available", () => {
   assert.match(legacyWorkflow, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(reviewedUploadPublisher, /createReviewBufferPublisher/);
   assert.match(reviewedUploadPublisher, /youtubeCategoryId:\s*"17"/);
+  assert.match(legacyWorkflow, /youtube_audience:/);
+  assert.match(reviewedUploadPublisher, /Owner must select the YouTube Made-for-Kids audience decision/);
+  assert.match(reviewedUploadPublisher, /youtubeMadeForKids: channel === "youtube"/);
+});
+
+test("manual upload script parses and rejects an unreviewed YouTube audience before network access", () => {
+  const script = new URL("./publish-reviewed-upload.mjs", import.meta.url).pathname;
+  const result = spawnSync(process.execPath, [script], {
+    encoding: "utf8",
+    env: {
+      DRY_RUN: "false",
+      VIDEO_CHANNELS: "youtube",
+      REVIEWED_VIDEO_URL: "https://example.public.blob.vercel-storage.com/media/review/sample.mp4",
+      REVIEWED_VIDEO_TITLE: "Sample collector review",
+      RESEARCH_RUN_ID: "rv-0123456789abcdef",
+    },
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Owner must select the YouTube Made-for-Kids audience decision/);
+  assert.doesNotMatch(result.stderr, /SyntaxError|fetch failed/);
 });
 
 test("public video titles reject numeric internal IDs", () => {
@@ -164,10 +185,12 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     mediaProbe: async () => ({ durationSeconds: 67, width: 720, height: 1280 }),
   });
   const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
+  await assert.rejects(() => publisher({ channel: "youtube", videoUrl, caption, title: "Missing decision" }), /explicit Made-for-Kids decision/);
   const youtubeResult = await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>", youtubeMadeForKids: true });
   const tiktokResult = await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
+  await publisher({ channel: "youtube", videoUrl, caption, title: "Another Title", youtubeMadeForKids: false });
 
-  assert.equal(mediaChecks, 2);
+  assert.equal(mediaChecks, 3);
   assert.deepEqual(youtubeResult, {
     id: "post-channel-youtube",
     publicUrl: "https://www.youtube.com/watch?v=verified123",
@@ -197,6 +220,9 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     mode: "shareNow",
     assets: [{ video: { url: videoUrl } }],
   });
+  assert.deepEqual(createRequests[2].variables.input.metadata.youtube, {
+    title: "Another Title", categoryId: "17", madeForKids: false,
+  });
   assert.match(createRequests[0].query, /CreateReviewVideo\(\$input: CreatePostInput!\)/);
   assert.match(createRequests[0].query, /createPost\(input: \$input\)/);
   assert.doesNotMatch(createRequests[0].query, /PostInputMetaData/);
@@ -217,6 +243,7 @@ test("review staging route forwards only approved client fields", () => {
   assert.match(stageRoute, /publicTitle = requirePublicVideoTitle\(body\?\.title/);
   assert.match(stageRoute, /title: publicTitle/);
   assert.match(stageRoute, /assertYoutubeShortsMetadata\(body\)/);
+  assert.match(stageRoute, /typeof value === "number" && Number\.isFinite\(value\)/);
   for (const field of ["videoUrl", "sizeBytes", "durationSeconds", "width", "height"]) {
     assert.match(stageRoute, new RegExp(`${field}: body\\?\\.${field}`));
   }

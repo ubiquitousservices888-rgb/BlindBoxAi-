@@ -46,6 +46,9 @@ export async function POST(request) {
   let publicTitle;
   try {
     publicTitle = requirePublicVideoTitle(body?.title, { label: "Video title" });
+    if (![body?.durationSeconds, body?.width, body?.height].every((value) => typeof value === "number" && Number.isFinite(value))) {
+      throw new Error("YouTube Short needs numeric measured duration and video dimensions");
+    }
     assertYoutubeShortsMetadata(body);
   } catch (cause) {
     return NextResponse.json({ error: cause.message }, { status: 400, headers: PRIVATE_HEADERS });

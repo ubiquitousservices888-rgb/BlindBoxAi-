@@ -95,6 +95,10 @@ if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one 
 
 const dryRun = /^(?:1|true|yes)$/i.test(String(process.env.DRY_RUN ?? ""));
 if (dryRun) console.log("REVIEWED_UPLOAD_DRY_RUN: true");
+const youtubeAudience = String(process.env.YOUTUBE_AUDIENCE ?? "unreviewed");
+if (!dryRun && channels.includes("youtube") && !["made_for_kids", "not_made_for_kids"].includes(youtubeAudience)) {
+  throw new Error("Owner must select the YouTube Made-for-Kids audience decision for this exact upload");
+}
 
 const publisher = dryRun ? null : createReviewBufferPublisher({
   token: process.env.BUFFER_API_TOKEN,
@@ -118,7 +122,10 @@ for (const channel of channels) {
   }
   const result = dryRun
     ? { id: `dry-run-${channel}`, duplicate: false }
-    : await publisher({ channel, videoUrl, caption, title, youtubeCategoryId: "17" });
+    : await publisher({
+      channel, videoUrl, caption, title, youtubeCategoryId: "17",
+      youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
+    });
   const tracked = new URL(trackedCta);
   results.push({
     channel,
@@ -127,7 +134,9 @@ for (const channel of channels) {
     campaignId: tracked.searchParams.get("campaign"),
     source: tracked.searchParams.get("source"),
   });
-  console.log(dryRun\n    ? `REVIEWED_UPLOAD_DRY_RUN_CHANNEL: ${channel}:${result.id}`\n    : `REVIEWED_UPLOAD_PUBLISHED: ${channel}:${result.id}`);
+  console.log(dryRun
+    ? `REVIEWED_UPLOAD_DRY_RUN_CHANNEL: ${channel}:${result.id}`
+    : `REVIEWED_UPLOAD_PUBLISHED: ${channel}:${result.id}`);
 }
 
 if (!dryRun) {

@@ -121,7 +121,7 @@ export default function DashboardClient() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
       setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
-      setReviewMessage("APPROVED — this video is in the review queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
+      setReviewMessage("APPROVED — this video is in the approved queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
       etagRef.current = "";
       await load(activeCode, false);
     } catch (cause) {

@@ -44,7 +44,7 @@ The actual Buffer connection, channel name, content provenance, an owner Made-fo
 
 `.github/workflows/manual-reviewed-video.yml`
 
-This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
+This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. A live YouTube run requires the owner to choose `youtube_audience` explicitly; the default `unreviewed` value fails closed. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
 
 ### Verified-product render pipeline
 

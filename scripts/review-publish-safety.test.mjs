@@ -239,10 +239,23 @@ test("Shorts preflight checks the actual probed duration and dimensions", async 
   assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: 613, width: 1280, height: 720 }), /three-minute/);
   assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: 67, width: 1280, height: 720 }), /square or 9:16/);
   assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: NaN, width: 720, height: 1280 }), /measured duration/);
+  assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: 0.05, width: 720, height: 1280 }), /at least one second/);
+  assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: 10, width: 4, height: 7 }), /240 pixels/);
   await assert.rejects(() => probeYoutubeShortsMedia("unused", async () => ({
     streams: [{ codec_type: "video", width: 1280, height: 720 }], format: { duration: "613.5" },
   })), /three-minute/);
   await assert.rejects(() => probeYoutubeShortsMedia("unused", async () => ({ streams: [], format: {} })), /no video stream/);
+  assert.deepEqual(await probeYoutubeShortsMedia("unused", async () => ({
+    streams: [
+      { codec_type: "video", width: 1000, height: 1000, disposition: { attached_pic: 1 } },
+      { codec_type: "video", width: 1920, height: 1080, disposition: { attached_pic: 0, default: 1 }, side_data_list: [{ rotation: -90 }] },
+    ],
+    format: { duration: "12.5" },
+  })), { durationSeconds: 12.5, width: 1080, height: 1920 });
+  assert.deepEqual(await probeYoutubeShortsMedia("unused", async () => ({
+    streams: [{ codec_type: "video", width: 1920, height: 1080, tags: { rotate: "90" } }],
+    format: { duration: "12.5" },
+  })), { durationSeconds: 12.5, width: 1080, height: 1920 });
 });
 
 test("the review publisher refuses a different Buffer YouTube destination", async () => {
@@ -262,9 +275,12 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   const queueDecision = source.indexOf('action: dryRun ? "peek" : "claim"');
   const dryPreview = source.indexOf("REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL");
+  const bufferDestination = source.indexOf("REVIEW_QUEUE_BUFFER_DESTINATION");
+  const bufferResolve = source.indexOf("const target = await resolveReviewBufferChannel({");
   const bufferCreate = source.indexOf("createReviewBufferPublisher({");
   assert.ok(queueDecision >= 0);
   assert.ok(dryPreview > queueDecision);
+  assert.ok(bufferResolve > queueDecision && bufferDestination > bufferResolve && dryPreview > bufferDestination);
   assert.ok(bufferCreate > dryPreview);
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
   assert.match(source, /probeYoutubeShortsMedia\(safeVideoUrl\)/);
@@ -375,8 +391,10 @@ test("canonical YouTube audience decision is required before a queue claim", () 
   const audienceGuard = source.indexOf("Owner must select the YouTube Made-for-Kids audience decision");
   const queueCall = source.indexOf('action: dryRun ? "peek" : "claim"');
   assert.ok(audienceGuard >= 0 && queueCall > audienceGuard);
-  assert.ok(source.indexOf("Live publication requires an exact research_run_id") < queueCall);
-  assert.ok(source.indexOf("Live publication requires one exact publish_channel") < queueCall);
+  const runGuard = source.indexOf("Live publication requires an exact research_run_id");
+  const channelGuard = source.indexOf("Live publication requires one exact publish_channel");
+  assert.ok(runGuard >= 0 && runGuard < queueCall);
+  assert.ok(channelGuard >= 0 && channelGuard < queueCall);
   assert.match(source, /youtubeMadeForKids: channel === "youtube" \? youtubeAudience === "made_for_kids"/);
 });
 
