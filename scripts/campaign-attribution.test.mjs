@@ -84,6 +84,23 @@ test("EPN custom id carries campaign and source", () => {
   assert.ok(id.length <= 240);
 });
 
+test("EPN custom id preserves the full video campaign suffix at maximum metadata length", () => {
+  const campaignId = "bb-rv-0123456789abcdef";
+  const source = "youtube";
+  const expectedSuffix = campaignCustomIdSuffix({ campaignId, source });
+  const id = epnCustomId({
+    seriesSlug: "series-".repeat(20),
+    figure: "very-long-collector-product-name-".repeat(20),
+    kind: "active-kind-with-extra-metadata",
+    placement: "series-table-placement-with-extra-metadata",
+    campaignId,
+    source,
+  });
+  assert.ok(id.length <= 240);
+  assert.ok(id.endsWith(expectedSuffix));
+  assert.match(id, /cebb-rv-0123456789abcdefxyoutube$/);
+});
+
 test("EPN custom id can carry a source-only landing tag", () => {
   const id = epnCustomId({
     seriesSlug: "hirono-series",
