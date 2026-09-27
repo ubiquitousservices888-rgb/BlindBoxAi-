@@ -1,10 +1,10 @@
-name: Gemini Omni video stage (manual, review only)
+name: Review-only video stage (manual)
 
 on:
   workflow_dispatch:
     inputs:
       resolution:
-        description: "Draft resolution"
+        description: "Draft resolution for Gemini fallback"
         required: true
         default: "360p"
         type: choice
@@ -23,13 +23,16 @@ jobs:
     name: Generate hosted MP4 then stop at READY_FOR_REVIEW
     runs-on: ubuntu-latest
     env:
+      NEXT_PUBLIC_EPN_CAMPID: "5339171775"
+      CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
+      CREATOMATE_TEMPLATE_ID: ${{ vars.CREATOMATE_TEMPLATE_ID || '8b360817-3e33-40e3-bbb4-55a8b508f06e' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
       GEMINI_VIDEO_RESOLUTION: ${{ inputs.resolution }}
       ALLOW_MANUAL_VIDEO_RENDER: "true"
       ALLOW_GEMINI_VIDEO_RENDER: "true"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"
-      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'twitter,tiktok' }}
+      VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -46,12 +49,59 @@ jobs:
         run: npm run video:test
       - name: Validate verified video source data
         run: node scripts/video-pipeline.mjs validate
-      - name: Generate Gemini Omni draft
-        run: npm run video:gemini-stage
+      - name: Generate production-quality draft
+        shell: bash
+        run: |
+          set +e
+          creatomate_status=1
+          if [ -n "$CREATOMATE_API_KEY" ]; then
+            echo "Trying Creatomate renderer..."
+            npm run video:daily
+            creatomate_status=$?
+          fi
+
+          if [ "$creatomate_status" -eq 0 ]; then
+            echo "VIDEO_RENDER_PROVIDER=creatomate"
+            exit 0
+          fi
+
+          gemini_status=1
+          if [ -n "$GEMINI_API_KEY" ] && [ -n "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "Creatomate unavailable; trying guarded Gemini renderer..."
+            npm run video:gemini-stage
+            gemini_status=$?
+          fi
+          set -e
+
+          if [ "$gemini_status" -eq 0 ]; then
+            echo "VIDEO_RENDER_PROVIDER=gemini-omni"
+            exit 0
+          fi
+
+          echo "::error::No configured production-quality renderer succeeded. Nothing was published."
+          exit 1
+      - name: Confirm exact review state
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const file = "output/video-pipeline/state.json";
+          if (!fs.existsSync(file)) throw new Error("Renderer did not produce review state");
+          const state = JSON.parse(fs.readFileSync(file, "utf8"));
+          const blocked = new Set(["deterministic-ffmpeg", "text-card", "placeholder", "mock", "simulated"]);
+          if (state?.state !== "READY_FOR_REVIEW") throw new Error("Video is not READY_FOR_REVIEW");
+          if (blocked.has(state?.render?.provider)) throw new Error(`Blocked renderer reached review state: ${state?.render?.provider}`);
+          if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(state?.render?.videoUrl ?? "")) {
+            throw new Error("Review video must be a hosted HTTPS MP4");
+          }
+          console.log(`READY_FOR_REVIEW: ${state.id}`);
+          console.log(`VIDEO_RENDER_PROVIDER: ${state.render.provider}`);
+          console.log(`REVIEW_VIDEO_URL: ${state.render.videoUrl}`);
+          NODE
       - name: Upload review state
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: gemini-video-ready-for-review
+          name: video-ready-for-review
           path: output/video-pipeline/state.json
           retention-days: 7
           if-no-files-found: error
