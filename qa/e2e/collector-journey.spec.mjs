@@ -3,21 +3,27 @@ import { expect, test } from "@playwright/test";
 const SERIES_PATH = "/series/labubu-the-monsters-have-a-seat";
 const CAMPAIGN = "qa-234-journey";
 
-async function isolateExternalRequests(context, observed) {
+async function isolateExternalRequests(context) {
   await context.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.hostname === "127.0.0.1") return route.continue();
-    if (url.hostname === "www.ebay.com") {
-      observed.push(url);
-      return route.fulfill({ status: 200, contentType: "text/html", body: "<h1>QA marketplace stub</h1>" });
-    }
     return route.abort();
   });
 }
 
 test("social visit, consent, first-party event, and EPN outbound route stay attributed", async ({ page, context }) => {
   const outbound = [];
-  await isolateExternalRequests(context, outbound);
+  await isolateExternalRequests(context);
+  await context.route(/\/api\/out\/ebay\?/, async (route) => {
+    // Fetch the actual Next handler, stop at its 302, and render a disposable
+    // marketplace response. The popup redirect escaped the external route in CI.
+    const response = await route.fetch({ maxRedirects: 0 });
+    expect(response.status()).toBe(302);
+    const target = new URL(response.headers().location);
+    expect(target.hostname).toBe("www.ebay.com");
+    outbound.push(target);
+    await route.fulfill({ status: 200, contentType: "text/html", body: "<h1>QA marketplace stub</h1>" });
+  });
   await page.goto(`${SERIES_PATH}?campaign=${CAMPAIGN}&source=youtube`);
   await expect(page.getByRole("heading", { name: /The Monsters: Have A Seat/ })).toBeVisible();
 
@@ -46,8 +52,8 @@ test("separate visitors do not share consent or campaign state", async ({ browse
   const first = await browser.newContext();
   const second = await browser.newContext();
   try {
-    await isolateExternalRequests(first, []);
-    await isolateExternalRequests(second, []);
+    await isolateExternalRequests(first);
+    await isolateExternalRequests(second);
     const one = await first.newPage();
     const two = await second.newPage();
     await one.goto(`${SERIES_PATH}?campaign=${CAMPAIGN}&source=youtube`);
