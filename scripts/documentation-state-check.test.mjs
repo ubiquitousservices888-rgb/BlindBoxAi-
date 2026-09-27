@@ -25,7 +25,7 @@ function fixture(t) {
   ].join("\n"));
   write(root, "README.md", "Governance: see AGENTS.md.\n");
   write(root, "docs/CONTEXT_TRANSFER.md", "Use the state vocabulary defined in AGENTS.md.\n");
-  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nChannels: youtube,tiktok\nState vocabulary: see AGENTS.md.\n");
+  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn is not an active production target.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
   write(root, ".github/workflows/publish-approved-reviews.yml", [
     "name: Publish approved review videos",
     "on:",
@@ -128,4 +128,14 @@ test("missing files are collected into one consolidated failure report", (t) => 
   assert.match(result.stderr, /DOCUMENTATION_STATE_CHECK: FAIL/);
   assert.match(result.stderr, /docs\/autonomous-video-pipeline\.md: file missing/);
   assert.match(result.stderr, /docs\/labubu-buffer-automation\.md: file missing/);
+});
+
+
+test("missing owner eBay OAuth state fails", (t) => {
+  const root = fixture(t);
+  const file = path.join(root, "docs/CURRENT_STATE.md");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("merged PR #168", "owner OAuth pending"));
+  const result = run(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must record the owner eBay OAuth merge/);
 });
