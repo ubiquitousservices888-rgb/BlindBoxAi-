@@ -18,6 +18,7 @@ const scheduledAllowlist = new Set([
   "mr-know-it-all-tool-bot.yml",
   "narrative-flywheel-stage.yml",
   "partnership-flywheel-stage.yml",
+  "release-gate.yml",
 ]);
 
 const publishingMarkers = [

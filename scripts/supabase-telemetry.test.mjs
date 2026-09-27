@@ -16,7 +16,7 @@ async function withTelemetryTestConfig(fn) {
     allow: process.env.BLINDBOXAI_ALLOW_TEST_INGEST,
   };
   process.env.EVIDENCE_UPLOAD_CODE = "test-telemetry-code";
-  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co";
   process.env.BLINDBOXAI_ALLOW_TEST_INGEST = "true";
   try { await fn(); } finally {
     if (previous.code === undefined) delete process.env.EVIDENCE_UPLOAD_CODE;
@@ -104,6 +104,17 @@ test("telemetry fails closed when existing BlindBoxAI authorization is missing",
     } finally {
       if (previous !== undefined) process.env.EVIDENCE_UPLOAD_CODE = previous;
     }
+  });
+});
+
+test("telemetry rejects a different app project before sending its bearer code", async () => {
+  await withTelemetryTestConfig(async () => {
+    let calls = 0;
+    process.env.SUPABASE_URL = "https://different-project.supabase.co";
+    await assert.rejects(recordAnalyticsEvent({ event: "page_view" }, {
+      fetchImpl: async () => { calls += 1; throw new Error("unexpected request"); },
+    }), /dedicated BlindBoxAI project/);
+    assert.equal(calls, 0);
   });
 });
 

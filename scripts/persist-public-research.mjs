@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
+import { assertBlindBoxSupabaseOrigin, BLINDBOXAI_SUPABASE_ORIGIN } from "../lib/blindbox-supabase-boundary.mjs";
 
 const OIDC_AUDIENCE = "blindboxai-research-bot";
-const DEFAULT_SUPABASE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co";
 const MAX_ARTIFACT_BYTES = 1_000_000;
 
 function clean(value, max = 240) {
@@ -60,14 +60,11 @@ export async function getGithubOidcToken(fetchImpl = fetch) {
 export async function persistPublicResearch({
   artifact,
   oidcToken,
-  supabaseUrl = process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL,
+  supabaseUrl = process.env.SUPABASE_URL || BLINDBOXAI_SUPABASE_ORIGIN,
   fetchImpl = fetch,
 } = {}) {
   const checked = validatePublicResearchArtifact(artifact);
-  const base = clean(supabaseUrl, 500).replace(/\/$/, "");
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(base)) {
-    throw new Error("Supabase URL is invalid");
-  }
+  const base = assertBlindBoxSupabaseOrigin(supabaseUrl);
   if (!oidcToken) throw new Error("GitHub OIDC token is required");
 
   const response = await fetchImpl(`${base}/functions/v1/mr-know-it-all-ingest`, {

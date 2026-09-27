@@ -191,7 +191,7 @@ test("explicitly opted-in mocked ingest can queue without a Vercel Supabase key"
     allow: process.env.BLINDBOXAI_ALLOW_TEST_INGEST,
   };
   delete process.env.SUPABASE_ANON_KEY;
-  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co";
   process.env.EVIDENCE_UPLOAD_CODE = "test-ingest-code";
   process.env.BLINDBOXAI_ALLOW_TEST_INGEST = "true";
   let captured = null;

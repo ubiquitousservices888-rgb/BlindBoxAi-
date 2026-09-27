@@ -70,7 +70,7 @@ test("Supabase reader requires server-side URL and service role credentials", as
     /SUPABASE_URL is required/,
   );
   await assert.rejects(
-    () => loadPrivateQuestionEvents({ supabaseUrl: "https://example.supabase.co", serviceRoleKey: "", now }),
+    () => loadPrivateQuestionEvents({ supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co", serviceRoleKey: "", now }),
     /SUPABASE_SERVICE_ROLE_KEY is required/,
   );
 });
@@ -78,7 +78,7 @@ test("Supabase reader requires server-side URL and service role credentials", as
 test("Supabase query failure throws instead of returning an empty demand set", async () => {
   await assert.rejects(
     () => loadPrivateQuestionEvents({
-      supabaseUrl: "https://example.supabase.co",
+      supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
       serviceRoleKey: "server-only-secret",
       now,
       fetchImpl: async () => jsonResponse({ error: "denied" }, 403),
@@ -113,7 +113,7 @@ test("reader allowlists deterministic rows, excludes fixtures, and paginates pas
   let call = 0;
 
   const result = await loadPrivateQuestionEvents({
-    supabaseUrl: "https://example.supabase.co",
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
     serviceRoleKey: "server-only-secret",
     now,
     lookbackDays: 30,
@@ -152,7 +152,7 @@ test("reader allowlists deterministic rows, excludes fixtures, and paginates pas
 
 test("reader excludes all four owner verification timestamps without deleting rows", async () => {
   const result = await loadPrivateQuestionEvents({
-    supabaseUrl: "https://example.supabase.co",
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
     serviceRoleKey: "server-only-secret",
     now,
     maxEvents: 1,
@@ -171,7 +171,7 @@ test("reader excludes all four owner verification timestamps without deleting ro
 
 test("maxEvents keeps the newest eligible rows instead of the oldest rows in the lookback window", async () => {
   const result = await loadPrivateQuestionEvents({
-    supabaseUrl: "https://example.supabase.co",
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
     serviceRoleKey: "server-only-secret",
     now,
     maxEvents: 2,
@@ -193,7 +193,7 @@ test("errors never include the service-role value", async () => {
     async () => {
       try {
         await loadPrivateQuestionEvents({
-          supabaseUrl: "https://example.supabase.co",
+          supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
           serviceRoleKey: secret,
           now,
           fetchImpl: async () => { throw new Error(`network failed ${secret}`); },

@@ -5,13 +5,15 @@ on:
     branches: [main]
   push:
     branches: [main]
+  schedule:
+    - cron: "43 9 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  group: release-gate-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'daily' || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -52,8 +54,12 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
-      - name: Run all safety tests
-        run: npm test
+      - name: Enforce application and client/server boundaries
+        run: npm run qa:boundaries
+      - name: Run isolated module and safety tests
+        run: npm run qa:unit
+      - name: Run local HTTP service contract tests
+        run: npm run qa:integration
       - name: Validate generated and source data
         run: npm run validate
         env:
@@ -64,7 +70,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
+    env:
+      # Deliberately fake fixture; no production EPN account is used in browser tests.
+      NEXT_PUBLIC_EPN_CAMPID: "5339000000"
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -81,6 +90,18 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+      - name: Install isolated headless browser
+        run: npx playwright install --with-deps chromium --only-shell
+      - name: Run browser journey across social landing, site, and stubbed marketplace
+        run: npm run qa:e2e
+      - name: Preserve failed browser traces
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: qa-e2e-failure
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   audit:
     name: Audit
@@ -102,3 +123,21 @@ jobs:
         run: npm run audit:epn
       - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
+
+  production-smoke:
+    name: Production smoke
+    if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.preflight.result == 'success' && needs.test.result == 'success' && needs.build.result == 'success' && needs.audit.result == 'success')) }}
+    needs: [preflight, test, build, audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout reviewed main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Verify Vercel-served revision and read-only visitor path
+        run: npm run qa:smoke

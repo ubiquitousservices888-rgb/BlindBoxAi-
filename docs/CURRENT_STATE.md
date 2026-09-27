@@ -3,7 +3,7 @@
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-09-27
-**Functional baseline inspected:** `main` after PR #230 merge at `97b05614903c500e004a72c30894530d8f3cb09a`
+**Functional baseline inspected:** `main` after PR #233 merge at `72c7eb7af6ed786eb0ae17dbeb5dbd3fe84e47d1`
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -12,6 +12,10 @@ This file is an orientation map, not evidence. If this document conflicts with c
 [`AGENTS.md`](../AGENTS.md) is the single canonical source for the evidence hierarchy, state vocabulary, and protected-action rules. This file only maps current repository topology.
 
 Do not use an old branch as evidence of current behavior.
+
+## QA and deployment verification
+
+`docs/qa-protocol.md` describes isolated module tests, disposable HTTP service integration tests, an isolated browser journey, application boundaries, and daily deployment verification. `.github/workflows/release-gate.yml` runs those layers on PRs and `main`, and daily without any scheduled publishing. Vercel Git integration deploys reviewed `main`; the post-gate smoke checks the exact production revision through `/api/health`. This QA path does not resolve issue #234's unverified video content or authorize a live post.
 
 ## Canonical owner-reviewed video path
 

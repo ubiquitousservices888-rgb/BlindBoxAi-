@@ -51,7 +51,7 @@ test("persists through OIDC edge call without a service-role credential", async 
   const result = await persistPublicResearch({
     artifact: artifact(),
     oidcToken: "test-oidc-token",
-    supabaseUrl: "https://example-project.supabase.co",
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
     fetchImpl,
   });
 
@@ -60,6 +60,17 @@ test("persists through OIDC edge call without a service-role credential", async 
   assert.match(calls[0].url, /\/functions\/v1\/mr-know-it-all-ingest$/);
   assert.equal(calls[0].init.headers.authorization, "Bearer test-oidc-token");
   assert.equal(JSON.parse(calls[0].init.body).type, "bot_public_research");
+});
+
+test("rejects another Supabase project before sending the OIDC token", async () => {
+  let calls = 0;
+  await assert.rejects(persistPublicResearch({
+    artifact: artifact(),
+    oidcToken: "test-oidc-token",
+    supabaseUrl: "https://different-project.supabase.co",
+    fetchImpl: async () => { calls += 1; throw new Error("unexpected request"); },
+  }), /dedicated BlindBoxAI project/);
+  assert.equal(calls, 0);
 });
 
 test("persistence client never references Supabase service-role credentials", () => {
