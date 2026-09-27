@@ -3,7 +3,9 @@ import fs from "node:fs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import test from "node:test";
 
-import { assertVerifiedPublicPost, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
+import { assertVerifiedPublicPost, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
+import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
+import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -229,6 +231,33 @@ test("dry-run parsing is explicit", () => {
   assert.equal(isDryRun("false"), false);
 });
 
+test("Shorts preflight checks the actual probed duration and dimensions", async () => {
+  assert.deepEqual(assertYoutubeShortsMetadata({ durationSeconds: 67, width: 720, height: 1280 }), {
+    durationSeconds: 67, width: 720, height: 1280,
+  });
+  assert.doesNotThrow(() => assertYoutubeShortsMetadata({ durationSeconds: 180, width: 1080, height: 1080 }));
+  assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: 613, width: 1280, height: 720 }), /three-minute/);
+  assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: 67, width: 1280, height: 720 }), /square or 9:16/);
+  assert.throws(() => assertYoutubeShortsMetadata({ durationSeconds: NaN, width: 720, height: 1280 }), /measured duration/);
+  await assert.rejects(() => probeYoutubeShortsMedia("unused", async () => ({
+    streams: [{ codec_type: "video", width: 1280, height: 720 }], format: { duration: "613.5" },
+  })), /three-minute/);
+  await assert.rejects(() => probeYoutubeShortsMedia("unused", async () => ({ streams: [], format: {} })), /no video stream/);
+});
+
+test("the review publisher refuses a different Buffer YouTube destination", async () => {
+  const fetchImpl = async (_url, options) => {
+    const { query } = JSON.parse(options.body);
+    const data = query.includes("query Organizations")
+      ? { account: { organizations: [{ id: "org-test", name: "Public" }] } }
+      : { channels: [{ id: "buffer-channel", service: "youtube", serviceId: "UC-wrong-destination", isLocked: false, isDisconnected: false, isQueuePaused: false }] };
+    return { ok: true, json: async () => ({ data }) };
+  };
+  await assert.rejects(() => resolveReviewBufferChannel({
+    token: "disposable-token", organizationId: "org-test", channel: "youtube", fetchImpl,
+  }), /approved destination, found 0/);
+});
+
 test("queue publisher dry-run uses peek and exits before Buffer creation", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   const queueDecision = source.indexOf('action: dryRun ? "peek" : "claim"');
@@ -238,6 +267,8 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.ok(dryPreview > queueDecision);
   assert.ok(bufferCreate > dryPreview);
   assert.match(source, /assertApprovedReviewVideoUrl\(item\.video_url\)/);
+  assert.match(source, /probeYoutubeShortsMedia\(safeVideoUrl\)/);
+  assert.match(source, /resolveReviewBufferChannel/);
   assert.match(source, /cappedPublishChannels\(remainingChannels\.join\(","\)\)/);
   assert.match(source, /PUBLISH_CHANNEL/);
   assert.match(source, /const configuredChannels =/);
@@ -334,6 +365,19 @@ test("workflow pins review-video target channels and ignores repo override", () 
   assert.doesNotMatch(source, /^\s*VIDEO_CHANNELS:.*twitter/m);
   assert.doesNotMatch(source, /vars\.VIDEO_CHANNELS/);
   assert.doesNotMatch(source, /schedule:|cron:/);
+  assert.match(source, /youtube_audience:/);
+  assert.match(source, /- made_for_kids/);
+  assert.match(source, /- not_made_for_kids/);
+});
+
+test("canonical YouTube audience decision is required before a queue claim", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const audienceGuard = source.indexOf("Owner must select the YouTube Made-for-Kids audience decision");
+  const queueCall = source.indexOf('action: dryRun ? "peek" : "claim"');
+  assert.ok(audienceGuard >= 0 && queueCall > audienceGuard);
+  assert.ok(source.indexOf("Live publication requires an exact research_run_id") < queueCall);
+  assert.ok(source.indexOf("Live publication requires one exact publish_channel") < queueCall);
+  assert.match(source, /youtubeMadeForKids: channel === "youtube" \? youtubeAudience === "made_for_kids"/);
 });
 
 
@@ -396,4 +440,3 @@ test("publisher rejects an empty configured channel set before claiming", () => 
   const claim = source.indexOf('action: dryRun ? "peek" : "claim"');
   assert.ok(guard >= 0 && claim > guard);
 });
-

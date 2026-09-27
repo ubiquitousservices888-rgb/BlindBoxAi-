@@ -121,7 +121,7 @@ export default function DashboardClient() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
       setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
-      setReviewMessage("APPROVED — the exact video has been released to the protected social-production publishing gate.");
+      setReviewMessage("APPROVED — this video is in the review queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
       etagRef.current = "";
       await load(activeCode, false);
     } catch (cause) {
@@ -185,7 +185,7 @@ export default function DashboardClient() {
       <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
         OPEN SAFE VIDEO UPLOADER
       </a>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>The canonical uploader uses Supabase signed storage. Each staged video below gets its own yellow WATCH button and blue APPROVE button. Approval is authenticated server-side and still passes through the protected social-production environment before publishing.</p>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>The canonical uploader uses Supabase signed storage. Watch each video before approving it. Approval puts the exact video in the queue; an operator must separately run the GitHub review-video publisher after checking its destination and format.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
 
       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
@@ -202,11 +202,11 @@ export default function DashboardClient() {
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
                 <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
-                  {approved ? "APPROVED & RELEASED" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "APPROVE & LAUNCH THIS VIDEO"}
+                  {approved ? "APPROVED FOR QUEUE" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "APPROVE THIS VIDEO"}
                 </button>
               </div>
               {watching ? <video src={item.mediaUrl} controls autoPlay playsInline preload="metadata" style={{ width: "100%", marginTop: 12, borderRadius: 10, background: "black" }} /> : null}
-              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved from the control panel. Publishing continues only after the protected social-production gate accepts it." : "Watch the full video first. If it passes your factual, visual, audio, branding, CTA, disclosure, and pacing review, press blue. If it fails, do not approve it; upload a corrected version instead."}</p>
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video is in the approved queue. A separate manual GitHub run is required to publish it." : "Watch the full video first. If it passes your factual, visual, audio, branding, CTA, disclosure, and pacing review, press blue. If it fails, do not approve it; upload a corrected version instead."}</p>
             </article>
           );
         }) : <p>No videos are currently staged for review in the dashboard window.</p>}

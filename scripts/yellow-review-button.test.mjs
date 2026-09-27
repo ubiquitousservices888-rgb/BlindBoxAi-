@@ -26,7 +26,7 @@ const jsonResponse = (body, status = 200) => ({
 });
 
 test("staged videos have watch and per-video approval controls", () => {
-  assert.match(uploadPage, /APPROVE & LAUNCH THIS VIDEO/);
+  assert.match(uploadPage, /APPROVE THIS VIDEO FOR QUEUE/);
   assert.match(uploadPage, /<video src=\{result\.url\}/);
   assert.match(uploadPage, /\/api\/owner\/approve-review/);
   assert.doesNotMatch(uploadPage, /APPROVE & LAUNCH ALL READY VIDEOS/);
@@ -120,8 +120,8 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     }
     if (query.includes("query Channels")) {
       return jsonResponse({ data: { channels: [
-        { id: "channel-youtube", name: "YouTube", displayName: "YouTube", service: "youtube", isQueuePaused: false, isDisconnected: false, isLocked: false },
-        { id: "channel-tiktok", name: "TikTok", displayName: "TikTok", service: "tiktok", isQueuePaused: false, isDisconnected: false, isLocked: false },
+        { id: "channel-youtube", name: "YouTube", displayName: "YouTube", service: "youtube", serviceId: "UCwaUc4e4iv2Q4P1nxlVrTvw", isQueuePaused: false, isDisconnected: false, isLocked: false },
+        { id: "channel-tiktok", name: "TikTok", displayName: "TikTok", service: "tiktok", serviceId: "tiktok-test", isQueuePaused: false, isDisconnected: false, isLocked: false },
       ] } });
     }
     if (query.includes("query Existing")) {
@@ -159,9 +159,12 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     throw new Error("unexpected Buffer query");
   };
 
-  const publisher = createReviewBufferPublisher({ token: "test-token", organizationId: "org-1", fetchImpl });
+  const publisher = createReviewBufferPublisher({
+    token: "test-token", organizationId: "org-1", fetchImpl,
+    mediaProbe: async () => ({ durationSeconds: 67, width: 720, height: 1280 }),
+  });
   const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
-  const youtubeResult = await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>" });
+  const youtubeResult = await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>", youtubeMadeForKids: true });
   const tiktokResult = await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
 
   assert.equal(mediaChecks, 2);
@@ -185,7 +188,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     schedulingType: "automatic",
     mode: "shareNow",
     assets: [{ video: { url: videoUrl } }],
-    metadata: { youtube: { title: "YouTube Title", categoryId: "17" } },
+    metadata: { youtube: { title: "YouTube Title", categoryId: "17", madeForKids: true } },
   });
   assert.deepEqual(createRequests[1].variables.input, {
     text: caption,
@@ -211,7 +214,10 @@ test("successful queued publishing is linked into the public homepage feed", () 
 
 test("review staging route forwards only approved client fields", () => {
   assert.doesNotMatch(stageRoute, /\.\.\.body/);
-  for (const field of ["videoUrl", "title", "sizeBytes", "durationSeconds", "width", "height"]) {
+  assert.match(stageRoute, /publicTitle = requirePublicVideoTitle\(body\?\.title/);
+  assert.match(stageRoute, /title: publicTitle/);
+  assert.match(stageRoute, /assertYoutubeShortsMetadata\(body\)/);
+  for (const field of ["videoUrl", "sizeBytes", "durationSeconds", "width", "height"]) {
     assert.match(stageRoute, new RegExp(`${field}: body\\?\\.${field}`));
   }
 });

@@ -9,15 +9,24 @@ on:
         default: true
         type: boolean
       publish_channel:
-        description: "Optional single channel to publish; exact-channel runs complete only that platform"
+        description: "Single channel; required for every live post (youtube or tiktok)"
         required: false
         default: ""
         type: string
       research_run_id:
-        description: "Optional exact approved review row (rv- followed by 16 hex characters)"
+        description: "Exact approved row; required for every live post (rv- followed by 16 hex characters)"
         required: false
         default: ""
         type: string
+      youtube_audience:
+        description: "Owner's audience decision for this exact YouTube video"
+        required: true
+        default: unreviewed
+        type: choice
+        options:
+          - unreviewed
+          - made_for_kids
+          - not_made_for_kids
 
 permissions:
   contents: read
@@ -36,6 +45,7 @@ jobs:
       VIDEO_CHANNELS: youtube,tiktok
       PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
       PUBLISH_RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
+      YOUTUBE_AUDIENCE: ${{ inputs.youtube_audience }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
     steps:
@@ -51,7 +61,6 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Verify Buffer configuration
-        if: ${{ inputs.dry_run != true }}
         run: |
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
             echo "::error::Buffer is not configured."
