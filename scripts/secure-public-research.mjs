@@ -126,7 +126,7 @@ const sources = mandate.lanes.flatMap((lane) => SEARCH_ANGLES.map(([angle, build
 })));
 const results = await Promise.all(sources.map(fetchSource));
 const seenFindings = new Set();
-const items = selectFindingsByLane(results, 96)
+const items = selectFindingsByLane(results, results.reduce((total, result) => total + result.items.length, 0))
   .map((item) => ({
     ...item,
     title: redact(item.title),
