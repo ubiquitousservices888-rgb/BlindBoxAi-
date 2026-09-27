@@ -14,7 +14,7 @@ test("scheduled research collector covers every mandate lane with two bounded se
   for (const lane of mandate.lanes) assert.match(source, new RegExp(`"${lane.replace(/[.*+?^$()|[\\]{}]/g, "\\$&")}":`));
   assert.match(source, /const SEARCH_ANGLES = \[/);
   assert.match(source, /"market"/);
-  assert.match(source, /"risk-demand"/);
+  assert.match(source, /"risk-demand"/);\n  assert.match(source, /mandate\\.lanes\\.flatMap\\(\\(lane\\) => SEARCH_ANGLES\\.map/);
   assert.match(source, /\.slice\(0, 96\)/);
 });
 
@@ -44,7 +44,7 @@ test("public research reader returns sanitized ranked matches without treating t
   assert.equal(result.matches[0].url, "https://example.com/charizard");
   assert.equal("observedLowUSD" in result.matches[0], false);
   assert.equal(new URL(requested.url).pathname, "/rest/v1/mr_know_it_all_public_research_runs");
-  assert.equal(requested.init.headers.apikey, "server-only-test-key");
+  assert.equal(requested.init.headers.apikey, "server-only-test-key");\n  assert.equal(requested.init.headers.authorization, "Bearer server-only-test-key");\n  const requestedUrl = new URL(requested.url);\n  assert.equal(requestedUrl.searchParams.get("order"), "researched_at.desc");\n  assert.equal(requestedUrl.searchParams.get("limit"), "8");\n  assert.match(requestedUrl.searchParams.get("select"), /artifact/);
 });
 
 test("public research query failures are explicit rather than false empty results", async () => {
@@ -56,4 +56,35 @@ test("public research query failures are explicit rather than false empty result
     }),
     /failed with status 403/,
   );
+});
+
+
+test("stopword-only queries return a distinct no-search-terms state", async () => {
+  const result = await searchRecentPublicResearch("what is this worth");
+  assert.equal(result.queryStatus, "no-search-terms");
+  assert.equal(result.runsSearched, 0);
+});
+
+test("malformed successful lookup payloads fail instead of reporting false zero matches", async () => {
+  await assert.rejects(
+    () => searchRecentPublicResearch("Labubu", {
+      supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
+      serviceRoleKey: "server-only-test-key",
+      fetchImpl: async () => response({ rows: [] }),
+    }),
+    /invalid row set/,
+  );
+});
+
+test("ranking uses normalized whole tokens and avoids substring false positives", async () => {
+  const result = await searchRecentPublicResearch("art pokemon", {
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
+    serviceRoleKey: "server-only-test-key",
+    fetchImpl: async () => response([{ researched_at: "2026-09-27T14:17:00.000Z", artifact: { findings: [
+      { title: "Cartoon part catalog", url: "https://example.com/noise" },
+      { title: "Pokémon art collectible", url: "https://example.com/match" },
+    ] } }]),
+  });
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.matches[0].url, "https://example.com/match");
 });
