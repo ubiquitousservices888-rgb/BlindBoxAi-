@@ -55,6 +55,7 @@ async function recordPublishedVideo({ title, videoUrl, researchRunId, results, f
   const oidcToken = await getGithubOidcToken(fetchImpl);
   const feedUrl = required(process.env.PUBLISHED_VIDEO_FEED_URL || DEFAULT_FEED_URL, "PUBLISHED_VIDEO_FEED_URL");
   const bufferPostIds = Object.fromEntries(results.map((item) => [item.channel, item.id]));
+  const publicUrls = Object.fromEntries(results.map((item) => [item.channel, item.publicUrl]));
   const campaignId = results.find((item) => item.campaignId)?.campaignId || null;
   const response = await fetchImpl(feedUrl, {
     method: "POST",
@@ -71,6 +72,7 @@ async function recordPublishedVideo({ title, videoUrl, researchRunId, results, f
       videoUrl,
       channels: results.map((item) => item.channel),
       bufferPostIds,
+      publicUrls,
       campaignId,
     }),
   });
@@ -130,6 +132,7 @@ for (const channel of channels) {
   results.push({
     channel,
     id: result.id,
+    publicUrl: result.publicUrl,
     duplicate: result.duplicate === true,
     campaignId: tracked.searchParams.get("campaign"),
     source: tracked.searchParams.get("source"),
