@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 
 import { buildDeterministicCompResponse } from "../../../lib/deterministic-comp-lookup.mjs";
-import { recordKnowItAllQuestion } from "../../../lib/mr-know-it-all-store.mjs";\nimport { searchRecentPublicResearch } from "../../../lib/public-research-search.mjs";
+import { recordKnowItAllQuestion } from "../../../lib/mr-know-it-all-store.mjs";
+import { searchRecentPublicResearch } from "../../../lib/public-research-search.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
