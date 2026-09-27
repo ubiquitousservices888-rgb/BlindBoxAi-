@@ -7,7 +7,8 @@ Security properties:
 - Supabase service-role credentials remain server-side inside the Edge Function
 - upload tickets expire and are scoped to one `media/review/*.mp4` path
 - bucket is restricted to MP4 files up to 100 MB
-- uploaded videos remain `READY_FOR_REVIEW` and still require the existing blue owner approval gate before social publishing
+- uploaded videos remain `READY_FOR_REVIEW`; blue owner approval places one item in the approved queue, and publishing requires a separate manual GitHub dispatch
+- the phone uploader checks titles and YouTube Short dimensions/duration before upload; the publisher independently probes the hosted file before a YouTube post, including rotation and cover-art handling; BlindBoxAI requires at least one second and 240 pixels on the shortest side as a quality floor
 - no purchasing, outreach, or automatic approval authority is added
 
 The legacy Vercel Blob upload route is retained for compatibility but is not used by the standalone `/media-upload` phone flow while the store is suspended.

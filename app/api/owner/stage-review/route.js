@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
+import { requirePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
+import { assertYoutubeShortsMetadata } from "../../../../lib/review-shorts-eligibility.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +43,17 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
+  let publicTitle;
+  try {
+    publicTitle = requirePublicVideoTitle(body?.title, { label: "Video title" });
+    if (![body?.durationSeconds, body?.width, body?.height].every((value) => typeof value === "number" && Number.isFinite(value))) {
+      throw new Error("YouTube Short needs numeric measured duration and video dimensions");
+    }
+    assertYoutubeShortsMetadata(body);
+  } catch (cause) {
+    return NextResponse.json({ error: cause.message }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+
   try {
     const response = await fetch(REVIEW_QUEUE_URL, {
       method: "POST",
@@ -51,7 +64,7 @@ export async function POST(request) {
       body: JSON.stringify({
         action: "stage",
         videoUrl: body?.videoUrl,
-        title: body?.title,
+        title: publicTitle,
         sizeBytes: body?.sizeBytes,
         durationSeconds: body?.durationSeconds,
         width: body?.width,

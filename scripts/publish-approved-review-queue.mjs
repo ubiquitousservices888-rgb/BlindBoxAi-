@@ -5,9 +5,12 @@ import {
 import {
   createReviewBufferPublisher,
   isVerifiedPublicPostUrl,
+  resolveReviewBufferChannel,
 } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
+import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -53,6 +56,7 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 const dryRun = isDryRun(process.env.DRY_RUN);
 const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
 const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "");
+const youtubeAudience = String(process.env.YOUTUBE_AUDIENCE ?? "unreviewed");
 const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",").map((value) => value.trim()).filter(Boolean))];
 if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
@@ -63,6 +67,16 @@ if (!configuredChannels.length) {
 }
 if (requestedChannel && !configuredChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
+}
+if ((!requestedChannel || requestedChannel === "youtube") && configuredChannels.includes("youtube") &&
+    !["made_for_kids", "not_made_for_kids"].includes(youtubeAudience)) {
+  throw new Error("Owner must select the YouTube Made-for-Kids audience decision for this exact video");
+}
+if (!dryRun && !requestedRunId) {
+  throw new Error("Live publication requires an exact research_run_id in the manual dispatch");
+}
+if (!dryRun && !requestedChannel) {
+  throw new Error("Live publication requires one exact publish_channel in the manual dispatch");
 }
 const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
 const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, {
@@ -81,50 +95,62 @@ if (!item) {
   console.log("REVIEW_QUEUE_EMPTY: true");
   process.exit(0);
 }
-const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
-const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
-const leaseToken = dryRun ? "" : required(item.publishing_at, "queue lease token");
-
-const targetChannels = configuredChannels;
-const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
-const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
-const completedChannels = new Set(
-  (Array.isArray(item.published_channels) ? item.published_channels : [])
-    .filter((channel) => isVerifiedPublicPostUrl(channel, recordedPublicUrls[channel])),
-);
-const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
-if (!remainingChannels.length) {
-  if (!dryRun) {
-    await postJson(REVIEW_QUEUE_URL, reviewToken, {
-      action: "release",
-      researchRunId: item.research_run_id,
-      leaseToken,
-      error: "No remaining configured publish channels",
-    });
-  }
-  console.log("REVIEW_QUEUE_NO_REMAINING_CHANNELS: true");
-  process.exit(0);
-}
-const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
-if (deferredChannels.length) {
-  console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
-}
-console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
-if (dryRun) {
-  console.log(`REVIEW_QUEUE_WOULD_PUBLISH_RUN: ${item.research_run_id}`);
-  console.log(`REVIEW_QUEUE_WOULD_PUBLISH_TITLE: ${publicTitle}`);
-  console.log(`REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL: ${channels[0]}`);
-  console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
-  process.exit(0);
-}
-
-const publisher = createReviewBufferPublisher({
-  token: process.env.BUFFER_API_TOKEN,
-  organizationId: process.env.BUFFER_ORGANIZATION_ID,
-});
-
-const results = [];
+const leaseToken = dryRun ? "" : String(item.publishing_at ?? "").trim();
 try {
+  const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
+  const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
+  if (!dryRun) required(leaseToken, "queue lease token");
+
+  const targetChannels = configuredChannels;
+  const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
+  const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
+  const completedChannels = new Set(
+    (Array.isArray(item.published_channels) ? item.published_channels : [])
+      .filter((channel) => isVerifiedPublicPostUrl(channel, recordedPublicUrls[channel])),
+  );
+  const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
+  if (!remainingChannels.length) {
+    if (!dryRun) {
+      await postJson(REVIEW_QUEUE_URL, reviewToken, {
+        action: "release",
+        researchRunId: item.research_run_id,
+        leaseToken,
+        error: "No remaining configured publish channels",
+      });
+    }
+    console.log("REVIEW_QUEUE_NO_REMAINING_CHANNELS: true");
+    process.exit(0);
+  }
+  const { selected: channels, deferred: deferredChannels } = cappedPublishChannels(remainingChannels.join(","));
+  await assertPublicMp4(safeVideoUrl);
+  if (channels[0] === "youtube") {
+    const media = await probeYoutubeShortsMedia(safeVideoUrl);
+    console.log(`REVIEW_QUEUE_SHORTS_MEDIA: ${media.width}x${media.height}, ${media.durationSeconds.toFixed(2)}s`);
+    console.log(`REVIEW_QUEUE_YOUTUBE_AUDIENCE: ${youtubeAudience}`);
+  }
+  const target = await resolveReviewBufferChannel({
+    token: process.env.BUFFER_API_TOKEN,
+    organizationId: process.env.BUFFER_ORGANIZATION_ID,
+    channel: channels[0],
+  });
+  console.log(`REVIEW_QUEUE_BUFFER_DESTINATION: ${target.service}:${target.serviceId}`);
+  if (deferredChannels.length) {
+    console.log(`REVIEW_QUEUE_CHANNELS_DEFERRED: ${deferredChannels.join(",")}`);
+  }
+  console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
+  if (dryRun) {
+    console.log(`REVIEW_QUEUE_WOULD_PUBLISH_RUN: ${item.research_run_id}`);
+    console.log(`REVIEW_QUEUE_WOULD_PUBLISH_TITLE: ${publicTitle}`);
+    console.log(`REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL: ${channels[0]}`);
+    process.exit(0);
+  }
+
+  const publisher = createReviewBufferPublisher({
+    token: process.env.BUFFER_API_TOKEN,
+    organizationId: process.env.BUFFER_ORGANIZATION_ID,
+  });
+
+  const results = [];
   for (const channel of channels) {
     const trackedCta = buildTrackedSocialCta(BLINDBOXAI_URL, {
       runId: item.research_run_id,
@@ -145,6 +171,7 @@ try {
       caption,
       title: publicTitle,
       youtubeCategoryId: "17",
+      youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
     });
     results.push({
       channel,
@@ -199,6 +226,7 @@ try {
   console.log(`REVIEW_QUEUE_HOMEPAGE_LINKED: ${item.research_run_id}`);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
+  if (dryRun || !leaseToken) throw error;
   if (error?.code === "PUBLIC_VERIFICATION_PENDING") {
     await postJson(REVIEW_QUEUE_URL, reviewToken, {
       action: "release",

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { requirePublicVideoTitle } from "../../lib/public-video-title.mjs";
+import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
@@ -20,7 +22,7 @@ function safeTitleFromFile(name) {
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 120) || "Collector research video";
+    .slice(0, 100) || "Collector research video";
 }
 
 function normalizeUploadError(error) {
@@ -196,7 +198,11 @@ export default function MediaUploadForm() {
     if (!file) return setError("Choose an MP4 video first.");
     if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) return setError("Only MP4 video files are allowed.");
     if (file.size <= 0 || file.size > MAX_VIDEO_SIZE) return setError("Video must be larger than 0 bytes and no more than 100 MB.");
-    if (!title.trim()) return setError("Give the video a short research title.");
+    try {
+      requirePublicVideoTitle(title, { label: "Video title" });
+    } catch (cause) {
+      return setError(cause.message);
+    }
 
     setBusy(true);
     setProgress(0);
@@ -205,6 +211,7 @@ export default function MediaUploadForm() {
 
     try {
       const metadata = await readVideoMetadata(file);
+      assertYoutubeShortsMetadata(metadata);
       setStatus("authorizing");
       const path = `media/review/${Date.now()}-${safeName(file.name)}`;
       const ticket = await requestUploadTicket({ accessCode, path, sizeBytes: file.size });
@@ -217,7 +224,7 @@ export default function MediaUploadForm() {
       uploadedBlob = blob;
       setResult(blob);
 
-      const payload = { blob, title: title.trim().slice(0, 120), file, metadata };
+      const payload = { blob, title: title.trim().slice(0, 100), file, metadata };
       setStagingPayload(payload);
       setStatus("staging");
       const staged = await stageForResearch({ accessCode, ...payload });
@@ -257,7 +264,7 @@ export default function MediaUploadForm() {
 
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Research title</strong>
-        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
+        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} required disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
@@ -299,10 +306,10 @@ export default function MediaUploadForm() {
               <p>Research campaign: <code>{stageResult.campaignId}</code></p>
               {!approved ? (
                 <button type="button" disabled={busy || !accessCode} onClick={approveCurrentVideo} style={{ padding: 14, fontWeight: 800, background: "#2563eb", color: "white", border: 0, borderRadius: 8 }}>
-                  APPROVE & LAUNCH THIS VIDEO
+                  APPROVE THIS VIDEO FOR QUEUE
                 </button>
               ) : (
-                <p role="status"><strong>APPROVED.</strong> The automated publisher will pick up this exact video and send it through the configured Buffer channels.</p>
+                <p role="status"><strong>APPROVED.</strong> This exact video is queued for a separate manual GitHub publishing run after the channel and media checks.</p>
               )}
             </>
           ) : stagingPayload ? (

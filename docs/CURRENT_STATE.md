@@ -2,7 +2,7 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-09-26  
+**Last reconciled:** 2026-09-27
 **Functional baseline inspected:** `main` after PR #230 merge at `97b05614903c500e004a72c30894530d8f3cb09a`
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
@@ -25,12 +25,18 @@ Current invariants:
 - default mode: `dry_run: true`;
 - production video channels are pinned exactly to `youtube,tiktok`;
 - X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
-- a run can target one exact channel with `publish_channel`;
-- a run can target one exact approved row with `research_run_id`;
+- a run can target one exact channel with `publish_channel`; every live run requires it;
+- a run can target one exact approved row with `research_run_id`; every live run requires this exact selector;
+- a YouTube run requires an explicit owner Made-for-Kids audience choice before it peeks or claims a row;
 - the workflow calls `scripts/publish-approved-review-queue.mjs`;
+- dry runs read the approved row, probe the public MP4, and inspect the active Buffer destination without creating a Buffer post;
+- YouTube video media must independently probe as no longer than three minutes and square or 9:16 portrait;
+- the Buffer YouTube channel's `serviceId` must equal `UCwaUc4e4iv2Q4P1nxlVrTvw`, the channel currently authorized in vidIQ;
+- a bad title, inaccessible media, incompatible Short, or wrong Buffer destination blocks the post; a live claimed row is marked failed rather than left on a 45-minute lease;
 - Buffer credentials are referenced by name only and must never be printed.
 
 This is the canonical publisher when discussing an already-approved review-queue item.
+The actual Buffer connection, channel name, content provenance, an owner Made-for-Kids decision for each chosen video, and a public YouTube post remain **UNVERIFIED** until checked in a production dry run and owner review. A blue approval only puts a row in the queue; a separate manual GitHub dispatch is required. It does not enter `social-production` in this workflow. The longer-term immutable manifest and daily publication cap are planned, not implemented.
 
 ## Other video paths are separate, not replacements
 
@@ -38,7 +44,7 @@ This is the canonical publisher when discussing an already-approved review-queue
 
 `.github/workflows/manual-reviewed-video.yml`
 
-This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
+This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. A live YouTube run requires the owner to choose `youtube_audience` explicitly; the default `unreviewed` value fails closed. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
 
 ### Verified-product render pipeline
 
