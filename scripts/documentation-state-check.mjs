@@ -57,7 +57,7 @@ requireMatch("docs/CURRENT_STATE.md", /X\/Twitter is parked/, "must record the p
 requireMatch("docs/CURRENT_STATE.md", /LinkedIn.*not an active production target/i, "must record the inactive LinkedIn production decision");
 requireMatch("docs/CURRENT_STATE.md", /\/media-upload/, "must document the canonical phone upload path");
 requireMatch("docs/CURRENT_STATE.md", /\/api\/media\/review-upload/, "must distinguish the legacy review-upload path");
-requireMatch("docs/CURRENT_STATE.md", /merged PR #168/, "must record the owner eBay OAuth merge");
+requireMatch("docs/CURRENT_STATE.md", /merged PR #168/i, "must record the owner eBay OAuth merge");
 requireMatch("docs/CURRENT_STATE.md", /lib\/owner-ebay-oauth\.mjs/, "must name the owner eBay OAuth implementation");
 
 const publisher = read(".github/workflows/publish-approved-reviews.yml");
