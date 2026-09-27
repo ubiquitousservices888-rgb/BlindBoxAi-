@@ -3,7 +3,7 @@
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-09-26  
-**Functional baseline inspected:** `main` at `7e0eaa0cc887aaadf3da25f56c44b6d668b9db29`
+**Functional baseline inspected:** `main` after PR #230 merge at `97b05614903c500e004a72c30894530d8f3cb09a`
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -69,6 +69,25 @@ A subsystem document is authoritative only for that subsystem.
 - **Canonical phone uploader:** `/media-upload` requests a signed Supabase Storage upload ticket through `/api/media/free-upload-ticket`, uploads under `media/review/*.mp4`, then stages the resulting HTTPS URL through `/api/owner/stage-review` into the Supabase review queue. See [`free-video-storage.md`](./free-video-storage.md).
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
+
+## Owner-only eBay OAuth research
+
+Merged PR #168 added the owner-only eBay User OAuth research path now present on `main`.
+
+Current code topology:
+
+- owner control page: `/owner-dashboard/ebay`;
+- connect/status/disconnect API: `/api/owner/ebay-connect`;
+- OAuth callback: `/api/owner/ebay-callback`;
+- read-only seller verification: `/api/owner/ebay-verify`;
+- OAuth/storage implementation: `lib/owner-ebay-oauth.mjs`;
+- requested seller scopes are read-only fulfillment, inventory, and analytics scopes;
+- stored refresh tokens are encrypted before service-role-only Supabase persistence;
+- public Browse/EPN market research and affiliate routing remain separate from this owner connection.
+
+Configuration names include `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`, `EBAY_REDIRECT_URI`, `OWNER_INTEGRATION_ENCRYPTION_KEY`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`. Never document or print their values.
+
+Code presence on `main` is verified. Whether the production owner account is currently configured, connected, and successfully refreshing seller data is **UNVERIFIED** by this document and must be checked through the owner-gated status/verify path without exposing credentials.
 
 ## Branch inventory
 

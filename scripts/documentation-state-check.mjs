@@ -52,6 +52,13 @@ requireMatch("AGENTS.md", /docs\/CURRENT_STATE\.md/, "must point agents to the c
 requireMatch("AGENTS.md", /docs\/CONTEXT_TRANSFER\.md/, "must require the canonical handoff protocol");
 requireMatch("docs/CURRENT_STATE.md", /publish-approved-reviews\.yml/, "must name the canonical review-queue publisher");
 requireMatch("docs/CURRENT_STATE.md", /youtube,tiktok/, "must record the canonical reviewed-video channel set");
+requireMatch("docs/CURRENT_STATE.md", /merged PR #227/, "must record the merged YouTube\/TikTok target decision");
+requireMatch("docs/CURRENT_STATE.md", /X\/Twitter is parked/, "must record the parked X\/Twitter decision");
+requireMatch("docs/CURRENT_STATE.md", /LinkedIn.*not an active production target/i, "must record the inactive LinkedIn production decision");
+requireMatch("docs/CURRENT_STATE.md", /\/media-upload/, "must document the canonical phone upload path");
+requireMatch("docs/CURRENT_STATE.md", /\/api\/media\/review-upload/, "must distinguish the legacy review-upload path");
+requireMatch("docs/CURRENT_STATE.md", /merged PR #168/i, "must record the owner eBay OAuth merge");
+requireMatch("docs/CURRENT_STATE.md", /lib\/owner-ebay-oauth\.mjs/, "must name the owner eBay OAuth implementation");
 
 const publisher = read(".github/workflows/publish-approved-reviews.yml");
 if (publisher !== null) {

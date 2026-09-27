@@ -65,6 +65,22 @@ Detailed categories:
 - `REVIEW_DIVERGED_POST_MERGE`: 1
 - `REVIEW_DIVERGED_UNKNOWN`: 17
 
+## Special reconciliation notes
+
+- `safety/review-publish-dry-run` is a stale branch whose head matches merged PR #158. The stronger file-level conclusion from the 2026-09-26 audit — that its branch-unique commits do not modify `.github/workflows/publish-approved-reviews.yml` and that the visible `*/15` cron is only stale branch content — is **UNVERIFIED IN THIS DOCUMENT** because the snapshot table does not embed complete raw diff output. Before any deletion, restore, merge, or reuse of this branch, rerun the commands below and retain their complete output as evidence. Do not restore the publisher workflow file from this branch based on this summary alone.
+
+```bash
+git fetch --quiet --prune origin
+BASE="$(git merge-base origin/main origin/safety/review-publish-dry-run)"
+printf 'merge-base=%s\n' "$BASE"
+git diff --name-only "$BASE" origin/safety/review-publish-dry-run
+git diff "$BASE" origin/safety/review-publish-dry-run -- .github/workflows/publish-approved-reviews.yml
+git show origin/safety/review-publish-dry-run:.github/workflows/publish-approved-reviews.yml
+git show origin/main:.github/workflows/publish-approved-reviews.yml
+```
+- `docs/agents-protocol` is a superseded documentation branch. The canonical `AGENTS.md` on `main` contains the protocol plus the newer familiarization/documentation-authority rules. Do not treat the branch copy as a second authority. It remains review-only until a separate cleanup approval.
+- This inventory snapshot predates the merge of PR #230. Regenerate the full name→SHA and comparison evidence immediately before any destructive cleanup.
+
 ## Keep
 
 | Branch | Head | Classification evidence |
