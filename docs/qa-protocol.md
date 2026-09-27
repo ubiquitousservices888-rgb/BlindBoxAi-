@@ -31,4 +31,4 @@ The browser layer runs in GitHub Actions on Linux, with its headless browser ins
 
 ## Publication boundary
 
-The QA schedule has no Buffer, owner, eBay, Supabase service-role, or Vercel deployment secrets. Tests set their own loopback or fake fixtures. Only `.github/workflows/publish-approved-reviews.yml` can dispatch its one exact reviewed queue item, and it remains manual with `dry_run: true` by default. This protocol does not approve, claim, or publish an item.
+The QA schedule has no Buffer, owner, Supabase service-role, or Vercel deployment secrets. The existing validation job reads the EPN campaign secret for link construction; the browser job uses only a fake campaign fixture. Tests set their own loopback or fake service responses. Only `.github/workflows/publish-approved-reviews.yml` can dispatch its one exact reviewed queue item, and it remains manual with `dry_run: true` by default. This protocol does not approve, claim, or publish an item.

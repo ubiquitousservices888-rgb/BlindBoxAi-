@@ -16,7 +16,7 @@ export default defineConfig({
   webServer: {
     command: "npm run start -- -p 3205 -H 127.0.0.1",
     url: `${baseURL}/api/health`,
-    reuseExistingServer: process.env.QA_REUSE_SERVER === "true",
+    reuseExistingServer: false,
     timeout: 60_000,
     env: {
       CI: "true",

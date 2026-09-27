@@ -24,6 +24,8 @@ test("a local test service requires explicit ingest isolation", () => {
     assert.throws(() => assertBlindBoxSupabaseOrigin("http://127.0.0.1:1234", { allowTestLoopback: true }));
     process.env.BLINDBOXAI_ALLOW_TEST_INGEST = "true";
     assert.equal(assertBlindBoxSupabaseOrigin("http://127.0.0.1:1234", { allowTestLoopback: true }), "http://127.0.0.1:1234");
+    process.env.BLINDBOXAI_ALLOW_TEST_INGEST = " TRUE ";
+    assert.equal(assertBlindBoxSupabaseOrigin("http://127.0.0.1:1234", { allowTestLoopback: true }), "http://127.0.0.1:1234");
     assert.throws(() => assertBlindBoxSupabaseOrigin("http://localhost:1234", { allowTestLoopback: true }));
     assert.throws(() => assertBlindBoxSupabaseOrigin("http://127.0.0.1:1234"));
   } finally {

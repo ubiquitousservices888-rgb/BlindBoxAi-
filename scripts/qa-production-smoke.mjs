@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 const origin = "https://blindboxai.com";
 const expectedRevision = String(process.env.GITHUB_SHA || "").trim();
-const maxAttempts = 9;
+const maxAttempts = 16;
 
 async function get(path) {
   const response = await fetch(`${origin}${path}`, {
@@ -25,7 +25,10 @@ async function verify() {
   if (!/^[0-9a-f]{40}$/.test(body.revision || "")) {
     throw new Error("Production revision is unavailable; deployment cannot be verified");
   }
-  if (expectedRevision && body.revision !== expectedRevision) {
+  if (!/^[0-9a-f]{40}$/.test(expectedRevision)) {
+    throw new Error("Checked-out main revision is unavailable");
+  }
+  if (body.revision !== expectedRevision) {
     throw new Error("Production revision does not match the checked-out main commit");
   }
   const page = await get("/series/labubu-the-monsters-have-a-seat");
@@ -39,15 +42,19 @@ async function verify() {
 }
 
 let lastError;
+let success = false;
 for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
   try {
     await verify();
-    process.exit(0);
+    success = true;
+    break;
   } catch (error) {
     lastError = error;
     if (attempt < maxAttempts) await new Promise((resolve) => setTimeout(resolve, 20000));
   }
 }
-console.error(`QA_DEPLOYMENT_SMOKE: FAIL after ${maxAttempts} attempts`);
-console.error(lastError instanceof Error ? lastError.message : "Unknown smoke error");
-process.exitCode = 1;
+if (!success) {
+  console.error(`QA_DEPLOYMENT_SMOKE: FAIL after ${maxAttempts} attempts`);
+  console.error(lastError instanceof Error ? lastError.message : "Unknown smoke error");
+  process.exitCode = 1;
+}

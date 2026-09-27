@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  group: release-gate-${{ github.workflow }}-${{ github.event_name == 'schedule' && 'daily' || github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -32,6 +32,30 @@ test("transitive client imports cannot reach server credentials", (t) => {
   assert.match(auditBoundaries(root).join("\n"), /client import graph reaches a server credential/);
 });
 
+test("CommonJS client imports cannot reach server credentials", (t) => {
+  const root = fixture({
+    "app/widget.jsx": '"use client";\nconst server = require("../lib/server.mjs");',
+    "lib/server.mjs": 'export const value = process.env.SUPABASE_SERVICE_ROLE_KEY;',
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.match(auditBoundaries(root).join("\n"), /client import graph reaches a server credential/);
+});
+
+test("public API keys are rejected before a client bundle is built", (t) => {
+  const root = fixture({ "app/widget.jsx": 'export const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;' });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.match(auditBoundaries(root).join("\n"), /exposes a server credential through NEXT_PUBLIC_/);
+});
+
+test("Node built-ins cannot cross a client import graph", (t) => {
+  const root = fixture({
+    "app/widget.jsx": '"use client";\nimport { value } from "../lib/bridge.mjs";',
+    "lib/bridge.mjs": 'import path from "path";\nexport const value = path.sep;',
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.match(auditBoundaries(root).join("\n"), /client import graph reaches a Node-only module/);
+});
+
 test("isolated client modules pass", (t) => {
   const root = fixture({
     "app/widget.jsx": '"use client";\nimport { value } from "../lib/safe.mjs";',

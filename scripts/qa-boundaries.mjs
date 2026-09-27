@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import { isBuiltin } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RUNTIME_DIRS = ["app", "lib", "scripts", "supabase/functions"];
 const SOURCE_EXTENSIONS = [".js", ".jsx", ".mjs", ".ts", ".tsx"];
 const OTHER_APP_REFERENCES = /agentaiio\.com|getfintechai\.com|gpt5(?:io|zone|base)\.com|saas-acquisition-showroom/i;
-const PUBLIC_SECRET_NAME = /NEXT_PUBLIC_[A-Z0-9_]*(?:SECRET|TOKEN|SERVICE_ROLE|PRIVATE_KEY)/;
+const PUBLIC_SECRET_NAME = /NEXT_PUBLIC_[A-Z0-9_]*(?:SECRET|TOKEN|SERVICE_ROLE|PRIVATE_KEY|API_KEY)/;
 const SERVER_ONLY_NAME = /\b(?:SUPABASE_SERVICE_ROLE_KEY|EVIDENCE_UPLOAD_CODE|OWNER_CONTROL_CODE|BUFFER_API_TOKEN|EBAY_CLIENT_SECRET|OWNER_INTEGRATION_ENCRYPTION_KEY|AI_FAMILY_CORE_TOKEN)\b/;
-const NODE_BUILTINS = /^(?:node:|fs(?:\/|$)|crypto(?:\/|$)|child_process(?:\/|$))/;
 
 function filesUnder(directory) {
   if (!fs.existsSync(directory)) return [];
@@ -23,7 +23,7 @@ function filesUnder(directory) {
 }
 
 function localImports(text) {
-  return [...text.matchAll(/\b(?:from|import)\s*(?:\(\s*)?["']([^"']+)["']/g)]
+  return [...text.matchAll(/\b(?:from|import|require)\s*(?:\(\s*)?["']([^"']+)["']/g)]
     .map((match) => match[1]);
 }
 
@@ -59,7 +59,7 @@ export function auditBoundaries(root) {
       const relative = path.relative(absoluteRoot, file);
       if (SERVER_ONLY_NAME.test(source)) failures.push(`${relative}: client import graph reaches a server credential`);
       for (const specifier of localImports(source)) {
-        if (NODE_BUILTINS.test(specifier)) failures.push(`${relative}: client import graph reaches a Node-only module`);
+        if (isBuiltin(specifier)) failures.push(`${relative}: client import graph reaches a Node-only module`);
         if (!specifier.startsWith(".")) continue;
         const resolved = resolveImport(file, specifier);
         if (resolved && !resolved.startsWith(absoluteRoot + path.sep)) {
