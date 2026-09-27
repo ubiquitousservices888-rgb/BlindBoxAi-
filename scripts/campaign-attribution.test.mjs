@@ -98,6 +98,7 @@ test("EPN custom id preserves the full video campaign suffix at maximum metadata
   });
   assert.ok(id.length <= 240);
   assert.ok(id.endsWith(expectedSuffix));
+  assert.match(id, /^bb1sseriesseries/);
   assert.match(id, /cebbrv0123456789abcdefxyoutube$/);
 });
 
