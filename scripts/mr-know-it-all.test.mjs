@@ -309,8 +309,8 @@ describe("autonomous public research safeguards", () => {
     ));
 
     assert.ok(mandate.lanes.length > 8);
-    assert.match(researchScript, /mandate\.lanes\.map/);
-    assert.match(researchScript, /selectFindingsByLane\(results\)/);
+    assert.match(researchScript, /mandate\.lanes\.flatMap/);
+    assert.match(researchScript, /selectFindingsByLane\(results, results\.reduce/);\n    assert.match(researchScript, /\.slice\(0, 96\)/);
     assert.match(researchScript, /<source\\b\[\^>\]\*url=/);
     assert.match(researchScript, /publisher:\s*publisher \|\| null/);
     assert.match(mandate.ranking.formula, /liquidity x sell-through/);
