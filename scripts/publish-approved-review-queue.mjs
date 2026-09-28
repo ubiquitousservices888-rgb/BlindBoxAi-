@@ -156,6 +156,12 @@ try {
       runId: item.research_run_id,
       service: channel,
     });
+    const trackedUrl = new URL(trackedCta);
+    const campaignId = trackedUrl.searchParams.get("campaign");
+    const source = trackedUrl.searchParams.get("source");
+    if (!campaignId || !source) {
+      throw new Error(`${channel}: tracked CTA is missing campaign or source`);
+    }
     const script = {
       title: publicTitle,
       facts: [item.vertical === "pokemon_tcg" ? "Pokémon collectible research." : "Owner-reviewed BlindBoxAI collectible research."],
@@ -173,12 +179,16 @@ try {
       youtubeCategoryId: "17",
       youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
     });
+    if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl)) {
+      throw new Error(`${channel}: publisher returned no verified public URL`);
+    }
     results.push({
       channel,
       id: result.id,
       publicUrl: result.publicUrl,
       duplicate: result.duplicate === true,
-      campaignId: new URL(trackedCta).searchParams.get("campaign"),
+      campaignId,
+      source,
     });
     console.log(`REVIEW_QUEUE_PUBLISHED: ${channel}:${result.id}`);
     console.log(`REVIEW_QUEUE_PUBLIC_URL: ${channel}:${result.publicUrl}`);
@@ -211,6 +221,12 @@ try {
     ...(Array.isArray(item.published_channels) ? item.published_channels : []),
     ...results.map((entry) => entry.channel),
   ])].filter((channel) => isVerifiedPublicPostUrl(channel, mergedPublicUrls[channel]));
+  const campaignIds = [...new Set(
+    results.map((entry) => entry.campaignId).filter(Boolean),
+  )];
+  if (campaignIds.length !== 1) {
+    throw new Error("Published feed requires exactly one campaign ID for this execution");
+  }
   await postJson(PUBLISHED_FEED_URL, feedToken, {
     researchRunId: item.research_run_id,
     title: publicTitle,
@@ -219,7 +235,7 @@ try {
     channels: feedChannels,
     bufferPostIds: mergedBufferPostIds,
     publicUrls: mergedPublicUrls,
-    campaignId: results[0]?.campaignId || null,
+    campaignId: campaignIds[0],
   });
 
   console.log(`REVIEW_QUEUE_COMPLETE: ${item.research_run_id}`);
