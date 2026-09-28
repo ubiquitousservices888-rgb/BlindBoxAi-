@@ -12,7 +12,8 @@ const GITHUB_AUDIENCE = "blindboxai-review-publisher";
 const GITHUB_REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
 const GITHUB_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
-const OWNER_REVIEW_LIST_LIMIT = 1000;
+const OWNER_REVIEW_PAGE_SIZE = 1000;
+const OWNER_REVIEW_MAX_PAGES = 50;
 
 function cors() {
   return {
@@ -116,12 +117,21 @@ async function stage(req: Request, body: any) {
 }
 async function listReady(req: Request) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
-  const { data, error } = await db.from("review_video_queue")
-    .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
-    .in("status", ["ready_for_review","approved","publishing"])
-    .order("created_at", { ascending: false }).limit(OWNER_REVIEW_LIST_LIMIT);
-  if (error) return json({ error: "Queue lookup failed" }, 500);
-  return json({ ok: true, items: data || [] });
+  const items: any[] = [];
+  for (let page = 0; page < OWNER_REVIEW_MAX_PAGES; page += 1) {
+    const from = page * OWNER_REVIEW_PAGE_SIZE;
+    const to = from + OWNER_REVIEW_PAGE_SIZE - 1;
+    const { data, error } = await db.from("review_video_queue")
+      .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
+      .eq("status", "ready_for_review")
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (error) return json({ error: "Queue lookup failed" }, 500);
+    const pageItems = Array.isArray(data) ? data : [];
+    items.push(...pageItems);
+    if (pageItems.length < OWNER_REVIEW_PAGE_SIZE) return json({ ok: true, items });
+  }
+  return json({ error: "Review queue exceeds safe pagination bound" }, 503);
 }
 async function approve(req: Request, body: any) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
@@ -170,7 +180,7 @@ async function deleteReview(req: Request, body: any) {
   const { data: rejected, error: rejectError } = await db.from("review_video_queue")
     .update({
       status: "rejected",
-      rejection_reason: "owner_deleted",
+      rejection_reason: "owner_rejected",
       rejected_at: now,
       publishing_at: null,
       updated_at: now,
