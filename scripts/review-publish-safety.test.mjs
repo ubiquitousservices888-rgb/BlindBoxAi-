@@ -6,6 +6,7 @@ import test from "node:test";
 import { assertVerifiedPublicPost, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
+import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -431,11 +432,7 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(workflow, /research_run_id:/);
   assert.match(workflow, /PUBLISH_RESEARCH_RUN_ID:/);
   assert.match(publisher, /PUBLISH_RESEARCH_RUN_ID/);
-  assert.match(publisher, /const rawRequestedRunId = String\(process\.env\.PUBLISH_RESEARCH_RUN_ID \?\? ""\)\.trim\(\);/);
-  assert.match(publisher, /const requestedRunId = \/\^\[a-f0-9\]\{16\}\$\/\.test\(rawRequestedRunId\)/);
-  assert.match(publisher, /\? `rv-\$\{rawRequestedRunId\}`/);
-  assert.match(publisher, /\^rv-\[a-f0-9\]\{16\}\$/);
-  assert.doesNotMatch(publisher, /PUBLISH_RESEARCH_RUN_ID[^\n]*toLowerCase/);
+  assert.match(publisher, /normalizeReviewRunId\(process\.env\.PUBLISH_RESEARCH_RUN_ID\)/);
   assert.match(publisher, /researchRunId: requestedRunId \|\| undefined/);
   assert.match(queue, /function requestedResearchRunId/);
   assert.match(queue, /const researchRunId = String\(body\?\.researchRunId \?\? ""\);/);
@@ -448,6 +445,29 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(queue, /Invalid researchRunId/);
 });
 
+
+test("review run ID normalizer accepts only canonical or exact bare lowercase hex IDs", () => {
+  assert.equal(normalizeReviewRunId("abcdef0123456789"), "rv-abcdef0123456789");
+  assert.equal(normalizeReviewRunId("rv-abcdef0123456789"), "rv-abcdef0123456789");
+  assert.equal(normalizeReviewRunId(undefined), "");
+  assert.equal(normalizeReviewRunId(""), "");
+
+  for (const value of [
+    " ABCDEF0123456789",
+    "ABCDEF0123456789",
+    "abcdef01234567890",
+    "abcdef012345678",
+    " abcdef0123456789",
+    "abcdef0123456789 ",
+    "   ",
+    "rv-ABCDEF0123456789",
+  ]) {
+    assert.throws(
+      () => normalizeReviewRunId(value),
+      /PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters/,
+    );
+  }
+});
 
 test("publisher validates requested channel before claiming a queue lease", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
