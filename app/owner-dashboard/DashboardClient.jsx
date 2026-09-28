@@ -24,6 +24,8 @@ export default function DashboardClient() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
+  const [reviewQueue, setReviewQueue] = useState([]);
+  const [reviewQueueError, setReviewQueueError] = useState("");
   const [watchingReviewUrl, setWatchingReviewUrl] = useState("");
   const [approvedReviewUrls, setApprovedReviewUrls] = useState(() => new Set());
   const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
@@ -85,6 +87,24 @@ export default function DashboardClient() {
     }
   }
 
+  async function loadReviewQueue(token) {
+    if (!token) return false;
+    setReviewQueueError("");
+    try {
+      const response = await fetch("/api/owner/review-queue", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Review queue unavailable.");
+      setReviewQueue(Array.isArray(data.items) ? data.items : []);
+      return true;
+    } catch (cause) {
+      setReviewQueueError(cause instanceof Error ? cause.message : "Review queue unavailable.");
+      return false;
+    }
+  }
+
   async function unlock(event) {
     event.preventDefault();
     const token = code.trim();
@@ -92,12 +112,18 @@ export default function DashboardClient() {
     snapshotRef.current = null;
     seen.current = new Set();
     const loaded = await load(token, false);
-    if (loaded) setActiveCode(token);
+    if (loaded) {
+      setActiveCode(token);
+      await loadReviewQueue(token);
+    }
   }
 
   useEffect(() => {
     if (!activeCode || !snapshotRef.current) return undefined;
-    const timer = setInterval(() => load(activeCode, true), REFRESH_INTERVAL_MS);
+    const timer = setInterval(() => {
+      load(activeCode, true);
+      loadReviewQueue(activeCode);
+    }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [activeCode]);
 
@@ -123,7 +149,7 @@ export default function DashboardClient() {
       setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
       setReviewMessage("APPROVED — this video is in the approved queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
       etagRef.current = "";
-      await load(activeCode, false);
+      await Promise.all([load(activeCode, false), loadReviewQueue(activeCode)]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to approve this review video.");
     } finally {
@@ -177,7 +203,16 @@ export default function DashboardClient() {
   const funnel = snapshot.funnel || {};
   const epn = revenue.epn || {};
   const amazon = revenue.amazon || {};
-  const reviewNotifications = (snapshot.notifications || []).filter((item) => item?.reviewState === "READY_FOR_REVIEW" && item?.approved !== true && item?.mediaUrl);
+  const reviewNotifications = reviewQueue
+    .filter((item) => item?.status === "ready_for_review" && item?.video_url)
+    .map((item) => ({
+      pathname: item.research_run_id,
+      mediaUrl: item.video_url,
+      title: item.title,
+      createdAt: item.created_at,
+      researchRunId: item.research_run_id,
+      vertical: item.vertical,
+    }));
 
   return <div style={{ display: "grid", gap: 24 }}>
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
@@ -185,8 +220,9 @@ export default function DashboardClient() {
       <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
         OPEN SAFE VIDEO UPLOADER
       </a>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>The canonical uploader uses Supabase signed storage. Watch each video before approving it. Approval puts the exact video in the queue; an operator must separately run the GitHub review-video publisher after checking its destination and format.</p>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Every Supabase review-queue video waiting for owner approval is loaded here. Watch the finished video, then press the blue approval button. Publishing remains a separate protected action.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
+      {reviewQueueError ? <p role="alert" style={{ color: "crimson" }}>{reviewQueueError}</p> : null}
 
       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
         <h3 style={{ marginBottom: 0 }}>Videos waiting for your review</h3>
@@ -196,6 +232,7 @@ export default function DashboardClient() {
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
+              {item.researchRunId ? <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 4 }}>{item.researchRunId}</div> : null}
               <div style={{ opacity: 0.7, marginTop: 4 }}>{when(item.createdAt)}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
                 <button type="button" onClick={() => setWatchingReviewUrl(watching ? "" : item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
@@ -214,7 +251,7 @@ export default function DashboardClient() {
     </section>
 
     <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-      <button onClick={() => load(activeCode, false)} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
+      <button onClick={() => Promise.all([load(activeCode, false), loadReviewQueue(activeCode)])} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       <button onClick={enableNotifications} style={{ padding: "10px 14px" }}>Enable browser notifications</button>
     </div>
 
