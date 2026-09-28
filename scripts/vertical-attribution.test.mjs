@@ -13,6 +13,7 @@ import { buildAmazonSearchUrl, amazonOutboundPath } from "../lib/amazon-associat
 import { AMAZON_VIDEO_CTA } from "../lib/video-pipeline.mjs";
 
 const ebayRoute = readFileSync("app/api/out/ebay/route.js", "utf8");
+const ebayReadonlyResolver = readFileSync("lib/ebay-outbound-readonly.mjs", "utf8");
 const analytics = readFileSync("app/_components/CoreAnalytics.jsx", "utf8");
 const amazonRoute = readFileSync("app/api/out/amazon/route.js", "utf8");
 const videoPipeline = readFileSync("lib/video-pipeline.mjs", "utf8");
@@ -62,9 +63,11 @@ test("valid structured source is authoritative for vertical", () => {
 });
 
 test("eBay route preserves closed vertical attribution while broader landing source is separately recorded", () => {
-  assert.match(ebayRoute, /resolveRequestAttribution/);
-  assert.match(ebayRoute, /buildCustomId\(attribution\)/);
-  assert.match(ebayRoute, /epnCustomId\(/);
+  assert.match(ebayRoute, /resolveReadonlyEbayOutboundTarget/);
+  assert.match(ebayRoute, /referer:\s*request\.headers\.get\("referer"\)/);
+  assert.match(ebayReadonlyResolver, /resolveRequestAttribution/);
+  assert.match(ebayReadonlyResolver, /buildCustomId\(attribution\)/);
+  assert.match(ebayReadonlyResolver, /epnCustomId\(/);
   assert.match(ebayRoute, /vertical:\s*attribution\.vertical/);
   assert.match(ebayRoute, /source:\s*hasMarketingSource \|\| campaignId \? outboundSource : attribution\.source/);
   assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
