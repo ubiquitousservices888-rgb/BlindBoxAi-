@@ -1,0 +1,3 @@
+# Documentation tooling only — not a production dependency.
+# https://pypi.org/project/diagrams/
+diagrams==0.25.1
