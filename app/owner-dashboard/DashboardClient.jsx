@@ -17,6 +17,12 @@ function epnEpcStatus(status) {
   return "Unavailable in this report";
 }
 
+function durationLabel(value) {
+  const totalSeconds = Math.max(0, Math.round(Number(value) || 0));
+  if (!totalSeconds) return "Duration unavailable";
+  return `${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s`;
+}
+
 export default function DashboardClient() {
   const [code, setCode] = useState("");
   const [activeCode, setActiveCode] = useState("");
@@ -37,6 +43,7 @@ export default function DashboardClient() {
   const etagRef = useRef("");
   const requestInFlight = useRef(false);
   const reviewQueueRequestInFlight = useRef(false);
+  const reviewQueueRefreshPending = useRef(false);
   const epnFileInput = useRef(null);
 
   async function load(token, announce = false) {
@@ -90,7 +97,11 @@ export default function DashboardClient() {
   }
 
   async function loadReviewQueue(token) {
-    if (!token || reviewQueueRequestInFlight.current) return false;
+    if (!token) return false;
+    if (reviewQueueRequestInFlight.current) {
+      reviewQueueRefreshPending.current = true;
+      return false;
+    }
     reviewQueueRequestInFlight.current = true;
     setReviewQueueError("");
     try {
@@ -107,6 +118,10 @@ export default function DashboardClient() {
       return false;
     } finally {
       reviewQueueRequestInFlight.current = false;
+      if (reviewQueueRefreshPending.current) {
+        reviewQueueRefreshPending.current = false;
+        void loadReviewQueue(token);
+      }
     }
   }
 
@@ -180,6 +195,7 @@ export default function DashboardClient() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to delete this review video.");
       if (watchingReviewUrl === item.mediaUrl) setWatchingReviewUrl("");
+      setReviewQueue((previous) => previous.filter((row) => row?.research_run_id !== item.researchRunId));
       setReviewMessage(`DELETED — "${label}" was removed from the review queue and review-media storage.`);
       await loadReviewQueue(activeCode);
     } catch (cause) {
@@ -268,7 +284,7 @@ export default function DashboardClient() {
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
               {item.researchRunId ? <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 4 }}>{item.researchRunId}</div> : null}
               <div style={{ opacity: 0.7, marginTop: 4 }}>{when(item.createdAt)}</div>
-              <div style={{ opacity: 0.7, marginTop: 4 }}>{item.durationSeconds > 0 ? `${Math.floor(item.durationSeconds / 60)}m ${Math.round(item.durationSeconds % 60)}s` : "Duration unavailable"}{item.sizeBytes > 0 ? ` · ${(item.sizeBytes / 1024 / 1024).toFixed(1)} MB` : ""}</div>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>{durationLabel(item.durationSeconds)}{item.sizeBytes > 0 ? ` · ${(item.sizeBytes / 1024 / 1024).toFixed(1)} MB` : ""}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
                 <button type="button" onClick={() => setWatchingReviewUrl(watching ? "" : item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
