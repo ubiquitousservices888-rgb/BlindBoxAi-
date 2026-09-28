@@ -375,6 +375,25 @@ test("queue peek is read-only and separately authorized", () => {
 });
 
 
+test("workflow requires explicit channel and exact review row inputs", () => {
+  const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
+  const channelStart = source.indexOf("      publish_channel:");
+  const runStart = source.indexOf("      research_run_id:");
+  const audienceStart = source.indexOf("      youtube_audience:");
+  assert.ok(channelStart >= 0 && runStart > channelStart && audienceStart > runStart);
+
+  const channelBlock = source.slice(channelStart, runStart);
+  assert.match(channelBlock, /required: true/);
+  assert.match(channelBlock, /type: choice/);
+  assert.match(channelBlock, /- youtube/);
+  assert.match(channelBlock, /- tiktok/);
+
+  const runBlock = source.slice(runStart, audienceStart);
+  assert.match(runBlock, /required: true/);
+  assert.match(runBlock, /type: string/);
+  assert.doesNotMatch(runBlock, /default:\s*""/);
+});
+
 test("workflow pins review-video target channels and ignores repo override", () => {
   const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
   assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m);
