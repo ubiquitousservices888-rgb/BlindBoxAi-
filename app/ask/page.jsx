@@ -171,6 +171,8 @@ export default function AskPage() {
                     ))}
                   </div>
                 </>
+              ) : (result.publicResearch.runsSearched ?? 0) === 0 ? (
+                <p>No scheduled public research runs are stored yet. This is not treated as evidence that the collectible has no market activity.</p>
               ) : (
                 <p>No matching finding was found in {result.publicResearch.findingsSearched ?? 0} stored findings across {result.publicResearch.runsSearched ?? 0} recent research runs. That means the stored scheduled research did not match this query; it does not prove the collectible has no market activity.</p>
               )}
