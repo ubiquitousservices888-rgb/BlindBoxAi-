@@ -101,7 +101,7 @@ async function listReady(req: Request) {
   const { data, error } = await db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
     .in("status", ["ready_for_review","approved","publishing"])
-    .order("created_at", { ascending: false }).limit(20);
+    .order("created_at", { ascending: false }).limit(1000);
   if (error) return json({ error: "Queue lookup failed" }, 500);
   return json({ ok: true, items: data || [] });
 }
