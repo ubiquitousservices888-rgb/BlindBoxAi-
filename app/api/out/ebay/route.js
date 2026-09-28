@@ -21,6 +21,60 @@ function error(message, status = 400) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
 }
 
+// Read-only validation path for QA. HEAD computes the exact production target
+// without recording an affiliate click or following the external redirect.
+export async function HEAD(request) {
+  const url = new URL(request.url);
+  const seriesSlug = url.searchParams.get("series")?.trim() || "";
+  const figureName = url.searchParams.get("figure")?.trim() || "";
+  const kind = url.searchParams.get("kind")?.trim() || "";
+  const placement = url.searchParams.get("placement")?.trim() || "";
+  const requestAttribution = resolveRequestAttribution({
+    campaign: url.searchParams.get("campaign"),
+    source: url.searchParams.get("source"),
+    referer: request.headers.get("referer"),
+  });
+  const campaignId = requestAttribution.campaignId;
+  const outboundSource = requestAttribution.source;
+  const rawVertical = url.searchParams.get("vertical")?.trim().toLowerCase() || "";
+  const rawItemSlug = url.searchParams.get("itemSlug")?.trim() || figureName;
+
+  if (!VALID_KINDS.has(kind)) return new Response(null, { status: 400, headers: { "Cache-Control": "no-store" } });
+  if (!VALID_PLACEMENTS.has(placement)) return new Response(null, { status: 400, headers: { "Cache-Control": "no-store" } });
+
+  const series = getSeries(seriesSlug);
+  if (!series) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+  const figure = series.figures.find(item => item.name === figureName);
+  if (!figure) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+
+  const attribution = parseAttribution({
+    vertical: rawVertical || verticalFromSource(outboundSource),
+    source: outboundSource,
+    itemSlug: rawItemSlug,
+  });
+  const hasMarketingSource = outboundSource !== "none" && outboundSource !== "page";
+  const customId = campaignId || hasMarketingSource
+    ? epnCustomId({
+        seriesSlug: series.slug,
+        figure: figure.name,
+        kind,
+        placement,
+        campaignId,
+        source: outboundSource,
+      })
+    : buildCustomId(attribution);
+
+  const query = `${series.brand} ${series.name} ${figure.name}`;
+  const target = kind === "sold" ? ebaySoldLink(query, customId) : ebayActiveLink(query, customId);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      "Cache-Control": "no-store",
+      Location: target,
+    },
+  });
+}
+
 export async function GET(request) {
   const clickQuality = classifyEbayAffiliateRequest(request);
   const url = new URL(request.url);
