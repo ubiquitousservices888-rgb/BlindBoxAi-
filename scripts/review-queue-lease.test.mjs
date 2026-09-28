@@ -62,8 +62,11 @@ test("runner sends the lease token on record, release, and complete", () => {
 });
 
 
-test("owner queue list is not truncated to a small notification window", () => {
+test("owner queue list uses a named cap well above the notification window", () => {
+  const cap = queueSource.match(/const OWNER_REVIEW_LIST_LIMIT = (\d+);/);
+  assert.ok(cap, "owner review list cap must be named");
+  assert.ok(Number(cap[1]) >= 100, "owner review list cap must be at least 100");
   const listBody = between("async function listReady(", "async function approve(");
-  assert.match(listBody, /\.limit\(1000\)/);
+  assert.match(listBody, /\.limit\(OWNER_REVIEW_LIST_LIMIT\)/);
   assert.doesNotMatch(listBody, /\.limit\(20\)/);
 });
