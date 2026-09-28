@@ -60,3 +60,10 @@ test("runner sends the lease token on record, release, and complete", () => {
   assert.match(runner, /if \(!dryRun\) required\(leaseToken, "queue lease token"\)/);
   assert.equal(count(runner, /^\s+leaseToken,$/gm), 4);
 });
+
+
+test("owner queue list is not truncated to a small notification window", () => {
+  const listBody = between("async function listReady(", "async function approve(");
+  assert.match(listBody, /\.limit\(1000\)/);
+  assert.doesNotMatch(listBody, /\.limit\(20\)/);
+});
