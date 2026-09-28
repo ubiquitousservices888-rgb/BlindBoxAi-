@@ -10,6 +10,7 @@ import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.
 import { buildCustomId, parseAttribution, verticalFromSource } from "../../../../lib/attribution.mjs";
 import { classifyEbayAffiliateRequest } from "../ebay-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
+import { resolveReadonlyEbayOutboundTarget } from "../../../../lib/ebay-outbound-readonly.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,53 +25,21 @@ function error(message, status = 400) {
 // Read-only validation path for QA. HEAD computes the exact production target
 // without recording an affiliate click or following the external redirect.
 export async function HEAD(request) {
-  const url = new URL(request.url);
-  const seriesSlug = url.searchParams.get("series")?.trim() || "";
-  const figureName = url.searchParams.get("figure")?.trim() || "";
-  const kind = url.searchParams.get("kind")?.trim() || "";
-  const placement = url.searchParams.get("placement")?.trim() || "";
-  const requestAttribution = resolveRequestAttribution({
-    campaign: url.searchParams.get("campaign"),
-    source: url.searchParams.get("source"),
-    referer: request.headers.get("referer"),
+  const result = resolveReadonlyEbayOutboundTarget({
+    requestUrl: request.url,
+    referer: request.headers.get("referer") || "",
   });
-  const campaignId = requestAttribution.campaignId;
-  const outboundSource = requestAttribution.source;
-  const rawVertical = url.searchParams.get("vertical")?.trim().toLowerCase() || "";
-  const rawItemSlug = url.searchParams.get("itemSlug")?.trim() || figureName;
-
-  if (!VALID_KINDS.has(kind)) return new Response(null, { status: 400, headers: { "Cache-Control": "no-store" } });
-  if (!VALID_PLACEMENTS.has(placement)) return new Response(null, { status: 400, headers: { "Cache-Control": "no-store" } });
-
-  const series = getSeries(seriesSlug);
-  if (!series) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
-  const figure = series.figures.find(item => item.name === figureName);
-  if (!figure) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
-
-  const attribution = parseAttribution({
-    vertical: rawVertical || verticalFromSource(outboundSource),
-    source: outboundSource,
-    itemSlug: rawItemSlug,
-  });
-  const hasMarketingSource = outboundSource !== "none" && outboundSource !== "page";
-  const customId = campaignId || hasMarketingSource
-    ? epnCustomId({
-        seriesSlug: series.slug,
-        figure: figure.name,
-        kind,
-        placement,
-        campaignId,
-        source: outboundSource,
-      })
-    : buildCustomId(attribution);
-
-  const query = `${series.brand} ${series.name} ${figure.name}`;
-  const target = kind === "sold" ? ebaySoldLink(query, customId) : ebayActiveLink(query, customId);
+  if (!result.target) {
+    return new Response(null, {
+      status: result.status,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
   return new Response(null, {
     status: 302,
     headers: {
       "Cache-Control": "no-store",
-      Location: target,
+      Location: result.target,
     },
   });
 }
