@@ -62,11 +62,14 @@ test("runner sends the lease token on record, release, and complete", () => {
 });
 
 
-test("owner queue list uses a named cap well above the notification window", () => {
-  const cap = fn.match(/const OWNER_REVIEW_LIST_LIMIT = (\d+);/);
-  assert.ok(cap, "owner review list cap must be named");
-  assert.ok(Number(cap[1]) >= 100, "owner review list cap must be at least 100");
+test("owner queue list paginates only ready rows and never silently truncates", () => {
+  const pageSize = fn.match(/const OWNER_REVIEW_PAGE_SIZE = (\d+);/);
+  assert.ok(pageSize, "owner review page size must be named");
+  assert.ok(Number(pageSize[1]) >= 100, "owner review page size must be at least 100");
   const listBody = between("async function listReady(", "async function approve(");
-  assert.match(listBody, /\.limit\(OWNER_REVIEW_LIST_LIMIT\)/);
+  assert.match(listBody, /\.eq\("status", "ready_for_review"\)/);
+  assert.match(listBody, /\.range\(from, to\)/);
+  assert.match(listBody, /pageItems\.length < OWNER_REVIEW_PAGE_SIZE/);
+  assert.match(listBody, /Review queue exceeds safe pagination bound/);
   assert.doesNotMatch(listBody, /\.limit\(20\)/);
 });
