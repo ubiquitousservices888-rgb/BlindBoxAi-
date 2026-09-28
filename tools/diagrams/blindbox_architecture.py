@@ -59,15 +59,16 @@ def build_diagram() -> Path:
             app >> Edge(label="read/write") >> supabase
 
         with Cluster("Owner-Gated Content Pipeline"):
-            video = Nodejs("Video pipeline")
+            verified_source = Storage("Verified video product data")
             render = Action("Creatomate / guarded Gemini render")
-            review = Inspection("Owner approval")
-            publisher = Action("Buffer publisher")
-            channels = Display("Reviewed video: YouTube / TikTok")
-            supabase >> Edge(label="review queue") >> video
-            video >> render >> review
-            render >> Edge(label="media") >> media
-            review >> Edge(label="approved only") >> publisher >> channels
+            review = Inspection("Owner review gate")
+            queue_publisher = Action("Approved review queue publisher")
+            channels = Display("YouTube / TikTok")
+            blob = Storage("Vercel Blob / provider-hosted MP4")
+
+            verified_source >> Edge(label="render workflow") >> render >> blob >> review
+            supabase >> Edge(label="approved MP4 queue") >> queue_publisher >> channels
+            review >> Edge(label="approved state") >> queue_publisher
 
         with Cluster("Affiliate Monetization"):
             ebay = Display("eBay / EPN outbound")
