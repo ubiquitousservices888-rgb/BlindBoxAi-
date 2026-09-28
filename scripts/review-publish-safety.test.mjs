@@ -455,19 +455,22 @@ test("published feed preserves previously verified channels across exact-channel
 test("live publisher fail-closes on missing tracked CTA or unverifiable public URL", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
-  assert.match(source, /tracked CTA is missing campaign or source/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
-  assert.match(source, /publisher returned no verified public URL/);
-  assert.match(source, /campaignId,/);
-  assert.match(source, /source,/);
+  const ctaGuard = source.indexOf("tracked CTA is missing campaign or source");
+  const urlGuard = source.indexOf("publisher returned no verified public URL");
+  const publisherCall = source.indexOf("const result = await publisher({");
+  const recordCall = source.indexOf('action: "record_channel"');
+  assert.ok(ctaGuard >= 0 && ctaGuard < publisherCall);
+  assert.ok(urlGuard >= 0 && publisherCall < urlGuard && urlGuard < recordCall);
 });
 
 test("published feed requires exactly one campaign id from the controlled execution", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /const campaignIds = \[\.\.\.new Set/);
-  assert.match(source, /campaignIds\.length !== 1/);
-  assert.match(source, /Published feed requires exactly one campaign ID for this execution/);
   assert.match(source, /campaignId: campaignIds\[0\]/);
+  const campaignGuard = source.indexOf("campaignIds.length !== 1");
+  const feedPost = source.indexOf("PUBLISHED_FEED_URL,");
+  assert.ok(campaignGuard >= 0 && feedPost > campaignGuard);
 });
 
 test("publisher rejects an empty configured channel set before claiming", () => {
