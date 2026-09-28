@@ -385,13 +385,17 @@ test("workflow requires explicit channel and exact review row inputs", () => {
   const channelBlock = source.slice(channelStart, runStart);
   assert.match(channelBlock, /required: true/);
   assert.match(channelBlock, /type: choice/);
-  assert.match(channelBlock, /- youtube/);
-  assert.match(channelBlock, /- tiktok/);
+  assert.doesNotMatch(channelBlock, /default\s*:/);
+  const optionsBlock = channelBlock.slice(channelBlock.indexOf("options:"));
+  assert.deepEqual(
+    [...optionsBlock.matchAll(/^[ \t]+- ([a-z0-9_-]+)$/gm)].map((match) => match[1]),
+    ["youtube", "tiktok"],
+  );
 
   const runBlock = source.slice(runStart, audienceStart);
   assert.match(runBlock, /required: true/);
   assert.match(runBlock, /type: string/);
-  assert.doesNotMatch(runBlock, /default:\s*""/);
+  assert.doesNotMatch(runBlock, /default\s*:/);
 });
 
 test("workflow pins review-video target channels and ignores repo override", () => {
