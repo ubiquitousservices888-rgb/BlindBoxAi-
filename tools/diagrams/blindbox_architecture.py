@@ -76,8 +76,8 @@ def build_diagram() -> Path:
 
         with Cluster("Operations"):
             alerts = Discord("Discord alerts")
-            video >> Edge(style="dashed", label="failures") >> alerts
-            publisher >> Edge(style="dashed", label="failures") >> alerts
+            render >> Edge(style="dashed", label="failures") >> alerts
+            queue_publisher >> Edge(style="dashed", label="failures") >> alerts
 
         with Cluster("Documentation Tooling — non-runtime"):
             diagrams_tool = Python("Diagrams generator")
