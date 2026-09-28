@@ -4,18 +4,26 @@ import test from "node:test";
 
 import { searchRecentPublicResearch } from "../lib/public-research-search.mjs";
 
+const ROOT = new URL("../", import.meta.url);
+
+function readRepoFile(relativePath) {
+  return fs.readFileSync(new URL(relativePath, ROOT), "utf8");
+}
+
 function response(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
 
 test("scheduled research collector covers every mandate lane with two bounded search angles", () => {
-  const mandate = JSON.parse(fs.readFileSync("data/know-it-all/high-value-collectibles-research-mandate.json", "utf8"));
-  const source = fs.readFileSync("scripts/secure-public-research.mjs", "utf8");
+  const mandate = JSON.parse(readRepoFile("data/know-it-all/high-value-collectibles-research-mandate.json"));
+  const source = readRepoFile("scripts/secure-public-research.mjs");
   for (const lane of mandate.lanes) assert.match(source, new RegExp(`"${lane.replace(/[.*+?^$()|[\\]{}]/g, "\\$&")}":`));
   assert.match(source, /const SEARCH_ANGLES = \[/);
   assert.match(source, /"market"/);
   assert.match(source, /"risk-demand"/);
   assert.match(source, /mandate\.lanes\.flatMap\(\(lane\) => SEARCH_ANGLES\.map/);
+  assert.match(source, /fetchSourcesBounded\(sources, 10\)/);
+  assert.match(source, /item\.feedUrl/);
   assert.match(source, /\.slice\(0, 96\)/);
 });
 
@@ -51,6 +59,48 @@ test("public research reader returns sanitized ranked matches without treating t
   assert.equal(requestedUrl.searchParams.get("order"), "researched_at.desc");
   assert.equal(requestedUrl.searchParams.get("limit"), "8");
   assert.match(requestedUrl.searchParams.get("select"), /artifact/);
+});
+
+test("public research reader rejects credential-bearing URLs", async () => {
+  const result = await searchRecentPublicResearch("Pokemon", {
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
+    serviceRoleKey: "server-only-test-key",
+    fetchImpl: async () => response([{ researched_at: "2026-09-27T14:17:00.000Z", artifact: { findings: [
+      { title: "Pokemon source with embedded credentials", url: "https://user:pass@example.com/private" },
+      { title: "Pokemon safe source", url: "https://example.com/safe" },
+    ] } }]),
+  });
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.matches[0].url, "https://example.com/safe");
+});
+
+test("reader deduplicates, enforces resultLimit, and strips internal score", async () => {
+  const result = await searchRecentPublicResearch("Pokemon", {
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
+    serviceRoleKey: "server-only-test-key",
+    resultLimit: 2,
+    fetchImpl: async () => response([{ researched_at: "2026-09-27T14:17:00.000Z", artifact: { findings: [
+      { title: "Pokemon alpha", url: "https://example.com/a" },
+      { title: "Pokemon alpha", url: "https://example.com/a" },
+      { title: "Pokemon beta", url: "https://example.com/b" },
+      { title: "Pokemon gamma", url: "https://example.com/c" },
+    ] } }]),
+  });
+  assert.equal(result.matches.length, 2);
+  assert.equal(new Set(result.matches.map((item) => `${item.url}|${item.title}`)).size, 2);
+  assert.ok(result.matches.every((item) => !("score" in item)));
+});
+
+test("unicode collectible terms remain searchable", async () => {
+  const result = await searchRecentPublicResearch("ポケモン", {
+    supabaseUrl: "https://lazzdoadoqzrzlarerfx.supabase.co",
+    serviceRoleKey: "server-only-test-key",
+    fetchImpl: async () => response([{ researched_at: "2026-09-27T14:17:00.000Z", artifact: { findings: [
+      { title: "ポケモン カード 新商品", url: "https://example.com/jp" },
+    ] } }]),
+  });
+  assert.equal(result.matches.length, 1);
+  assert.equal(result.matches[0].url, "https://example.com/jp");
 });
 
 test("public research query failures are explicit rather than false empty results", async () => {
