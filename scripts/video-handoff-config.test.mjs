@@ -37,8 +37,15 @@ test("review-only video workflow validates attribution, uses configured renderer
   assert.doesNotMatch(reviewOnlyWorkflow, /\bschedule\s*:/);
   assert.match(reviewOnlyWorkflow, /NEXT_PUBLIC_EPN_CAMPID:/);
   assert.match(reviewOnlyWorkflow, /CREATOMATE_API_KEY/);
+  assert.match(reviewOnlyWorkflow, /GEMINI_API_KEY/);
+  assert.match(reviewOnlyWorkflow, /BLOB_READ_WRITE_TOKEN/);
   assert.match(reviewOnlyWorkflow, /npm run video:daily/);
   assert.match(reviewOnlyWorkflow, /npm run video:gemini-stage/);
+  assert.ok(
+    reviewOnlyWorkflow.indexOf("npm run video:daily") < reviewOnlyWorkflow.indexOf("npm run video:gemini-stage"),
+    "Creatomate must run before the guarded Gemini fallback",
+  );
+  assert.match(reviewOnlyWorkflow, /missing a renderer provider/);
   assert.match(reviewOnlyWorkflow, /VIDEO_CHANNELS:.*youtube,tiktok/);
   assert.match(reviewOnlyWorkflow, /ALLOW_MANUAL_VIDEO_PUBLISH:\s*"false"/);
   assert.match(reviewOnlyWorkflow, /READY_FOR_REVIEW/);
