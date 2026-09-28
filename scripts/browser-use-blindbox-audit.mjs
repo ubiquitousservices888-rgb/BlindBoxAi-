@@ -13,6 +13,7 @@ const LATEST_PATH = path.join(RUNTIME_DIR, "latest.json");
 const API_BASE = "https://api.browser-use.com/api/v4";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const INTERNAL_AFFILIATE_PATHS = new Set(["/api/out/ebay", "/api/out/ebay-live"]);
+const LIVE_AFFILIATE_PATH = "/api/out/ebay-live";
 
 export function maxRoutesFromPolicy(policy) {
   const raw = Number(policy?.auditScope?.maxDiscoveredRoutes ?? 12);
@@ -173,12 +174,16 @@ export function inspectAffiliateUrl(raw, policy) {
   const missingRequired = required.filter((key) => !parsed.searchParams.get(key));
   const missingPreferred = preferred.filter((key) => !parsed.searchParams.get(key));
   const allowedHost = parsed.protocol === "https:" && allowedHosts.has(parsed.hostname.toLowerCase());
+  const valid = allowedHost && missingRequired.length === 0;
   return {
     url: parsed.toString(),
-    valid: allowedHost && missingRequired.length === 0,
+    valid,
     allowedHost,
     missingRequired,
     missingPreferred,
+    reason: valid
+      ? null
+      : (!allowedHost ? "disallowed-host-or-protocol" : "missing-required-params"),
   };
 }
 
@@ -201,6 +206,30 @@ export async function resolveAffiliateHref(
 
   const siteOrigin = new URL(policy.site).origin;
   if (parsed.origin !== siteOrigin || !INTERNAL_AFFILIATE_PATHS.has(parsed.pathname)) return null;
+
+  if (parsed.pathname === LIVE_AFFILIATE_PATH) {
+    const item = String(parsed.searchParams.get("item") || "").trim();
+    const context = String(parsed.searchParams.get("context") || "").trim();
+    const id = String(parsed.searchParams.get("id") || "").trim();
+    const itemValid = Boolean(item) && item.length <= 180 && /^[A-Za-z0-9|._:-]+$/.test(item);
+    const contextValid = ["series", "offer", "ask"].includes(context);
+    const idValid = Boolean(id) && id.length <= 180;
+    const valid = itemValid && contextValid && idValid;
+    return {
+      observedHref: parsed.toString(),
+      resolution: "internal-live-structure",
+      valid,
+      allowedHost: null,
+      missingRequired: [
+        ...(!itemValid ? ["item"] : []),
+        ...(!contextValid ? ["context"] : []),
+        ...(!idValid ? ["id"] : []),
+      ],
+      missingPreferred: [],
+      reason: valid ? null : "invalid-live-route-parameters",
+      targetHostVerifiedBy: "normalizeEbayBrowseItem",
+    };
+  }
 
   try {
     const response = await fetchImpl(parsed.toString(), {
@@ -361,9 +390,13 @@ export async function runReadOnlyAudit({ env = process.env } = {}) {
     const seen = new Set();
     const pages = [];
     const maxRoutes = maxRoutesFromPolicy(policy);
+    let timedOut = false;
 
     while (queue.length && pages.length < maxRoutes) {
-      if (Date.now() >= deadline) throw new Error("Read-only browser audit exceeded its timeout.");
+      if (Date.now() >= deadline) {
+        timedOut = true;
+        break;
+      }
       const url = queue.shift();
       if (!url || seen.has(url)) continue;
       seen.add(url);
@@ -398,6 +431,8 @@ export async function runReadOnlyAudit({ env = process.env } = {}) {
         failedPages: pages.filter((item) => !item.ok).length,
         affiliateLinksCheckedWithoutOpening: affiliateLinks.length,
         invalidAffiliateLinks: affiliateLinks.filter((item) => !item.valid).length,
+        timedOut,
+        remainingQueuedRoutes: queue.length,
       },
     };
 
@@ -409,7 +444,9 @@ export async function runReadOnlyAudit({ env = process.env } = {}) {
       updatedAt: report.completedAt,
       lastBrowserId: browserId,
       lastStatus:
-        report.summary.failedPages === 0 && report.summary.invalidAffiliateLinks === 0
+        report.summary.failedPages === 0
+        && report.summary.invalidAffiliateLinks === 0
+        && report.summary.timedOut === false
           ? "passed"
           : "issues-found",
       lastSummary: report.summary,
@@ -465,7 +502,7 @@ async function main() {
   console.log(`Affiliate links checked without opening: ${report.summary.affiliateLinksCheckedWithoutOpening}`);
   console.log(`Invalid affiliate links: ${report.summary.invalidAffiliateLinks}`);
   console.log(`Blocked write requests: ${report.blockedWriteRequests}`);
-  if (report.summary.failedPages > 0 || report.summary.invalidAffiliateLinks > 0) process.exitCode = 1;
+  if (report.summary.failedPages > 0 || report.summary.invalidAffiliateLinks > 0 || report.summary.timedOut) process.exitCode = 1;
 }
 
 const isMain = process.argv[1]
