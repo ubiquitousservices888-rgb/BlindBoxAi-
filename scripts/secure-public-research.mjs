@@ -113,6 +113,15 @@ async function fetchSource(source) {
   } finally { clearTimeout(timer); }
 }
 
+async function fetchSourcesBounded(sources, concurrency = 10) {
+  const results = [];
+  for (let index = 0; index < sources.length; index += concurrency) {
+    const batch = sources.slice(index, index + concurrency);
+    results.push(...await Promise.all(batch.map(fetchSource)));
+  }
+  return results;
+}
+
 const mandate = JSON.parse(await fs.readFile(MANDATE, "utf8"));
 const SEARCH_ANGLES = [
   ["market", (base) => base],
@@ -124,7 +133,7 @@ const sources = mandate.lanes.flatMap((lane) => SEARCH_ANGLES.map(([angle, build
   topic: lane,
   url: `https://news.google.com/rss/search?q=${encodeURIComponent(build(queryForLane(lane)))}&hl=en-US&gl=US&ceid=US:en`,
 })));
-const results = await Promise.all(sources.map(fetchSource));
+const results = await fetchSourcesBounded(sources, 10);
 const seenFindings = new Set();
 const items = selectFindingsByLane(results, results.reduce((total, result) => total + result.items.length, 0))
   .map((item) => ({
@@ -133,7 +142,9 @@ const items = selectFindingsByLane(results, results.reduce((total, result) => to
     summary: redact(item.summary),
   }))
   .filter((item) => {
-    const key = `${String(item.url).toLowerCase()}|${String(item.title).toLowerCase()}`;
+    const key = item.feedUrl
+      ? `feed:${String(item.feedUrl).toLowerCase()}`
+      : `fallback:${String(item.url).toLowerCase()}|${String(item.title).toLowerCase()}`;
     if (seenFindings.has(key)) return false;
     seenFindings.add(key);
     return true;
