@@ -431,9 +431,11 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(workflow, /research_run_id:/);
   assert.match(workflow, /PUBLISH_RESEARCH_RUN_ID:/);
   assert.match(publisher, /PUBLISH_RESEARCH_RUN_ID/);
-  assert.match(publisher, /const requestedRunId = String\(process\.env\.PUBLISH_RESEARCH_RUN_ID \?\? ""\);/);
+  assert.match(publisher, /const rawRequestedRunId = String\(process\.env\.PUBLISH_RESEARCH_RUN_ID \?\? ""\)\.trim\(\);/);
+  assert.match(publisher, /const requestedRunId = \/\^\[a-f0-9\]\{16\}\$\/\.test\(rawRequestedRunId\)/);
+  assert.match(publisher, /\? `rv-\$\{rawRequestedRunId\}`/);
   assert.match(publisher, /\^rv-\[a-f0-9\]\{16\}\$/);
-  assert.doesNotMatch(publisher, /PUBLISH_RESEARCH_RUN_ID[^\n]*(?:trim|toLowerCase)/);
+  assert.doesNotMatch(publisher, /PUBLISH_RESEARCH_RUN_ID[^\n]*toLowerCase/);
   assert.match(publisher, /researchRunId: requestedRunId \|\| undefined/);
   assert.match(queue, /function requestedResearchRunId/);
   assert.match(queue, /const researchRunId = String\(body\?\.researchRunId \?\? ""\);/);
