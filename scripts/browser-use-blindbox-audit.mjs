@@ -4,6 +4,8 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
+import { getSeries } from "../lib/data.js";
+import { getRevenueOffer } from "../lib/revenue-offers.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const POLICY_PATH = path.join(ROOT, "agents", "blindbox-agent-memory.json");
@@ -212,7 +214,10 @@ export async function resolveAffiliateHref(
     const context = String(parsed.searchParams.get("context") || "").trim();
     const id = String(parsed.searchParams.get("id") || "").trim();
     const itemValid = Boolean(item) && item.length <= 180 && /^[A-Za-z0-9|._:-]+$/.test(item);
-    const contextValid = ["series", "offer", "ask"].includes(context);
+    const contextValid =
+      (context === "ask" && id === "visual-search")
+      || (context === "series" && Boolean(getSeries(id)))
+      || (context === "offer" && Boolean(getRevenueOffer(id)));
     const idValid = Boolean(id) && id.length <= 180;
     const valid = itemValid && contextValid && idValid;
     return {
@@ -222,12 +227,12 @@ export async function resolveAffiliateHref(
       allowedHost: null,
       missingRequired: [
         ...(!itemValid ? ["item"] : []),
-        ...(!contextValid ? ["context"] : []),
+        ...(!contextValid ? ["context-or-id"] : []),
         ...(!idValid ? ["id"] : []),
       ],
       missingPreferred: [],
       reason: valid ? null : "invalid-live-route-parameters",
-      targetHostVerifiedBy: "normalizeEbayBrowseItem",
+      destinationSanitizationEnforcedBy: "normalizeEbayBrowseItem",
     };
   }
 
