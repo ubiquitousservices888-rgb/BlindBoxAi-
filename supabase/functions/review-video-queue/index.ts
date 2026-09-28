@@ -46,6 +46,23 @@ function safePublicUrl(channel: string, value: unknown) {
   }
   return null;
 }
+const REVIEW_BUCKET = "blindboxai-review-videos";
+const REVIEW_PATH_PREFIX = "media/review/";
+
+function reviewStoragePath(value: unknown) {
+  const raw = safeHttps(value);
+  if (!raw) return null;
+  const url = new URL(raw);
+  const expectedHost = new URL(supabaseUrl).hostname.toLowerCase();
+  if (url.hostname.toLowerCase() !== expectedHost || url.port) return null;
+  const publicPrefix = `/storage/v1/object/public/${REVIEW_BUCKET}/`;
+  if (!url.pathname.startsWith(publicPrefix)) return null;
+  let path = "";
+  try { path = decodeURIComponent(url.pathname.slice(publicPrefix.length)); } catch { return null; }
+  if (!path.startsWith(REVIEW_PATH_PREFIX) || path.includes("..") || !/\.mp4$/i.test(path)) return null;
+  return path;
+}
+
 function verticalFor(title: string) {
   const t = title.toLowerCase();
   if (/pokemon|pokémon|pikachu|charizard|mewtwo|umbreon|jigglypuff|turtwig/.test(t)) return "pokemon_tcg";
@@ -97,11 +114,11 @@ async function stage(req: Request, body: any) {
   return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}` });
 }
 async function listReady(req: Request) {
-  if (!await stagingAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
   const { data, error } = await db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
     .in("status", ["ready_for_review","approved","publishing"])
-    .order("created_at", { ascending: false }).limit(1000);
+    .order("created_at", { ascending: false }).limit(20);
   if (error) return json({ error: "Queue lookup failed" }, 500);
   return json({ ok: true, items: data || [] });
 }
@@ -131,6 +148,51 @@ async function reject(req: Request, body: any) {
   if (!data) return json({ error: "Video is not rejectable" }, 409);
   return json({ ok: true, item: data });
 }
+
+async function deleteReview(req: Request, body: any) {
+  if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  const researchRunId = clean(body?.researchRunId, 40);
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+
+  const { data: current, error: readError } = await db.from("review_video_queue")
+    .select("research_run_id,video_url,title,status")
+    .eq("research_run_id", researchRunId)
+    .eq("status", "ready_for_review")
+    .maybeSingle();
+  if (readError) return json({ error: "Queue lookup failed" }, 500);
+  if (!current) return json({ error: "Video is not waiting for review" }, 409);
+
+  const storagePath = reviewStoragePath(current.video_url);
+  if (!storagePath) return json({ error: "Review media URL is outside the approved storage namespace" }, 409);
+
+  const now = new Date().toISOString();
+  const { data: rejected, error: rejectError } = await db.from("review_video_queue")
+    .update({
+      status: "rejected",
+      rejection_reason: "owner_deleted",
+      rejected_at: now,
+      publishing_at: null,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "ready_for_review")
+    .select("research_run_id,title,status,rejection_reason,rejected_at")
+    .maybeSingle();
+  if (rejectError) return json({ error: "Queue deletion failed" }, 500);
+  if (!rejected) return json({ error: "Video is no longer waiting for review" }, 409);
+
+  const { error: storageError } = await db.storage.from(REVIEW_BUCKET).remove([storagePath]);
+  if (storageError) {
+    await db.from("review_video_queue")
+      .update({ last_error: "Owner deletion removed the queue item, but storage cleanup failed", updated_at: new Date().toISOString() })
+      .eq("research_run_id", researchRunId);
+    return json({ error: "Video was removed from the review queue, but media cleanup failed", item: rejected }, 502);
+  }
+
+  return json({ ok: true, deleted: true, item: rejected });
+}
+
 function requestedPublishChannel(body: any) {
   const channel = clean(body?.channel, 32).toLowerCase();
   if (!channel) return "";
@@ -301,6 +363,7 @@ Deno.serve(async (req: Request) => {
   if (action === "list") return listReady(req);
   if (action === "approve") return approve(req, body);
   if (action === "reject") return reject(req, body);
+  if (action === "delete") return deleteReview(req, body);
   if (action === "peek") return peek(req, body);
   if (action === "claim") return claim(req, body);
   if (action === "record_channel") return recordChannel(req, body);
