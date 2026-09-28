@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { buildDeterministicCompResponse } from "../../../lib/deterministic-comp-lookup.mjs";
 import { recordKnowItAllQuestion } from "../../../lib/mr-know-it-all-store.mjs";
+import { searchRecentPublicResearch } from "../../../lib/public-research-search.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,7 +69,12 @@ async function runtimeRecorder(payload) {
   return recordKnowItAllQuestion(payload);
 }
 
-export function createMrKnowItAllHandler({ recorder = runtimeRecorder } = {}) {
+async function runtimePublicResearch(query) {
+  if (automatedTestRuntime()) return { matches: [], runsSearched: 0, findingsSearched: 0, latestResearchedAt: null };
+  return searchRecentPublicResearch(query);
+}
+
+export function createMrKnowItAllHandler({ recorder = runtimeRecorder, publicResearch = runtimePublicResearch } = {}) {
   return async function handleMrKnowItAll(request) {
     if (!originAllowed(request)) return json({ error: "Origin not allowed." }, { status: 403 });
     if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
@@ -101,6 +107,13 @@ export function createMrKnowItAllHandler({ recorder = runtimeRecorder } = {}) {
 
     try {
       const result = buildDeterministicCompResponse(query);
+      let research = { matches: [], runsSearched: 0, findingsSearched: 0, latestResearchedAt: null, status: "ok" };
+      try {
+        const found = await publicResearch(query);
+        research = { ...research, ...found, status: "ok" };
+      } catch {
+        research = { ...research, status: "unavailable" };
+      }
       const storage = await recorder({ question: query, result }).catch(() => ({ stored: false, reason: "write_failed" }));
       console.info("agent_question", {
         piiStored: false,
@@ -109,7 +122,12 @@ export function createMrKnowItAllHandler({ recorder = runtimeRecorder } = {}) {
         mode: "deterministic",
         researchStored: storage.stored,
       });
-      return json({ ...result, researchKey: crypto.createHash("sha256").update(query.trim().toLowerCase()).digest("hex"), researchStored: storage.stored });
+      return json({
+        ...result,
+        publicResearch: research,
+        researchKey: crypto.createHash("sha256").update(query.trim().toLowerCase()).digest("hex"),
+        researchStored: storage.stored,
+      });
     } catch (error) {
       console.error("deterministic_comp_lookup_failed", { name: error?.name });
       return json({ error: "Verified comp lookup is temporarily unavailable." }, { status: 503 });

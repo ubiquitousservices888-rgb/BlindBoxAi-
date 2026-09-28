@@ -148,6 +148,37 @@ export default function AskPage() {
             </section>
           )}
 
+          {result.publicResearch && (
+            <section className="public-research">
+              <h3>Twice-daily public research</h3>
+              {result.publicResearch.status !== "unavailable" && result.publicResearch.latestResearchedAt ? (
+                <p className="research-meta">Collected {new Date(result.publicResearch.latestResearchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}.</p>
+              ) : null}
+              {result.publicResearch.status === "unavailable" ? (
+                <p>Stored public research is temporarily unavailable. This is not treated as evidence that no results exist.</p>
+              ) : result.publicResearch.queryStatus === "no-search-terms" ? (
+                <p>The question did not contain enough specific collectible terms to search the stored research. Add a set, character, player, brand, year, or product name.</p>
+              ) : result.publicResearch.matches?.length > 0 ? (
+                <>
+                  <p>These are public research leads from recent scheduled runs. They are not verified sold-price evidence until independently validated.</p>
+                  <div className="research-leads">
+                    {result.publicResearch.matches.map((item) => (
+                      <article key={`${item.url}:${item.title}`}>
+                        <a href={item.url} target="_blank" rel="noopener noreferrer"><strong>{item.title || "Public research source"}</strong></a>
+                        <span>{item.source || item.topic || "Public source"}{item.published ? ` · ${item.published}` : ""}</span>
+                        {item.summary ? <p>{item.summary}</p> : null}
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : (result.publicResearch.runsSearched ?? 0) === 0 ? (
+                <p>No scheduled public research runs are stored yet. This is not treated as evidence that the collectible has no market activity.</p>
+              ) : (
+                <p>No matching finding was found in {result.publicResearch.findingsSearched ?? 0} stored findings across {result.publicResearch.runsSearched ?? 0} recent research runs. That means the stored scheduled research did not match this query; it does not prove the collectible has no market activity.</p>
+              )}
+            </section>
+          )}
+
           <AskVisualListings query={question.trim()} />
 
           {result.suggestedMatch && result.matches?.length === 0 && (
@@ -210,7 +241,7 @@ export default function AskPage() {
         .ask-form,.answer{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}.ask-form label,.audience-research label{display:block;font-weight:600;margin:10px 0 8px}input{display:block;width:100%;border:1.5px solid var(--line-strong);border-radius:10px;background:#fff;color:var(--ink);padding:13px;font:16px/1.5 Inter,system-ui,sans-serif}input:focus{border-color:var(--verify);outline:2px solid #CBE9DF;outline-offset:1px}
         .ask-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px}.ask-controls span{color:var(--muted);font-size:.76rem}.ask-controls button,.audience-research button,.nearest-match button{border:0;border-radius:999px;background:var(--verify);color:#fff;font-weight:600;padding:11px 18px;cursor:pointer;margin-top:12px}.ask-controls button:disabled,.audience-research button:disabled{opacity:.55;cursor:not-allowed}
         .suggestions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px}.suggestions button{border:1px solid var(--line-strong);border-radius:999px;background:transparent;color:var(--ink);padding:7px 11px;font-size:.78rem;cursor:pointer;text-align:left}.ask-error{border:1px solid #E1A56F;background:#FFF4E8;color:#7B3705;border-radius:12px;padding:14px;margin-top:20px}
-        .answer{padding:20px;margin-top:24px}.answer-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}.answer-head h2{font-size:1.35rem}.answer-head span{font-family:"Spline Sans Mono",monospace;font-size:.68rem;text-transform:uppercase;color:var(--verify-ink)}.answer section{margin-top:20px}.answer h3{font-size:1rem;margin-bottom:9px}.answer-guidance{border:1px solid #d8e8e2;border-radius:12px;background:#f4faf7;padding:13px}.answer-guidance p{margin:0;color:var(--muted);font-size:.84rem;line-height:1.55}
+        .answer{padding:20px;margin-top:24px}.answer-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}.answer-head h2{font-size:1.35rem}.answer-head span{font-family:"Spline Sans Mono",monospace;font-size:.68rem;text-transform:uppercase;color:var(--verify-ink)}.answer section{margin-top:20px}.answer h3{font-size:1rem;margin-bottom:9px}.answer-guidance{border:1px solid #d8e8e2;border-radius:12px;background:#f4faf7;padding:13px}.answer-guidance p{margin:0;color:var(--muted);font-size:.84rem;line-height:1.55}.public-research{border:1px solid var(--line);border-radius:12px;padding:13px}.public-research>p{color:var(--muted);font-size:.84rem}.research-meta{margin-top:-3px}.research-leads{display:grid;gap:10px}.research-leads article{border-top:1px solid var(--line);padding-top:10px}.research-leads article:first-child{border-top:0;padding-top:0}.research-leads span{display:block;color:var(--muted);font-size:.72rem;margin-top:3px}.research-leads p{color:var(--muted);font-size:.8rem;margin:5px 0 0}
         .matches{display:grid;gap:10px}.match{border:1px solid var(--line);border-radius:10px;padding:13px;background:#fff}.match div{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.match span{display:block;color:var(--muted);font-size:.78rem}.match b{display:block;font-family:"Spline Sans Mono",monospace;margin-top:7px}.match p,.audience-research p,.nearest-match p{color:var(--muted);font-size:.84rem;margin:7px 0}.match a{font-size:.8rem;font-weight:600}.evidence-meta{margin-top:9px;padding:8px 10px;border-radius:8px;background:#eef5f2;font-size:.74rem}.evidence-meta.fresh{background:#eaf6f1}.evidence-meta.dated{background:#fff3df}.evidence-meta.unknown{background:#f1f2f2}.evidence-meta span:last-child{font-weight:700}.nearest-match{border-top:1px solid var(--line);padding-top:14px}.nearest-match small{display:block;margin-top:9px;color:var(--muted);font-size:.72rem;line-height:1.45}.audience-research{border-top:1px solid var(--line);padding-top:14px}.research-status{font-weight:600}.answer-notes{border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:.88rem}.answer-notes ul{padding-left:20px}.privacy-note{margin-top:28px;color:var(--muted);font-size:.78rem}
         @media(max-width:560px){.ask-controls{align-items:flex-start;flex-direction:column}.ask-controls button{width:100%}.answer-head{align-items:flex-start;flex-direction:column}.evidence-meta{align-items:flex-start;flex-direction:column}}
       `}</style>

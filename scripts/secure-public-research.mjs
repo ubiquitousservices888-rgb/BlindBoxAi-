@@ -14,14 +14,31 @@ const SECRET_PATTERNS = [
 ];
 
 const LANE_QUERY_OVERRIDES = Object.freeze({
-  "pokemon-and-tcg": "Pokemon TCG sealed booster box completed sales authentication demand",
-  "graded-cards-and-slabs": "graded cards PSA slab completed sales population authentication",
+  "baseball-cards": "baseball cards Topps Bowman rookie autograph numbered parallel completed sales",
+  "basketball-cards": "basketball cards Panini rookie autograph numbered parallel completed sales",
+  "football-cards": "football cards Panini rookie autograph numbered parallel completed sales",
+  "hockey-cards": "hockey cards Upper Deck rookie Young Guns autograph completed sales",
+  "soccer-cards": "soccer cards Topps Panini rookie autograph numbered parallel completed sales",
+  "racing-and-motorsport-cards": "Formula 1 NASCAR racing cards Topps Chrome autograph numbered completed sales",
+  "golf-cards": "golf cards rookie autograph Upper Deck completed sales collectibles",
+  "tennis-cards": "tennis cards rookie autograph Topps completed sales collectibles",
+  "wrestling-cards": "WWE wrestling cards Panini Topps autograph numbered completed sales",
+  "ufc-and-mma-cards": "UFC MMA cards Topps Panini autograph numbered completed sales",
+  "other-sports-cards": "sports cards rookie autograph numbered parallel completed sales collectibles",
+  "pokemon-and-tcg": "Pokemon TCG cards sealed booster box rare completed sales authentication",
+  "magic-the-gathering": "Magic The Gathering MTG cards sealed reserved list completed sales authentication",
+  "yu-gi-oh": "Yu-Gi-Oh cards sealed rare first edition completed sales authentication",
+  "one-piece-lorcana-and-other-tcg": "One Piece Lorcana TCG cards sealed rare completed sales authentication",
+  "non-sports-and-entertainment-cards": "entertainment non sports trading cards autograph sketch completed sales",
+  "graded-cards-and-slabs": "PSA BGS CGC graded cards slab population completed sales authentication",
+  "sealed-packs-boxes-and-cases": "sealed trading card packs booster boxes cases completed sales authentication",
   "mystery-boxes-and-repack-products": "trading card mystery box repack completed sales buyer review",
   "japanese-exclusives-and-proxy-buying": "Japanese exclusive collectible cards proxy buying completed sales authentication",
   "premium-art-toys": "premium art toy collectible completed auction sales authentication",
   "pop-mart-and-labubu": "Pop Mart Labubu blind box completed sales authentication demand",
-  "collectible-protection-and-authentication-accessories": "collectible protection sleeves cases authentication accessories buyer demand",
-  "autonomously-discovered-high-value-card-and-collectible-categories": "emerging high value collectible category completed sales buyer demand authentication",
+  "sanrio-and-mass-market-blind-boxes": "Sanrio blind box collectible completed sales authentication demand",
+  "collectible-protection-and-authentication-accessories": "collectible card sleeves cases authentication accessories buyer demand",
+  "autonomously-discovered-high-value-card-and-collectible-categories": "emerging high value collectible cards completed sales buyer demand authentication",
 });
 
 function queryForLane(lane) {
@@ -96,18 +113,43 @@ async function fetchSource(source) {
   } finally { clearTimeout(timer); }
 }
 
+async function fetchSourcesBounded(sources, concurrency = 10) {
+  const results = [];
+  for (let index = 0; index < sources.length; index += concurrency) {
+    const batch = sources.slice(index, index + concurrency);
+    results.push(...await Promise.all(batch.map(fetchSource)));
+  }
+  return results;
+}
+
 const mandate = JSON.parse(await fs.readFile(MANDATE, "utf8"));
-const sources = mandate.lanes.map((lane) => ({
-  name: lane,
+const SEARCH_ANGLES = [
+  ["market", (base) => base],
+  ["risk-demand", (base) => `${base} counterfeit scam grading population demand release`],
+];
+
+const sources = mandate.lanes.flatMap((lane) => SEARCH_ANGLES.map(([angle, build]) => ({
+  name: `${lane}:${angle}`,
   topic: lane,
-  url: `https://news.google.com/rss/search?q=${encodeURIComponent(queryForLane(lane))}&hl=en-US&gl=US&ceid=US:en`,
-}));
-const results = await Promise.all(sources.map(fetchSource));
-const items = selectFindingsByLane(results).map((item) => ({
-  ...item,
-  title: redact(item.title),
-  summary: redact(item.summary),
-}));
+  url: `https://news.google.com/rss/search?q=${encodeURIComponent(build(queryForLane(lane)))}&hl=en-US&gl=US&ceid=US:en`,
+})));
+const results = await fetchSourcesBounded(sources, 10);
+const seenFindings = new Set();
+const items = selectFindingsByLane(results, results.reduce((total, result) => total + result.items.length, 0))
+  .map((item) => ({
+    ...item,
+    title: redact(item.title),
+    summary: redact(item.summary),
+  }))
+  .filter((item) => {
+    const key = item.feedUrl
+      ? `feed:${String(item.feedUrl).toLowerCase()}`
+      : `fallback:${String(item.url).toLowerCase()}|${String(item.title).toLowerCase()}`;
+    if (seenFindings.has(key)) return false;
+    seenFindings.add(key);
+    return true;
+  })
+  .slice(0, 96);
 const artifact = {
   schema: "blindboxai/know-it-all/public-research/v2",
   agent: "Mr. Know It All",
