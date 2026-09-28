@@ -192,12 +192,16 @@ test("owner dashboard exposes per-video Blue approval and confirmed delete contr
   assert.match(dashboardClient, /method: "DELETE"/);
   assert.match(dashboardClient, /durationSeconds/);
   assert.match(dashboardClient, /reviewQueueRequestInFlight\.current/);
+  assert.match(dashboardClient, /reviewQueueRefreshPending\.current/);
+  assert.match(dashboardClient, /setReviewQueue\(\(previous\) => previous\.filter/);
+  assert.match(dashboardClient, /function durationLabel\(value\)/);
 });
 
 test("review queue list and delete use owner auth and delete only review-storage media", () => {
-  assert.match(reviewQueueFunction, /async function listReady[\s\S]*ownerControlAuthorized\(req\)/);
-  assert.match(reviewQueueFunction, /async function deleteReview[\s\S]*ownerControlAuthorized\(req\)/);
+  assert.match(reviewQueueFunction, /async function listReady\(req: Request\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
+  assert.match(reviewQueueFunction, /async function deleteReview\(req: Request, body: any\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
   assert.match(reviewQueueFunction, /\.eq\("status", "ready_for_review"\)/);
+  assert.match(reviewQueueFunction, /rejection_reason: "owner_rejected"/);
   assert.match(reviewQueueFunction, /REVIEW_BUCKET = "blindboxai-review-videos"/);
   assert.match(reviewQueueFunction, /REVIEW_PATH_PREFIX = "media\/review\/"/);
   assert.match(reviewQueueFunction, /db\.storage\.from\(REVIEW_BUCKET\)\.remove\(\[storagePath\]\)/);
