@@ -11,6 +11,7 @@ import {
   timeoutFromEnv,
   validatePolicy,
 } from "./browser-use-blindbox-audit.mjs";
+import { resolveReadonlyEbayOutboundTarget } from "../lib/ebay-outbound-readonly.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const policy = JSON.parse(await fs.readFile(path.join(ROOT, "agents", "blindbox-agent-memory.json"), "utf8"));
@@ -189,29 +190,31 @@ test("audit source persists timeout state instead of throwing away partial resul
   assert.match(source, /report\.summary\.timedOut === false/);
 });
 
-test("classic affiliate HEAD returns one verified eBay redirect without click telemetry", async () => {
+test("classic affiliate HEAD resolver returns one verified eBay redirect without click telemetry", async () => {
   const priorCampId = process.env.NEXT_PUBLIC_EPN_CAMPID;
   process.env.NEXT_PUBLIC_EPN_CAMPID = "1234567";
   try {
-    const [{ HEAD }, { allSeries }] = await Promise.all([
-      import("../app/api/out/ebay/route.js?browser-audit-head-test"),
-      import("../lib/data.js"),
-    ]);
-    const series = allSeries().find((entry) => Array.isArray(entry.figures) && entry.figures.length > 0);
-    assert.ok(series, "expected at least one series fixture");
-    const figure = series.figures[0];
+    const fixture = {
+      slug: "test-series",
+      brand: "Example Brand",
+      name: "Example Series",
+      figures: [{ name: "Example Figure" }],
+    };
     const url = new URL("https://www.blindboxai.com/api/out/ebay");
-    url.searchParams.set("series", series.slug);
-    url.searchParams.set("figure", figure.name);
+    url.searchParams.set("series", fixture.slug);
+    url.searchParams.set("figure", fixture.figures[0].name);
     url.searchParams.set("kind", "active");
     url.searchParams.set("placement", "series_table");
-    url.searchParams.set("itemSlug", figure.name);
+    url.searchParams.set("itemSlug", fixture.figures[0].name);
 
-    const response = await HEAD(new Request(url));
-    assert.equal(response.status, 302);
-    const location = response.headers.get("location");
-    assert.ok(location, "HEAD must return Location with its 302");
-    const target = new URL(location);
+    const result = resolveReadonlyEbayOutboundTarget({
+      requestUrl: url,
+      referer: "",
+      getSeriesFn: (slug) => slug === fixture.slug ? fixture : null,
+    });
+    assert.equal(result.status, 302);
+    assert.ok(result.target, "resolver must return a target with its 302");
+    const target = new URL(result.target);
     assert.equal(target.protocol, "https:");
     assert.ok(target.hostname === "ebay.com" || target.hostname.endsWith(".ebay.com"));
     assert.equal(target.searchParams.get("campid"), "1234567");
@@ -220,7 +223,10 @@ test("classic affiliate HEAD returns one verified eBay redirect without click te
     const source = await fs.readFile(path.join(ROOT, "app", "api", "out", "ebay", "route.js"), "utf8");
     const start = source.indexOf("export async function HEAD");
     const end = source.indexOf("export async function GET", start);
-    assert.doesNotMatch(source.slice(start, end), /recordAffiliateClick/);
+    assert.ok(start >= 0 && end > start);
+    const block = source.slice(start, end);
+    assert.match(block, /resolveReadonlyEbayOutboundTarget/);
+    assert.doesNotMatch(block, /recordAffiliateClick/);
   } finally {
     if (priorCampId === undefined) delete process.env.NEXT_PUBLIC_EPN_CAMPID;
     else process.env.NEXT_PUBLIC_EPN_CAMPID = priorCampId;
