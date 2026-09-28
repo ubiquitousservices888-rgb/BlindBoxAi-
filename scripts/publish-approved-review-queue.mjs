@@ -11,6 +11,7 @@ import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
+import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -55,13 +56,10 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 
 const dryRun = isDryRun(process.env.DRY_RUN);
 const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
-const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "");
+const requestedRunId = normalizeReviewRunId(process.env.PUBLISH_RESEARCH_RUN_ID);
 const youtubeAudience = String(process.env.YOUTUBE_AUDIENCE ?? "unreviewed");
 const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",").map((value) => value.trim()).filter(Boolean))];
-if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
-  throw new Error("PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters");
-}
 if (!configuredChannels.length) {
   throw new Error("VIDEO_CHANNELS must contain at least one service");
 }
