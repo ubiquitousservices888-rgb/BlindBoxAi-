@@ -191,6 +191,7 @@ test("owner dashboard exposes per-video Blue approval and confirmed delete contr
   assert.match(dashboardClient, /window\.confirm/);
   assert.match(dashboardClient, /method: "DELETE"/);
   assert.match(dashboardClient, /durationSeconds/);
+  assert.match(dashboardClient, /reviewQueueRequestInFlight\.current/);
 });
 
 test("review queue list and delete use owner auth and delete only review-storage media", () => {
