@@ -154,7 +154,7 @@ test("affiliate resolver covers direct, unrelated, failed, and live-link paths",
   assert.equal(liveFetchCalls, 0);
   assert.equal(live.resolution, "internal-live-structure");
   assert.equal(live.valid, true);
-  assert.equal(live.targetHostVerifiedBy, "normalizeEbayBrowseItem");
+  assert.equal(live.destinationSanitizationEnforcedBy, "normalizeEbayBrowseItem");
 
   const badLive = await resolveAffiliateHref(
     "https://www.blindboxai.com/api/out/ebay-live?context=ask&id=visual-search",
@@ -163,6 +163,20 @@ test("affiliate resolver covers direct, unrelated, failed, and live-link paths",
   assert.equal(badLive.valid, false);
   assert.equal(badLive.reason, "invalid-live-route-parameters");
   assert.ok(badLive.missingRequired.includes("item"));
+
+  const badAskId = await resolveAffiliateHref(
+    "https://www.blindboxai.com/api/out/ebay-live?item=v1%7C123%7C0&context=ask&id=wrong-id",
+    policy,
+  );
+  assert.equal(badAskId.valid, false);
+  assert.ok(badAskId.missingRequired.includes("context-or-id"));
+
+  const missingSeries = await resolveAffiliateHref(
+    "https://www.blindboxai.com/api/out/ebay-live?item=v1%7C123%7C0&context=series&id=definitely-missing-series",
+    policy,
+  );
+  assert.equal(missingSeries.valid, false);
+  assert.ok(missingSeries.missingRequired.includes("context-or-id"));
 });
 
 test("invalid resolved affiliate targets always carry a triage reason", async () => {
@@ -227,6 +241,9 @@ test("classic affiliate HEAD resolver returns one verified eBay redirect without
     const block = source.slice(start, end);
     assert.match(block, /resolveReadonlyEbayOutboundTarget/);
     assert.doesNotMatch(block, /recordAffiliateClick/);
+    const getStart = source.indexOf("export async function GET");
+    const getBlock = source.slice(getStart);
+    assert.match(getBlock, /resolveReadonlyEbayOutboundTarget/);
   } finally {
     if (priorCampId === undefined) delete process.env.NEXT_PUBLIC_EPN_CAMPID;
     else process.env.NEXT_PUBLIC_EPN_CAMPID = priorCampId;
