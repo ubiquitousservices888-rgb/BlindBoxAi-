@@ -76,7 +76,8 @@ A subsystem document is authoritative only for that subsystem.
 
 ## Review-video upload paths
 
-- **Canonical phone uploader:** `/media-upload` requests a signed Supabase Storage upload ticket through `/api/media/free-upload-ticket`, uploads under `media/review/*.mp4`, then stages the resulting HTTPS URL through `/api/owner/stage-review` into the Supabase review queue. See [`free-video-storage.md`](./free-video-storage.md).\n- **Owner Blue review surface:** after owner authentication, `/owner-dashboard` loads the current Supabase review queue through owner-only `/api/owner/review-queue` and renders every `ready_for_review` item with its exact MP4 and Blue approval control. Approval still uses `/api/owner/approve-review`; this queue display does not publish.
+- **Canonical phone uploader:** `/media-upload` requests a signed Supabase Storage upload ticket through `/api/media/free-upload-ticket`, uploads under `media/review/*.mp4`, then stages the resulting HTTPS URL through `/api/owner/stage-review` into the Supabase review queue. See [`free-video-storage.md`](./free-video-storage.md).
+- **Owner Blue review surface:** after owner authentication, `/owner-dashboard` loads the current Supabase review queue through owner-only `/api/owner/review-queue` and renders every `ready_for_review` item with its exact MP4 and Blue approval control. Approval still uses `/api/owner/approve-review`; this queue display does not publish.
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
 
