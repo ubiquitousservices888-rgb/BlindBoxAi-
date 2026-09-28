@@ -36,6 +36,7 @@ export default function DashboardClient() {
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
   const requestInFlight = useRef(false);
+  const reviewQueueRequestInFlight = useRef(false);
   const epnFileInput = useRef(null);
 
   async function load(token, announce = false) {
@@ -89,7 +90,8 @@ export default function DashboardClient() {
   }
 
   async function loadReviewQueue(token) {
-    if (!token) return false;
+    if (!token || reviewQueueRequestInFlight.current) return false;
+    reviewQueueRequestInFlight.current = true;
     setReviewQueueError("");
     try {
       const response = await fetch("/api/owner/review-queue", {
@@ -103,6 +105,8 @@ export default function DashboardClient() {
     } catch (cause) {
       setReviewQueueError(cause instanceof Error ? cause.message : "Review queue unavailable.");
       return false;
+    } finally {
+      reviewQueueRequestInFlight.current = false;
     }
   }
 
