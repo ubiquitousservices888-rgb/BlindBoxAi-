@@ -396,6 +396,7 @@ test("workflow requires explicit channel and exact review row inputs", () => {
   assert.match(runBlock, /required: true/);
   assert.match(runBlock, /type: string/);
   assert.doesNotMatch(runBlock, /default\s*:/);
+  assert.match(source, /PUBLISH_CHANNEL: \$\{\{ inputs\.publish_channel \}\}/);
 });
 
 test("workflow pins review-video target channels and ignores repo override", () => {
