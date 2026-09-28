@@ -67,7 +67,7 @@
     "docs:state-check": "node scripts/documentation-state-check.mjs",
     "docs:state-test": "node --test scripts/documentation-state-check.test.mjs",
     "diagram:architecture": "python tools/diagrams/blindbox_architecture.py",
-    "diagram:check": "python -m py_compile tools/diagrams/blindbox_architecture.py"
+    "diagram:check": "python -c \"import importlib.util; p='tools/diagrams/blindbox_architecture.py'; s=importlib.util.spec_from_file_location('blindbox_architecture', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)\""
   },
   "dependencies": {
     "@openai/agents": "0.16.0",
