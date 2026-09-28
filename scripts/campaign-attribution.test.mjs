@@ -16,6 +16,7 @@ import { epnCustomId, ebayOutboundPath } from "../lib/data.js";
 const attributionBridge = readFileSync(new URL("../app/_components/CampaignAttributionBridge.jsx", import.meta.url), "utf8");
 const coreAnalytics = readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
 const ebayRoute = readFileSync(new URL("../app/api/out/ebay/route.js", import.meta.url), "utf8");
+const ebayReadonlyResolver = readFileSync(new URL("../lib/ebay-outbound-readonly.mjs", import.meta.url), "utf8");
 const ebayLiveRoute = readFileSync(new URL("../app/api/out/ebay-live/route.js", import.meta.url), "utf8");
 const offerRoute = readFileSync(new URL("../app/api/out/offer/route.js", import.meta.url), "utf8");
 const amazonRoute = readFileSync(new URL("../app/api/out/amazon/route.js", import.meta.url), "utf8");
@@ -166,8 +167,12 @@ test("landing source survives same-tab navigation in sessionStorage and decorate
   assert.doesNotMatch(coreAnalytics, /document\.cookie/);
 });
 
-test("all four outbound routes use the single request-attribution resolver", () => {
-  for (const route of [ebayRoute, ebayLiveRoute, offerRoute, amazonRoute]) {
+test("all four outbound paths use the single request-attribution resolver", () => {
+  assert.match(ebayRoute, /resolveReadonlyEbayOutboundTarget/);
+  assert.match(ebayReadonlyResolver, /resolveRequestAttribution/);
+  assert.match(ebayReadonlyResolver, /referer,/);
+
+  for (const route of [ebayLiveRoute, offerRoute, amazonRoute]) {
     assert.match(route, /resolveRequestAttribution/);
     assert.match(route, /referer:\s*request\.headers\.get\("referer"\)/);
   }
@@ -175,8 +180,8 @@ test("all four outbound routes use the single request-attribution resolver", () 
 });
 
 test("series eBay clicks put recovered source into both Supabase event and EPN customid", () => {
-  assert.match(ebayRoute, /const hasMarketingSource = outboundSource !== "none"/);
-  assert.match(ebayRoute, /campaignId \|\| hasMarketingSource[\s\S]*?epnCustomId\(/);
+  assert.match(ebayReadonlyResolver, /const hasMarketingSource = outboundSource !== "none"/);
+  assert.match(ebayReadonlyResolver, /campaignId \|\| hasMarketingSource[\s\S]*?epnCustomId\(/);
   assert.match(ebayRoute, /source:\s*hasMarketingSource \|\| campaignId \? outboundSource : attribution\.source/);
   assert.match(ebayRoute, /metadata:\s*\{ attributionRecoveredFrom: requestAttribution\.recoveredFrom \}/);
 });
