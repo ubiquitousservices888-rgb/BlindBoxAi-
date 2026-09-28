@@ -138,7 +138,7 @@ test("notification write failures are rethrown for callback retry", () => {
 });
 
 test("dashboard polling starts only after authenticated data loads", () => {
-  assert.match(dashboardClient, /const loaded = await load\(token, false\);[\s\S]*if \(loaded\) setActiveCode\(token\);/);
+  assert.match(dashboardClient, /const loaded = await load\(token, false\);[\s\S]*if \(loaded\)\s*\{[\s\S]*setActiveCode\(token\);[\s\S]*await loadReviewQueue\(token\);[\s\S]*\}/);
   assert.match(dashboardClient, /if \(!activeCode \|\| !snapshotRef\.current\) return undefined;/);
   assert.match(dashboardClient, /If-None-Match/);
 });
