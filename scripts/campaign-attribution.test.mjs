@@ -169,6 +169,7 @@ test("landing source survives same-tab navigation in sessionStorage and decorate
 
 test("all four outbound paths use the single request-attribution resolver", () => {
   assert.match(ebayRoute, /resolveReadonlyEbayOutboundTarget/);
+  assert.match(ebayRoute, /referer:\s*request\.headers\.get\("referer"\)/);
   assert.match(ebayReadonlyResolver, /resolveRequestAttribution/);
   assert.match(ebayReadonlyResolver, /referer,/);
 
