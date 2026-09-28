@@ -159,3 +159,22 @@ test("owner dashboard renders verified funnel outcomes separately from clicks", 
   assert.match(dashboardClient, /Confirmed revenue/);
   assert.match(dashboardLib, /funnel:\s*telemetry\?\.funnel/);
 });
+
+
+test("owner dashboard loads the complete Supabase review queue for Blue review", () => {
+  assert.match(dashboardClient, /\/api\/owner\/review-queue/);
+  assert.match(dashboardClient, /item\?\.status === "ready_for_review"/);
+  assert.match(dashboardClient, /item\.research_run_id/);
+  assert.match(dashboardClient, /loadReviewQueue\(activeCode\)/);
+});
+
+test("review queue endpoint is owner-only and list-only", () => {
+  const route = readFileSync(
+    new URL("../app/api/owner/review-queue/route.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /assertOwnerCode/);
+  assert.doesNotMatch(route, /assertUploadCode/);
+  assert.match(route, /JSON\.stringify\(\{ action: "list" \}\)/);
+  assert.doesNotMatch(route, /action:\s*"approve"/);
+});
