@@ -452,6 +452,24 @@ test("published feed preserves previously verified channels across exact-channel
 });
 
 
+test("live publisher fail-closes on missing tracked CTA or unverifiable public URL", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
+  assert.match(source, /tracked CTA is missing campaign or source/);
+  assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
+  assert.match(source, /publisher returned no verified public URL/);
+  assert.match(source, /campaignId,/);
+  assert.match(source, /source,/);
+});
+
+test("published feed requires exactly one campaign id from the controlled execution", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const campaignIds = \[\.\.\.new Set/);
+  assert.match(source, /campaignIds\.length !== 1/);
+  assert.match(source, /Published feed requires exactly one campaign ID for this execution/);
+  assert.match(source, /campaignId: campaignIds\[0\]/);
+});
+
 test("publisher rejects an empty configured channel set before claiming", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   const guard = source.indexOf("VIDEO_CHANNELS must contain at least one service");
