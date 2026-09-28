@@ -40,7 +40,7 @@ test("paid Browser Use run requires explicit owner opt-in", () => {
 test("timeout and route caps are bounded", () => {
   assert.equal(timeoutFromEnv({}), 180000);
   assert.equal(maxRoutesFromPolicy(policy), 12);
-  for (const raw of ["0", "-1", "30001", "NaN"]) {
+  for (const raw of ["0", "-1", "300001", "NaN"]) {
     assert.throws(() => timeoutFromEnv({ BROWSER_USE_TIMEOUT_MS: raw }));
   }
   assert.throws(() => maxRoutesFromPolicy({ auditScope: { maxDiscoveredRoutes: 0 } }));
