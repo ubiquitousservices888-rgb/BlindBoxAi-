@@ -12,6 +12,7 @@ const GITHUB_AUDIENCE = "blindboxai-review-publisher";
 const GITHUB_REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
 const GITHUB_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
+const OWNER_REVIEW_LIST_LIMIT = 1000;
 
 function cors() {
   return {
@@ -118,7 +119,7 @@ async function listReady(req: Request) {
   const { data, error } = await db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
     .in("status", ["ready_for_review","approved","publishing"])
-    .order("created_at", { ascending: false }).limit(1000);
+    .order("created_at", { ascending: false }).limit(OWNER_REVIEW_LIST_LIMIT);
   if (error) return json({ error: "Queue lookup failed" }, 500);
   return json({ ok: true, items: data || [] });
 }
