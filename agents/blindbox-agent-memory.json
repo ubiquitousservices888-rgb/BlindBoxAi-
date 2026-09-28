@@ -40,7 +40,7 @@
       "Latest Videos and collectible links resolve when present",
       "Mr. Know It All /ask loads and question controls are visible without submitting",
       "knowledge-base links resolve",
-      "outbound eBay links use an allowed host and include affiliate tracking parameters without opening the outbound URL",
+      "classic eBay redirects resolve through side-effect-free HEAD validation; live-listing links validate route structure and code-enforced eBay destination sanitization without calling eBay",
       "report broken links, unexpected 4xx/5xx responses, missing content, and visibly broken UI"
     ]
   },
