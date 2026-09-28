@@ -36,42 +36,6 @@ function sourcePathForContext(context) {
   return "/";
 }
 
-// Read-only validation path for QA. HEAD resolves the same production eBay
-// affiliate target but never records click telemetry and never follows it.
-export async function HEAD(request) {
-  const url = new URL(request.url);
-  const itemId = String(url.searchParams.get("item") || "").trim();
-  const context = resolveContext(
-    String(url.searchParams.get("context") || "").trim(),
-    String(url.searchParams.get("id") || "").trim(),
-  );
-  if (!context) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
-
-  const requestAttribution = resolveRequestAttribution({
-    campaign: url.searchParams.get("campaign"),
-    source: url.searchParams.get("source"),
-    referer: request.headers.get("referer"),
-  });
-  const campaignId = requestAttribution.campaignId;
-  const source = requestAttribution.source;
-  const affiliateReferenceId = normalizeEbayAffiliateReference(
-    ["bb-live-click", context.type, context.id, campaignId || "none", source].join("-"),
-  );
-
-  try {
-    const item = await getEbayProductionItem({ itemId, affiliateReferenceId });
-    return new Response(null, {
-      status: 302,
-      headers: {
-        "Cache-Control": "no-store",
-        Location: item.affiliateUrl,
-      },
-    });
-  } catch {
-    return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
-  }
-}
-
 export async function GET(request) {
   const clickQuality = classifyEbayAffiliateRequest(request);
   const url = new URL(request.url);
