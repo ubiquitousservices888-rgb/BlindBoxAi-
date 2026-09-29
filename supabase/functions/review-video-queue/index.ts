@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
 import { createHash } from "node:crypto";
+import { collectPaginatedRows, REVIEW_QUEUE_OVERFLOW_ERROR } from "../_shared/review-queue-pagination.mjs";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,21 +118,26 @@ async function stage(req: Request, body: any) {
 }
 async function listReady(req: Request) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
-  const items: any[] = [];
-  for (let page = 0; page < OWNER_REVIEW_MAX_PAGES; page += 1) {
-    const from = page * OWNER_REVIEW_PAGE_SIZE;
-    const to = from + OWNER_REVIEW_PAGE_SIZE - 1;
-    const { data, error } = await db.from("review_video_queue")
-      .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
-      .eq("status", "ready_for_review")
-      .order("created_at", { ascending: false })
-      .range(from, to);
-    if (error) return json({ error: "Queue lookup failed" }, 500);
-    const pageItems = Array.isArray(data) ? data : [];
-    items.push(...pageItems);
-    if (pageItems.length < OWNER_REVIEW_PAGE_SIZE) return json({ ok: true, items });
+  try {
+    const items = await collectPaginatedRows({
+      pageSize: OWNER_REVIEW_PAGE_SIZE,
+      maxPages: OWNER_REVIEW_MAX_PAGES,
+      fetchPage: async (from, to) => {
+        const { data, error } = await db.from("review_video_queue")
+          .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
+          .eq("status", "ready_for_review")
+          .order("created_at", { ascending: false })
+          .range(from, to);
+        if (error) throw new Error("Queue lookup failed");
+        return Array.isArray(data) ? data : [];
+      },
+    });
+    return json({ ok: true, items });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === REVIEW_QUEUE_OVERFLOW_ERROR) return json({ error: REVIEW_QUEUE_OVERFLOW_ERROR }, 503);
+    return json({ error: "Queue lookup failed" }, 500);
   }
-  return json({ error: "Review queue exceeds safe pagination bound" }, 503);
 }
 async function approve(req: Request, body: any) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
