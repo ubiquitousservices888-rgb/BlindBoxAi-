@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">BlindBoxAI Live</string>
     <string name="wallpaper_description">Animated BlindBoxAI production metrics with aggregate live data.</string>
+    <string name="activity_title">BlindBoxAI // LIVE DATA PULSE</string>
+    <string name="activity_body">Animated aggregate production metrics. Refreshes every 15 minutes while visible. No Supabase secret is stored in this app.</string>
+    <string name="set_wallpaper">SET LIVE WALLPAPER</string>
 </resources>
