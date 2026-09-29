@@ -378,7 +378,7 @@ jobs:
           retention-days: 30
 
   publish-after-approval:
-    name: Owner approval → Buffer queue
+    name: Owner approval → verified public publish
     if: needs.render.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_after_approval == true
     needs: render
     runs-on: ubuntu-latest
@@ -388,11 +388,15 @@ jobs:
     permissions:
       contents: read
       actions: read
+      id-token: write
     concurrency:
       group: autonomous-video-buffer-publish
       cancel-in-progress: false
     env:
-      ALLOW_MANUAL_VIDEO_PUBLISH: "true"
+      DRY_RUN: "false"
+      VIDEO_CHANNELS: youtube,tiktok
+      PUBLISH_RESEARCH_RUN_ID: ${{ needs.render.outputs.research_run_id }}
+      YOUTUBE_AUDIENCE: not_made_for_kids
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
     steps:
@@ -407,10 +411,18 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Restore exact reviewed state
+      - name: Ensure video probe is available
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffprobe >/dev/null 2>&1
+      - name: Restore and verify exact reviewed state
         env:
           REVIEWED_STATE_B64: ${{ needs.render.outputs.state_b64 }}
           REVIEWED_VIDEO_URL: ${{ needs.render.outputs.video_url }}
+          REVIEWED_RESEARCH_RUN_ID: ${{ needs.render.outputs.research_run_id }}
         shell: bash
         run: |
           mkdir -p output/video-pipeline
@@ -422,6 +434,8 @@ jobs:
           if (state?.state !== "READY_FOR_REVIEW") throw new Error("Reviewed state is not READY_FOR_REVIEW");
           if (blocked.has(state?.render?.provider)) throw new Error(`Blocked renderer cannot be published: ${state?.render?.provider}`);
           if (state?.render?.videoUrl !== process.env.REVIEWED_VIDEO_URL) throw new Error("Reviewed video URL changed before publication");
+          if (state?.review?.researchRunId !== process.env.REVIEWED_RESEARCH_RUN_ID) throw new Error("Reviewed research ID changed before publication");
+          if (state?.review?.campaignId !== `bb-${process.env.REVIEWED_RESEARCH_RUN_ID}`) throw new Error("Reviewed campaign ID changed before publication");
           NODE
       - name: Verify Buffer configuration
         shell: bash
@@ -430,10 +444,60 @@ jobs:
             echo "::error::Buffer is not configured. BUFFER_API_TOKEN and BUFFER_ORGANIZATION_ID are required."
             exit 1
           fi
-      - name: Record owner approval
-        run: npm run video:approve
-      - name: Queue approved video through Buffer
-        run: npm run video:publish
+      - name: Approve exact canonical review row after owner gate
+        env:
+          STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
+          REVIEWED_VIDEO_URL: ${{ needs.render.outputs.video_url }}
+          REVIEWED_RESEARCH_RUN_ID: ${{ needs.render.outputs.research_run_id }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const oidcUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          oidcUrl.searchParams.set("audience", "blindboxai-autonomous-render-stage");
+          const oidcResponse = await fetch(oidcUrl, {
+            headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+          });
+          if (!oidcResponse.ok) throw new Error(`GitHub OIDC request failed: ${oidcResponse.status}`);
+          const oidcBody = await oidcResponse.json();
+          const token = String(oidcBody?.value || "");
+          if (!token) throw new Error("GitHub OIDC token response was empty");
+
+          let response;
+          let body;
+          for (let attempt = 0; attempt < 48; attempt += 1) {
+            response = await fetch(process.env.STAGE_RENDER_URL, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                action: "approve",
+                researchRunId: process.env.REVIEWED_RESEARCH_RUN_ID,
+                videoUrl: process.env.REVIEWED_VIDEO_URL,
+              }),
+            });
+            body = await response.json().catch(() => ({}));
+            if (response.ok) break;
+            if (response.status !== 409 || body?.error !== "production_revision_not_ready") break;
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+          if (!response?.ok || body?.state !== "APPROVED") {
+            throw new Error(`Canonical review approval failed: ${response?.status || 0} ${body?.error || "unknown"}`);
+          }
+          if (body.researchRunId !== process.env.REVIEWED_RESEARCH_RUN_ID) {
+            throw new Error("Approved research ID does not match the reviewed asset");
+          }
+          console.log(`CANONICAL_REVIEW_APPROVED=${body.researchRunId}`);
+          NODE
+      - name: Publish and verify YouTube
+        env:
+          PUBLISH_CHANNEL: youtube
+        run: node scripts/publish-approved-review-queue.mjs
+      - name: Publish and verify TikTok
+        env:
+          PUBLISH_CHANNEL: tiktok
+        run: node scripts/publish-approved-review-queue.mjs
       - name: Upload publication receipt
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
