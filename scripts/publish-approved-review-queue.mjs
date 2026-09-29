@@ -11,6 +11,7 @@ import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
+import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -55,13 +56,10 @@ async function postJson(url, token, body, fetchImpl = fetch) {
 
 const dryRun = isDryRun(process.env.DRY_RUN);
 const requestedChannel = String(process.env.PUBLISH_CHANNEL ?? "").trim().toLowerCase();
-const requestedRunId = String(process.env.PUBLISH_RESEARCH_RUN_ID ?? "");
+const requestedRunId = normalizeReviewRunId(process.env.PUBLISH_RESEARCH_RUN_ID);
 const youtubeAudience = String(process.env.YOUTUBE_AUDIENCE ?? "unreviewed");
 const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",").map((value) => value.trim()).filter(Boolean))];
-if (requestedRunId && !/^rv-[a-f0-9]{16}$/.test(requestedRunId)) {
-  throw new Error("PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters");
-}
 if (!configuredChannels.length) {
   throw new Error("VIDEO_CHANNELS must contain at least one service");
 }
@@ -156,6 +154,12 @@ try {
       runId: item.research_run_id,
       service: channel,
     });
+    const trackedUrl = new URL(trackedCta);
+    const campaignId = trackedUrl.searchParams.get("campaign");
+    const source = trackedUrl.searchParams.get("source");
+    if (!campaignId || !source) {
+      throw new Error(`${channel}: tracked CTA is missing campaign or source`);
+    }
     const script = {
       title: publicTitle,
       facts: [item.vertical === "pokemon_tcg" ? "Pokémon collectible research." : "Owner-reviewed BlindBoxAI collectible research."],
@@ -173,12 +177,16 @@ try {
       youtubeCategoryId: "17",
       youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
     });
+    if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl)) {
+      throw new Error(`${channel}: publisher returned no verified public URL`);
+    }
     results.push({
       channel,
       id: result.id,
       publicUrl: result.publicUrl,
       duplicate: result.duplicate === true,
-      campaignId: new URL(trackedCta).searchParams.get("campaign"),
+      campaignId,
+      source,
     });
     console.log(`REVIEW_QUEUE_PUBLISHED: ${channel}:${result.id}`);
     console.log(`REVIEW_QUEUE_PUBLIC_URL: ${channel}:${result.publicUrl}`);
@@ -211,6 +219,12 @@ try {
     ...(Array.isArray(item.published_channels) ? item.published_channels : []),
     ...results.map((entry) => entry.channel),
   ])].filter((channel) => isVerifiedPublicPostUrl(channel, mergedPublicUrls[channel]));
+  const campaignIds = [...new Set(
+    results.map((entry) => entry.campaignId).filter(Boolean),
+  )];
+  if (campaignIds.length !== 1) {
+    throw new Error("Published feed requires exactly one campaign ID for this execution");
+  }
   await postJson(PUBLISHED_FEED_URL, feedToken, {
     researchRunId: item.research_run_id,
     title: publicTitle,
@@ -219,7 +233,7 @@ try {
     channels: feedChannels,
     bufferPostIds: mergedBufferPostIds,
     publicUrls: mergedPublicUrls,
-    campaignId: results[0]?.campaignId || null,
+    campaignId: campaignIds[0],
   });
 
   console.log(`REVIEW_QUEUE_COMPLETE: ${item.research_run_id}`);

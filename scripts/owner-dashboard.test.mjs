@@ -28,6 +28,10 @@ const dashboardLib = readFileSync(
   new URL("../lib/owner-dashboard.js", import.meta.url),
   "utf8",
 );
+const reviewQueueFunction = readFileSync(
+  new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url),
+  "utf8",
+);
 
 function blob(pathname, uploadedAt, etag = pathname) {
   return { pathname, uploadedAt: new Date(uploadedAt), etag, size: 1 };
@@ -138,7 +142,7 @@ test("notification write failures are rethrown for callback retry", () => {
 });
 
 test("dashboard polling starts only after authenticated data loads", () => {
-  assert.match(dashboardClient, /const loaded = await load\(token, false\);[\s\S]*if \(loaded\) setActiveCode\(token\);/);
+  assert.match(dashboardClient, /const loaded = await load\(token, false\);[\s\S]*if \(loaded\)\s*\{[\s\S]*setActiveCode\(token\);[\s\S]*await loadReviewQueue\(token\);[\s\S]*\}/);
   assert.match(dashboardClient, /if \(!activeCode \|\| !snapshotRef\.current\) return undefined;/);
   assert.match(dashboardClient, /If-None-Match/);
 });
@@ -158,4 +162,47 @@ test("owner dashboard renders verified funnel outcomes separately from clicks", 
   assert.match(dashboardClient, /Confirmed conversions/);
   assert.match(dashboardClient, /Confirmed revenue/);
   assert.match(dashboardLib, /funnel:\s*telemetry\?\.funnel/);
+});
+
+
+test("owner dashboard loads the complete Supabase review queue for Blue review", () => {
+  assert.match(dashboardClient, /\/api\/owner\/review-queue/);
+  assert.match(dashboardClient, /item\?\.status === "ready_for_review"/);
+  assert.match(dashboardClient, /item\.research_run_id/);
+  assert.match(dashboardClient, /loadReviewQueue\(activeCode\)/);
+});
+
+test("review queue endpoint is owner-only and supports list plus explicit delete", () => {
+  const route = readFileSync(
+    new URL("../app/api/owner/review-queue/route.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /assertOwnerCode/);
+  assert.doesNotMatch(route, /assertUploadCode/);
+  assert.match(route, /action: "list"/);
+  assert.match(route, /export async function DELETE/);
+  assert.match(route, /action: "delete"/);
+  assert.doesNotMatch(route, /action:\s*"approve"/);
+});
+
+test("owner dashboard exposes per-video Blue approval and confirmed delete controls", () => {
+  assert.match(dashboardClient, /BLUE APPROVE/);
+  assert.match(dashboardClient, /deleteReviewVideo\(item\)/);
+  assert.match(dashboardClient, /window\.confirm/);
+  assert.match(dashboardClient, /method: "DELETE"/);
+  assert.match(dashboardClient, /durationSeconds/);
+  assert.match(dashboardClient, /reviewQueueRequestInFlight\.current/);
+  assert.match(dashboardClient, /reviewQueueRefreshPending\.current/);
+  assert.match(dashboardClient, /setReviewQueue\(\(previous\) => previous\.filter/);
+  assert.match(dashboardClient, /function durationLabel\(value\)/);
+});
+
+test("review queue list and delete use owner auth and delete only review-storage media", () => {
+  assert.match(reviewQueueFunction, /async function listReady\(req: Request\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
+  assert.match(reviewQueueFunction, /async function deleteReview\(req: Request, body: any\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
+  assert.match(reviewQueueFunction, /\.eq\("status", "ready_for_review"\)/);
+  assert.match(reviewQueueFunction, /rejection_reason: "owner_rejected"/);
+  assert.match(reviewQueueFunction, /REVIEW_BUCKET = "blindboxai-review-videos"/);
+  assert.match(reviewQueueFunction, /REVIEW_PATH_PREFIX = "media\/review\/"/);
+  assert.match(reviewQueueFunction, /db\.storage\.from\(REVIEW_BUCKET\)\.remove\(\[storagePath\]\)/);
 });

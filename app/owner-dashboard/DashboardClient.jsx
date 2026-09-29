@@ -17,6 +17,12 @@ function epnEpcStatus(status) {
   return "Unavailable in this report";
 }
 
+function durationLabel(value) {
+  const totalSeconds = Math.max(0, Math.round(Number(value) || 0));
+  if (!totalSeconds) return "Duration unavailable";
+  return `${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s`;
+}
+
 export default function DashboardClient() {
   const [code, setCode] = useState("");
   const [activeCode, setActiveCode] = useState("");
@@ -24,15 +30,20 @@ export default function DashboardClient() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [reviewMessage, setReviewMessage] = useState("");
+  const [reviewQueue, setReviewQueue] = useState([]);
+  const [reviewQueueError, setReviewQueueError] = useState("");
   const [watchingReviewUrl, setWatchingReviewUrl] = useState("");
   const [approvedReviewUrls, setApprovedReviewUrls] = useState(() => new Set());
   const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
+  const [deletingReviewId, setDeletingReviewId] = useState("");
   const [epnBusy, setEpnBusy] = useState(false);
   const [epnMessage, setEpnMessage] = useState("");
   const seen = useRef(new Set());
   const snapshotRef = useRef(null);
   const etagRef = useRef("");
   const requestInFlight = useRef(false);
+  const reviewQueueRequestInFlight = useRef(false);
+  const reviewQueueRefreshPending = useRef(false);
   const epnFileInput = useRef(null);
 
   async function load(token, announce = false) {
@@ -85,6 +96,35 @@ export default function DashboardClient() {
     }
   }
 
+  async function loadReviewQueue(token) {
+    if (!token) return false;
+    if (reviewQueueRequestInFlight.current) {
+      reviewQueueRefreshPending.current = true;
+      return false;
+    }
+    reviewQueueRequestInFlight.current = true;
+    setReviewQueueError("");
+    try {
+      const response = await fetch("/api/owner/review-queue", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Review queue unavailable.");
+      setReviewQueue(Array.isArray(data.items) ? data.items : []);
+      return true;
+    } catch (cause) {
+      setReviewQueueError(cause instanceof Error ? cause.message : "Review queue unavailable.");
+      return false;
+    } finally {
+      reviewQueueRequestInFlight.current = false;
+      if (reviewQueueRefreshPending.current) {
+        reviewQueueRefreshPending.current = false;
+        void loadReviewQueue(token);
+      }
+    }
+  }
+
   async function unlock(event) {
     event.preventDefault();
     const token = code.trim();
@@ -92,12 +132,18 @@ export default function DashboardClient() {
     snapshotRef.current = null;
     seen.current = new Set();
     const loaded = await load(token, false);
-    if (loaded) setActiveCode(token);
+    if (loaded) {
+      setActiveCode(token);
+      await loadReviewQueue(token);
+    }
   }
 
   useEffect(() => {
     if (!activeCode || !snapshotRef.current) return undefined;
-    const timer = setInterval(() => load(activeCode, true), REFRESH_INTERVAL_MS);
+    const timer = setInterval(() => {
+      load(activeCode, true);
+      loadReviewQueue(activeCode);
+    }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [activeCode]);
 
@@ -123,11 +169,39 @@ export default function DashboardClient() {
       setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
       setReviewMessage("APPROVED — this video is in the approved queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
       etagRef.current = "";
-      await load(activeCode, false);
+      await Promise.all([load(activeCode, false), loadReviewQueue(activeCode)]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to approve this review video.");
     } finally {
       setApprovingReviewUrl("");
+    }
+  }
+
+  async function deleteReviewVideo(item) {
+    if (!activeCode || !item?.researchRunId || deletingReviewId || busy) return;
+    const label = item.title || item.researchRunId || "this video";
+    const confirmed = window.confirm(`Delete "${label}" from review? This permanently removes the uploaded media file and removes it from the Blue approval queue.`);
+    if (!confirmed) return;
+
+    setDeletingReviewId(item.researchRunId);
+    setError("");
+    try {
+      const response = await fetch("/api/owner/review-queue", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ researchRunId: item.researchRunId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to delete this review video.");
+      if (watchingReviewUrl === item.mediaUrl) setWatchingReviewUrl("");
+      setReviewQueue((previous) => previous.filter((row) => row?.research_run_id !== item.researchRunId));
+      setReviewMessage(`DELETED — "${label}" was removed from the review queue and review-media storage.`);
+      await loadReviewQueue(activeCode);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to delete this review video.");
+    } finally {
+      setDeletingReviewId("");
     }
   }
 
@@ -177,7 +251,18 @@ export default function DashboardClient() {
   const funnel = snapshot.funnel || {};
   const epn = revenue.epn || {};
   const amazon = revenue.amazon || {};
-  const reviewNotifications = (snapshot.notifications || []).filter((item) => item?.reviewState === "READY_FOR_REVIEW" && item?.approved !== true && item?.mediaUrl);
+  const reviewNotifications = reviewQueue
+    .filter((item) => item?.status === "ready_for_review" && item?.video_url)
+    .map((item) => ({
+      pathname: item.research_run_id,
+      mediaUrl: item.video_url,
+      title: item.title,
+      createdAt: item.created_at,
+      researchRunId: item.research_run_id,
+      vertical: item.vertical,
+      durationSeconds: Number(item.duration_seconds || 0),
+      sizeBytes: Number(item.size_bytes || 0),
+    }));
 
   return <div style={{ display: "grid", gap: 24 }}>
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
@@ -185,28 +270,34 @@ export default function DashboardClient() {
       <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
         OPEN SAFE VIDEO UPLOADER
       </a>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>The canonical uploader uses Supabase signed storage. Watch each video before approving it. Approval puts the exact video in the queue; an operator must separately run the GitHub review-video publisher after checking its destination and format.</p>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Every Supabase review-queue video waiting for owner approval is loaded here. Watch the finished video, then press the blue approval button. Publishing remains a separate protected action.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
+      {reviewQueueError ? <p role="alert" style={{ color: "crimson" }}>{reviewQueueError}</p> : null}
 
       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
-        <h3 style={{ marginBottom: 0 }}>Videos waiting for your review</h3>
+        <h3 style={{ marginBottom: 0 }}>Videos waiting for your review ({reviewNotifications.length})</h3>
         {reviewNotifications.length ? reviewNotifications.map((item) => {
           const approved = approvedReviewUrls.has(item.mediaUrl);
           const watching = watchingReviewUrl === item.mediaUrl;
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
+              {item.researchRunId ? <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 4 }}>{item.researchRunId}</div> : null}
               <div style={{ opacity: 0.7, marginTop: 4 }}>{when(item.createdAt)}</div>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>{durationLabel(item.durationSeconds)}{item.sizeBytes > 0 ? ` · ${(item.sizeBytes / 1024 / 1024).toFixed(1)} MB` : ""}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
                 <button type="button" onClick={() => setWatchingReviewUrl(watching ? "" : item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
-                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
-                  {approved ? "APPROVED FOR QUEUE" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "APPROVE THIS VIDEO"}
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                  {approved ? "APPROVED FOR QUEUE" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "BLUE APPROVE"}
+                </button>
+                <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
+                  {deletingReviewId === item.researchRunId ? "DELETING…" : "DELETE"}
                 </button>
               </div>
               {watching ? <video src={item.mediaUrl} controls autoPlay playsInline preload="metadata" style={{ width: "100%", marginTop: 12, borderRadius: 10, background: "black" }} /> : null}
-              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video is in the approved queue. A separate manual GitHub run is required to publish it." : "Watch the full video first. If it passes your factual, visual, audio, branding, CTA, disclosure, and pacing review, press blue. If it fails, do not approve it; upload a corrected version instead."}</p>
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video is in the approved queue. A separate manual GitHub run is required to publish it." : "Watch the full video first. Press BLUE APPROVE only when it passes. DELETE permanently removes the uploaded review-media file and takes it out of this approval list."}</p>
             </article>
           );
         }) : <p>No videos are currently staged for review in the dashboard window.</p>}
@@ -214,7 +305,7 @@ export default function DashboardClient() {
     </section>
 
     <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-      <button onClick={() => load(activeCode, false)} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
+      <button onClick={() => Promise.all([load(activeCode, false), loadReviewQueue(activeCode)])} disabled={busy} style={{ padding: "10px 14px" }}>{busy ? "Refreshing…" : "Refresh now"}</button>
       <button onClick={enableNotifications} style={{ padding: "10px 14px" }}>Enable browser notifications</button>
     </div>
 

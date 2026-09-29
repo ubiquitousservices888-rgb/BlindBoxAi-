@@ -6,6 +6,7 @@ import test from "node:test";
 import { assertVerifiedPublicPost, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
+import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
 import {
   assertApprovedReviewVideoUrl,
   cappedPublishChannels,
@@ -375,6 +376,30 @@ test("queue peek is read-only and separately authorized", () => {
 });
 
 
+test("workflow requires explicit channel and exact review row inputs", () => {
+  const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
+  const channelStart = source.indexOf("      publish_channel:");
+  const runStart = source.indexOf("      research_run_id:");
+  const audienceStart = source.indexOf("      youtube_audience:");
+  assert.ok(channelStart >= 0 && runStart > channelStart && audienceStart > runStart);
+
+  const channelBlock = source.slice(channelStart, runStart);
+  assert.match(channelBlock, /required: true/);
+  assert.match(channelBlock, /type: choice/);
+  assert.doesNotMatch(channelBlock, /default\s*:/);
+  const optionsBlock = channelBlock.slice(channelBlock.indexOf("options:"));
+  assert.deepEqual(
+    [...optionsBlock.matchAll(/^[ \t]+- ([a-z0-9_-]+)$/gm)].map((match) => match[1]),
+    ["youtube", "tiktok"],
+  );
+
+  const runBlock = source.slice(runStart, audienceStart);
+  assert.match(runBlock, /required: true/);
+  assert.match(runBlock, /type: string/);
+  assert.doesNotMatch(runBlock, /default\s*:/);
+  assert.match(source, /PUBLISH_CHANNEL: \$\{\{ inputs\.publish_channel \}\}/);
+});
+
 test("workflow pins review-video target channels and ignores repo override", () => {
   const source = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
   assert.match(source, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m);
@@ -407,9 +432,7 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(workflow, /research_run_id:/);
   assert.match(workflow, /PUBLISH_RESEARCH_RUN_ID:/);
   assert.match(publisher, /PUBLISH_RESEARCH_RUN_ID/);
-  assert.match(publisher, /const requestedRunId = String\(process\.env\.PUBLISH_RESEARCH_RUN_ID \?\? ""\);/);
-  assert.match(publisher, /\^rv-\[a-f0-9\]\{16\}\$/);
-  assert.doesNotMatch(publisher, /PUBLISH_RESEARCH_RUN_ID[^\n]*(?:trim|toLowerCase)/);
+  assert.match(publisher, /normalizeReviewRunId\(process\.env\.PUBLISH_RESEARCH_RUN_ID\)/);
   assert.match(publisher, /researchRunId: requestedRunId \|\| undefined/);
   assert.match(queue, /function requestedResearchRunId/);
   assert.match(queue, /const researchRunId = String\(body\?\.researchRunId \?\? ""\);/);
@@ -422,6 +445,29 @@ test("exact review row selector is validated and enforced end to end", () => {
   assert.match(queue, /Invalid researchRunId/);
 });
 
+
+test("review run ID normalizer accepts only canonical or exact bare lowercase hex IDs", () => {
+  assert.equal(normalizeReviewRunId("abcdef0123456789"), "rv-abcdef0123456789");
+  assert.equal(normalizeReviewRunId("rv-abcdef0123456789"), "rv-abcdef0123456789");
+  assert.equal(normalizeReviewRunId(undefined), "");
+  assert.equal(normalizeReviewRunId(""), "");
+
+  for (const value of [
+    " ABCDEF0123456789",
+    "ABCDEF0123456789",
+    "abcdef01234567890",
+    "abcdef012345678",
+    " abcdef0123456789",
+    "abcdef0123456789 ",
+    "   ",
+    "rv-ABCDEF0123456789",
+  ]) {
+    assert.throws(
+      () => normalizeReviewRunId(value),
+      /PUBLISH_RESEARCH_RUN_ID must be rv- followed by exactly 16 lowercase hex characters/,
+    );
+  }
+});
 
 test("publisher validates requested channel before claiming a queue lease", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
@@ -451,6 +497,27 @@ test("published feed preserves previously verified channels across exact-channel
   assert.match(source, /channels: feedChannels/);
 });
 
+
+test("live publisher fail-closes on missing tracked CTA or unverifiable public URL", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
+  assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
+  const ctaGuard = source.indexOf("tracked CTA is missing campaign or source");
+  const urlGuard = source.indexOf("publisher returned no verified public URL");
+  const publisherCall = source.indexOf("const result = await publisher({");
+  const recordCall = source.indexOf('action: "record_channel"');
+  assert.ok(ctaGuard >= 0 && ctaGuard < publisherCall);
+  assert.ok(urlGuard >= 0 && publisherCall < urlGuard && urlGuard < recordCall);
+});
+
+test("published feed requires exactly one campaign id from the controlled execution", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  assert.match(source, /const campaignIds = \[\.\.\.new Set/);
+  assert.match(source, /campaignId: campaignIds\[0\]/);
+  const campaignGuard = source.indexOf("campaignIds.length !== 1");
+  const feedPost = source.indexOf("PUBLISHED_FEED_URL,");
+  assert.ok(campaignGuard >= 0 && feedPost > campaignGuard);
+});
 
 test("publisher rejects an empty configured channel set before claiming", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
