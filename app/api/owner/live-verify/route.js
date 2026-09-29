@@ -109,6 +109,25 @@ async function apiJson(origin, path, { ownerCode, method = "GET", body } = {}) {
   return { response, data };
 }
 
+async function storageObjectIsGone(videoUrl) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const separator = videoUrl.includes("?") ? "&" : "?";
+    const probeUrl = `${videoUrl}${separator}owner_blue_verify=${Date.now()}-${attempt}`;
+    const response = await fetch(probeUrl, {
+      method: "GET",
+      headers: {
+        Range: "bytes=0-0",
+        "Cache-Control": "no-cache",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return true;
+    try { await response.body?.cancel(); } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return false;
+}
+
 export async function POST(request) {
   if (process.env.VERCEL_ENV !== "production" || process.env.VERCEL_GIT_COMMIT_REF !== "main") {
     return json({ error: "production_main_required" }, 403);
@@ -173,16 +192,6 @@ export async function POST(request) {
       throw new Error("upload_ticket_failed");
     }
 
-    const form = new FormData();
-    form.append("cacheControl", "3600");
-    form.append("", new Blob([bytes], { type: "video/mp4" }), "owner-blue-live-verify.mp4");
-    const upload = await fetch(ticket.data.signedUrl, {
-      method: "PUT",
-      headers: { "x-upsert": "false" },
-      body: form,
-    });
-    if (!upload.ok) throw new Error("signed_upload_failed");
-
     stagedVideoUrl = String(ticket.data.publicUrl);
     const staged = await apiJson(origin, "/api/owner/stage-review", {
       ownerCode,
@@ -201,6 +210,16 @@ export async function POST(request) {
     }
     stagedResearchRunId = clean(staged.data?.researchRunId, 40);
     if (!/^rv-[a-f0-9]{16}$/.test(stagedResearchRunId)) throw new Error("invalid_staged_research_id");
+
+    const form = new FormData();
+    form.append("cacheControl", "3600");
+    form.append("", new Blob([bytes], { type: "video/mp4" }), "owner-blue-live-verify.mp4");
+    const upload = await fetch(ticket.data.signedUrl, {
+      method: "PUT",
+      headers: { "x-upsert": "false" },
+      body: form,
+    });
+    if (!upload.ok) throw new Error("signed_upload_failed");
 
     const liveQueue = await apiJson(origin, "/api/owner/review-queue", { ownerCode });
     if (!liveQueue.response.ok) throw new Error("review_queue_read_failed");
@@ -230,6 +249,9 @@ export async function POST(request) {
     }
     deleteCompleted = true;
 
+    const storageDeleted = await storageObjectIsGone(stagedVideoUrl);
+    if (!storageDeleted) throw new Error("deleted_storage_still_readable");
+
     const finalQueue = await apiJson(origin, "/api/owner/review-queue", { ownerCode });
     if (!finalQueue.response.ok) throw new Error("review_queue_final_failed");
     const finalItems = Array.isArray(finalQueue.data?.items) ? finalQueue.data.items : [];
@@ -248,6 +270,7 @@ export async function POST(request) {
       metadataVisible: true,
       unauthorizedDeleteBlocked: true,
       deleted: true,
+      storageDeleted: true,
       auditReason: "owner_rejected",
       finalReadyCount: finalItems.length,
       published: false,
