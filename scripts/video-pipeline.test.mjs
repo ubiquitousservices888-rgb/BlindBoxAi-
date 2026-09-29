@@ -67,6 +67,26 @@ describe("safe publishing", () => {
   it("requires manual approval", async () => await assert.rejects(() => publishApproved(ready(), async () => ({ id: "x" }), now)));
   it("prevents duplicates and retries only failed channels", async () => { let calls = []; let first = true; const publisher = async ({ channel }) => { calls.push(channel); if (channel === "instagram" && first) throw new Error("temporary"); return { id: `${channel}-1` }; }; let state = await publishApproved(approve(ready(), now), publisher, now); assert.equal(state.state, STATES.PARTIAL); assert.deepEqual(calls, ["tiktok", "instagram"]); first = false; calls = []; state = await publishApproved(state, publisher, now); assert.equal(state.state, STATES.PUBLISHED); assert.deepEqual(calls, ["instagram"]); assert.equal(state.publications.tiktok.externalId, "tiktok-1"); });
 
+  it("publishes channel-specific tracked BlindBoxAI CTAs when review attribution exists", async () => {
+    const record = approve(ready(), now);
+    record.review = {
+      researchRunId: "rv-0123456789abcdef",
+      campaignId: "bb-rv-0123456789abcdef",
+    };
+    const sent = {};
+    const state = await publishApproved(record, async ({ channel, caption }) => {
+      sent[channel] = caption;
+      return { id: `${channel}-tracked` };
+    }, now);
+    assert.equal(state.state, STATES.PUBLISHED);
+    assert.match(sent.tiktok, /campaign=bb-rv-0123456789abcdef/);
+    assert.match(sent.tiktok, /source=tiktok/);
+    assert.match(sent.instagram, /campaign=bb-rv-0123456789abcdef/);
+    assert.match(sent.instagram, /source=instagram/);
+    assert.equal(state.publications.tiktok.campaignId, "bb-rv-0123456789abcdef");
+    assert.match(state.publications.tiktok.ctaUrl, /source=tiktok/);
+  });
+
   it("compacts Twitter captions without dropping the CTA or disclosure", async () => {
     const longProduct = {
       ...product,
