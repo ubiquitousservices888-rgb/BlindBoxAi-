@@ -131,7 +131,7 @@ public final class WallpaperEngineService extends WallpaperService {
 
         private long frameDelayMs() {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            return pm != null && pm.isPowerSaveMode() ? 100L : 50L;
+            return pm != null && pm.isPowerSaveMode() ? 66L : 33L;
         }
 
         private void rebuildRenderCache() {
@@ -605,7 +605,7 @@ public final class WallpaperEngineService extends WallpaperService {
         }
 
         static Snapshot empty() {
-            return new Snapshot(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0d,
+            return new Snapshot(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0d,
                     new int[24], new int[24], new int[24], new int[24]);
         }
 
