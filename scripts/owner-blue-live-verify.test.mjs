@@ -47,8 +47,21 @@ test("one-shot workflow is serialized only for marked pushes and retries transie
   assert.match(workflow, /owner-blue-live-verify-unmarked-\{0\}/);
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)/);
-  assert.match(workflow, /for attempt in \$\(seq 1 24\); do[\s\S]*if ! oidc_json=.*ACTIONS_ID_TOKEN_REQUEST_URL[\s\S]*continue/);
-  assert.match(workflow, /if ! oidc_token=.*json\.load[\s\S]*continue/);
+
+  const loopStart = workflow.indexOf("for attempt in $(seq 1 24); do");
+  const postStart = workflow.indexOf('http_code="000"', loopStart);
+  assert.ok(loopStart >= 0 && postStart > loopStart, "identity retry block must be inside the attempt loop");
+  const identityRetryBlock = workflow.slice(loopStart, postStart);
+
+  assert.match(
+    identityRetryBlock,
+    /if ! oidc_json=[\s\S]*ACTIONS_ID_TOKEN_REQUEST_URL[\s\S]*then\s+sleep 10\s+continue\s+fi/,
+  );
+  assert.match(
+    identityRetryBlock,
+    /if ! oidc_token=[\s\S]*json\.load[\s\S]*then\s+sleep 10\s+continue\s+fi/,
+  );
+
   assert.match(workflow, /000\|409\|500\|501\|502\|503\|504\|505\|506\|507\|508\|510\|511/);
   assert.match(workflow, /https:\/\/blindboxai\.com\/api\/owner\/live-verify/);
 });
