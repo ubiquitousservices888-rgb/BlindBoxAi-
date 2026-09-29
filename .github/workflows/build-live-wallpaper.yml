@@ -8,6 +8,7 @@ on:
       - "app/api/wallpaper/**"
       - "lib/wallpaper-metrics.mjs"
       - "scripts/wallpaper-metrics.test.mjs"
+      - "package.json"
       - ".github/workflows/build-live-wallpaper.yml"
   push:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - "app/api/wallpaper/**"
       - "lib/wallpaper-metrics.mjs"
       - "scripts/wallpaper-metrics.test.mjs"
+      - "package.json"
       - ".github/workflows/build-live-wallpaper.yml"
 
 permissions:
@@ -26,35 +28,45 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Test aggregate metrics serializer
-        run: node --test scripts/wallpaper-metrics.test.mjs
+        run: npm run wallpaper:test
 
-      - uses: android-actions/setup-android@v4
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
         with:
-          packages: ''
+          packages: ""
 
       - name: Install Android SDK
         run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.6.0"
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
 
       - name: Build debug APK
         working-directory: wallpaper
-        run: gradle --no-daemon :app:assembleDebug :app:lintDebug
+        run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
 
       - name: SHA-256
         run: sha256sum wallpaper/app/build/outputs/apk/debug/app-debug.apk | tee wallpaper/app/build/outputs/apk/debug/app-debug.apk.sha256
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload verified APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BlindBoxAI-Live-Wallpaper-debug
           path: |
