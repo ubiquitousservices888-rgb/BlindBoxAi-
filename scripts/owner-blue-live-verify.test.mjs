@@ -1,0 +1,40 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+const route = read("../app/api/owner/live-verify/route.js");
+const workflow = read("../.github/workflows/owner-blue-live-verify-once.yml");
+
+test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
+  assert.match(route, /process\.env\.VERCEL_ENV !== "production"/);
+  assert.match(route, /process\.env\.VERCEL_GIT_COMMIT_REF !== "main"/);
+  assert.match(route, /blindboxai-owner-live-verify/);
+  assert.match(route, /owner-blue-live-verify-once\.yml@refs\/heads\/main/);
+  assert.match(route, /payload\.repository !== REPOSITORY/);
+  assert.match(route, /payload\.ref !== "refs\/heads\/main"/);
+  assert.match(route, /payload\.event_name !== "push"/);
+  assert.match(route, /deployedRevision !== oidc\.sha/);
+});
+
+test("one-shot Owner Blue verifier exercises canonical safe uploader and owner delete paths", () => {
+  assert.match(route, /"\/api\/media\/free-upload-ticket"/);
+  assert.match(route, /"\/api\/owner\/stage-review"/);
+  assert.match(route, /"\/api\/owner\/review-queue"/);
+  assert.match(route, /owner-blue-live-verify-invalid/);
+  assert.match(route, /rejection_reason !== "owner_rejected"/);
+  assert.match(route, /published: false/);
+});
+
+test("one-shot Owner Blue verifier cannot publish", () => {
+  assert.doesNotMatch(route, /publish-approved-reviews|publish-approved-review-queue|BUFFER_API_TOKEN|record_channel|action:\s*"claim"/);
+  assert.doesNotMatch(workflow, /publish-approved-reviews|publish-approved-review-queue|BUFFER_API_TOKEN/);
+  assert.match(workflow, /OWNER_BLUE_PUBLISH: NOT_RUN/);
+});
+
+test("one-shot workflow runs only on marked main pushes with OIDC", () => {
+  assert.match(workflow, /push:\s*\n\s+branches: \[main\]/);
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)/);
+  assert.match(workflow, /https:\/\/blindboxai\.com\/api\/owner\/live-verify/);
+});
