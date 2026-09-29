@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { collectPaginatedRows, REVIEW_QUEUE_OVERFLOW_ERROR } from "../supabase/functions/_shared/review-queue-pagination.mjs";
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
 const fn = read("../supabase/functions/review-video-queue/index.ts");
@@ -62,14 +63,51 @@ test("runner sends the lease token on record, release, and complete", () => {
 });
 
 
-test("owner queue list paginates only ready rows and never silently truncates", () => {
+test("owner queue list uses the tested ready-only pagination helper", () => {
   const pageSize = fn.match(/const OWNER_REVIEW_PAGE_SIZE = (\d+);/);
   assert.ok(pageSize, "owner review page size must be named");
   assert.ok(Number(pageSize[1]) >= 100, "owner review page size must be at least 100");
   const listBody = between("async function listReady(", "async function approve(");
+  assert.match(listBody, /collectPaginatedRows\(\{/);
+  assert.match(listBody, /pageSize: OWNER_REVIEW_PAGE_SIZE/);
+  assert.match(listBody, /maxPages: OWNER_REVIEW_MAX_PAGES/);
   assert.match(listBody, /\.eq\("status", "ready_for_review"\)/);
   assert.match(listBody, /\.range\(from, to\)/);
-  assert.match(listBody, /pageItems\.length < OWNER_REVIEW_PAGE_SIZE/);
-  assert.match(listBody, /Review queue exceeds safe pagination bound/);
+  assert.match(listBody, /message === REVIEW_QUEUE_OVERFLOW_ERROR/);
   assert.doesNotMatch(listBody, /\.limit\(20\)/);
+});
+
+test("owner queue pagination fails closed when every page reaches the maximum bound", async () => {
+  const ranges = [];
+  await assert.rejects(
+    collectPaginatedRows({
+      pageSize: 2,
+      maxPages: 3,
+      fetchPage: async (from, to) => {
+        ranges.push([from, to]);
+        return [{ id: from }, { id: to }];
+      },
+    }),
+    (error) => {
+      assert.equal(error?.message, REVIEW_QUEUE_OVERFLOW_ERROR);
+      return true;
+    },
+  );
+  assert.deepEqual(ranges, [[0, 1], [2, 3], [4, 5]]);
+});
+
+test("owner queue pagination returns the complete list when the final page is partial", async () => {
+  const pages = [
+    [{ id: 1 }, { id: 2 }],
+    [{ id: 3 }, { id: 4 }],
+    [{ id: 5 }],
+  ];
+  let call = 0;
+  const items = await collectPaginatedRows({
+    pageSize: 2,
+    maxPages: 3,
+    fetchPage: async () => pages[call++] ?? [],
+  });
+  assert.deepEqual(items.map((item) => item.id), [1, 2, 3, 4, 5]);
+  assert.equal(call, 3);
 });
