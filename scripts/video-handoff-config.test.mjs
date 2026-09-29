@@ -13,13 +13,17 @@ test("video workflow stages verified renders only by explicit non-scheduled trig
   assert.match(workflow, /ALLOW_MANUAL_VIDEO_RENDER:\s*"true"/);
 });
 
-test("Buffer publishing remains behind the owner production gate", () => {
+test("verified publication remains behind the owner production gate", () => {
   assert.match(workflow, /BUFFER_API_TOKEN/);
   assert.match(workflow, /BUFFER_ORGANIZATION_ID/);
-  assert.match(workflow, /npm run video:approve/);
-  assert.match(workflow, /npm run video:publish/);
   assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(workflow, /ALLOW_MANUAL_VIDEO_PUBLISH:\s*"true"/);
+  assert.match(workflow, /inputs\.publish_after_approval == true/);
+  assert.match(workflow, /action: "approve"/);
+  assert.match(workflow, /Publish and verify YouTube/);
+  assert.match(workflow, /Publish and verify TikTok/);
+  assert.match(workflow, /node scripts\/publish-approved-review-queue\.mjs/);
+  assert.match(workflow, /YOUTUBE_AUDIENCE: not_made_for_kids/);
+  assert.doesNotMatch(workflow, /npm run video:publish/);
   assert.match(workflow, /Reviewed video URL changed before publication/);
 });
 
@@ -75,7 +79,7 @@ test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW
   assert.notEqual(stageActionIndex, -1, "READY_FOR_REVIEW stage action must exist");
   assert.ok(canonicalProbeIndex < stageActionIndex, "Canonical copy must be ffprobed before queue staging");
   assert.match(workflow, /Math\.abs\(canonicalProbe\.durationSeconds - sourceProbe\.durationSeconds\) > 0\.05/);
-  assert.match(workflow, /stageRequest\([\s\S]*48\)/);
+  assert.match(workflow, /const upload = await stageRequest\(\{[\s\S]*?\},\s*48\);/);
   assert.match(workflow, /action: "cleanup"/);
 
   const canonicalStageIndex = workflow.indexOf("Stage verified render in canonical review storage");
@@ -95,8 +99,11 @@ test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW
     /if:\s*needs\.render\.result == 'success' && github\.ref == 'refs\/heads\/main' && github\.event_name == 'workflow_dispatch' && inputs\.publish_after_approval == true/,
   );
   assert.match(publishJob, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(publishJob, /npm run video:approve/);
-  assert.match(publishJob, /npm run video:publish/);
+  assert.match(publishJob, /action: "approve"/);
+  assert.match(publishJob, /PUBLISH_CHANNEL: youtube/);
+  assert.match(publishJob, /PUBLISH_CHANNEL: tiktok/);
+  assert.match(publishJob, /node scripts\/publish-approved-review-queue\.mjs/);
+  assert.doesNotMatch(publishJob, /npm run video:publish/);
 
   assert.match(stageRenderRoute, /VERCEL_ENV !== "production"/);
   assert.match(stageRenderRoute, /production_revision_not_ready/);
@@ -123,16 +130,20 @@ test("review storage broker keeps deletion owner-only and malformed requests fai
     /if \(action === "delete"\)\s*\{\s*assertOwnerCode\(ownerCode\);\s*\} else \{\s*assertStagingCode\(ownerCode\);/s,
   );
   assert.match(uploadBroker, /safePath\(body\?\.path\)/);
+  assert.match(uploadBroker, /throw new Error\("invalid_path"\)/);
+  assert.match(uploadBroker, /if \(!\["ticket", "delete"\]\.includes\(action\)\)/);
+  assert.match(uploadBroker, /error: "invalid_action"/);
   assert.match(uploadBroker, /https:\/\/www\.blindboxai\.com\/api\/owner\/storage-auth/);
   assert.match(uploadBroker, /"X-Storage-Action": action/);
-  const authRejectIndex = uploadBroker.indexOf('if (!authCheck.ok) return json({ error: "unauthorized" }');
-  const deleteBranchIndex = uploadBroker.indexOf('if (action === "delete")');
-  const removeIndex = uploadBroker.indexOf(".remove([path])");
-  assert.notEqual(authRejectIndex, -1, "Failed storage authorization must be handled");
-  assert.notEqual(deleteBranchIndex, -1, "Delete branch must exist");
-  assert.notEqual(removeIndex, -1, "Service-role storage delete must exist");
-  assert.ok(authRejectIndex < deleteBranchIndex, "Authorization must succeed before delete branch");
-  assert.ok(deleteBranchIndex < removeIndex, "Service-role removal must remain inside the delete branch");
+  assert.match(
+    uploadBroker,
+    /if \(!authCheck\.ok\) return json\(\{ error: "unauthorized" \}, 401, origin\);[\s\S]*?if \(action === "delete"\) \{\s*const removed = await supabase\.storage\.from\(BUCKET\)\.remove\(\[path\]\);/s,
+  );
+  assert.match(uploadBroker, /bucket_policy_mismatch/);
+  assert.match(uploadBroker, /bucket\.public !== true/);
+  assert.match(uploadBroker, /fileSizeLimit !== MAX_BYTES/);
+  assert.match(uploadBroker, /allowedMimeTypes\.length !== 1/);
+  assert.match(uploadBroker, /allowedMimeTypes\[0\] !== "video\/mp4"/);
   assert.match(uploadBroker, /"https:\/\/www\.blindboxai\.com"/);
   assert.doesNotMatch(uploadBroker, /fetch\("https:\/\/blindboxai\.com\/api\/owner\/storage-auth"/);
 });
