@@ -93,7 +93,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: "invalid_size" }, 400, origin);
   }
 
-  const bucketState = await supabase.storage.getBucket(BUCKET);
+  let bucketState = await supabase.storage.getBucket(BUCKET);
   if (bucketState.error) {
     const created = await supabase.storage.createBucket(BUCKET, {
       public: true,
@@ -103,6 +103,25 @@ Deno.serve(async (req: Request) => {
     if (created.error && !/already exists/i.test(created.error.message || "")) {
       return json({ error: "bucket_unavailable" }, 503, origin);
     }
+    bucketState = await supabase.storage.getBucket(BUCKET);
+  }
+  if (bucketState.error || !bucketState.data) {
+    return json({ error: "bucket_unavailable" }, 503, origin);
+  }
+  const bucket = bucketState.data as Record<string, unknown>;
+  const fileSizeLimit = Number(bucket.file_size_limit ?? bucket.fileSizeLimit ?? 0);
+  const allowedMimeTypes = Array.isArray(bucket.allowed_mime_types)
+    ? bucket.allowed_mime_types
+    : Array.isArray(bucket.allowedMimeTypes)
+      ? bucket.allowedMimeTypes
+      : [];
+  if (
+    bucket.public !== true ||
+    fileSizeLimit !== MAX_BYTES ||
+    allowedMimeTypes.length !== 1 ||
+    allowedMimeTypes[0] !== "video/mp4"
+  ) {
+    return json({ error: "bucket_policy_mismatch" }, 503, origin);
   }
 
   const ticket = await supabase.storage.from(BUCKET).createSignedUploadUrl(path, { upsert: false });
