@@ -60,8 +60,8 @@ public final class WallpaperEngineService extends WallpaperService {
         private Shader glowShader;
         private Shader headerShader;
         private Shader coreShader;
-        private long ageLabelMinute = Long.MIN_VALUE;
-        private String ageLabel = "WAITING FOR LIVE DATA";
+        private volatile long ageLabelMinute = Long.MIN_VALUE;
+        private volatile String ageLabel = "WAITING FOR LIVE DATA";
         private volatile Snapshot snapshot = Snapshot.empty();
         private volatile boolean visible = false;
         private final long startedAtMs = System.currentTimeMillis();
@@ -197,6 +197,7 @@ public final class WallpaperEngineService extends WallpaperService {
                     Snapshot next = Snapshot.fromJson(body.toString());
                     if (next.generatedAtMs > 0) {
                         snapshot = next;
+                        ageLabelMinute = Long.MIN_VALUE;
                         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(CACHE_KEY, body.toString()).apply();
                     }
                 } catch (Exception ignored) {
@@ -304,7 +305,7 @@ public final class WallpaperEngineService extends WallpaperService {
             paint.setTextAlign(Paint.Align.LEFT);
             paint.setTextSize(w * 0.028f);
             paint.setColor(0xff6effc0);
-            c.drawText("LIVE", w * 0.18f, h * 0.134f, paint);
+            c.drawText(snapshot.available ? "LIVE" : "CONNECT", w * 0.18f, h * 0.134f, paint);
             paint.setTextAlign(Paint.Align.RIGHT);
             paint.setColor(0xff89a9c7);
             c.drawText(currentAgeLabel(), w * 0.84f, h * 0.134f, paint);
@@ -520,8 +521,8 @@ public final class WallpaperEngineService extends WallpaperService {
             paint.setTypeface(boldTypeface);
             paint.setTextSize(w * 0.030f);
             paint.setColor(0xff8fb6cf);
-            c.drawText("No placeholder metrics are shown before a verified snapshot arrives.", w / 2f, h * 0.48f, paint);
-            c.drawText("Last good snapshot is reused if the network is temporarily unavailable.", w / 2f, h * 0.515f, paint);
+            c.drawText("No placeholder numbers before a verified snapshot.", w / 2f, h * 0.48f, paint);
+            c.drawText("Last good data stays visible through network interruptions.", w / 2f, h * 0.515f, paint);
             paint.setTextAlign(Paint.Align.LEFT);
         }
 
