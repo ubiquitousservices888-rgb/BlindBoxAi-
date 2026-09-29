@@ -13,6 +13,7 @@ const ebayConnectRoute = fs.readFileSync(new URL("../app/api/owner/ebay-connect/
 const controlAuthRoute = fs.readFileSync(new URL("../app/api/owner/control-auth/route.js", import.meta.url), "utf8");
 const ownerDashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
 const epnReportRoute = fs.readFileSync(new URL("../app/api/owner/epn-report/route.js", import.meta.url), "utf8");
+const amazonReportRoute = fs.readFileSync(new URL("../app/api/owner/amazon-report/route.js", import.meta.url), "utf8");
 const reviewQueueEdge = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
 
 const OWNER = "owner-code-test-only";
@@ -137,4 +138,11 @@ test("EPN report import is owner-only", () => {
   assert.match(epnReportRoute, /assertOwnerCode/);
   assert.doesNotMatch(epnReportRoute, /assertUploadCode/);
   assert.match(epnReportRoute, /Cache-Control": "private, no-store, max-age=0"/);
+});
+
+
+test("Amazon report import is owner-only", () => {
+  assert.match(amazonReportRoute, /assertOwnerCode/);
+  assert.doesNotMatch(amazonReportRoute, /assertUploadCode/);
+  assert.match(amazonReportRoute, /Cache-Control": "private, no-store, max-age=0"/);
 });
