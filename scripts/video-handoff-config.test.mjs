@@ -62,8 +62,12 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(workflow, /CANONICAL_REVIEW_RESEARCH_RUN/);
   assert.match(workflow, /CANONICAL_REVIEW_CAMPAIGN/);
   assert.match(workflow, /blindboxai-review-videos\\\/media\\\/review/);
+  const canonicalStageIndex = workflow.indexOf("Stage verified render in canonical review storage");
+  const prepareReviewIndex = workflow.indexOf("Prepare exact review state");
+  assert.notEqual(canonicalStageIndex, -1, "Canonical staging step must exist");
+  assert.notEqual(prepareReviewIndex, -1, "Prepare-review step must exist");
   assert.ok(
-    workflow.indexOf("Stage verified render in canonical review storage") < workflow.indexOf("Prepare exact review state"),
+    canonicalStageIndex < prepareReviewIndex,
     "Canonical staging must complete before the owner review artifact is prepared",
   );
   const publishInput = workflow.match(
@@ -92,6 +96,10 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
   assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
   assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
+  assert.match(stageRenderRoute, /VIDEO_UPLOAD_BROKER_URL/);
+  assert.match(stageRenderRoute, /action:\s*"delete"/);
+  assert.match(stageRenderRoute, /cleanupStorageObject/);
+  assert.match(stageRenderRoute, /storageCleanupCompleted/);
   assert.ok(
     stageRenderRoute.indexOf('method: "PUT"') < stageRenderRoute.indexOf('"/api/owner/stage-review"'),
     "Canonical media must upload before READY_FOR_REVIEW staging is exposed",
