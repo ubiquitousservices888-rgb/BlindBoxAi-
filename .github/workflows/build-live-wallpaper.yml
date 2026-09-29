@@ -1,0 +1,76 @@
+name: Build BlindBoxAI Live Wallpaper
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "wallpaper/**"
+      - "app/api/wallpaper/**"
+      - "lib/wallpaper-metrics.mjs"
+      - "scripts/wallpaper-metrics.test.mjs"
+      - "package.json"
+      - ".github/workflows/build-live-wallpaper.yml"
+  push:
+    branches: [main]
+    paths:
+      - "wallpaper/**"
+      - "app/api/wallpaper/**"
+      - "lib/wallpaper-metrics.mjs"
+      - "scripts/wallpaper-metrics.test.mjs"
+      - "package.json"
+      - ".github/workflows/build-live-wallpaper.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Test aggregate metrics serializer
+        run: npm run wallpaper:test
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: ""
+
+      - name: Install Android SDK
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Build debug APK
+        working-directory: wallpaper
+        run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+
+      - name: SHA-256
+        run: (cd wallpaper/app/build/outputs/apk/debug && sha256sum app-debug.apk | tee app-debug.apk.sha256)
+
+      - name: Upload verified APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BlindBoxAI-Live-Wallpaper-debug
+          path: |
+            wallpaper/app/build/outputs/apk/debug/app-debug.apk
+            wallpaper/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
