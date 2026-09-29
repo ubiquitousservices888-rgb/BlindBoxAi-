@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BlindBoxAI Live</string>
+    <string name="wallpaper_description">Animated BlindBoxAI production metrics with aggregate live data.</string>
+</resources>
