@@ -154,10 +154,19 @@ jobs:
 
           const source = await fetch(sourceVideoUrl, { redirect: "error" });
           if (!source.ok) throw new Error(`Unable to download rendered MP4: ${source.status}`);
-          const bytes = Buffer.from(await source.arrayBuffer());
-          if (!bytes.length || bytes.length > 100 * 1024 * 1024) {
-            throw new Error("Rendered MP4 size is outside the review limit");
+          if (!source.body) throw new Error("Rendered MP4 response body is missing");
+          const chunks = [];
+          let sizeBytes = 0;
+          for await (const chunk of source.body) {
+            const buffer = Buffer.from(chunk);
+            sizeBytes += buffer.length;
+            if (sizeBytes > 100 * 1024 * 1024) {
+              throw new Error("Rendered MP4 size is outside the review limit");
+            }
+            chunks.push(buffer);
           }
+          if (sizeBytes <= 0) throw new Error("Rendered MP4 size is outside the review limit");
+          const bytes = Buffer.concat(chunks, sizeBytes);
 
           const probePath = "/tmp/blindboxai-autonomous-render.mp4";
           fs.writeFileSync(probePath, bytes);
