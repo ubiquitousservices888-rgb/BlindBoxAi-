@@ -66,6 +66,10 @@ test("autonomous render handoff stages canonical review media without bypassing 
     workflow.indexOf("Stage verified render in canonical review storage") < workflow.indexOf("Prepare exact review state"),
     "Canonical staging must complete before the owner review artifact is prepared",
   );
+  assert.match(workflow, /publish_after_approval:/);
+  assert.match(workflow, /default:\s*false/);
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(workflow, /inputs\.publish_after_approval == true/);
   assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(workflow, /npm run video:approve/);
   assert.match(workflow, /npm run video:publish/);
