@@ -6,6 +6,12 @@ on:
     paths:
       - data/verified-video-products.json
   workflow_dispatch:
+    inputs:
+      publish_after_approval:
+        description: "After staging, allow the protected owner-approval publish job to become eligible"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -274,7 +280,7 @@ jobs:
 
   publish-after-approval:
     name: Owner approval → Buffer queue
-    if: needs.render.result == 'success' && github.ref == 'refs/heads/main'
+    if: needs.render.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_after_approval == true
     needs: render
     runs-on: ubuntu-latest
     environment:
