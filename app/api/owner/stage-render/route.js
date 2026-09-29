@@ -125,35 +125,33 @@ async function apiJson(origin, path, { ownerCode, method = "GET", body } = {}) {
   return { response, data };
 }
 
-async function readBoundedResponseBytes(response, maxBytes) {
+async function readBoundedResponseBytes(response, expectedBytes, maxBytes) {
   if (!response.body) throw new Error("source_video_body_missing");
+  if (!Number.isSafeInteger(expectedBytes) || expectedBytes <= 0 || expectedBytes > maxBytes) {
+    throw new Error("source_video_size_invalid");
+  }
+
   const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
+  const bytes = new Uint8Array(expectedBytes);
+  let offset = 0;
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
-      total += chunk.byteLength;
-      if (total > maxBytes) {
+      if (offset + chunk.byteLength > expectedBytes || offset + chunk.byteLength > maxBytes) {
         try { await reader.cancel("source_video_size_invalid"); } catch {}
         throw new Error("source_video_size_invalid");
       }
-      chunks.push(chunk);
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
     }
   } finally {
     try { reader.releaseLock(); } catch {}
   }
 
-  if (total <= 0) throw new Error("source_video_size_invalid");
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  if (offset !== expectedBytes) throw new Error("source_video_size_mismatch");
   return bytes;
 }
 
@@ -243,15 +241,16 @@ export async function POST(request) {
     });
     if (!sourceResponse.ok) throw new Error("source_video_unavailable");
 
+    const expectedSizeBytes = Math.round(reportedSizeBytes);
     const contentLength = Number(sourceResponse.headers.get("content-length") || 0);
     if (Number.isFinite(contentLength) && contentLength > MAX_BYTES) {
       throw new Error("source_video_size_invalid");
     }
-
-    const bytes = await readBoundedResponseBytes(sourceResponse, MAX_BYTES);
-    if (bytes.byteLength !== Math.round(reportedSizeBytes)) {
+    if (contentLength > 0 && contentLength !== expectedSizeBytes) {
       throw new Error("source_video_size_mismatch");
     }
+
+    const bytes = await readBoundedResponseBytes(sourceResponse, expectedSizeBytes, MAX_BYTES);
 
     const unique = `${String(oidc.sha).slice(0, 12)}-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
     const path = `media/review/autonomous-${unique}.mp4`;
@@ -266,8 +265,8 @@ export async function POST(request) {
     }
 
     const canonicalVideoUrl = String(ticket.data.publicUrl);
-    uploadedPath = clean(ticket.data?.path || path, 180);
-    if (uploadedPath !== path) throw new Error("upload_ticket_path_mismatch");
+    if (ticket.data?.path !== path) throw new Error("upload_ticket_path_mismatch");
+    uploadedPath = path;
 
     const form = new FormData();
     form.append("cacheControl", "3600");
