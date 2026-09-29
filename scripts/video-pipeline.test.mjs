@@ -4,7 +4,17 @@ import { AMAZON_VIDEO_CTA, AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCL
 
 const now = new Date("2026-08-09T12:00:00.000Z");
 const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
-const ready = () => markRendered(createRenderRecord(product, generateVideoScript(product, now), ["tiktok", "instagram"], now), { id: "render-1", videoUrl: "https://cdn.example/video.mp4" }, now);
+const ready = () => ({
+  ...markRendered(
+    createRenderRecord(product, generateVideoScript(product, now), ["tiktok", "instagram"], now),
+    { id: "render-1", videoUrl: "https://cdn.example/video.mp4" },
+    now,
+  ),
+  review: {
+    researchRunId: "rv-0123456789abcdef",
+    campaignId: "bb-rv-0123456789abcdef",
+  },
+});
 const jsonResponse = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
 describe("verified-data gate", () => {
@@ -65,6 +75,15 @@ describe("render and manual review gates", () => {
 
 describe("safe publishing", () => {
   it("requires manual approval", async () => await assert.rejects(() => publishApproved(ready(), async () => ({ id: "x" }), now)));
+  it("fails closed when exact review attribution is missing", async () => {
+    const record = approve(ready(), now);
+    delete record.review;
+    await assert.rejects(
+      () => publishApproved(record, async () => ({ id: "x" }), now),
+      /Exact review researchRunId is required/,
+    );
+  });
+
   it("prevents duplicates and retries only failed channels", async () => { let calls = []; let first = true; const publisher = async ({ channel }) => { calls.push(channel); if (channel === "instagram" && first) throw new Error("temporary"); return { id: `${channel}-1` }; }; let state = await publishApproved(approve(ready(), now), publisher, now); assert.equal(state.state, STATES.PARTIAL); assert.deepEqual(calls, ["tiktok", "instagram"]); first = false; calls = []; state = await publishApproved(state, publisher, now); assert.equal(state.state, STATES.PUBLISHED); assert.deepEqual(calls, ["instagram"]); assert.equal(state.publications.tiktok.externalId, "tiktok-1"); });
 
   it("publishes channel-specific tracked BlindBoxAI CTAs when review attribution exists", async () => {
