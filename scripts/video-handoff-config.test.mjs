@@ -66,13 +66,19 @@ test("autonomous render handoff stages canonical review media without bypassing 
     workflow.indexOf("Stage verified render in canonical review storage") < workflow.indexOf("Prepare exact review state"),
     "Canonical staging must complete before the owner review artifact is prepared",
   );
-  assert.match(workflow, /publish_after_approval:/);
-  assert.match(workflow, /default:\s*false/);
-  assert.match(workflow, /github\.event_name == 'workflow_dispatch'/);
-  assert.match(workflow, /inputs\.publish_after_approval == true/);
-  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(workflow, /npm run video:approve/);
-  assert.match(workflow, /npm run video:publish/);
+  const publishInput = workflow.match(
+    /publish_after_approval:\s*\n\s+description:[^\n]*\n\s+required:\s*true\s*\n\s+default:\s*false\s*\n\s+type:\s*boolean/,
+  )?.[0];
+  assert.ok(publishInput, "publish_after_approval must be an explicit boolean input defaulting to false");
+
+  const publishJob = workflow.match(/\n  publish-after-approval:[\s\S]*$/)?.[0] ?? "";
+  assert.match(
+    publishJob,
+    /if:\s*needs\.render\.result == 'success' && github\.ref == 'refs\/heads\/main' && github\.event_name == 'workflow_dispatch' && inputs\.publish_after_approval == true/,
+  );
+  assert.match(publishJob, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(publishJob, /npm run video:approve/);
+  assert.match(publishJob, /npm run video:publish/);
 
   assert.match(stageRenderRoute, /VERCEL_ENV !== "production"/);
   assert.match(stageRenderRoute, /VERCEL_GIT_COMMIT_REF !== "main"/);
@@ -80,10 +86,16 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(stageRenderRoute, /workflow_ref !== WORKFLOW_REF/);
   assert.match(stageRenderRoute, /production_revision_not_ready/);
   assert.ok(stageRenderRoute.includes("backblazeb2\\.com"));
+  assert.ok(stageRenderRoute.includes('host === "cdn.creatomate.com"'));
+  assert.ok(stageRenderRoute.includes('url.pathname.startsWith("/renders/")'));
   assert.ok(stageRenderRoute.includes(".public.blob.vercel-storage.com"));
   assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
   assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
   assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
+  assert.ok(
+    stageRenderRoute.indexOf('method: "PUT"') < stageRenderRoute.indexOf('"/api/owner/stage-review"'),
+    "Canonical media must upload before READY_FOR_REVIEW staging is exposed",
+  );
   assert.match(stageRenderRoute, /READY_FOR_REVIEW/);
   assert.match(stageRenderRoute, /approved:\s*false/);
   assert.match(stageRenderRoute, /published:\s*false/);
