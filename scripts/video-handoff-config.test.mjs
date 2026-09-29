@@ -75,8 +75,8 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(stageRenderRoute, /blindboxai-autonomous-render-stage/);
   assert.match(stageRenderRoute, /workflow_ref !== WORKFLOW_REF/);
   assert.match(stageRenderRoute, /production_revision_not_ready/);
-  assert.match(stageRenderRoute, /backblazeb2\\.com/);
-  assert.match(stageRenderRoute, /public\\.blob\\.vercel-storage\\.com/);
+  assert.ok(stageRenderRoute.includes("backblazeb2.com"));
+  assert.ok(stageRenderRoute.includes(".public.blob.vercel-storage.com"));
   assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
   assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
   assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
