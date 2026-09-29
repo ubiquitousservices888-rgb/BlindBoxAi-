@@ -13,6 +13,7 @@ test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
   assert.match(route, /owner-blue-live-verify-once\.yml@refs\/heads\/main/);
   assert.match(route, /payload\.repository !== REPOSITORY/);
   assert.match(route, /payload\.ref !== "refs\/heads\/main"/);
+  assert.match(route, /payload\.workflow_ref !== WORKFLOW_REF/);
   assert.match(route, /payload\.event_name !== "push"/);
   assert.match(route, /deployedRevision !== oidc\.sha/);
 });
@@ -23,6 +24,12 @@ test("one-shot Owner Blue verifier exercises canonical safe uploader and owner d
   assert.match(route, /"\/api\/owner\/review-queue"/);
   assert.match(route, /owner-blue-live-verify-invalid/);
   assert.match(route, /rejection_reason !== "owner_rejected"/);
+  assert.match(route, /storageObjectIsGone\(stagedVideoUrl\)/);
+  assert.match(route, /storageDeleted: true/);
+  assert.ok(
+    route.indexOf('"/api/owner/stage-review"') < route.indexOf("const form = new FormData()"),
+    "stage must establish a deletable queue row before upload",
+  );
   assert.match(route, /published: false/);
 });
 
@@ -32,9 +39,13 @@ test("one-shot Owner Blue verifier cannot publish", () => {
   assert.match(workflow, /OWNER_BLUE_PUBLISH: NOT_RUN/);
 });
 
-test("one-shot workflow runs only on marked main pushes with OIDC", () => {
+test("one-shot workflow is serialized and runs only on marked main pushes with OIDC", () => {
   assert.match(workflow, /push:\s*\n\s+branches: \[main\]/);
   assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /group: owner-blue-live-verify/);
+  assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)/);
+  assert.match(workflow, /for attempt in \$\(seq 1 24\); do[\s\S]*ACTIONS_ID_TOKEN_REQUEST_URL/);
+  assert.match(workflow, /000\|409\|500\|501\|502\|503\|504\|505\|506\|507\|508\|510\|511/);
   assert.match(workflow, /https:\/\/blindboxai\.com\/api\/owner\/live-verify/);
 });
