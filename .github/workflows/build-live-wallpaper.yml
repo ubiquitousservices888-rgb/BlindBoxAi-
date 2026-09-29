@@ -1,0 +1,62 @@
+name: Build BlindBoxAI Live Wallpaper
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "wallpaper/**"
+      - "app/api/wallpaper/**"
+      - "lib/wallpaper-metrics.mjs"
+      - "scripts/wallpaper-metrics.test.mjs"
+      - ".github/workflows/build-live-wallpaper.yml"
+  push:
+    branches: [main]
+    paths:
+      - "wallpaper/**"
+      - "app/api/wallpaper/**"
+      - "lib/wallpaper-metrics.mjs"
+      - "scripts/wallpaper-metrics.test.mjs"
+      - ".github/workflows/build-live-wallpaper.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Test aggregate metrics serializer
+        run: node --test scripts/wallpaper-metrics.test.mjs
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-37" "build-tools;36.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Build debug APK
+        working-directory: wallpaper
+        run: gradle --no-daemon :app:assembleDebug :app:lintDebug
+
+      - name: SHA-256
+        run: sha256sum wallpaper/app/build/outputs/apk/debug/app-debug.apk | tee wallpaper/app/build/outputs/apk/debug/app-debug.apk.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlindBoxAI-Live-Wallpaper-debug
+          path: |
+            wallpaper/app/build/outputs/apk/debug/app-debug.apk
+            wallpaper/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
