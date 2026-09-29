@@ -53,6 +53,8 @@ test("review-only video workflow validates attribution, uses configured renderer
 });
 
 const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/route.js", import.meta.url), "utf8");
+const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
+const uploadBroker = fs.readFileSync(new URL("../supabase/functions/blindbox-video-upload/index.ts", import.meta.url), "utf8");
 
 test("autonomous render handoff stages canonical review media without bypassing owner approval", () => {
   assert.match(workflow, /id-token:\s*write/);
@@ -98,6 +100,8 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
   assert.match(stageRenderRoute, /readBoundedResponseBytes/);
   assert.match(stageRenderRoute, /reader\.read\(\)/);
+  assert.match(stageRenderRoute, /new Uint8Array\(expectedBytes\)/);
+  assert.doesNotMatch(stageRenderRoute, /chunks\.push|new Uint8Array\(total\)/);
   assert.doesNotMatch(stageRenderRoute, /sourceResponse\.arrayBuffer\(\)/);
   assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
   assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
@@ -105,6 +109,14 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(stageRenderRoute, /action:\s*"delete"/);
   assert.match(stageRenderRoute, /cleanupStorageObject/);
   assert.match(stageRenderRoute, /storageCleanupCompleted/);
+  const ticketPathGuardIndex = stageRenderRoute.indexOf("if (ticket.data?.path !== path)");
+  const uploadedPathAssignIndex = stageRenderRoute.indexOf("uploadedPath = path");
+  assert.notEqual(ticketPathGuardIndex, -1, "Ticket path equality guard must exist");
+  assert.notEqual(uploadedPathAssignIndex, -1, "Cleanup path assignment must exist");
+  assert.ok(
+    ticketPathGuardIndex < uploadedPathAssignIndex,
+    "Cleanup path must be assigned only after the broker echo matches the locally generated path",
+  );
   const uploadPutIndex = stageRenderRoute.indexOf('method: "PUT"');
   const stageReviewCallIndex = stageRenderRoute.indexOf('"/api/owner/stage-review"');
   assert.notEqual(uploadPutIndex, -1, "Canonical signed upload PUT must exist");
@@ -117,4 +129,19 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.match(stageRenderRoute, /approved:\s*false/);
   assert.match(stageRenderRoute, /published:\s*false/);
   assert.doesNotMatch(stageRenderRoute, /BUFFER_API_TOKEN|video:publish|social-production/);
+});
+
+
+test("review storage broker keeps deletion owner-only on the canonical host", () => {
+  assert.match(storageAuthRoute, /X-Storage-Action/);
+  assert.match(
+    storageAuthRoute,
+    /if \(action === "delete"\)\s*\{\s*assertOwnerCode\(ownerCode\);\s*\} else \{\s*assertStagingCode\(ownerCode\);/s,
+  );
+  assert.match(uploadBroker, /https:\/\/www\.blindboxai\.com\/api\/owner\/storage-auth/);
+  assert.match(uploadBroker, /"X-Storage-Action": action/);
+  assert.match(uploadBroker, /if \(action === "delete"\)/);
+  assert.match(uploadBroker, /\.remove\(\[path\]\)/);
+  assert.match(uploadBroker, /"https:\/\/www\.blindboxai\.com"/);
+  assert.doesNotMatch(uploadBroker, /fetch\("https:\/\/blindboxai\.com\/api\/owner\/storage-auth"/);
 });
