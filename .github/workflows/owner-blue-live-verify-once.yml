@@ -8,6 +8,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: owner-blue-live-verify
+  cancel-in-progress: false
+
 jobs:
   verify-owner-blue:
     if: contains(github.event.head_commit.message, '[owner-blue-live-verify]')
@@ -20,8 +24,6 @@ jobs:
           set -euo pipefail
 
           audience="blindboxai-owner-live-verify"
-          oidc_json="$(curl --fail --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience")"
-          oidc_token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$oidc_json")"
 
           payload="$(python - <<'PY'
           import json
@@ -36,7 +38,13 @@ jobs:
           )"
 
           for attempt in $(seq 1 24); do
-            http_code="$(curl --silent --show-error               --output owner-blue-live-verify.json               --write-out '%{http_code}'               --request POST               -H "Authorization: Bearer $oidc_token"               -H "Content-Type: application/json"               --data "$payload"               https://blindboxai.com/api/owner/live-verify)"
+            oidc_json="$(curl --fail --silent --show-error               -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience")"
+            oidc_token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$oidc_json")"
+
+            http_code="000"
+            if ! http_code="$(curl --silent --show-error               --output owner-blue-live-verify.json               --write-out '%{http_code}'               --request POST               -H "Authorization: Bearer $oidc_token"               -H "Content-Type: application/json"               --data "$payload"               https://blindboxai.com/api/owner/live-verify)"; then
+              http_code="000"
+            fi
 
             if [ "$http_code" = "200" ]; then
               python - <<'PY'
@@ -52,6 +60,7 @@ jobs:
               "metadataVisible",
               "unauthorizedDeleteBlocked",
               "deleted",
+              "storageDeleted",
           ]
           missing = [key for key in required_true if data.get(key) is not True]
           if missing:
@@ -69,15 +78,18 @@ jobs:
           print("OWNER_BLUE_READY_QUEUE: 0 -> 1 -> 0")
           print("OWNER_BLUE_UNAUTHORIZED_DELETE: BLOCKED")
           print("OWNER_BLUE_DELETE_AUDIT: owner_rejected")
+          print("OWNER_BLUE_STORAGE_DELETE: PASS")
           print("OWNER_BLUE_PUBLISH: NOT_RUN")
           PY
               exit 0
             fi
 
-            if [ "$http_code" = "409" ] || [ "$http_code" = "503" ]; then
-              sleep 10
-              continue
-            fi
+            case "$http_code" in
+              000|409|500|501|502|503|504|505|506|507|508|510|511)
+                sleep 10
+                continue
+                ;;
+            esac
 
             echo "Owner Blue live verifier failed with HTTP $http_code"
             python - <<'PY'
