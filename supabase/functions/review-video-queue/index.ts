@@ -11,7 +11,10 @@ const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: fals
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_AUDIENCE = "blindboxai-review-publisher";
 const GITHUB_REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
-const GITHUB_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
+const ALLOWED_GITHUB_WORKFLOWS = new Set([
+  `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`,
+  `${GITHUB_REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`,
+]);
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const OWNER_REVIEW_PAGE_SIZE = 1000;
 const OWNER_REVIEW_MAX_PAGES = 50;
@@ -96,7 +99,10 @@ async function githubAuthorized(req: Request) {
     const token = auth.replace(/^Bearer\s+/i, "");
     if (!token) return false;
     const { payload } = await jwtVerify(token, githubJwks, { issuer: GITHUB_ISSUER, audience: GITHUB_AUDIENCE });
-    return payload.repository === GITHUB_REPOSITORY && payload.ref === "refs/heads/main" && payload.workflow_ref === GITHUB_WORKFLOW_REF;
+    const workflowRef = String(payload.workflow_ref || "");
+    if (payload.repository !== GITHUB_REPOSITORY || payload.ref !== "refs/heads/main" || !ALLOWED_GITHUB_WORKFLOWS.has(workflowRef)) return false;
+    if (workflowRef.endsWith("/autonomous-video.yml@refs/heads/main") && payload.event_name !== "workflow_dispatch") return false;
+    return true;
   } catch { return false; }
 }
 async function stage(req: Request, body: any) {
