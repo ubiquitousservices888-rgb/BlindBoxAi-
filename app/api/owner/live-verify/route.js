@@ -113,14 +113,20 @@ async function storageObjectIsGone(videoUrl) {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const separator = videoUrl.includes("?") ? "&" : "?";
     const probeUrl = `${videoUrl}${separator}owner_blue_verify=${Date.now()}-${attempt}`;
-    const response = await fetch(probeUrl, {
-      method: "GET",
-      headers: {
-        Range: "bytes=0-0",
-        "Cache-Control": "no-cache",
-      },
-      cache: "no-store",
-    });
+    let response;
+    try {
+      response = await fetch(probeUrl, {
+        method: "GET",
+        headers: {
+          Range: "bytes=0-0",
+          "Cache-Control": "no-cache",
+        },
+        cache: "no-store",
+      });
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      continue;
+    }
     if (!response.ok) return true;
     try { await response.body?.cancel(); } catch {}
     await new Promise((resolve) => setTimeout(resolve, 500));
