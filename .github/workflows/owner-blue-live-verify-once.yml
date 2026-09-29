@@ -9,7 +9,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: owner-blue-live-verify
+  group: ${{ contains(github.event.head_commit.message, '[owner-blue-live-verify]') && 'owner-blue-live-verify' || format('owner-blue-live-verify-unmarked-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
@@ -38,8 +38,17 @@ jobs:
           )"
 
           for attempt in $(seq 1 24); do
-            oidc_json="$(curl --fail --silent --show-error               -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience")"
-            oidc_token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$oidc_json")"
+            oidc_json=""
+            if ! oidc_json="$(curl --fail --silent --show-error               -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience")"; then
+              sleep 10
+              continue
+            fi
+
+            oidc_token=""
+            if ! oidc_token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$oidc_json")"; then
+              sleep 10
+              continue
+            fi
 
             http_code="000"
             if ! http_code="$(curl --silent --show-error               --output owner-blue-live-verify.json               --write-out '%{http_code}'               --request POST               -H "Authorization: Bearer $oidc_token"               -H "Content-Type: application/json"               --data "$payload"               https://blindboxai.com/api/owner/live-verify)"; then
