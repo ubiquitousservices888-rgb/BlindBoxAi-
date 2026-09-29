@@ -79,7 +79,10 @@ export default function RevenueSummaryClient() {
   const [message, setMessage] = useState("");
 
   async function load(token) {
-    if (!token) return;
+    if (!token) {
+      setError("Enter your owner access code.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
