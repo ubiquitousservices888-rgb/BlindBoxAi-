@@ -48,9 +48,20 @@ public final class WallpaperEngineService extends WallpaperService {
         private final ExecutorService network = Executors.newSingleThreadExecutor();
         private final AtomicBoolean fetchInFlight = new AtomicBoolean(false);
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private static final int[] STREAM_COLORS = {0xff00e5ff, 0xffff49d8, 0xff916dff, 0xffffc247};
         private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path = new Path();
+        private final RectF scratchRect = new RectF();
         private final List<Star> stars = new ArrayList<>();
+        private final android.graphics.Typeface blackTypeface = android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD);
+        private final android.graphics.Typeface boldTypeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD);
+        private final android.graphics.Typeface mediumTypeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD);
+        private Shader backgroundShader;
+        private Shader glowShader;
+        private Shader headerShader;
+        private Shader coreShader;
+        private long ageLabelMinute = Long.MIN_VALUE;
+        private String ageLabel = "WAITING FOR LIVE DATA";
         private volatile Snapshot snapshot = Snapshot.empty();
         private volatile boolean visible = false;
         private final long startedAtMs = System.currentTimeMillis();
@@ -101,6 +112,7 @@ public final class WallpaperEngineService extends WallpaperService {
             width = Math.max(1, w);
             height = Math.max(1, h);
             rebuildStars();
+            rebuildRenderCache();
             if (visible) draw();
         }
 
@@ -119,7 +131,33 @@ public final class WallpaperEngineService extends WallpaperService {
 
         private long frameDelayMs() {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            return pm != null && pm.isPowerSaveMode() ? 66L : 33L;
+            return pm != null && pm.isPowerSaveMode() ? 100L : 50L;
+        }
+
+        private void rebuildRenderCache() {
+            float w = width;
+            float h = height;
+            float cx = w * 0.5f;
+            float coreY = h * 0.62f;
+            float radius = Math.min(w, h) * 0.115f;
+            backgroundShader = new LinearGradient(0, 0, 0, h,
+                    new int[]{0xff030615, 0xff07112b, 0xff050816, 0xff01030a},
+                    new float[]{0f, 0.33f, 0.7f, 1f}, Shader.TileMode.CLAMP);
+            glowShader = new RadialGradient(cx, h * 0.6f, w * 0.75f,
+                    new int[]{0x336f35ff, 0x00101040}, null, Shader.TileMode.CLAMP);
+            headerShader = new LinearGradient(w * 0.18f, 0, w * 0.82f, 0,
+                    new int[]{0xff65f7ff, 0xffff5ad8, 0xff916dff}, null, Shader.TileMode.CLAMP);
+            coreShader = new RadialGradient(cx, coreY, radius * 1.8f,
+                    new int[]{0x7865f7ff, 0x37a446ff, 0x00102040}, null, Shader.TileMode.CLAMP);
+        }
+
+        private String currentAgeLabel() {
+            long minute = System.currentTimeMillis() / 60_000L;
+            if (minute != ageLabelMinute) {
+                ageLabelMinute = minute;
+                ageLabel = snapshot.ageLabel();
+            }
+            return ageLabel;
         }
 
         private void rebuildStars() {
@@ -186,6 +224,10 @@ public final class WallpaperEngineService extends WallpaperService {
             float h = c.getHeight();
             drawBackground(c, w, h, t);
             drawHeader(c, w, h, t);
+            if (!snapshot.available) {
+                drawUnavailable(c, w, h, t);
+                return;
+            }
 
             float margin = w * 0.045f;
             float gap = w * 0.025f;
@@ -195,12 +237,12 @@ public final class WallpaperEngineService extends WallpaperService {
             float y2 = y1 + cardH + h * 0.016f;
             float y3 = y2 + cardH + h * 0.016f;
 
-            drawMetricCard(c, margin, y1, cardW, cardH, "QUALIFIED CLICKS", snapshot.qualifiedClicks, 0xff00e5ff, snapshot.clickSeries, t, 0f);
-            drawMetricCard(c, margin + cardW + gap, y1, cardW, cardH, "VIDEOS LIVE", snapshot.publishedVideos, 0xffff49d8, snapshot.videoSeries, t, 1.2f);
-            drawMetricCard(c, margin, y2, cardW, cardH, "QUESTIONS", snapshot.questions, 0xffb072ff, snapshot.questionSeries, t, 2.4f);
-            drawMetricCard(c, margin + cardW + gap, y2, cardW, cardH, "ANALYTICS", snapshot.analyticsEvents, 0xff4d8bff, snapshot.analyticsSeries, t, 3.6f);
-            drawMetricCard(c, margin, y3, cardW, cardH, "PRICE OBS.", snapshot.priceObservations, 0xffffc247, null, t, 4.8f);
-            drawMetricCard(c, margin + cardW + gap, y3, cardW, cardH, "CONFIRMED SALES", snapshot.confirmedConversions, snapshot.confirmedConversions > 0 ? 0xff52ffb8 : 0xffff526f, null, t, 6f);
+            drawMetricCard(c, margin, y1, cardW, cardH, "QUALIFIED CLICKS", snapshot.qualifiedClicksText, 0xff00e5ff, snapshot.clickSeries, t, 0f);
+            drawMetricCard(c, margin + cardW + gap, y1, cardW, cardH, "VIDEOS LIVE", snapshot.publishedVideosText, 0xffff49d8, snapshot.videoSeries, t, 1.2f);
+            drawMetricCard(c, margin, y2, cardW, cardH, "QUESTIONS", snapshot.questionsText, 0xffb072ff, snapshot.questionSeries, t, 2.4f);
+            drawMetricCard(c, margin + cardW + gap, y2, cardW, cardH, "ANALYTICS", snapshot.analyticsEventsText, 0xff4d8bff, snapshot.analyticsSeries, t, 3.6f);
+            drawMetricCard(c, margin, y3, cardW, cardH, "PRICE OBS.", snapshot.priceObservationsText, 0xffffc247, null, t, 4.8f);
+            drawMetricCard(c, margin + cardW + gap, y3, cardW, cardH, "CONFIRMED SALES", snapshot.confirmedConversionsText, snapshot.confirmedConversions > 0 ? 0xff52ffb8 : 0xffff526f, null, t, 6f);
 
             float coreY = h * 0.62f;
             drawDataStreams(c, w, h, coreY, t);
@@ -211,17 +253,17 @@ public final class WallpaperEngineService extends WallpaperService {
 
         private void drawBackground(Canvas c, float w, float h, float t) {
             paint.setStyle(Paint.Style.FILL);
-            paint.setShader(new LinearGradient(0, 0, 0, h,
-                    new int[]{0xff030615, 0xff07112b, 0xff050816, 0xff01030a},
-                    new float[]{0f, 0.33f, 0.7f, 1f}, Shader.TileMode.CLAMP));
+            paint.setAlpha(255);
+            paint.setShader(backgroundShader);
             c.drawRect(0, 0, w, h, paint);
             paint.setShader(null);
 
             float pulse = 0.6f + 0.4f * (float) Math.sin(t * 0.8f);
-            paint.setShader(new RadialGradient(w * 0.5f, h * 0.6f, w * 0.75f,
-                    new int[]{withAlpha(0xff6f35ff, (int) (36 + 18 * pulse)), 0x00101040}, null, Shader.TileMode.CLAMP));
+            paint.setAlpha((int) (170 + 70 * pulse));
+            paint.setShader(glowShader);
             c.drawCircle(w * 0.5f, h * 0.6f, w * 0.75f, paint);
             paint.setShader(null);
+            paint.setAlpha(255);
 
             for (Star star : stars) {
                 float twinkle = 0.35f + 0.65f * Math.abs((float) Math.sin(t * 0.7f + star.phase));
@@ -244,15 +286,14 @@ public final class WallpaperEngineService extends WallpaperService {
         }
 
         private void drawHeader(Canvas c, float w, float h, float t) {
-            paint.setShader(new LinearGradient(w * 0.18f, 0, w * 0.82f, 0,
-                    new int[]{0xff65f7ff, 0xffff5ad8, 0xff916dff}, null, Shader.TileMode.CLAMP));
+            paint.setShader(headerShader);
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD));
+            paint.setTypeface(blackTypeface);
             paint.setTextSize(w * 0.087f);
             c.drawText("BlindBoxAI", w / 2f, h * 0.073f, paint);
             paint.setShader(null);
 
-            paint.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD));
+            paint.setTypeface(boldTypeface);
             paint.setTextSize(w * 0.029f);
             paint.setColor(0xffa7dbef);
             c.drawText("LIVE DATA PULSE  •  AGGREGATE PRODUCTION SIGNALS", w / 2f, h * 0.103f, paint);
@@ -266,31 +307,31 @@ public final class WallpaperEngineService extends WallpaperService {
             c.drawText("LIVE", w * 0.18f, h * 0.134f, paint);
             paint.setTextAlign(Paint.Align.RIGHT);
             paint.setColor(0xff89a9c7);
-            c.drawText(snapshot.ageLabel(), w * 0.84f, h * 0.134f, paint);
+            c.drawText(currentAgeLabel(), w * 0.84f, h * 0.134f, paint);
             paint.setTextAlign(Paint.Align.LEFT);
         }
 
-        private void drawMetricCard(Canvas c, float x, float y, float cw, float ch, String label, long value, int accent, int[] series, float t, float phase) {
+        private void drawMetricCard(Canvas c, float x, float y, float cw, float ch, String label, String valueText, int accent, int[] series, float t, float phase) {
             float pulse = 0.5f + 0.5f * Math.abs((float) Math.sin(t * 0.9f + phase));
-            RectF r = new RectF(x, y, x + cw, y + ch);
+            scratchRect.set(x, y, x + cw, y + ch);
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(0xcc07142c);
-            c.drawRoundRect(r, cw * 0.07f, cw * 0.07f, paint);
+            c.drawRoundRect(scratchRect, cw * 0.07f, cw * 0.07f, paint);
 
             stroke.setStrokeWidth(2.5f + 1.6f * pulse);
             stroke.setColor(withAlpha(accent, (int) (130 + 85 * pulse)));
-            c.drawRoundRect(r, cw * 0.07f, cw * 0.07f, stroke);
+            c.drawRoundRect(scratchRect, cw * 0.07f, cw * 0.07f, stroke);
 
             paint.setTextAlign(Paint.Align.LEFT);
             paint.setColor(0xffb9cfe4);
-            paint.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+            paint.setTypeface(mediumTypeface);
             paint.setTextSize(cw * 0.09f);
             c.drawText(label, x + cw * 0.07f, y + ch * 0.25f, paint);
 
             paint.setTypeface(android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD));
             paint.setTextSize(cw * 0.24f);
             paint.setColor(Color.WHITE);
-            c.drawText(formatNumber(value), x + cw * 0.07f, y + ch * 0.67f, paint);
+            c.drawText(valueText, x + cw * 0.07f, y + ch * 0.67f, paint);
 
             if (series != null) {
                 drawMiniBars(c, x + cw * 0.58f, y + ch * 0.40f, cw * 0.35f, ch * 0.42f, series, accent, t + phase);
@@ -302,7 +343,8 @@ public final class WallpaperEngineService extends WallpaperService {
                 stroke.setColor(withAlpha(accent, 90));
                 c.drawCircle(cx, cy, ringR * (1.05f + 0.08f * pulse), stroke);
                 stroke.setColor(withAlpha(accent, 200));
-                c.drawArc(new RectF(cx-ringR, cy-ringR, cx+ringR, cy+ringR), -90f, 170f + 110f * pulse, false, stroke);
+                scratchRect.set(cx - ringR, cy - ringR, cx + ringR, cy + ringR);
+                c.drawArc(scratchRect, -90f, 170f + 110f * pulse, false, stroke);
             }
         }
 
@@ -319,13 +361,13 @@ public final class WallpaperEngineService extends WallpaperService {
                 float xx = x + (i - start) * step;
                 float shimmer = 0.75f + 0.25f * Math.abs((float) Math.sin(t * 1.8f + i));
                 paint.setColor(withAlpha(accent, (int) (120 + 100 * shimmer)));
-                c.drawRoundRect(new RectF(xx, y + h - bh, xx + bw, y + h), bw * 0.35f, bw * 0.35f, paint);
+                scratchRect.set(xx, y + h - bh, xx + bw, y + h);
+                c.drawRoundRect(scratchRect, bw * 0.35f, bw * 0.35f, paint);
             }
         }
 
         private void drawDataStreams(Canvas c, float w, float h, float coreY, float t) {
-            int[] colors = {0xff00e5ff, 0xffff49d8, 0xff916dff, 0xffffc247};
-            for (int i = 0; i < colors.length; i++) {
+            for (int i = 0; i < STREAM_COLORS.length; i++) {
                 float startX = (i % 2 == 0) ? w * 0.12f : w * 0.88f;
                 float startY = h * (0.48f + (i / 2) * 0.055f);
                 float endX = w * 0.5f;
@@ -335,16 +377,16 @@ public final class WallpaperEngineService extends WallpaperService {
                         w * (i % 2 == 0 ? 0.38f : 0.62f), coreY - h * 0.03f,
                         endX, coreY);
                 stroke.setStrokeWidth(w * 0.005f);
-                stroke.setColor(withAlpha(colors[i], 90));
+                stroke.setColor(withAlpha(STREAM_COLORS[i], 90));
                 c.drawPath(path, stroke);
                 stroke.setStrokeWidth(w * 0.002f);
-                stroke.setColor(withAlpha(colors[i], 230));
+                stroke.setColor(withAlpha(STREAM_COLORS[i], 230));
                 c.drawPath(path, stroke);
 
                 float p = (t * 0.18f + i * 0.23f) % 1f;
                 float px = cubic(startX, w * (i % 2 == 0 ? 0.30f : 0.70f), w * (i % 2 == 0 ? 0.38f : 0.62f), endX, p);
                 float py = cubic(startY, startY + h * 0.04f, coreY - h * 0.03f, coreY, p);
-                paint.setColor(colors[i]);
+                paint.setColor(STREAM_COLORS[i]);
                 c.drawCircle(px, py, w * 0.008f, paint);
             }
         }
@@ -356,8 +398,7 @@ public final class WallpaperEngineService extends WallpaperService {
 
         private void drawHologramCore(Canvas c, float cx, float cy, float radius, float t) {
             float pulse = 0.5f + 0.5f * (float) Math.sin(t * 1.7f);
-            paint.setShader(new RadialGradient(cx, cy, radius * 1.8f,
-                    new int[]{withAlpha(0xff65f7ff, 120), withAlpha(0xffa446ff, 55), 0x00102040}, null, Shader.TileMode.CLAMP));
+            paint.setShader(coreShader);
             c.drawCircle(cx, cy, radius * 1.8f, paint);
             paint.setShader(null);
 
@@ -365,7 +406,8 @@ public final class WallpaperEngineService extends WallpaperService {
                 float rr = radius * (1.05f + i * 0.28f + 0.04f * pulse);
                 stroke.setStrokeWidth(2.2f);
                 stroke.setColor(withAlpha(i == 1 ? 0xffff49d8 : 0xff00e5ff, 125 - i * 22));
-                c.drawOval(new RectF(cx - rr, cy - rr * 0.35f, cx + rr, cy + rr * 0.35f), stroke);
+                scratchRect.set(cx - rr, cy - rr * 0.35f, cx + rr, cy + rr * 0.35f);
+                c.drawOval(scratchRect, stroke);
             }
 
             float cube = radius * 0.85f;
@@ -398,15 +440,15 @@ public final class WallpaperEngineService extends WallpaperService {
         }
 
         private void drawSparklinePanel(Canvas c, float x, float y, float w, float h, int[] series) {
-            RectF panel = new RectF(x, y, x + w, y + h);
+            scratchRect.set(x, y, x + w, y + h);
             paint.setColor(0xcc06132c);
-            c.drawRoundRect(panel, w * 0.025f, w * 0.025f, paint);
+            c.drawRoundRect(scratchRect, w * 0.025f, w * 0.025f, paint);
             stroke.setStrokeWidth(2.5f);
             stroke.setColor(0x9949ddff);
-            c.drawRoundRect(panel, w * 0.025f, w * 0.025f, stroke);
+            c.drawRoundRect(scratchRect, w * 0.025f, w * 0.025f, stroke);
 
             paint.setTextAlign(Paint.Align.LEFT);
-            paint.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD));
+            paint.setTypeface(boldTypeface);
             paint.setTextSize(w * 0.035f);
             paint.setColor(0xffbfe8ff);
             c.drawText("QUALIFIED CLICK PULSE // LAST 24H", x + w * 0.045f, y + h * 0.23f, paint);
@@ -435,24 +477,22 @@ public final class WallpaperEngineService extends WallpaperService {
             paint.setTextAlign(Paint.Align.RIGHT);
             paint.setTextSize(w * 0.030f);
             paint.setColor(0xff68ffbe);
-            c.drawText("latest hour  " + latest, right, y + h * 0.23f, paint);
+            c.drawText(snapshot.latestClickLabel, right, y + h * 0.23f, paint);
             paint.setTextAlign(Paint.Align.LEFT);
         }
 
         private void drawFooter(Canvas c, float w, float h, float t) {
             float y = h * 0.89f;
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+            paint.setTypeface(mediumTypeface);
             paint.setTextSize(w * 0.031f);
             paint.setColor(0xff9bc5df);
-            String line = String.format(Locale.US, "RAW %s   •   REVIEW %s   •   WAITLIST %s",
-                    formatNumber(snapshot.rawClicks), formatNumber(snapshot.reviewQueue), formatNumber(snapshot.waitlistSignups));
-            c.drawText(line, w / 2f, y, paint);
+            c.drawText(snapshot.footerLine, w / 2f, y, paint);
 
             paint.setTextSize(w * 0.035f);
             if (snapshot.confirmedConversions > 0) {
                 paint.setColor(0xff65ffb9);
-                c.drawText(String.format(Locale.US, "VERIFIED REVENUE  $%,.2f", snapshot.confirmedRevenueUsd), w / 2f, y + h * 0.035f, paint);
+                c.drawText(snapshot.revenueLine, w / 2f, y + h * 0.035f, paint);
             } else {
                 float blink = 0.55f + 0.45f * Math.abs((float) Math.sin(t * 1.6f));
                 paint.setColor(withAlpha(0xffff5b76, (int) (145 + 105 * blink)));
@@ -464,8 +504,25 @@ public final class WallpaperEngineService extends WallpaperService {
             paint.setTextAlign(Paint.Align.LEFT);
         }
 
-        private String formatNumber(long n) {
-            return String.format(Locale.US, "%,d", Math.max(0, n));
+        private void drawUnavailable(Canvas c, float w, float h, float t) {
+            float pulse = 0.55f + 0.45f * Math.abs((float) Math.sin(t * 1.4f));
+            scratchRect.set(w * 0.08f, h * 0.34f, w * 0.92f, h * 0.58f);
+            paint.setColor(0xd9081730);
+            c.drawRoundRect(scratchRect, w * 0.04f, w * 0.04f, paint);
+            stroke.setStrokeWidth(3f);
+            stroke.setColor(withAlpha(0xff00e5ff, (int) (120 + 100 * pulse)));
+            c.drawRoundRect(scratchRect, w * 0.04f, w * 0.04f, stroke);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(blackTypeface);
+            paint.setTextSize(w * 0.055f);
+            paint.setColor(0xffdff9ff);
+            c.drawText("CONNECTING TO LIVE DATA", w / 2f, h * 0.43f, paint);
+            paint.setTypeface(boldTypeface);
+            paint.setTextSize(w * 0.030f);
+            paint.setColor(0xff8fb6cf);
+            c.drawText("No placeholder metrics are shown before a verified snapshot arrives.", w / 2f, h * 0.48f, paint);
+            c.drawText("Last good snapshot is reused if the network is temporarily unavailable.", w / 2f, h * 0.515f, paint);
+            paint.setTextAlign(Paint.Align.LEFT);
         }
 
         private int withAlpha(int color, int alpha) {
@@ -484,6 +541,7 @@ public final class WallpaperEngineService extends WallpaperService {
     }
 
     private static final class Snapshot {
+        final boolean available;
         final long generatedAtMs;
         final long rawClicks;
         final long qualifiedClicks;
@@ -499,11 +557,21 @@ public final class WallpaperEngineService extends WallpaperService {
         final int[] analyticsSeries;
         final int[] questionSeries;
         final int[] videoSeries;
+        final String qualifiedClicksText;
+        final String publishedVideosText;
+        final String questionsText;
+        final String analyticsEventsText;
+        final String priceObservationsText;
+        final String confirmedConversionsText;
+        final String footerLine;
+        final String revenueLine;
+        final String latestClickLabel;
 
-        Snapshot(long generatedAtMs, long rawClicks, long qualifiedClicks, long analyticsEvents, long questions,
+        Snapshot(boolean available, long generatedAtMs, long rawClicks, long qualifiedClicks, long analyticsEvents, long questions,
                  long publishedVideos, long reviewQueue, long priceObservations, long waitlistSignups,
                  long confirmedConversions, double confirmedRevenueUsd,
                  int[] clickSeries, int[] analyticsSeries, int[] questionSeries, int[] videoSeries) {
+            this.available = available;
             this.generatedAtMs = generatedAtMs;
             this.rawClicks = rawClicks;
             this.qualifiedClicks = qualifiedClicks;
@@ -519,10 +587,24 @@ public final class WallpaperEngineService extends WallpaperService {
             this.analyticsSeries = analyticsSeries;
             this.questionSeries = questionSeries;
             this.videoSeries = videoSeries;
+            this.qualifiedClicksText = formatCount(qualifiedClicks);
+            this.publishedVideosText = formatCount(publishedVideos);
+            this.questionsText = formatCount(questions);
+            this.analyticsEventsText = formatCount(analyticsEvents);
+            this.priceObservationsText = formatCount(priceObservations);
+            this.confirmedConversionsText = formatCount(confirmedConversions);
+            this.footerLine = "RAW " + formatCount(rawClicks) + "   •   REVIEW " + formatCount(reviewQueue) + "   •   WAITLIST " + formatCount(waitlistSignups);
+            this.revenueLine = String.format(Locale.US, "VERIFIED REVENUE  $%,.2f", confirmedRevenueUsd);
+            int latest = clickSeries != null && clickSeries.length > 0 ? clickSeries[clickSeries.length - 1] : 0;
+            this.latestClickLabel = "latest hour  " + latest;
+        }
+
+        private static String formatCount(long value) {
+            return String.format(Locale.US, "%,d", Math.max(0, value));
         }
 
         static Snapshot empty() {
-            return new Snapshot(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0d,
+            return new Snapshot(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0d,
                     new int[24], new int[24], new int[24], new int[24]);
         }
 
@@ -536,6 +618,7 @@ public final class WallpaperEngineService extends WallpaperService {
                 if (!generatedAt.isEmpty()) generated = Instant.parse(generatedAt).toEpochMilli();
                 if (totals == null) return empty();
                 return new Snapshot(
+                        true,
                         generated,
                         totals.optLong("rawClicks", 0),
                         totals.optLong("qualifiedClicks", 0),
