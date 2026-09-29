@@ -125,6 +125,38 @@ async function apiJson(origin, path, { ownerCode, method = "GET", body } = {}) {
   return { response, data };
 }
 
+async function readBoundedResponseBytes(response, maxBytes) {
+  if (!response.body) throw new Error("source_video_body_missing");
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+      total += chunk.byteLength;
+      if (total > maxBytes) {
+        try { await reader.cancel("source_video_size_invalid"); } catch {}
+        throw new Error("source_video_size_invalid");
+      }
+      chunks.push(chunk);
+    }
+  } finally {
+    try { reader.releaseLock(); } catch {}
+  }
+
+  if (total <= 0) throw new Error("source_video_size_invalid");
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+
 async function cleanupStagedReview(origin, ownerCode, researchRunId) {
   if (!researchRunId) return;
   try {
@@ -216,10 +248,7 @@ export async function POST(request) {
       throw new Error("source_video_size_invalid");
     }
 
-    const bytes = new Uint8Array(await sourceResponse.arrayBuffer());
-    if (bytes.byteLength <= 0 || bytes.byteLength > MAX_BYTES) {
-      throw new Error("source_video_size_invalid");
-    }
+    const bytes = await readBoundedResponseBytes(sourceResponse, MAX_BYTES);
     if (bytes.byteLength !== Math.round(reportedSizeBytes)) {
       throw new Error("source_video_size_mismatch");
     }
