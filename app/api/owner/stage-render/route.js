@@ -11,6 +11,7 @@ const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/autonomous-video.yml@refs/
 const OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const OIDC_AUDIENCE = "blindboxai-autonomous-render-stage";
 const OIDC_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
+const VIDEO_UPLOAD_BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
 const MAX_BYTES = 100 * 1024 * 1024;
 
 function json(body, status = 200) {
@@ -135,6 +136,25 @@ async function cleanupStagedReview(origin, ownerCode, researchRunId) {
   } catch {}
 }
 
+async function cleanupStorageObject(ownerCode, path) {
+  if (!path) return false;
+  try {
+    const response = await fetch(VIDEO_UPLOAD_BROKER_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ownerCode}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action: "delete", path }),
+      cache: "no-store",
+    });
+    const result = await response.json().catch(() => ({}));
+    return response.ok && result?.deleted === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request) {
   if (process.env.VERCEL_ENV !== "production" || process.env.VERCEL_GIT_COMMIT_REF !== "main") {
     return json({ error: "production_main_required" }, 403);
@@ -182,6 +202,7 @@ export async function POST(request) {
 
   const origin = new URL(request.url).origin;
   let stagedResearchRunId = "";
+  let uploadedPath = "";
 
   try {
     const sourceResponse = await fetch(sourceVideoUrl, {
@@ -216,6 +237,8 @@ export async function POST(request) {
     }
 
     const canonicalVideoUrl = String(ticket.data.publicUrl);
+    uploadedPath = clean(ticket.data?.path || path, 180);
+    if (uploadedPath !== path) throw new Error("upload_ticket_path_mismatch");
 
     const form = new FormData();
     form.append("cacheControl", "3600");
@@ -279,9 +302,13 @@ export async function POST(request) {
     if (stagedResearchRunId) {
       await cleanupStagedReview(origin, ownerCode, stagedResearchRunId);
     }
+    const storageCleanupCompleted = uploadedPath
+      ? await cleanupStorageObject(ownerCode, uploadedPath)
+      : false;
     return json({
       error: error instanceof Error ? error.message : "render_staging_failed",
-      cleanupAttempted: Boolean(stagedResearchRunId),
+      cleanupAttempted: Boolean(stagedResearchRunId || uploadedPath),
+      storageCleanupCompleted,
     }, 502);
   }
 }
