@@ -1,0 +1,96 @@
+name: Owner Blue live verify once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify-owner-blue:
+    if: contains(github.event.head_commit.message, '[owner-blue-live-verify]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify live owner review upload/list/delete flow
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          audience="blindboxai-owner-live-verify"
+          oidc_json="$(curl --fail --silent --show-error             -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN"             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$audience")"
+          oidc_token="$(python -c 'import json,sys; print(json.load(sys.stdin)["value"])' <<<"$oidc_json")"
+
+          payload="$(python - <<'PY'
+          import json
+          print(json.dumps({
+            "sourceVideoUrl": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1790039833626-3123.mp4",
+            "sourceTitle": "Protect your collection",
+            "durationSeconds": 49.621043,
+            "width": 720,
+            "height": 1280,
+          }))
+          PY
+          )"
+
+          for attempt in $(seq 1 24); do
+            http_code="$(curl --silent --show-error               --output owner-blue-live-verify.json               --write-out '%{http_code}'               --request POST               -H "Authorization: Bearer $oidc_token"               -H "Content-Type: application/json"               --data "$payload"               https://blindboxai.com/api/owner/live-verify)"
+
+            if [ "$http_code" = "200" ]; then
+              python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("owner-blue-live-verify.json").read_text())
+          required_true = [
+              "ok",
+              "dashboardAuthenticated",
+              "staged",
+              "queueVisible",
+              "metadataVisible",
+              "unauthorizedDeleteBlocked",
+              "deleted",
+          ]
+          missing = [key for key in required_true if data.get(key) is not True]
+          if missing:
+              raise SystemExit(f"Owner Blue live verify missing required proof: {missing}")
+          if data.get("baselineReadyCount") != 0:
+              raise SystemExit("Owner Blue baseline queue was not empty")
+          if data.get("finalReadyCount") != 0:
+              raise SystemExit("Owner Blue queue did not return to zero")
+          if data.get("auditReason") != "owner_rejected":
+              raise SystemExit("Owner Blue delete audit reason mismatch")
+          if data.get("published") is not False:
+              raise SystemExit("Owner Blue verifier must never publish")
+          print("OWNER_BLUE_LIVE_VERIFY: PASS")
+          print("OWNER_BLUE_DASHBOARD_AUTH: PASS")
+          print("OWNER_BLUE_READY_QUEUE: 0 -> 1 -> 0")
+          print("OWNER_BLUE_UNAUTHORIZED_DELETE: BLOCKED")
+          print("OWNER_BLUE_DELETE_AUDIT: owner_rejected")
+          print("OWNER_BLUE_PUBLISH: NOT_RUN")
+          PY
+              exit 0
+            fi
+
+            if [ "$http_code" = "409" ] || [ "$http_code" = "503" ]; then
+              sleep 10
+              continue
+            fi
+
+            echo "Owner Blue live verifier failed with HTTP $http_code"
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          try:
+              data = json.loads(Path("owner-blue-live-verify.json").read_text())
+              print("error:", data.get("error", "unknown"))
+          except Exception:
+              print("error: unreadable verifier response")
+          PY
+            exit 1
+          done
+
+          echo "Owner Blue live verifier did not reach the expected production revision"
+          exit 1
