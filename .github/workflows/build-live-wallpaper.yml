@@ -63,7 +63,7 @@ jobs:
         run: ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
 
       - name: SHA-256
-        run: sha256sum wallpaper/app/build/outputs/apk/debug/app-debug.apk | tee wallpaper/app/build/outputs/apk/debug/app-debug.apk.sha256
+        run: (cd wallpaper/app/build/outputs/apk/debug && sha256sum app-debug.apk | tee app-debug.apk.sha256)
 
       - name: Upload verified APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
