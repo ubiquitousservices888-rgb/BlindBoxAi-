@@ -8,19 +8,22 @@ test("parses PostgREST content-range totals", () => {
   assert.equal(parseContentRangeTotal(null), null);
 });
 
-test("builds 24 hourly buckets without inventing events", () => {
+test("builds a complete rolling 24-hour window and rejects future rows", () => {
   const now = new Date("2026-09-28T20:30:00.000Z");
   const rows = [
+    { at: "2026-09-27T20:31:00.000Z" },
+    { at: "2026-09-28T19:20:00.000Z" },
     { at: "2026-09-28T20:01:00.000Z" },
-    { at: "2026-09-28T20:20:00.000Z" },
-    { at: "2026-09-28T19:59:00.000Z" },
+    { at: "2026-09-28T20:30:00.000Z" },
+    { at: "2026-09-28T20:31:00.000Z" },
     { at: "bad" },
   ];
   const buckets = hourlyBuckets(rows, "at", now);
   assert.equal(buckets.length, 24);
-  assert.equal(buckets.at(-1).count, 2);
+  assert.equal(buckets[0].count, 1);
   assert.equal(buckets.at(-2).count, 1);
-  assert.equal(buckets.reduce((n, row) => n + row.count, 0), 3);
+  assert.equal(buckets.at(-1).count, 2);
+  assert.equal(buckets.reduce((n, row) => n + row.count, 0), 4);
 });
 
 test("snapshot contains aggregate-only totals and real series", () => {
@@ -33,7 +36,7 @@ test("snapshot contains aggregate-only totals and real series", () => {
       analyticsEvents: 69,
       questions: 404,
       publishedVideos: 10,
-      reviewQueue: 17,
+      reviewQueue: 3,
       priceObservations: 1566,
       waitlistSignups: 1,
       confirmedConversions: 0,
@@ -43,6 +46,7 @@ test("snapshot contains aggregate-only totals and real series", () => {
   });
   assert.equal(snapshot.refreshSeconds, 900);
   assert.equal(snapshot.totals.rawClicks, 1396);
+  assert.equal(snapshot.totals.reviewQueue, 3);
   assert.equal(snapshot.totals.confirmedConversions, 0);
   assert.equal(snapshot.status.conversionEvidence, "not-yet-recorded");
   assert.equal(snapshot.status.privacy, "aggregate-only");
