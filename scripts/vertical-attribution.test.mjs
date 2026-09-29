@@ -10,6 +10,8 @@ import {
   verticalFromSource,
 } from "../lib/attribution.mjs";
 import { buildAmazonSearchUrl, amazonOutboundPath } from "../lib/amazon-associates.mjs";
+import { epnCustomId } from "../lib/data.js";
+import { resolveReadonlyEbayOutboundTarget } from "../lib/ebay-outbound-readonly.mjs";
 import { AMAZON_VIDEO_CTA } from "../lib/video-pipeline.mjs";
 
 const ebayRoute = readFileSync("app/api/out/ebay/route.js", "utf8");
@@ -66,12 +68,38 @@ test("eBay route preserves closed vertical attribution while broader landing sou
   assert.match(ebayRoute, /resolveReadonlyEbayOutboundTarget/);
   assert.match(ebayRoute, /referer:\s*request\.headers\.get\("referer"\)/);
   assert.match(ebayReadonlyResolver, /resolveRequestAttribution/);
-  assert.match(ebayReadonlyResolver, /buildCustomId\(attribution\)/);
-  assert.match(ebayReadonlyResolver, /epnCustomId\(/);
   assert.match(ebayRoute, /vertical:\s*attribution\.vertical/);
   assert.match(ebayRoute, /source:\s*hasMarketingSource \|\| campaignId \? outboundSource : attribution\.source/);
   assert.match(ebayRoute, /campaignSource:\s*campaignId \? outboundSource : null/);
   assert.match(ebayRoute, /itemSlug:\s*attribution\.itemSlug/);
+
+  const series = {
+    slug: "topps-chrome-1993",
+    brand: "Topps",
+    name: "Chrome 1993",
+    figures: [{ name: "Michael Jordan #1" }],
+  };
+  const getSeriesFn = (slug) => slug === series.slug ? series : null;
+  const base = "https://blindboxai.com/api/out/ebay?series=topps-chrome-1993&figure=Michael%20Jordan%20%231&kind=sold&placement=series_table&vertical=sc&itemSlug=michael-jordan-1";
+
+  const marketing = resolveReadonlyEbayOutboundTarget({
+    requestUrl: `${base}&campaign=bb-rv-0123456789abcdef&source=youtube`,
+    getSeriesFn,
+  });
+  assert.equal(marketing.status, 302);
+  assert.equal(marketing.customId, epnCustomId({
+    seriesSlug: series.slug,
+    figure: "Michael Jordan #1",
+    kind: "sold",
+    placement: "series_table",
+    campaignId: "bb-rv-0123456789abcdef",
+    source: "youtube",
+  }));
+
+  const organic = resolveReadonlyEbayOutboundTarget({ requestUrl: base, getSeriesFn });
+  assert.equal(organic.status, 302);
+  assert.equal(organic.customId, buildCustomId(organic.attribution));
+  assert.match(organic.customId, /^sc\.none\./);
 });
 
 test("inbound attribution remains session-only and stores no cookie", () => {
