@@ -13,6 +13,7 @@ const OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const OIDC_AUDIENCE = "blindboxai-autonomous-render-stage";
 const OIDC_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
 const VIDEO_UPLOAD_BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
+const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const REVIEW_OBJECT_PREFIX =
   "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/";
 const MAX_BYTES = 100 * 1024 * 1024;
@@ -178,6 +179,20 @@ async function readBoundedResponseBytes(response, maxBytes) {
   return bytes;
 }
 
+async function reviewQueue(ownerCode, body) {
+  const response = await fetch(REVIEW_QUEUE_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ownerCode}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  return { response, data };
+}
+
 async function storageBroker(ownerCode, body) {
   const response = await fetch(VIDEO_UPLOAD_BROKER_URL, {
     method: "POST",
@@ -250,6 +265,31 @@ export async function POST(request) {
     }
     const deleted = await cleanupStorageObject(ownerCode, path);
     return json({ deleted, path, videoUrl }, deleted ? 200 : 502);
+  }
+
+  if (action === "approve") {
+    if (oidc.event_name !== "workflow_dispatch") {
+      return json({ error: "manual_dispatch_required" }, 403);
+    }
+    const researchRunId = clean(body.researchRunId, 40);
+    const videoUrl = canonicalReviewVideoUrl(body.videoUrl);
+    if (!/^rv-[a-f0-9]{16}$/.test(researchRunId) || !videoUrl) {
+      return json({ error: "invalid_approval_target" }, 400);
+    }
+    const approved = await reviewQueue(ownerCode, { action: "approve", videoUrl });
+    if (!approved.response.ok || approved.data?.state !== "APPROVED") {
+      return json({ error: approved.data?.error || "review_approval_failed" }, approved.response.status || 502);
+    }
+    if (approved.data?.research_run_id !== researchRunId || approved.data?.video_url !== videoUrl) {
+      return json({ error: "approved_review_identity_mismatch" }, 409);
+    }
+    return json({
+      ok: true,
+      state: "APPROVED",
+      researchRunId,
+      videoUrl,
+      campaignId: `bb-${researchRunId}`,
+    });
   }
 
   let title;
