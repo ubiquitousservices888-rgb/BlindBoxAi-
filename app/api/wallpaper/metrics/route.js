@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PUBLIC_CACHE = "public, s-maxage=300, stale-while-revalidate=600";
-const MAX_SERIES_ROWS = 2000;
+const PAGE_SIZE = 1000;
 
 function config() {
   return {
@@ -15,17 +15,18 @@ function config() {
   };
 }
 
-function headers(key, { count = false } = {}) {
+function headers(key, { count = false, range = null } = {}) {
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
     ...(count ? { Prefer: "count=exact" } : {}),
+    ...(range ? { Range: range } : {}),
   };
 }
 
 async function countRows(url, key, table, filter = "") {
   const response = await fetch(`${url}/rest/v1/${table}?select=id${filter}`, {
-    headers: { ...headers(key, { count: true }), Range: "0-0" },
+    headers: headers(key, { count: true, range: "0-0" }),
     cache: "no-store",
   });
   if (!response.ok) throw new Error(`count_failed:${table}:${response.status}`);
@@ -34,23 +35,28 @@ async function countRows(url, key, table, filter = "") {
   return total;
 }
 
-async function readRows(url, key, table, select, filter = "") {
-  const response = await fetch(`${url}/rest/v1/${table}?select=${select}${filter}&limit=${MAX_SERIES_ROWS}`, {
-    headers: headers(key),
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`series_failed:${table}:${response.status}`);
-  const body = await response.json();
-  return Array.isArray(body) ? body : [];
+async function readAllRows(url, key, table, select, filter = "") {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const response = await fetch(`${url}/rest/v1/${table}?select=${select}${filter}`, {
+      headers: headers(key, { range: `${from}-${from + PAGE_SIZE - 1}` }),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`series_failed:${table}:${response.status}`);
+    const page = await response.json();
+    if (!Array.isArray(page)) return rows;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return rows;
+  }
 }
 
 async function conversionRevenue(url, key) {
-  const rows = await readRows(
+  const rows = await readAllRows(
     url,
     key,
     "provider_conversion_evidence",
     "confirmed_revenue_usd,status",
-    "&status=in.(provider_confirmed,reconciled)&order=observed_at.desc",
+    "&status=in.(provider_confirmed,reconciled)&order=observed_at.asc",
   );
   return rows.reduce((sum, row) => sum + Math.max(0, Number(row?.confirmed_revenue_usd) || 0), 0);
 }
@@ -64,6 +70,8 @@ export async function GET() {
   try {
     const now = new Date();
     const since = encodeURIComponent(new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString());
+    const productionAnalytics = "&or=(namespace.eq.production,namespace.is.null)";
+    const activeReview = "&status=in.(ready_for_review,approved,publishing)";
 
     const [
       rawClicks,
@@ -83,18 +91,18 @@ export async function GET() {
     ] = await Promise.all([
       countRows(url, key, "affiliate_clicks"),
       countRows(url, key, "affiliate_clicks", "&client_class=eq.human_candidate"),
-      countRows(url, key, "analytics_events", "&namespace=eq.production"),
+      countRows(url, key, "analytics_events", productionAnalytics),
       countRows(url, key, "mr_know_it_all_questions"),
-      countRows(url, key, "published_collectible_videos"),
-      countRows(url, key, "review_video_queue"),
+      countRows(url, key, "review_video_queue", "&status=eq.published"),
+      countRows(url, key, "review_video_queue", activeReview),
       countRows(url, key, "sold_price_observations"),
       countRows(url, key, "waitlist_signups"),
       countRows(url, key, "provider_conversion_evidence", "&status=in.(provider_confirmed,reconciled)"),
       conversionRevenue(url, key),
-      readRows(url, key, "affiliate_clicks", "clicked_at", `&client_class=eq.human_candidate&clicked_at=gte.${since}&order=clicked_at.asc`),
-      readRows(url, key, "analytics_events", "captured_at", `&namespace=eq.production&captured_at=gte.${since}&order=captured_at.asc`),
-      readRows(url, key, "mr_know_it_all_questions", "created_at", `&created_at=gte.${since}&order=created_at.asc`),
-      readRows(url, key, "published_collectible_videos", "published_at", `&published_at=gte.${since}&order=published_at.asc`),
+      readAllRows(url, key, "affiliate_clicks", "clicked_at", `&client_class=eq.human_candidate&clicked_at=gte.${since}&order=clicked_at.asc`),
+      readAllRows(url, key, "analytics_events", "captured_at", `${productionAnalytics}&captured_at=gte.${since}&order=captured_at.asc`),
+      readAllRows(url, key, "mr_know_it_all_questions", "created_at", `&created_at=gte.${since}&order=created_at.asc`),
+      readAllRows(url, key, "review_video_queue", "published_at", `&status=eq.published&published_at=gte.${since}&order=published_at.asc`),
     ]);
 
     const snapshot = buildWallpaperSnapshot({
