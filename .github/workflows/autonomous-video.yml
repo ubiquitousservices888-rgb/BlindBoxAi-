@@ -6,6 +6,12 @@ on:
     paths:
       - data/verified-video-products.json
   workflow_dispatch:
+    inputs:
+      publish_after_approval:
+        description: "After staging, allow the protected owner-approval publish job to become eligible"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -41,8 +47,11 @@ jobs:
     permissions:
       contents: read
       actions: read
+      id-token: write
     outputs:
       video_url: ${{ steps.review.outputs.video_url }}
+      research_run_id: ${{ steps.review.outputs.research_run_id }}
+      campaign_id: ${{ steps.review.outputs.campaign_id }}
       state_b64: ${{ steps.review.outputs.state_b64 }}
     env:
       NEXT_PUBLIC_EPN_CAMPID: "5339171775"
@@ -116,6 +125,223 @@ jobs:
           console.log(`QUALITY_GATE_PROVIDER=${provider}`);
           console.log(`QUALITY_GATE_VIDEO_URL=${videoUrl}`);
           NODE
+      - name: Ensure video probe is available
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffprobe >/dev/null 2>&1
+          ffprobe -version | head -n 1
+      - name: Stage verified render in canonical review storage
+        id: canonical
+        env:
+          STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import { createHash } from "node:crypto";
+          import { execFileSync } from "node:child_process";
+
+          const MAX_BYTES = 100 * 1024 * 1024;
+          const file = "output/video-pipeline/state.json";
+          const state = JSON.parse(fs.readFileSync(file, "utf8"));
+          const sourceVideoUrl = String(state?.render?.videoUrl ?? "");
+          const title = String(state?.script?.displayTitle || state?.script?.title || "").trim();
+
+          function allowedRendererUrl(value) {
+            try {
+              const url = new URL(String(value || ""));
+              if (url.protocol !== "https:" || url.port || !/\.mp4$/i.test(url.pathname)) return "";
+              const host = url.hostname.toLowerCase();
+              const creatomateBackblaze =
+                /^f\d{3}\.backblazeb2\.com$/.test(host) &&
+                url.pathname.startsWith("/file/creatomate-");
+              const creatomateCdn =
+                host === "cdn.creatomate.com" &&
+                url.pathname.startsWith("/renders/");
+              const vercelBlob = host.endsWith(".public.blob.vercel-storage.com");
+              return creatomateBackblaze || creatomateCdn || vercelBlob ? url.toString() : "";
+            } catch {
+              return "";
+            }
+          }
+
+          async function readBounded(url) {
+            const response = await fetch(url, { redirect: "error" });
+            if (!response.ok) throw new Error(`Unable to download MP4: ${response.status}`);
+            if (!response.body) throw new Error("MP4 response body is missing");
+            const chunks = [];
+            let sizeBytes = 0;
+            for await (const chunk of response.body) {
+              const buffer = Buffer.from(chunk);
+              sizeBytes += buffer.length;
+              if (sizeBytes > MAX_BYTES) throw new Error("MP4 exceeds the review size limit");
+              chunks.push(buffer);
+            }
+            if (sizeBytes <= 0) throw new Error("MP4 is empty");
+            return Buffer.concat(chunks, sizeBytes);
+          }
+
+          function ffprobe(bytes, path) {
+            fs.writeFileSync(path, bytes);
+            const probe = JSON.parse(execFileSync("ffprobe", [
+              "-v", "error",
+              "-select_streams", "v:0",
+              "-show_entries", "stream=width,height:format=duration",
+              "-of", "json",
+              path,
+            ], { encoding: "utf8" }));
+            const stream = Array.isArray(probe?.streams) ? probe.streams[0] : null;
+            const durationSeconds = Number(probe?.format?.duration);
+            const width = Number(stream?.width);
+            const height = Number(stream?.height);
+            if (![durationSeconds, width, height].every((value) => Number.isFinite(value) && value > 0)) {
+              throw new Error("ffprobe did not return valid duration and dimensions");
+            }
+            return { durationSeconds, width, height };
+          }
+
+          if (!allowedRendererUrl(sourceVideoUrl)) {
+            throw new Error("Rendered review URL is outside the approved renderer allowlist");
+          }
+          if (!title) throw new Error("Rendered review title is missing");
+
+          const sourceBytes = await readBounded(sourceVideoUrl);
+          const sourceProbe = ffprobe(sourceBytes, "/tmp/blindboxai-render-source.mp4");
+
+          const oidcUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          oidcUrl.searchParams.set("audience", "blindboxai-autonomous-render-stage");
+          const oidcResponse = await fetch(oidcUrl, {
+            headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+          });
+          if (!oidcResponse.ok) throw new Error(`GitHub OIDC request failed: ${oidcResponse.status}`);
+          const oidcBody = await oidcResponse.json();
+          const oidcToken = String(oidcBody?.value || "");
+          if (!oidcToken) throw new Error("GitHub OIDC token response was empty");
+
+          async function stageRequest(payload, attempts = 1) {
+            let response;
+            let body;
+            for (let attempt = 0; attempt < attempts; attempt += 1) {
+              response = await fetch(process.env.STAGE_RENDER_URL, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${oidcToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+              });
+              body = await response.json().catch(() => ({}));
+              if (response.ok) return { response, body };
+              if (response.status !== 409 || body?.error !== "production_revision_not_ready") {
+                return { response, body };
+              }
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+            return { response, body };
+          }
+
+          const upload = await stageRequest({
+            action: "upload",
+            sourceVideoUrl,
+            title,
+            sizeBytes: sourceBytes.length,
+            durationSeconds: sourceProbe.durationSeconds,
+            width: sourceProbe.width,
+            height: sourceProbe.height,
+          }, 48);
+
+          if (!upload.response?.ok || upload.body?.state !== "CANONICAL_UPLOADED") {
+            throw new Error(
+              `Canonical upload failed: ${upload.response?.status || 0} ${upload.body?.error || "unknown"}`,
+            );
+          }
+
+          const canonicalVideoUrl = String(upload.body.videoUrl || "");
+          const canonicalPath = String(upload.body.path || "");
+          let staged = null;
+          try {
+            if (!/^https:\/\/lazzdoadoqzrzlarerfx\.supabase\.co\/storage\/v1\/object\/public\/blindboxai-review-videos\/media\/review\/.+\.mp4$/i.test(canonicalVideoUrl)) {
+              throw new Error("Canonical upload returned an unapproved media URL");
+            }
+            if (!/^media\/review\/[a-zA-Z0-9._-]+\.mp4$/i.test(canonicalPath)) {
+              throw new Error("Canonical upload returned an invalid storage path");
+            }
+
+            const canonicalBytes = await readBounded(canonicalVideoUrl);
+            const canonicalProbe = ffprobe(canonicalBytes, "/tmp/blindboxai-canonical-review.mp4");
+            if (canonicalBytes.length !== sourceBytes.length) {
+              throw new Error("Canonical review MP4 size differs from the ffprobed renderer MP4");
+            }
+            if (canonicalProbe.width !== sourceProbe.width || canonicalProbe.height !== sourceProbe.height) {
+              throw new Error("Canonical review MP4 dimensions differ from the ffprobed renderer MP4");
+            }
+            if (Math.abs(canonicalProbe.durationSeconds - sourceProbe.durationSeconds) > 0.05) {
+              throw new Error("Canonical review MP4 duration differs from the ffprobed renderer MP4");
+            }
+
+            const sha256 = createHash("sha256").update(canonicalBytes).digest("hex");
+            staged = await stageRequest({
+              action: "stage",
+              videoUrl: canonicalVideoUrl,
+              path: canonicalPath,
+              title,
+              sha256,
+              sizeBytes: canonicalBytes.length,
+              durationSeconds: canonicalProbe.durationSeconds,
+              width: canonicalProbe.width,
+              height: canonicalProbe.height,
+            }, 3);
+
+            if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
+              throw new Error(
+                `Canonical review staging failed: ${staged.response?.status || 0} ${staged.body?.error || "unknown"}`,
+              );
+            }
+          } catch (error) {
+            try {
+              await stageRequest({
+                action: "cleanup",
+                videoUrl: canonicalVideoUrl,
+                path: canonicalPath,
+              }, 1);
+            } catch {}
+            throw error;
+          }
+
+          const body = staged.body;
+          if (!/^rv-[a-f0-9]{16}$/.test(String(body.researchRunId || ""))) {
+            throw new Error("Canonical review staging returned an invalid researchRunId");
+          }
+          if (body.campaignId !== `bb-${body.researchRunId}`) {
+            throw new Error("Canonical review staging returned an invalid campaignId");
+          }
+
+          state.render.sourceVideoUrl = sourceVideoUrl;
+          state.render.videoUrl = body.videoUrl;
+          state.review = {
+            researchRunId: body.researchRunId,
+            campaignId: body.campaignId,
+            sha256: body.sha256,
+            sizeBytes: body.sizeBytes,
+            durationSeconds: body.durationSeconds,
+            width: body.width,
+            height: body.height,
+            stagedAt: new Date().toISOString(),
+          };
+          state.updatedAt = new Date().toISOString();
+          fs.writeFileSync(file, JSON.stringify(state, null, 2) + "\n");
+
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `video_url=${body.videoUrl}\nresearch_run_id=${body.researchRunId}\ncampaign_id=${body.campaignId}\n`,
+          );
+          console.log(`CANONICAL_REVIEW_VIDEO_URL=${body.videoUrl}`);
+          console.log(`CANONICAL_REVIEW_RESEARCH_RUN=${body.researchRunId}`);
+          console.log(`CANONICAL_REVIEW_CAMPAIGN=${body.campaignId}`);
+          NODE
       - name: Prepare exact review state
         id: review
         shell: bash
@@ -126,15 +352,21 @@ jobs:
           const state = JSON.parse(fs.readFileSync(file, "utf8"));
           const videoUrl = state?.render?.videoUrl;
           const provider = state?.render?.provider;
+          const researchRunId = state?.review?.researchRunId;
+          const campaignId = state?.review?.campaignId;
           const blocked = new Set(["deterministic-ffmpeg", "text-card", "placeholder", "mock", "simulated"]);
           if (state?.state !== "READY_FOR_REVIEW") throw new Error("Video is not READY_FOR_REVIEW");
           if (blocked.has(provider)) throw new Error(`Low-quality renderer cannot enter review: ${provider}`);
-          if (!/^https:\/\/.+\.mp4(?:\?.*)?$/i.test(videoUrl ?? "")) throw new Error("Review URL must be a hosted HTTPS MP4");
+          if (!/^https:\/\/lazzdoadoqzrzlarerfx\.supabase\.co\/storage\/v1\/object\/public\/blindboxai-review-videos\/media\/review\/.+\.mp4$/i.test(videoUrl ?? "")) {
+            throw new Error("Review URL must use the canonical Supabase review namespace");
+          }
+          if (!/^rv-[a-f0-9]{16}$/.test(String(researchRunId || ""))) throw new Error("Review researchRunId is missing");
+          if (campaignId !== `bb-${researchRunId}`) throw new Error("Review campaignId is missing");
           const stateB64 = Buffer.from(JSON.stringify(state), "utf8").toString("base64");
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${videoUrl}\nstate_b64=${stateB64}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${videoUrl}\nresearch_run_id=${researchRunId}\ncampaign_id=${campaignId}\nstate_b64=${stateB64}\n`);
           fs.appendFileSync(
             process.env.GITHUB_STEP_SUMMARY,
-            `## Production-quality video ready for review\n\n[Watch the exact MP4](${videoUrl})\n\nRenderer: ${provider}\n\nThis run is stopped behind the social-production approval gate. Approve only if the visuals, audio, caption, and CTA are acceptable.\n`,
+            `## Production-quality video ready for review\n\n[Watch the canonical review MP4](${videoUrl})\n\nRenderer: ${provider}\n\nResearch run: ${researchRunId}\n\nCampaign: ${campaignId}\n\nThis run is stopped behind the social-production approval gate. Approve only if the visuals, audio, caption, and CTA are acceptable.\n`,
           );
           NODE
       - name: Upload review receipt
@@ -147,7 +379,7 @@ jobs:
 
   publish-after-approval:
     name: Owner approval → Buffer queue
-    if: needs.render.result == 'success' && github.ref == 'refs/heads/main'
+    if: needs.render.result == 'success' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_after_approval == true
     needs: render
     runs-on: ubuntu-latest
     environment:
