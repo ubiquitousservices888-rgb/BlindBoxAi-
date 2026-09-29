@@ -103,6 +103,8 @@ export default function RevenueSummaryClient() {
   async function unlock(event) {
     event.preventDefault();
     const token = code.trim();
+    if (!token) return;
+    setCode(token);
     await load(token);
   }
 
