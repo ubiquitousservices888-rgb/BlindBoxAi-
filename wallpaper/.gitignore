@@ -3,3 +3,6 @@
 local.properties
 *.apk
 *.aab
+.idea/
+*.iml
+captures/
