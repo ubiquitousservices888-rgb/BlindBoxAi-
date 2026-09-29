@@ -95,13 +95,16 @@ function allowedSourceVideoUrl(value) {
     if (url.protocol !== "https:" || url.port || !/\.mp4$/i.test(url.pathname)) return "";
 
     const host = url.hostname.toLowerCase();
-    const creatomate =
+    const creatomateBackblaze =
       /^f\d{3}\.backblazeb2\.com$/.test(host) &&
       url.pathname.startsWith("/file/creatomate-");
+    const creatomateCdn =
+      host === "cdn.creatomate.com" &&
+      url.pathname.startsWith("/renders/");
     const vercelBlob =
       host.endsWith(".public.blob.vercel-storage.com");
 
-    return creatomate || vercelBlob ? url.toString() : "";
+    return creatomateBackblaze || creatomateCdn || vercelBlob ? url.toString() : "";
   } catch {
     return "";
   }
@@ -213,30 +216,6 @@ export async function POST(request) {
     }
 
     const canonicalVideoUrl = String(ticket.data.publicUrl);
-    const staged = await apiJson(origin, "/api/owner/stage-review", {
-      ownerCode,
-      method: "POST",
-      body: {
-        videoUrl: canonicalVideoUrl,
-        title,
-        sizeBytes: bytes.byteLength,
-        durationSeconds,
-        width,
-        height,
-      },
-    });
-    if (!staged.response.ok || staged.data?.state !== "READY_FOR_REVIEW") {
-      throw new Error("review_stage_failed");
-    }
-
-    stagedResearchRunId = clean(staged.data?.researchRunId, 40);
-    const campaignId = clean(staged.data?.campaignId, 100);
-    if (!/^rv-[a-f0-9]{16}$/.test(stagedResearchRunId)) {
-      throw new Error("invalid_staged_research_id");
-    }
-    if (campaignId !== `bb-${stagedResearchRunId}`) {
-      throw new Error("invalid_staged_campaign_id");
-    }
 
     const form = new FormData();
     form.append("cacheControl", "3600");
@@ -255,6 +234,31 @@ export async function POST(request) {
     });
     if (!probe.ok) throw new Error("canonical_video_unavailable");
     try { await probe.body?.cancel(); } catch {}
+
+    const staged = await apiJson(origin, "/api/owner/stage-review", {
+      ownerCode,
+      method: "POST",
+      body: {
+        videoUrl: canonicalVideoUrl,
+        title,
+        sizeBytes: bytes.byteLength,
+        durationSeconds,
+        width,
+        height,
+      },
+    });
+    stagedResearchRunId = clean(staged.data?.researchRunId, 40);
+    if (!staged.response.ok || staged.data?.state !== "READY_FOR_REVIEW") {
+      throw new Error("review_stage_failed");
+    }
+
+    const campaignId = clean(staged.data?.campaignId, 100);
+    if (!/^rv-[a-f0-9]{16}$/.test(stagedResearchRunId)) {
+      throw new Error("invalid_staged_research_id");
+    }
+    if (campaignId !== `bb-${stagedResearchRunId}`) {
+      throw new Error("invalid_staged_campaign_id");
+    }
 
     return json({
       ok: true,
