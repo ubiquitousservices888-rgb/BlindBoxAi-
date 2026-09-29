@@ -57,6 +57,8 @@ const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/
 test("autonomous render handoff stages canonical review media without bypassing owner approval", () => {
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /ffprobe/);
+  assert.match(workflow, /for await \(const chunk of source\.body\)/);
+  assert.doesNotMatch(workflow, /source\.arrayBuffer\(\)/);
   assert.match(workflow, /blindboxai-autonomous-render-stage/);
   assert.match(workflow, /\/api\/owner\/stage-render/);
   assert.match(workflow, /CANONICAL_REVIEW_RESEARCH_RUN/);
@@ -94,14 +96,21 @@ test("autonomous render handoff stages canonical review media without bypassing 
   assert.ok(stageRenderRoute.includes('url.pathname.startsWith("/renders/")'));
   assert.ok(stageRenderRoute.includes(".public.blob.vercel-storage.com"));
   assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
+  assert.match(stageRenderRoute, /readBoundedResponseBytes/);
+  assert.match(stageRenderRoute, /reader\.read\(\)/);
+  assert.doesNotMatch(stageRenderRoute, /sourceResponse\.arrayBuffer\(\)/);
   assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
   assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
   assert.match(stageRenderRoute, /VIDEO_UPLOAD_BROKER_URL/);
   assert.match(stageRenderRoute, /action:\s*"delete"/);
   assert.match(stageRenderRoute, /cleanupStorageObject/);
   assert.match(stageRenderRoute, /storageCleanupCompleted/);
+  const uploadPutIndex = stageRenderRoute.indexOf('method: "PUT"');
+  const stageReviewCallIndex = stageRenderRoute.indexOf('"/api/owner/stage-review"');
+  assert.notEqual(uploadPutIndex, -1, "Canonical signed upload PUT must exist");
+  assert.notEqual(stageReviewCallIndex, -1, "Review staging call must exist");
   assert.ok(
-    stageRenderRoute.indexOf('method: "PUT"') < stageRenderRoute.indexOf('"/api/owner/stage-review"'),
+    uploadPutIndex < stageReviewCallIndex,
     "Canonical media must upload before READY_FOR_REVIEW staging is exposed",
   );
   assert.match(stageRenderRoute, /READY_FOR_REVIEW/);
