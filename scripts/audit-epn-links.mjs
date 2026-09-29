@@ -37,7 +37,8 @@ const sourceRequirements = [
   ["lib/data.js", ["buildEbaySearchUrl", "NEXT_PUBLIC_EPN_CAMPID"]],
   ["lib/market-eligibility.mjs", ["all-blind-box-collectibles", "reviewed-positive-usd-transaction-evidence"]],
   ["lib/daily-product-pipeline.mjs", ["assertAffiliateEligibleSeries", "affiliateEligibility"]],
-  ["app/api/out/ebay/route.js", ["ebayActiveLink", "ebaySoldLink", "NextResponse.redirect(target, 302)"]],
+  ["lib/ebay-outbound-readonly.mjs", ["ebayActiveLink", "ebaySoldLink", "epnCustomId", "resolveRequestAttribution"]],
+  ["app/api/out/ebay/route.js", ["resolveReadonlyEbayOutboundTarget", "NextResponse.redirect(target, 302)"]],
 ];
 
 for (const [relativePath, requiredTokens] of sourceRequirements) {
