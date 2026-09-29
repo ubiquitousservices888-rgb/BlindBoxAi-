@@ -51,3 +51,37 @@ test("review-only video workflow validates attribution, uses configured renderer
   assert.match(reviewOnlyWorkflow, /READY_FOR_REVIEW/);
   assert.doesNotMatch(reviewOnlyWorkflow, /npm run video:publish|BUFFER_API_TOKEN|social-production/);
 });
+
+const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/route.js", import.meta.url), "utf8");
+
+test("autonomous render handoff stages canonical review media without bypassing owner approval", () => {
+  assert.match(workflow, /id-token:\s*write/);
+  assert.match(workflow, /ffprobe/);
+  assert.match(workflow, /blindboxai-autonomous-render-stage/);
+  assert.match(workflow, /\/api\/owner\/stage-render/);
+  assert.match(workflow, /CANONICAL_REVIEW_RESEARCH_RUN/);
+  assert.match(workflow, /CANONICAL_REVIEW_CAMPAIGN/);
+  assert.match(workflow, /blindboxai-review-videos\\\/media\\\/review/);
+  assert.ok(
+    workflow.indexOf("Stage verified render in canonical review storage") < workflow.indexOf("Prepare exact review state"),
+    "Canonical staging must complete before the owner review artifact is prepared",
+  );
+  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(workflow, /npm run video:approve/);
+  assert.match(workflow, /npm run video:publish/);
+
+  assert.match(stageRenderRoute, /VERCEL_ENV !== "production"/);
+  assert.match(stageRenderRoute, /VERCEL_GIT_COMMIT_REF !== "main"/);
+  assert.match(stageRenderRoute, /blindboxai-autonomous-render-stage/);
+  assert.match(stageRenderRoute, /workflow_ref !== WORKFLOW_REF/);
+  assert.match(stageRenderRoute, /production_revision_not_ready/);
+  assert.match(stageRenderRoute, /backblazeb2\\.com/);
+  assert.match(stageRenderRoute, /public\\.blob\\.vercel-storage\\.com/);
+  assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
+  assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
+  assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
+  assert.match(stageRenderRoute, /READY_FOR_REVIEW/);
+  assert.match(stageRenderRoute, /approved:\s*false/);
+  assert.match(stageRenderRoute, /published:\s*false/);
+  assert.doesNotMatch(stageRenderRoute, /BUFFER_API_TOKEN|video:publish|social-production/);
+});
