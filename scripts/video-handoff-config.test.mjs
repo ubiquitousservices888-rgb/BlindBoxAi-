@@ -51,3 +51,97 @@ test("review-only video workflow validates attribution, uses configured renderer
   assert.match(reviewOnlyWorkflow, /READY_FOR_REVIEW/);
   assert.doesNotMatch(reviewOnlyWorkflow, /npm run video:publish|BUFFER_API_TOKEN|social-production/);
 });
+
+const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/route.js", import.meta.url), "utf8");
+const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
+const uploadBroker = fs.readFileSync(new URL("../supabase/functions/blindbox-video-upload/index.ts", import.meta.url), "utf8");
+
+test("autonomous render handoff stages canonical review media without bypassing owner approval", () => {
+  assert.match(workflow, /id-token:\s*write/);
+  assert.match(workflow, /ffprobe/);
+  assert.match(workflow, /for await \(const chunk of source\.body\)/);
+  assert.doesNotMatch(workflow, /source\.arrayBuffer\(\)/);
+  assert.match(workflow, /blindboxai-autonomous-render-stage/);
+  assert.match(workflow, /\/api\/owner\/stage-render/);
+  assert.match(workflow, /CANONICAL_REVIEW_RESEARCH_RUN/);
+  assert.match(workflow, /CANONICAL_REVIEW_CAMPAIGN/);
+  assert.match(workflow, /blindboxai-review-videos\\\/media\\\/review/);
+  const canonicalStageIndex = workflow.indexOf("Stage verified render in canonical review storage");
+  const prepareReviewIndex = workflow.indexOf("Prepare exact review state");
+  assert.notEqual(canonicalStageIndex, -1, "Canonical staging step must exist");
+  assert.notEqual(prepareReviewIndex, -1, "Prepare-review step must exist");
+  assert.ok(
+    canonicalStageIndex < prepareReviewIndex,
+    "Canonical staging must complete before the owner review artifact is prepared",
+  );
+  const publishInput = workflow.match(
+    /publish_after_approval:\s*\n\s+description:[^\n]*\n\s+required:\s*true\s*\n\s+default:\s*false\s*\n\s+type:\s*boolean/,
+  )?.[0];
+  assert.ok(publishInput, "publish_after_approval must be an explicit boolean input defaulting to false");
+
+  const publishJob = workflow.match(/\n  publish-after-approval:[\s\S]*$/)?.[0] ?? "";
+  assert.match(
+    publishJob,
+    /if:\s*needs\.render\.result == 'success' && github\.ref == 'refs\/heads\/main' && github\.event_name == 'workflow_dispatch' && inputs\.publish_after_approval == true/,
+  );
+  assert.match(publishJob, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(publishJob, /npm run video:approve/);
+  assert.match(publishJob, /npm run video:publish/);
+
+  assert.match(stageRenderRoute, /VERCEL_ENV !== "production"/);
+  assert.match(stageRenderRoute, /VERCEL_GIT_COMMIT_REF !== "main"/);
+  assert.match(stageRenderRoute, /blindboxai-autonomous-render-stage/);
+  assert.match(stageRenderRoute, /workflow_ref !== WORKFLOW_REF/);
+  assert.match(stageRenderRoute, /production_revision_not_ready/);
+  assert.ok(stageRenderRoute.includes("backblazeb2\\.com"));
+  assert.ok(stageRenderRoute.includes('host === "cdn.creatomate.com"'));
+  assert.ok(stageRenderRoute.includes('url.pathname.startsWith("/renders/")'));
+  assert.ok(stageRenderRoute.includes(".public.blob.vercel-storage.com"));
+  assert.match(stageRenderRoute, /assertYoutubeShortsMetadata/);
+  assert.match(stageRenderRoute, /readBoundedResponseBytes/);
+  assert.match(stageRenderRoute, /reader\.read\(\)/);
+  assert.match(stageRenderRoute, /new Uint8Array\(expectedBytes\)/);
+  assert.doesNotMatch(stageRenderRoute, /chunks\.push|new Uint8Array\(total\)/);
+  assert.doesNotMatch(stageRenderRoute, /sourceResponse\.arrayBuffer\(\)/);
+  assert.match(stageRenderRoute, /\/api\/media\/free-upload-ticket/);
+  assert.match(stageRenderRoute, /\/api\/owner\/stage-review/);
+  assert.match(stageRenderRoute, /VIDEO_UPLOAD_BROKER_URL/);
+  assert.match(stageRenderRoute, /action:\s*"delete"/);
+  assert.match(stageRenderRoute, /cleanupStorageObject/);
+  assert.match(stageRenderRoute, /storageCleanupCompleted/);
+  const ticketPathGuardIndex = stageRenderRoute.indexOf("if (ticket.data?.path !== path)");
+  const uploadedPathAssignIndex = stageRenderRoute.indexOf("uploadedPath = path");
+  assert.notEqual(ticketPathGuardIndex, -1, "Ticket path equality guard must exist");
+  assert.notEqual(uploadedPathAssignIndex, -1, "Cleanup path assignment must exist");
+  assert.ok(
+    ticketPathGuardIndex < uploadedPathAssignIndex,
+    "Cleanup path must be assigned only after the broker echo matches the locally generated path",
+  );
+  const uploadPutIndex = stageRenderRoute.indexOf('method: "PUT"');
+  const stageReviewCallIndex = stageRenderRoute.indexOf('"/api/owner/stage-review"');
+  assert.notEqual(uploadPutIndex, -1, "Canonical signed upload PUT must exist");
+  assert.notEqual(stageReviewCallIndex, -1, "Review staging call must exist");
+  assert.ok(
+    uploadPutIndex < stageReviewCallIndex,
+    "Canonical media must upload before READY_FOR_REVIEW staging is exposed",
+  );
+  assert.match(stageRenderRoute, /READY_FOR_REVIEW/);
+  assert.match(stageRenderRoute, /approved:\s*false/);
+  assert.match(stageRenderRoute, /published:\s*false/);
+  assert.doesNotMatch(stageRenderRoute, /BUFFER_API_TOKEN|video:publish|social-production/);
+});
+
+
+test("review storage broker keeps deletion owner-only on the canonical host", () => {
+  assert.match(storageAuthRoute, /X-Storage-Action/);
+  assert.match(
+    storageAuthRoute,
+    /if \(action === "delete"\)\s*\{\s*assertOwnerCode\(ownerCode\);\s*\} else \{\s*assertStagingCode\(ownerCode\);/s,
+  );
+  assert.match(uploadBroker, /https:\/\/www\.blindboxai\.com\/api\/owner\/storage-auth/);
+  assert.match(uploadBroker, /"X-Storage-Action": action/);
+  assert.match(uploadBroker, /if \(action === "delete"\)/);
+  assert.match(uploadBroker, /\.remove\(\[path\]\)/);
+  assert.match(uploadBroker, /"https:\/\/www\.blindboxai\.com"/);
+  assert.doesNotMatch(uploadBroker, /fetch\("https:\/\/blindboxai\.com\/api\/owner\/storage-auth"/);
+});
