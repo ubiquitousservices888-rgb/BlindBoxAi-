@@ -195,7 +195,7 @@ public final class WallpaperEngineService extends WallpaperService {
                         while ((line = reader.readLine()) != null) body.append(line);
                     }
                     Snapshot next = Snapshot.fromJson(body.toString());
-                    if (next.generatedAtMs > 0) {
+                    if (next.available) {
                         snapshot = next;
                         ageLabelMinute = Long.MIN_VALUE;
                         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(CACHE_KEY, body.toString()).apply();
@@ -617,7 +617,7 @@ public final class WallpaperEngineService extends WallpaperService {
                 long generated = 0;
                 String generatedAt = root.optString("generatedAt", "");
                 if (!generatedAt.isEmpty()) generated = Instant.parse(generatedAt).toEpochMilli();
-                if (totals == null) return empty();
+                if (generated <= 0 || !hasRequiredPayload(totals, last24h)) return empty();
                 return new Snapshot(
                         true,
                         generated,
@@ -639,6 +639,28 @@ public final class WallpaperEngineService extends WallpaperService {
             } catch (Exception ignored) {
                 return empty();
             }
+        }
+
+        private static boolean hasRequiredPayload(JSONObject totals, JSONObject last24h) {
+            if (totals == null || last24h == null) return false;
+            String[] totalKeys = {
+                    "rawClicks", "qualifiedClicks", "analyticsEvents", "questions",
+                    "publishedVideos", "reviewQueue", "priceObservations", "waitlistSignups",
+                    "confirmedConversions", "confirmedRevenueUsd"
+            };
+            for (String key : totalKeys) {
+                if (!totals.has(key) || totals.isNull(key)) return false;
+            }
+            String[] seriesKeys = {"qualifiedClicks", "analyticsEvents", "questions", "publishedVideos"};
+            for (String key : seriesKeys) {
+                JSONArray rows = last24h.optJSONArray(key);
+                if (rows == null || rows.length() != 24) return false;
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject row = rows.optJSONObject(i);
+                    if (row == null || !row.has("at") || !row.has("count")) return false;
+                }
+            }
+            return true;
         }
 
         private static int[] series(JSONObject parent, String key) {
