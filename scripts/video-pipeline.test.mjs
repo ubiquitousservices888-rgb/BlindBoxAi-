@@ -111,11 +111,17 @@ describe("safe publishing", () => {
       ...product,
       claims: [{ text: `Verified collector detail ${"x".repeat(320)}`, sourceId: "official" }],
     };
-    const record = markRendered(
-      createRenderRecord(longProduct, generateVideoScript(longProduct, now), ["twitter"], now),
-      { id: "render-long", videoUrl: "https://cdn.example/long.mp4" },
-      now,
-    );
+    const record = {
+      ...markRendered(
+        createRenderRecord(longProduct, generateVideoScript(longProduct, now), ["twitter"], now),
+        { id: "render-long", videoUrl: "https://cdn.example/long.mp4" },
+        now,
+      ),
+      review: {
+        researchRunId: "rv-fedcba9876543210",
+        campaignId: "bb-rv-fedcba9876543210",
+      },
+    };
     let sentCaption = null;
     const state = await publishApproved(approve(record, now), async ({ caption }) => {
       sentCaption = caption;
