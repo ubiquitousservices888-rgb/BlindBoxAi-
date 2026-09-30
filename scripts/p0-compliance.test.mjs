@@ -18,7 +18,11 @@ test("video rendering cannot bypass owner-gated Buffer publishing", () => {
   assert.match(workflow, /CREATOMATE_API_KEY/);
   assert.match(workflow, /BUFFER_API_TOKEN/);
   assert.match(workflow, /ALLOW_MANUAL_VIDEO_RENDER:\s*"true"/);
-  assert.match(workflow, /ALLOW_MANUAL_VIDEO_PUBLISH:\s*"true"/);
+  assert.match(workflow, /publish_after_approval:/);
+  assert.match(workflow, /inputs\.publish_after_approval == true/);
+  assert.match(workflow, /node scripts\/publish-approved-review-queue\.mjs/);
+  assert.match(workflow, /YOUTUBE_AUDIENCE: not_made_for_kids/);
+  assert.doesNotMatch(workflow, /npm run video:publish/);
   assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(workflow, /READY_FOR_REVIEW/);
   assert.match(workflow, /Reviewed video URL changed before publication/);
