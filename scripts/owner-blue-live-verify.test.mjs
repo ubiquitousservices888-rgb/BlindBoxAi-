@@ -14,7 +14,13 @@ test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
   assert.match(route, /owner-blue-live-verify-once\.yml@refs\/heads\/main/);
   assert.match(route, /verifyGitHubOidcRequest/);
   assert.match(route, /allowedEvents: \["push"\]/);
+  assert.match(route, /repository: REPOSITORY/);
+  assert.match(route, /workflowRef: WORKFLOW_REF/);
   assert.match(route, /deployedRevision !== oidc\.sha/);
+  assert.match(oidcVerifier, /requiredRef = "refs\/heads\/main"/);
+  assert.match(oidcVerifier, /JWKS_TIMEOUT_MS/);
+  assert.match(oidcVerifier, /JWKS_TTL_MS/);
+  assert.match(oidcVerifier, /Number\.isFinite\(notBefore\)/);
   assert.match(oidcVerifier, /payload\.repository !== repository/);
   assert.match(oidcVerifier, /payload\.ref !== requiredRef/);
   assert.match(oidcVerifier, /payload\.workflow_ref !== workflowRef/);
