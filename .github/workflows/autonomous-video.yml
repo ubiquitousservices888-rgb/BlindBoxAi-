@@ -12,6 +12,15 @@ on:
         required: true
         default: false
         type: boolean
+      youtube_audience:
+        description: "Owner's audience decision for this exact YouTube video"
+        required: true
+        default: unreviewed
+        type: choice
+        options:
+          - unreviewed
+          - made_for_kids
+          - not_made_for_kids
 
 permissions:
   contents: read
@@ -255,7 +264,7 @@ jobs:
               if (response?.ok) return { response, body };
               const revisionPending =
                 response?.status === 409 && body?.error === "production_revision_not_ready";
-              if (!retryRevision || (!revisionPending && response !== null)) {
+              if (!retryRevision || !revisionPending) {
                 return { response, body };
               }
 
@@ -425,7 +434,7 @@ jobs:
       DRY_RUN: "false"
       VIDEO_CHANNELS: youtube,tiktok
       PUBLISH_RESEARCH_RUN_ID: ${{ needs.render.outputs.research_run_id }}
-      YOUTUBE_AUDIENCE: not_made_for_kids
+      YOUTUBE_AUDIENCE: ${{ inputs.youtube_audience }}
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
       BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
     steps:
