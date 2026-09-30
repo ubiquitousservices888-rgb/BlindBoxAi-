@@ -59,6 +59,9 @@ test("review-only video workflow validates attribution, uses configured renderer
 const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/route.js", import.meta.url), "utf8");
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
 const uploadBroker = fs.readFileSync(new URL("../supabase/functions/blindbox-video-upload/index.ts", import.meta.url), "utf8");
+const reviewQueueFunction = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+const publishedFeedFunction = fs.readFileSync(new URL("../supabase/functions/published-video-feed/index.ts", import.meta.url), "utf8");
+const publishingGateDeployWorkflow = fs.readFileSync(new URL("../.github/workflows/deploy-publishing-gate-functions.yml", import.meta.url), "utf8");
 
 test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW and cannot bypass owner approval", () => {
   assert.match(workflow, /id-token:\s*write/);
@@ -148,3 +151,16 @@ test("review storage broker keeps deletion owner-only and malformed requests fai
   assert.doesNotMatch(uploadBroker, /fetch\("https:\/\/blindboxai\.com\/api\/owner\/storage-auth"/);
 });
 
+test("protected autonomous publisher is explicitly trusted and Edge Functions deploy from reviewed main", () => {
+  for (const source of [reviewQueueFunction, publishedFeedFunction]) {
+    assert.match(source, /autonomous-video\.yml@refs\/heads\/main/);
+    assert.match(source, /payload\.event_name !== "workflow_dispatch"/);
+    assert.match(source, /refs\/heads\/main/);
+  }
+  assert.match(publishingGateDeployWorkflow, /push:\s*\n\s*branches: \[main\]/);
+  assert.match(publishingGateDeployWorkflow, /SUPABASE_ACCESS_TOKEN/);
+  assert.match(publishingGateDeployWorkflow, /supabase@2\.117\.0 functions deploy blindbox-video-upload/);
+  assert.match(publishingGateDeployWorkflow, /supabase@2\.117\.0 functions deploy review-video-queue/);
+  assert.match(publishingGateDeployWorkflow, /supabase@2\.117\.0 functions deploy published-video-feed/);
+  assert.match(publishingGateDeployWorkflow, /--no-verify-jwt/);
+});
