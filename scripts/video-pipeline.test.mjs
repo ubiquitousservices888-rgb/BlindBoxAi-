@@ -75,11 +75,21 @@ describe("render and manual review gates", () => {
 
 describe("safe publishing", () => {
   it("requires manual approval", async () => await assert.rejects(() => publishApproved(ready(), async () => ({ id: "x" }), now)));
-  it("fails closed when exact review attribution is missing", async () => {
-    const record = approve(ready(), now);
-    delete record.review;
+  it("fails closed without the exact review researchRunId", async () => {
+    const missing = approve(ready(), now);
+    delete missing.review;
     await assert.rejects(
-      () => publishApproved(record, async () => ({ id: "x" }), now),
+      () => publishApproved(missing, async () => ({ id: "x" }), now),
+      /Exact review researchRunId is required/,
+    );
+
+    const inexact = approve(ready(), now);
+    inexact.review = {
+      researchRunId: "rf-0123456789abcdef",
+      campaignId: "bb-rf-0123456789abcdef",
+    };
+    await assert.rejects(
+      () => publishApproved(inexact, async () => ({ id: "x" }), now),
       /Exact review researchRunId is required/,
     );
   });
