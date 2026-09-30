@@ -64,7 +64,8 @@ const publishedFeedFunction = fs.readFileSync(new URL("../supabase/functions/pub
 const publishingGateDeployWorkflow = fs.readFileSync(new URL("../.github/workflows/deploy-publishing-gate-functions.yml", import.meta.url), "utf8");
 
 test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW and cannot bypass owner approval", () => {
-  assert.match(workflow, /id-token:\s*write/);
+  const renderJob = workflow.match(/\n  render:[\s\S]*?\n  publish-after-approval:/)?.[0] ?? "";
+  assert.match(renderJob, /permissions:\s*\n\s*contents:\s*read\s*\n\s*actions:\s*read\s*\n\s*id-token:\s*write/);
   assert.match(workflow, /ffprobe/);
   assert.match(workflow, /allowedRendererUrl/);
   const allowlistGuardIndex = workflow.indexOf("if (!allowedRendererUrl(sourceVideoUrl))");
@@ -82,7 +83,10 @@ test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW
   assert.notEqual(stageActionIndex, -1, "READY_FOR_REVIEW stage action must exist");
   assert.ok(canonicalProbeIndex < stageActionIndex, "Canonical copy must be ffprobed before queue staging");
   assert.match(workflow, /Math\.abs\(canonicalProbe\.durationSeconds - sourceProbe\.durationSeconds\) > 0\.05/);
-  assert.match(workflow, /const upload = await stageRequest\(\{[\s\S]*?\},\s*48\);/);
+  assert.match(workflow, /const upload = await stageRequest\(\{[\s\S]*?\},\s*\{ maxWaitMs: 240000, retryRevision: true \}\);/);
+  assert.match(workflow, /new AbortController\(\)/);
+  assert.match(workflow, /signal: controller\.signal/);
+  assert.match(workflow, /const sleepMs = Math\.min\(5000, deadline - Date\.now\(\)\)/);
   assert.match(workflow, /action: "cleanup"/);
 
   const canonicalStageIndex = workflow.indexOf("Stage verified render in canonical review storage");
@@ -114,6 +118,9 @@ test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW
   assert.match(stageRenderRoute, /readBoundedResponseBytes/);
   assert.match(stageRenderRoute, /createHash\("sha256"\)/);
   assert.match(stageRenderRoute, /canonical_video_hash_mismatch/);
+  assert.match(stageRenderRoute, /deterministicResearchRunId/);
+  assert.match(stageRenderRoute, /createHash\("sha256"\)\.update\(canonicalVideoUrl\)/);
+  assert.match(stageRenderRoute, /stagedResearchRunId = deterministicResearchRunId/);
   const hashCheckIndex = stageRenderRoute.indexOf("canonical_video_hash_mismatch");
   const stageReviewCallIndex = stageRenderRoute.indexOf('"/api/owner/stage-review"');
   assert.notEqual(hashCheckIndex, -1, "Canonical byte hash verification must exist");
