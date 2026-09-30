@@ -210,14 +210,17 @@ async function researchQueueItem(item, oidcToken) {
   const rawTarget = targetFromQueueItem(item, "raw");
   const gradedTarget = targetFromQueueItem(item, "graded");
   if (!rawTarget || !gradedTarget) {
+    const insufficientIdentityCooldown = Number(item?.attempts || 0) >= 8;
     await edgeCall("bot_finish", {
       queueId: item.id,
       status: "queued",
-      note: "Not enough identity terms for safe sold-result matching.",
-      retryHours: 24,
+      note: insufficientIdentityCooldown
+        ? `Not enough identity terms for safe sold-result matching after ${Number(item?.attempts || 0)} attempts; retry deferred 30 days.`
+        : "Not enough identity terms for safe sold-result matching.",
+      retryHours: insufficientIdentityCooldown ? 720 : 24,
       result: { soldEvidence: false, reason: "insufficient_identity" },
     }, { oidcToken });
-    return { id: item.id, outcome: "insufficient_identity" };
+    return { id: item.id, outcome: insufficientIdentityCooldown ? "cooldown_insufficient_identity" : "insufficient_identity" };
   }
 
   // One broad provider request per collectible. Raw/graded are separated only after
