@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { verifyGitHubOidcRequest } from "../../../../lib/github-oidc.mjs";
 import { requirePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../../../lib/review-shorts-eligibility.mjs";
 
@@ -9,9 +10,7 @@ export const dynamic = "force-dynamic";
 
 const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
 const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`;
-const OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const OIDC_AUDIENCE = "blindboxai-autonomous-render-stage";
-const OIDC_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
 const VIDEO_UPLOAD_BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const REVIEW_OBJECT_PREFIX =
@@ -34,63 +33,6 @@ function clean(value, max = 240) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
-}
-
-function parseJwtPart(value) {
-  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-}
-
-async function verifyGitHubOidc(request) {
-  const auth = request.headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return null;
-
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const [encodedHeader, encodedPayload, encodedSignature] = parts;
-    const header = parseJwtPart(encodedHeader);
-    const payload = parseJwtPart(encodedPayload);
-    if (header?.alg !== "RS256" || !header?.kid) return null;
-
-    const jwksResponse = await fetch(OIDC_JWKS, { cache: "no-store" });
-    if (!jwksResponse.ok) return null;
-    const jwks = await jwksResponse.json();
-    const jwk = Array.isArray(jwks?.keys)
-      ? jwks.keys.find((candidate) => candidate?.kid === header.kid && candidate?.kty === "RSA")
-      : null;
-    if (!jwk) return null;
-
-    const key = await crypto.subtle.importKey(
-      "jwk",
-      jwk,
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
-    const verified = await crypto.subtle.verify(
-      { name: "RSASSA-PKCS1-v1_5" },
-      key,
-      Buffer.from(encodedSignature, "base64url"),
-      new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`),
-    );
-    if (!verified) return null;
-
-    const now = Math.floor(Date.now() / 1000);
-    const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (payload.iss !== OIDC_ISSUER) return null;
-    if (!audiences.includes(OIDC_AUDIENCE)) return null;
-    if (payload.repository !== REPOSITORY) return null;
-    if (payload.ref !== "refs/heads/main") return null;
-    if (payload.workflow_ref !== WORKFLOW_REF) return null;
-    if (!["push", "workflow_dispatch"].includes(String(payload.event_name || ""))) return null;
-    if (!Number.isFinite(Number(payload.exp)) || Number(payload.exp) <= now) return null;
-    if (payload.nbf && Number(payload.nbf) > now) return null;
-    if (!/^[0-9a-f]{40}$/.test(String(payload.sha || ""))) return null;
-    return payload;
-  } catch {
-    return null;
-  }
 }
 
 function allowedSourceVideoUrl(value) {
@@ -233,7 +175,12 @@ export async function POST(request) {
     return json({ error: "production_main_required" }, 403);
   }
 
-  const oidc = await verifyGitHubOidc(request);
+  const oidc = await verifyGitHubOidcRequest(request, {
+    audience: OIDC_AUDIENCE,
+    repository: REPOSITORY,
+    workflowRef: WORKFLOW_REF,
+    allowedEvents: ["push", "workflow_dispatch"],
+  });
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 
   const deployedRevision = String(process.env.VERCEL_GIT_COMMIT_SHA || "");
