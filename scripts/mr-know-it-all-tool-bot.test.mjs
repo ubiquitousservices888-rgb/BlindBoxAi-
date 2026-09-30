@@ -95,6 +95,7 @@ test("research queue controls bound backlog, reserve public capacity, drain orph
   assert.match(edgeSource, /Math\.min\(720,/);
   assert.match(workerSource, /successfulEmptyCooldown/);
   assert.match(workerSource, /insufficientIdentityCooldown/);
+  assert.match(workerSource, /Number\\(item\\?\\.attempts \\|\\| 0\\) >= 8/);
   assert.match(workerSource, /retryHours: insufficientIdentityCooldown \? 720 : 24/);
   assert.match(workerSource, /accepted\.length === 0/);
   assert.match(workerSource, /retryHours: successfulEmptyCooldown \? 720 : 6/);
