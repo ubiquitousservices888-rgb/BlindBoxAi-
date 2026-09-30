@@ -19,8 +19,6 @@ create table if not exists public.published_collectible_videos (
 
 alter table public.published_collectible_videos enable row level security;
 
-create unique index if not exists published_collectible_videos_research_run_id_idx
-  on public.published_collectible_videos (research_run_id);
 
 create index if not exists published_collectible_videos_published_at_idx
   on public.published_collectible_videos (published_at desc);
