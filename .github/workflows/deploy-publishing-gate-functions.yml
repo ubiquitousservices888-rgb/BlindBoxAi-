@@ -6,6 +6,7 @@ on:
     paths:
       - supabase/functions/blindbox-video-upload/**
       - supabase/functions/review-video-queue/**
+      - supabase/functions/_shared/**
       - supabase/functions/published-video-feed/**
       - .github/workflows/deploy-publishing-gate-functions.yml
   workflow_dispatch:
