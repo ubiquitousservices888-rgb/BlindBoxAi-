@@ -491,25 +491,44 @@ jobs:
           const token = String(oidcBody?.value || "");
           if (!token) throw new Error("GitHub OIDC token response was empty");
 
-          let response;
-          let body;
-          for (let attempt = 0; attempt < 48; attempt += 1) {
-            response = await fetch(process.env.STAGE_RENDER_URL, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                action: "approve",
-                researchRunId: process.env.REVIEWED_RESEARCH_RUN_ID,
-                videoUrl: process.env.REVIEWED_VIDEO_URL,
-              }),
-            });
-            body = await response.json().catch(() => ({}));
-            if (response.ok) break;
-            if (response.status !== 409 || body?.error !== "production_revision_not_ready") break;
-            await new Promise((resolve) => setTimeout(resolve, 5000));
+          const deadline = Date.now() + 240000;
+          let response = null;
+          let body = {};
+          while (Date.now() < deadline) {
+            const remainingMs = deadline - Date.now();
+            const controller = new AbortController();
+            const requestTimeout = setTimeout(
+              () => controller.abort(),
+              Math.max(1, Math.min(15000, remainingMs)),
+            );
+            try {
+              response = await fetch(process.env.STAGE_RENDER_URL, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  action: "approve",
+                  researchRunId: process.env.REVIEWED_RESEARCH_RUN_ID,
+                  videoUrl: process.env.REVIEWED_VIDEO_URL,
+                }),
+                signal: controller.signal,
+              });
+              body = await response.json().catch(() => ({}));
+            } catch (error) {
+              body = {
+                error: error?.name === "AbortError" ? "approval_request_timeout" : "approval_request_failed",
+              };
+              response = null;
+            } finally {
+              clearTimeout(requestTimeout);
+            }
+            if (response?.ok) break;
+            if (response !== null && (response.status !== 409 || body?.error !== "production_revision_not_ready")) break;
+            const sleepMs = Math.min(5000, deadline - Date.now());
+            if (sleepMs <= 0) break;
+            await new Promise((resolve) => setTimeout(resolve, sleepMs));
           }
           if (!response?.ok || body?.state !== "APPROVED") {
             throw new Error(`Canonical review approval failed: ${response?.status || 0} ${body?.error || "unknown"}`);
