@@ -21,7 +21,10 @@ test("video rendering cannot bypass owner-gated Buffer publishing", () => {
   assert.match(workflow, /publish_after_approval:/);
   assert.match(workflow, /inputs\.publish_after_approval == true/);
   assert.match(workflow, /node scripts\/publish-approved-review-queue\.mjs/);
-  assert.match(workflow, /YOUTUBE_AUDIENCE: not_made_for_kids/);
+  assert.match(workflow, /youtube_audience:/);
+  assert.match(workflow, /default: unreviewed/);
+  assert.match(workflow, /YOUTUBE_AUDIENCE: \$\{\{ inputs\.youtube_audience \}\}/);
+  assert.doesNotMatch(workflow, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
   assert.doesNotMatch(workflow, /npm run video:publish/);
   assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(workflow, /READY_FOR_REVIEW/);
