@@ -344,7 +344,8 @@ export async function POST(request) {
       return json({ error: "invalid_canonical_video" }, 400);
     }
 
-    let stagedResearchRunId = "";
+    const deterministicResearchRunId = `rv-${createHash("sha256").update(canonicalVideoUrl).digest("hex").slice(0, 16)}`;
+    let stagedResearchRunId = deterministicResearchRunId;
     try {
       const canonicalResponse = await fetch(canonicalVideoUrl, { cache: "no-store" });
       if (!canonicalResponse.ok) throw new Error("canonical_video_unavailable");
@@ -367,10 +368,14 @@ export async function POST(request) {
           height,
         },
       });
-      stagedResearchRunId = clean(staged.data?.researchRunId, 40);
+      const returnedResearchRunId = clean(staged.data?.researchRunId, 40);
       if (!staged.response.ok || staged.data?.state !== "READY_FOR_REVIEW") {
         throw new Error("review_stage_failed");
       }
+      if (returnedResearchRunId !== deterministicResearchRunId) {
+        throw new Error("staged_research_id_mismatch");
+      }
+      stagedResearchRunId = returnedResearchRunId;
 
       const campaignId = clean(staged.data?.campaignId, 100);
       if (!/^rv-[a-f0-9]{16}$/.test(stagedResearchRunId)) {
