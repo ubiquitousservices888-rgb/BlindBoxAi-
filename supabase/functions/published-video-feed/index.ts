@@ -15,6 +15,12 @@ const ALLOWED_WORKFLOWS = new Set([
   `${GITHUB_REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`,
 ]);
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
+const OWNER_GATED_SUBJECT = `repo:${GITHUB_REPOSITORY}:environment:social-production`;
+
+function hasOwnerGate(payload: Record<string, unknown>) {
+  return String(payload.environment || "") === "social-production" ||
+    String(payload.sub || "") === OWNER_GATED_SUBJECT;
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff", "access-control-allow-origin": "*" } });
@@ -36,6 +42,7 @@ async function authorized(req: Request) {
     const { payload } = await jwtVerify(token, githubJwks, { issuer: GITHUB_ISSUER, audience: GITHUB_AUDIENCE });
     const workflowRef = String(payload.workflow_ref || "");
     if (payload.repository !== GITHUB_REPOSITORY || payload.ref !== "refs/heads/main" || !ALLOWED_WORKFLOWS.has(workflowRef)) return false;
+    if (!hasOwnerGate(payload as Record<string, unknown>)) return false;
     if (workflowRef.endsWith("/autonomous-video.yml@refs/heads/main") && payload.event_name !== "workflow_dispatch") return false;
     return true;
   } catch { return false; }
