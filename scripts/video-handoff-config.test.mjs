@@ -22,7 +22,7 @@ test("verified publication remains behind the owner production gate", () => {
   assert.match(workflow, /Publish and verify YouTube/);
   assert.match(workflow, /Publish and verify TikTok/);
   assert.match(workflow, /node scripts\/publish-approved-review-queue\.mjs/);
-  assert.match(workflow, /YOUTUBE_AUDIENCE: not_made_for_kids/);
+  assert.match(workflow, /youtube_audience:/);\n  assert.match(workflow, /default: unreviewed/);\n  assert.match(workflow, /YOUTUBE_AUDIENCE: \\$\\{\\{ inputs\\.youtube_audience \\}\\}/);\n  assert.doesNotMatch(workflow, /YOUTUBE_AUDIENCE:\\s*not_made_for_kids/);
   assert.doesNotMatch(workflow, /npm run video:publish/);
   assert.match(workflow, /Reviewed video URL changed before publication/);
 });
