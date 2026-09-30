@@ -51,35 +51,109 @@ async function handleFeed() {
   return json({ ok: true, items: data || [] });
 }
 
+function normalizedChannelList(value: unknown) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((item) => clean(item, 40))
+      .filter(Boolean),
+  )].sort();
+}
+
+function normalizedObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function sameJson(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 async function handlePublish(req: Request) {
   if (!await authorized(req)) return json({ error: "GitHub video publisher authorization required" }, 403);
   let body: any; try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
 
   const researchRunId = clean(body?.researchRunId, 40);
-  const title = clean(body?.title, 120);
-  const vertical = clean(body?.vertical, 80) || "other_collectible";
-  const videoUrl = safeHttps(body?.videoUrl);
-  const campaignId = clean(body?.campaignId, 80) || null;
-  const channels = Array.isArray(body?.channels) ? body.channels.map((v: unknown) => clean(v, 40)).filter(Boolean).slice(0, 10) : [];
-  const bufferPostIds = body?.bufferPostIds && typeof body.bufferPostIds === "object" ? body.bufferPostIds : {};
+  const requestedVideoUrl = safeHttps(body?.videoUrl);
+  const requestedCampaignId = clean(body?.campaignId, 80);
+  const requestedChannels = normalizedChannelList(body?.channels);
+  if (
+    !/^rv-[a-f0-9]{16}$/.test(researchRunId) ||
+    !requestedVideoUrl ||
+    requestedCampaignId !== `bb-${researchRunId}` ||
+    !requestedChannels.length
+  ) {
+    return json({ error: "Published video fields invalid" }, 400);
+  }
 
-  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId) || !title || !videoUrl || !channels.length) return json({ error: "Published video fields invalid" }, 400);
+  const { data: queueRow, error: queueError } = await db
+    .from("review_video_queue")
+    .select("research_run_id,title,vertical,video_url,status,approved_at,published_channels,buffer_post_ids,public_urls,published_at")
+    .eq("research_run_id", researchRunId)
+    .maybeSingle();
+  if (queueError) return json({ error: "Review queue lookup failed" }, 500);
+  if (!queueRow) return json({ error: "Published review row not found" }, 409);
+  if (
+    queueRow.status !== "published" ||
+    !queueRow.approved_at ||
+    queueRow.video_url !== requestedVideoUrl
+  ) {
+    return json({ error: "Review row is not approved and published for this canonical video" }, 409);
+  }
 
-  const now = new Date().toISOString();
-  const { error } = await db.from("published_collectible_videos").upsert({
+  const canonicalChannels = normalizedChannelList(queueRow.published_channels);
+  if (!sameJson(canonicalChannels, requestedChannels)) {
+    return json({ error: "Published channel set does not match review queue" }, 409);
+  }
+  const publicUrls = normalizedObject(queueRow.public_urls);
+  if (!canonicalChannels.every((channel) => Boolean(safeHttps(publicUrls[channel])))) {
+    return json({ error: "Verified public URLs are missing from review queue" }, 409);
+  }
+
+  const canonical = {
     research_run_id: researchRunId,
-    title,
-    vertical,
-    video_url: videoUrl,
-    channels,
-    buffer_post_ids: bufferPostIds,
-    campaign_id: campaignId,
+    title: clean(queueRow.title, 120),
+    vertical: clean(queueRow.vertical, 80) || "other_collectible",
+    video_url: requestedVideoUrl,
+    channels: canonicalChannels,
+    buffer_post_ids: normalizedObject(queueRow.buffer_post_ids),
+    campaign_id: requestedCampaignId,
     status: "published",
+  };
+  if (!canonical.title) return json({ error: "Published review title missing" }, 409);
+
+  const { data: existing, error: existingError } = await db
+    .from("published_collectible_videos")
+    .select("research_run_id,title,vertical,video_url,channels,buffer_post_ids,campaign_id,status,published_at")
+    .eq("research_run_id", researchRunId)
+    .maybeSingle();
+  if (existingError) return json({ error: "Published video lookup failed" }, 500);
+
+  if (existing) {
+    const existingCanonical = {
+      research_run_id: existing.research_run_id,
+      title: existing.title,
+      vertical: existing.vertical,
+      video_url: existing.video_url,
+      channels: normalizedChannelList(existing.channels),
+      buffer_post_ids: normalizedObject(existing.buffer_post_ids),
+      campaign_id: existing.campaign_id,
+      status: existing.status,
+    };
+    if (!sameJson(existingCanonical, canonical)) {
+      return json({ error: "Published video conflict" }, 409);
+    }
+    return json({ ok: true, researchRunId, idempotent: true, publishedAt: existing.published_at });
+  }
+
+  const now = queueRow.published_at || new Date().toISOString();
+  const { error } = await db.from("published_collectible_videos").insert({
+    ...canonical,
     published_at: now,
     updated_at: now,
-  }, { onConflict: "research_run_id" });
+  });
   if (error) return json({ error: "Published video storage failed" }, 500);
-  return json({ ok: true, researchRunId });
+  return json({ ok: true, researchRunId, idempotent: false, publishedAt: now });
 }
 
 Deno.serve(async (req: Request) => {
