@@ -221,26 +221,55 @@ jobs:
           const oidcToken = String(oidcBody?.value || "");
           if (!oidcToken) throw new Error("GitHub OIDC token response was empty");
 
-          async function stageRequest(payload, attempts = 1) {
-            let response;
-            let body;
-            for (let attempt = 0; attempt < attempts; attempt += 1) {
-              response = await fetch(process.env.STAGE_RENDER_URL, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${oidcToken}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-              });
-              body = await response.json().catch(() => ({}));
-              if (response.ok) return { response, body };
-              if (response.status !== 409 || body?.error !== "production_revision_not_ready") {
+          async function stageRequest(payload, { maxWaitMs = 30000, retryRevision = false } = {}) {
+            const deadline = Date.now() + maxWaitMs;
+            let response = null;
+            let body = {};
+            while (Date.now() < deadline) {
+              const remainingMs = deadline - Date.now();
+              const controller = new AbortController();
+              const requestTimeout = setTimeout(
+                () => controller.abort(),
+                Math.max(1, Math.min(15000, remainingMs)),
+              );
+              try {
+                response = await fetch(process.env.STAGE_RENDER_URL, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${oidcToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(payload),
+                  signal: controller.signal,
+                });
+                body = await response.json().catch(() => ({}));
+              } catch (error) {
+                body = {
+                  error: error?.name === "AbortError" ? "stage_render_request_timeout" : "stage_render_request_failed",
+                };
+                response = null;
+              } finally {
+                clearTimeout(requestTimeout);
+              }
+
+              if (response?.ok) return { response, body };
+              const revisionPending =
+                response?.status === 409 && body?.error === "production_revision_not_ready";
+              if (!retryRevision || (!revisionPending && response !== null)) {
                 return { response, body };
               }
-              await new Promise((resolve) => setTimeout(resolve, 5000));
+
+              const sleepMs = Math.min(5000, deadline - Date.now());
+              if (sleepMs <= 0) break;
+              await new Promise((resolve) => setTimeout(resolve, sleepMs));
             }
-            return { response, body };
+            return {
+              response,
+              body: {
+                ...body,
+                error: body?.error || "production_revision_timeout",
+              },
+            };
           }
 
           const upload = await stageRequest({
@@ -251,7 +280,7 @@ jobs:
             durationSeconds: sourceProbe.durationSeconds,
             width: sourceProbe.width,
             height: sourceProbe.height,
-          }, 48);
+          }, { maxWaitMs: 240000, retryRevision: true });
 
           if (!upload.response?.ok || upload.body?.state !== "CANONICAL_UPLOADED") {
             throw new Error(
@@ -293,7 +322,7 @@ jobs:
               durationSeconds: canonicalProbe.durationSeconds,
               width: canonicalProbe.width,
               height: canonicalProbe.height,
-            }, 3);
+            }, { maxWaitMs: 30000, retryRevision: true });
 
             if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
               throw new Error(
@@ -306,7 +335,7 @@ jobs:
                 action: "cleanup",
                 videoUrl: canonicalVideoUrl,
                 path: canonicalPath,
-              }, 1);
+              }, { maxWaitMs: 15000 });
             } catch {}
             throw error;
           }
