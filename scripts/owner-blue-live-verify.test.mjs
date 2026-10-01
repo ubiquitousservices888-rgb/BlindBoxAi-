@@ -13,7 +13,7 @@ test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
   assert.match(route, /blindboxai-owner-live-verify/);
   assert.match(route, /owner-blue-live-verify-once\.yml@refs\/heads\/main/);
   assert.match(route, /verifyGitHubOidcRequest/);
-  assert.match(route, /allowedEvents: \["push"\]/);
+  assert.match(route, /allowedEvents: \["push", "workflow_dispatch"\]/);
   assert.match(route, /repository: REPOSITORY/);
   assert.match(route, /workflowRef: WORKFLOW_REF/);
   assert.match(route, /deployedRevision !== oidc\.sha/);
