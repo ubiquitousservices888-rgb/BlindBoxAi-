@@ -12,43 +12,57 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const CONTROL_WORKFLOWS = Object.freeze([
-  "BlindBoxAI release gate",
-  "Build BlindBoxAI Live Wallpaper",
-  "Owner Blue live verify once",
-  "Bounded unattended operations",
-  "Autonomous affiliate loop",
-  "Daily BlindBox pipeline validation (publishing paused)",
-  "Labubu content validation (automation paused)",
-  "Narrative flywheel candidate (review only)",
-  "Partnership flywheel candidate (review only)",
+  { name: "BlindBoxAI release gate", file: "release-gate.yml" },
+  { name: "Build BlindBoxAI Live Wallpaper", file: "build-live-wallpaper.yml" },
+  { name: "Owner Blue live verify once", file: "owner-blue-live-verify-once.yml", event: "workflow_dispatch" },
+  { name: "Bounded unattended operations", file: "bounded-operations.yml" },
+  { name: "Autonomous affiliate loop", file: "autonomous-affiliate-loop.yml" },
+  { name: "Daily BlindBox pipeline validation (publishing paused)", file: "daily-blindbox-product.yml" },
+  { name: "Labubu content validation (automation paused)", file: "labubu-buffer.yml" },
+  { name: "Narrative flywheel candidate (review only)", file: "narrative-flywheel-stage.yml" },
+  { name: "Partnership flywheel candidate (review only)", file: "partnership-flywheel-stage.yml" },
 ]);
 const ACTIVE_STATUSES = new Set(["queued", "pending", "in_progress", "waiting", "requested"]);
+const CACHE_TTL_MS = 60_000;
 
-async function latestControlRuns(token) {
-  const wanted = new Set(CONTROL_WORKFLOWS);
-  const latest = new Map();
+let controlRunsCache = null;
+let controlRunsCacheUntil = 0;
+let controlRunsInFlight = null;
 
-  for (let page = 1; page <= 20 && wanted.size; page += 1) {
-    const url = new URL(`https://api.github.com/repos/${OWNER_REPOSITORY}/actions/runs`);
-    url.searchParams.set("branch", "main");
-    url.searchParams.set("per_page", "100");
-    url.searchParams.set("page", String(page));
+async function latestWorkflowRun(token, workflow) {
+  const file = encodeURIComponent(workflow.file);
+  const url = new URL(`https://api.github.com/repos/${OWNER_REPOSITORY}/actions/workflows/${file}/runs`);
+  url.searchParams.set("branch", "main");
+  url.searchParams.set("per_page", "10");
 
-    const response = await fetch(url, { headers: githubOwnerHeaders(token), cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(`actions_runs_${response.status}`);
+  const response = await fetch(url, { headers: githubOwnerHeaders(token), cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`actions_runs_${workflow.file}_${response.status}`);
 
-    const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
-    for (const run of runs) {
-      if (!wanted.has(run?.name)) continue;
-      if (run.name === "Owner Blue live verify once" && run.event !== "workflow_dispatch") continue;
-      latest.set(run.name, run);
-      wanted.delete(run.name);
-    }
-    if (runs.length < 100) break;
+  const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+  return runs.find((run) => !workflow.event || run?.event === workflow.event) || null;
+}
+
+async function loadControlRuns(token) {
+  const now = Date.now();
+  if (controlRunsCache && now < controlRunsCacheUntil) return controlRunsCache;
+  if (controlRunsInFlight) return controlRunsInFlight;
+
+  controlRunsInFlight = (async () => {
+    const entries = await Promise.all(
+      CONTROL_WORKFLOWS.map(async (workflow) => [workflow.name, await latestWorkflowRun(token, workflow)]),
+    );
+    const latest = new Map(entries);
+    controlRunsCache = latest;
+    controlRunsCacheUntil = Date.now() + CACHE_TTL_MS;
+    return latest;
+  })();
+
+  try {
+    return await controlRunsInFlight;
+  } finally {
+    controlRunsInFlight = null;
   }
-
-  return latest;
 }
 
 export async function GET(request) {
@@ -69,8 +83,8 @@ export async function GET(request) {
   }
 
   try {
-    const latest = await latestControlRuns(token);
-    const items = CONTROL_WORKFLOWS.map((name) => {
+    const latest = await loadControlRuns(token);
+    const items = CONTROL_WORKFLOWS.map(({ name }) => {
       const run = latest.get(name) || null;
       return {
         name,
@@ -100,6 +114,7 @@ export async function GET(request) {
         configured: true,
         repository: OWNER_REPOSITORY,
         revision: process.env.VERCEL_GIT_COMMIT_SHA || null,
+        cacheSeconds: CACHE_TTL_MS / 1000,
         items,
         summary,
       },
