@@ -54,7 +54,7 @@ test("one-shot Owner Blue verifier cannot publish", () => {
 test("one-shot workflow is serialized only for marked pushes and retries transient identity failures", () => {
   assert.match(workflow, /push:\s*\n\s+branches: \[main\]/);
   assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\) && 'owner-blue-live-verify'/);
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch'[\s\S]*&& 'owner-blue-live-verify'/);
   assert.match(workflow, /owner-blue-live-verify-unmarked-\{0\}/);
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)/);
