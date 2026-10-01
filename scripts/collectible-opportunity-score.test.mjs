@@ -22,7 +22,8 @@ test("scores only evidence-qualified opportunities", () => {
   assert.ok(result.score > 0 && result.score <= 100);
 });
 
-test("rejects asking-price or under-sampled opportunities", () => {
+test("rejects missing completed-sale evidence and under-sampled opportunities", () => {
+  assert.equal(scoreCollectibleOpportunity({ ...verified, completedSaleEvidence: false }).eligible, false);
   const result = scoreCollectibleOpportunity({ ...verified, soldSampleCount: 1 });
   assert.equal(result.eligible, false);
   assert.equal(result.score, null);
@@ -31,6 +32,30 @@ test("rejects asking-price or under-sampled opportunities", () => {
 test("rejects unverified affiliate economics and single-source conclusions", () => {
   assert.equal(scoreCollectibleOpportunity({ ...verified, affiliateEconomicsVerified: false }).eligible, false);
   assert.equal(scoreCollectibleOpportunity({ ...verified, singleSourceConclusion: true }).eligible, false);
+  assert.equal(scoreCollectibleOpportunity({ ...verified, singleSourceConclusion: undefined }).eligible, false);
+});
+
+test("treats null, blank, and omitted factors as missing", () => {
+  for (const value of [null, "", "   ", undefined]) {
+    const result = scoreCollectibleOpportunity({ ...verified, buyerIntent: value });
+    assert.equal(result.eligible, false);
+    assert.match(result.rejectReasons.join(" "), /missing score factors: buyerIntent/);
+  }
+});
+
+test("rejects non-finite completed-sale sample counts", () => {
+  const result = scoreCollectibleOpportunity({ ...verified, soldSampleCount: Infinity });
+  assert.equal(result.eligible, false);
+  assert.equal(result.soldSampleCount, 0);
+});
+
+test("geometric score remains monotonic at the zero boundary", () => {
+  const zero = scoreCollectibleOpportunity({ ...verified, buyerIntent: 0 });
+  const one = scoreCollectibleOpportunity({ ...verified, buyerIntent: 1 });
+  const two = scoreCollectibleOpportunity({ ...verified, buyerIntent: 2 });
+  assert.equal(zero.score, 0);
+  assert.ok(one.score > zero.score);
+  assert.ok(two.score > one.score);
 });
 
 test("ranks eligible opportunities highest score first", () => {
