@@ -26,7 +26,9 @@ test("control room shows truthful live eBay and Amazon click telemetry", () => {
   assert.match(clicksRoute, /lookbackDays: 1/);
   assert.match(clicksRoute, /recentLimit: 30/);
   assert.match(clicksRoute, /byProvider\.ebay_epn/);
+  assert.match(clicksRoute, /byProvider\.ebay_epn_live/);
   assert.match(clicksRoute, /byProvider\.amazon_associates/);
+  assert.match(panel, /provider === "ebay_epn" \|\| provider === "ebay_epn_live"/);
   assert.match(clicksRoute, /qualifiedHuman/);
 });
 
@@ -38,16 +40,27 @@ test("action feed is owner-only and reads server-side GitHub status", () => {
   assert.match(actionsRoute, /BlindBoxAI release gate/);
   assert.match(actionsRoute, /Build BlindBoxAI Live Wallpaper/);
   assert.match(actionsRoute, /Owner Blue live verify once/);
+  assert.match(actionsRoute, /page <= 20/);
+  assert.match(actionsRoute, /"waiting", "requested"/);
 });
 
 test("Blue button dispatch is explicit owner action and never publishes", () => {
   assert.match(panel, /BLUE LIVE VERIFY/);
   assert.match(panel, /runBlueVerify/);
+  assert.match(panel, /fetch\("\/api\/owner\/blue-live-verify"/);
+  assert.match(panel, /method: "POST"/);
+  assert.match(panel, /loadInFlight\.current/);
+  assert.match(panel, /blueDispatchPending/);
   assert.match(blueDispatchRoute, /assertOwnerCode/);
   assert.match(blueDispatchRoute, /VERCEL_ENV !== "production"/);
   assert.match(blueDispatchRoute, /VERCEL_GIT_COMMIT_REF !== "main"/);
   assert.match(blueDispatchRoute, /owner-blue-live-verify-once\.yml/);
   assert.match(blueDispatchRoute, /JSON\.stringify\(\{ ref: "main" \}\)/);
+  assert.match(blueDispatchRoute, /OWNER_LOGIN = "ubiquitousservices888-rgb"/);
+  assert.match(blueDispatchRoute, /tokenOwner\(token\)/);
+  assert.match(blueDispatchRoute, /allowOverwrite: false/);
+  assert.match(blueDispatchRoute, /blue-live-verify-lock/);
+  assert.match(blueDispatchRoute, /await del\(lockPath\)/);
   assert.match(blueDispatchRoute, /published: false/);
   assert.doesNotMatch(blueDispatchRoute, /BUFFER_API_TOKEN|publish-approved-review|record_channel|action:\s*"claim"/);
 });
