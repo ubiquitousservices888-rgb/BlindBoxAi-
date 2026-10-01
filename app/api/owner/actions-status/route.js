@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { assertOwnerCode } from "../../../../lib/evidence";
 import {
   githubOwnerHeaders,
-  OWNER_OWNER_PRIVATE_HEADERS,
-  OWNER_OWNER_REPOSITORY,
+  OWNER_PRIVATE_HEADERS,
+  OWNER_REPOSITORY,
   ownerUnauthorized,
 } from "../../../../lib/github-owner.mjs";
 
