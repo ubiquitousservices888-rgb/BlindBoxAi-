@@ -86,7 +86,7 @@ export async function POST(request) {
     audience: OIDC_AUDIENCE,
     repository: REPOSITORY,
     workflowRef: WORKFLOW_REF,
-    allowedEvents: ["push"],
+    allowedEvents: ["push", "workflow_dispatch"],
   });
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 
