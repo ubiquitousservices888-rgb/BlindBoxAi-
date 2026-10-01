@@ -22,6 +22,7 @@ const CONTROL_WORKFLOWS = Object.freeze([
   "Narrative flywheel candidate (review only)",
   "Partnership flywheel candidate (review only)",
 ]);
+const ACTIVE_STATUSES = new Set(["queued", "pending", "in_progress", "waiting", "requested"]);
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_HEADERS });
@@ -34,6 +35,32 @@ function githubHeaders(token) {
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "BlindBoxAI-owner-control/1.0",
   };
+}
+
+async function latestControlRuns(token) {
+  const wanted = new Set(CONTROL_WORKFLOWS);
+  const latest = new Map();
+
+  for (let page = 1; page <= 20 && wanted.size; page += 1) {
+    const url = new URL(`https://api.github.com/repos/${REPOSITORY}/actions/runs`);
+    url.searchParams.set("branch", "main");
+    url.searchParams.set("per_page", "100");
+    url.searchParams.set("page", String(page));
+
+    const response = await fetch(url, { headers: githubHeaders(token), cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(`actions_runs_${response.status}`);
+
+    const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+    for (const run of runs) {
+      if (!wanted.has(run?.name)) continue;
+      latest.set(run.name, run);
+      wanted.delete(run.name);
+    }
+    if (runs.length < 100) break;
+  }
+
+  return latest;
 }
 
 export async function GET(request) {
@@ -54,21 +81,9 @@ export async function GET(request) {
   }
 
   try {
-    const url = new URL(`https://api.github.com/repos/${REPOSITORY}/actions/runs`);
-    url.searchParams.set("branch", "main");
-    url.searchParams.set("per_page", "100");
-    const response = await fetch(url, { headers: githubHeaders(token), cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Unable to read GitHub Actions status.", status: response.status },
-        { status: 502, headers: PRIVATE_HEADERS },
-      );
-    }
-
-    const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+    const latest = await latestControlRuns(token);
     const items = CONTROL_WORKFLOWS.map((name) => {
-      const run = runs.find((item) => item?.name === name) || null;
+      const run = latest.get(name) || null;
       return {
         name,
         status: run?.status || "not_run",
@@ -84,7 +99,7 @@ export async function GET(request) {
 
     const summary = {
       total: items.length,
-      active: items.filter((item) => item.status === "queued" || item.status === "in_progress" || item.status === "pending").length,
+      active: items.filter((item) => ACTIVE_STATUSES.has(item.status)).length,
       success: items.filter((item) => item.status === "completed" && item.conclusion === "success").length,
       failed: items.filter((item) => item.status === "completed" && item.conclusion && !["success", "skipped"].includes(item.conclusion)).length,
       skipped: items.filter((item) => item.status === "completed" && item.conclusion === "skipped").length,
