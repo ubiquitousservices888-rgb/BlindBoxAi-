@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
+const OWNER_LOGIN = "ubiquitousservices888-rgb";
 const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/owner-blue-live-verify-once.yml@refs/heads/main`;
 const OIDC_AUDIENCE = "blindboxai-owner-live-verify";
 const REVIEW_BUCKET_PREFIX =
@@ -87,6 +88,7 @@ export async function POST(request) {
     repository: REPOSITORY,
     workflowRef: WORKFLOW_REF,
     allowedEvents: ["push", "workflow_dispatch"],
+    requiredActor: OWNER_LOGIN,
   });
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 
