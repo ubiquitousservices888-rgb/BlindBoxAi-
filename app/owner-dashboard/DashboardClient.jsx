@@ -331,7 +331,7 @@ export default function DashboardClient() {
     <section>
       <h2>Revenue control room</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 12 }}>
-        <Stat label="All affiliate clicks last 24h" value={snapshot.totals?.epnClicksLast24h ?? 0} />
+        <Stat label="Clicks last 24h" value={snapshot.totals?.epnClicksLast24h ?? 0} />
         <Stat label="EPN orders" value={numberOrStatus(epn.orders)} />
         <Stat label="EPN earnings" value={money(epn.earnings)} />
         <Stat label="EPN EPC" value={money(epn.epc, epnEpcStatus(epn.status))} />
