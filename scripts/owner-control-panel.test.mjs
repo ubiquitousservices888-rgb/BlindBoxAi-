@@ -8,6 +8,8 @@ const panel = read("../app/owner-dashboard/ControlPanel.jsx");
 const actionsRoute = read("../app/api/owner/actions-status/route.js");
 const clicksRoute = read("../app/api/owner/live-clicks/route.js");
 const blueDispatchRoute = read("../app/api/owner/blue-live-verify/route.js");
+const githubOwner = read("../lib/github-owner.mjs");
+const telemetryMigration = read("../supabase/migrations/20261001225257_restore_owner_telemetry_click_quality.sql");
 
 test("owner dashboard mounts one animated control room", () => {
   assert.match(dashboard, /import ControlPanel from "\.\/ControlPanel"/);
@@ -59,7 +61,8 @@ test("Blue button dispatch is explicit owner action and never publishes", () => 
   assert.match(blueDispatchRoute, /VERCEL_GIT_COMMIT_REF !== "main"/);
   assert.match(blueDispatchRoute, /owner-blue-live-verify-once\.yml/);
   assert.match(blueDispatchRoute, /JSON\.stringify\(\{ ref: "main" \}\)/);
-  assert.match(blueDispatchRoute, /OWNER_LOGIN = "ubiquitousservices888-rgb"/);
+  assert.match(blueDispatchRoute, /OWNER_LOGIN/);
+  assert.match(githubOwner, /OWNER_LOGIN = "ubiquitousservices888-rgb"/);
   assert.match(blueDispatchRoute, /tokenOwner\(token\)/);
   assert.match(blueDispatchRoute, /allowOverwrite: false/);
   assert.match(blueDispatchRoute, /blue-live-verify-lock/);
@@ -76,6 +79,18 @@ test("Blue button dispatch is explicit owner action and never publishes", () => 
 test("GitHub owner routes share one security helper", () => {
   assert.match(actionsRoute, /github-owner\.mjs/);
   assert.match(blueDispatchRoute, /github-owner\.mjs/);
+  assert.match(githubOwner, /OWNER_PRIVATE_HEADERS/);
+  assert.match(githubOwner, /ownerUnauthorized/);
+  assert.match(githubOwner, /githubOwnerHeaders/);
   assert.doesNotMatch(actionsRoute, /function githubHeaders|function unauthorized/);
   assert.doesNotMatch(blueDispatchRoute, /function githubHeaders|function unauthorized/);
+});
+
+test("telemetry migration restores quality-gated affiliate click semantics", () => {
+  assert.match(telemetryMigration, /'qualifiedAffiliateClicks'/);
+  assert.match(telemetryMigration, /client_class = 'human_candidate'/);
+  assert.match(telemetryMigration, /'rawAffiliateClicks'/);
+  assert.match(telemetryMigration, /'excludedAutomatedClicks'/);
+  assert.match(telemetryMigration, /revoke execute on function public\.owner_telemetry_snapshot/);
+  assert.match(telemetryMigration, /grant execute on function public\.owner_telemetry_snapshot[\s\S]*to service_role/);
 });
