@@ -128,6 +128,7 @@ export default function ControlPanel({ activeCode }) {
   const blueRun = items.find((item) => item.name === "Owner Blue live verify once") || null;
   const blueState = actionState(blueRun);
   const blueActive = blueState === "active";
+  const blueVerified = blueState === "success" && Boolean(actions?.revision) && blueRun?.headSha === actions.revision;
   const summary = actions?.summary || {};
   const totals = clicks?.totals || {};
   const recent = Array.isArray(clicks?.recent) ? clicks.recent : [];
@@ -160,8 +161,8 @@ export default function ControlPanel({ activeCode }) {
           <div className="metric"><div className="label">Actions green</div><div className="value">{summary.success ?? "—"}</div><div className="sub">{summary.failed ?? 0} failed · {summary.active ?? 0} active</div></div>
         </div>
 
-        <button className="blue" data-active={blueActive || blueDispatchPending ? "true" : "false"} type="button" onClick={runBlueVerify} disabled={blueBusy || blueActive || blueDispatchPending || blueState === "success"}>
-          {blueBusy ? "STARTING BLUE LIVE VERIFY…" : blueDispatchPending ? "BLUE LIVE VERIFY DISPATCHED…" : blueActive ? "BLUE LIVE VERIFY RUNNING…" : blueState === "success" ? "BLUE LIVE VERIFIED" : "BLUE LIVE VERIFY"}
+        <button className="blue" data-active={blueActive || blueDispatchPending ? "true" : "false"} type="button" onClick={runBlueVerify} disabled={blueBusy || blueActive || blueDispatchPending || blueVerified}>
+          {blueBusy ? "STARTING BLUE LIVE VERIFY…" : blueDispatchPending ? "BLUE LIVE VERIFY DISPATCHED…" : blueActive ? "BLUE LIVE VERIFY RUNNING…" : blueVerified ? "BLUE LIVE VERIFIED" : "BLUE LIVE VERIFY"}
         </button>
         <p className="statusline">Blue Live Verify checks production upload → owner queue → authorization boundary → cleanup. It does not publish, purchase, or contact anyone.</p>
         {blueMessage ? <p role="status" className="statusline">{blueMessage}</p> : null}
