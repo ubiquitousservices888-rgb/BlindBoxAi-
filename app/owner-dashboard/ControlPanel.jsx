@@ -12,7 +12,7 @@ function when(value) {
 
 function actionState(item) {
   if (!item) return "not-run";
-  if (["queued", "pending", "in_progress"].includes(item.status)) return "active";
+  if (["queued", "pending", "in_progress", "waiting", "requested"].includes(item.status)) return "active";
   if (item.conclusion === "success") return "success";
   if (item.conclusion === "skipped") return "skipped";
   if (item.conclusion) return "failed";
@@ -20,7 +20,7 @@ function actionState(item) {
 }
 
 function providerLabel(provider) {
-  if (provider === "ebay_epn") return "eBay EPN";
+  if (provider === "ebay_epn" || provider === "ebay_epn_live") return "eBay EPN";
   if (provider === "amazon_associates") return "Amazon";
   return String(provider || "Affiliate");
 }
@@ -30,13 +30,17 @@ export default function ControlPanel({ activeCode }) {
   const [clicks, setClicks] = useState(null);
   const [error, setError] = useState("");
   const [blueBusy, setBlueBusy] = useState(false);
+  const [blueDispatchPending, setBlueDispatchPending] = useState(false);
   const [blueMessage, setBlueMessage] = useState("");
   const [tick, setTick] = useState(0);
   const lastCounts = useRef({ ebayEpn: 0, amazonAssociates: 0 });
+  const loadInFlight = useRef(false);
+  const blueDispatchStartedAt = useRef(0);
   const [flash, setFlash] = useState({ ebayEpn: false, amazonAssociates: false });
 
   async function load() {
-    if (!activeCode) return;
+    if (!activeCode || loadInFlight.current) return;
+    loadInFlight.current = true;
     try {
       const headers = { Authorization: `Bearer ${activeCode}` };
       const [actionResponse, clickResponse] = await Promise.all([
@@ -65,10 +69,25 @@ export default function ControlPanel({ activeCode }) {
       }
       setActions(actionData);
       setClicks(clickData);
+      const latestBlue = Array.isArray(actionData?.items)
+        ? actionData.items.find((item) => item.name === "Owner Blue live verify once")
+        : null;
+      const blueCreatedAt = Date.parse(latestBlue?.createdAt || "");
+      if (
+        blueDispatchStartedAt.current > 0
+        && latestBlue?.event === "workflow_dispatch"
+        && Number.isFinite(blueCreatedAt)
+        && blueCreatedAt >= blueDispatchStartedAt.current - 1500
+      ) {
+        blueDispatchStartedAt.current = 0;
+        setBlueDispatchPending(false);
+      }
       setError("");
       setTick((value) => value + 1);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Control panel unavailable.");
+    } finally {
+      loadInFlight.current = false;
     }
   }
 
@@ -82,6 +101,7 @@ export default function ControlPanel({ activeCode }) {
   async function runBlueVerify() {
     if (!activeCode || blueBusy) return;
     setBlueBusy(true);
+    setBlueDispatchPending(true);
     setBlueMessage("");
     setError("");
     try {
@@ -92,9 +112,12 @@ export default function ControlPanel({ activeCode }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to start Blue Live Verify.");
+      blueDispatchStartedAt.current = Date.now();
       setBlueMessage("BLUE LIVE VERIFY STARTED — production owner flow is being tested. Publishing is not part of this verification.");
       setTimeout(() => void load(), 1200);
     } catch (cause) {
+      setBlueDispatchPending(false);
+      blueDispatchStartedAt.current = 0;
       setError(cause instanceof Error ? cause.message : "Unable to start Blue Live Verify.");
     } finally {
       setBlueBusy(false);
@@ -137,8 +160,8 @@ export default function ControlPanel({ activeCode }) {
           <div className="metric"><div className="label">Actions green</div><div className="value">{summary.success ?? "—"}</div><div className="sub">{summary.failed ?? 0} failed · {summary.active ?? 0} active</div></div>
         </div>
 
-        <button className="blue" data-active={blueActive ? "true" : "false"} type="button" onClick={runBlueVerify} disabled={blueBusy || blueActive}>
-          {blueBusy ? "STARTING BLUE LIVE VERIFY…" : blueActive ? "BLUE LIVE VERIFY RUNNING…" : blueState === "success" ? "BLUE LIVE VERIFIED — RUN AGAIN" : "BLUE LIVE VERIFY"}
+        <button className="blue" data-active={blueActive || blueDispatchPending ? "true" : "false"} type="button" onClick={runBlueVerify} disabled={blueBusy || blueActive || blueDispatchPending || blueState === "success"}>
+          {blueBusy ? "STARTING BLUE LIVE VERIFY…" : blueDispatchPending ? "BLUE LIVE VERIFY DISPATCHED…" : blueActive ? "BLUE LIVE VERIFY RUNNING…" : blueState === "success" ? "BLUE LIVE VERIFIED" : "BLUE LIVE VERIFY"}
         </button>
         <p className="statusline">Blue Live Verify checks production upload → owner queue → authorization boundary → cleanup. It does not publish, purchase, or contact anyone.</p>
         {blueMessage ? <p role="status" className="statusline">{blueMessage}</p> : null}
