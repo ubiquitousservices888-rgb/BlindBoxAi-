@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const WORKFLOW = "owner-blue-live-verify-once.yml";
+const LOCK_TTL_MS = 15 * 60 * 1000;
 
 async function tokenOwner(token) {
   const response = await fetch("https://api.github.com/user", {
@@ -25,13 +26,81 @@ async function tokenOwner(token) {
   return String(data?.login || "");
 }
 
-async function lockExists(pathname) {
+async function readLock(pathname) {
   try {
     const result = await get(pathname, { access: "private", useCache: false });
-    return result?.statusCode === 200;
+    if (!result || result.statusCode !== 200) return null;
+    const body = await new Response(result.stream).json();
+    return body && typeof body === "object" ? body : null;
   } catch {
+    return null;
+  }
+}
+
+function lockIsFresh(lock) {
+  const createdAt = Date.parse(String(lock?.createdAt || ""));
+  return Number.isFinite(createdAt) && Date.now() - createdAt < LOCK_TTL_MS;
+}
+
+async function writeLock(pathname, revision) {
+  await put(pathname, JSON.stringify({
+    revision,
+    owner: OWNER_LOGIN,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + LOCK_TTL_MS).toISOString(),
+    purpose: "owner-blue-live-verify",
+  }), {
+    access: "private",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: false,
+    cacheControlMaxAge: 60,
+  });
+}
+
+async function cleanupLock(pathname) {
+  try {
+    await del(pathname);
+    return true;
+  } catch (error) {
+    console.error("owner_blue_lock_cleanup_failed", { message: error instanceof Error ? error.message : "Unknown lock cleanup error" });
     return false;
   }
+}
+
+async function acquireLock(pathname, revision) {
+  try {
+    await writeLock(pathname, revision);
+    return { acquired: true, cleanupFailed: false };
+  } catch (error) {
+    const existing = await readLock(pathname);
+    if (!existing) throw error;
+    if (lockIsFresh(existing)) return { acquired: false, cleanupFailed: false };
+
+    const cleaned = await cleanupLock(pathname);
+    if (!cleaned) return { acquired: false, cleanupFailed: true };
+
+    try {
+      await writeLock(pathname, revision);
+      return { acquired: true, cleanupFailed: false };
+    } catch (retryError) {
+      const raced = await readLock(pathname);
+      if (raced && lockIsFresh(raced)) return { acquired: false, cleanupFailed: false };
+      throw retryError;
+    }
+  }
+}
+
+function cleanupPendingResponse(revision) {
+  return NextResponse.json(
+    {
+      error: "Blue Live Verify could not clear its dispatch lock. Retry after the lock lease expires.",
+      revision,
+      lockCleanupPending: true,
+      retryAfterSeconds: LOCK_TTL_MS / 1000,
+    },
+    { status: 503, headers: OWNER_PRIVATE_HEADERS },
+  );
 }
 
 export async function POST(request) {
@@ -77,31 +146,20 @@ export async function POST(request) {
   const lockPath = `owner/blue-live-verify-lock/${revision}.json`;
   let lockAcquired = false;
   try {
-    await put(lockPath, JSON.stringify({
-      revision,
-      owner: OWNER_LOGIN,
-      createdAt: new Date().toISOString(),
-      purpose: "owner-blue-live-verify",
-    }), {
-      access: "private",
-      contentType: "application/json",
-      addRandomSuffix: false,
-      allowOverwrite: false,
-      cacheControlMaxAge: 60,
-    });
-    lockAcquired = true;
-  } catch (error) {
-    if (await lockExists(lockPath)) {
+    const lock = await acquireLock(lockPath, revision);
+    if (lock.cleanupFailed) return cleanupPendingResponse(revision);
+    if (!lock.acquired) {
       return NextResponse.json(
-        { error: "Blue Live Verify is already requested for this production revision.", revision },
+        {
+          error: "Blue Live Verify is already requested for this production revision.",
+          revision,
+          retryAfterSeconds: LOCK_TTL_MS / 1000,
+        },
         { status: 409, headers: OWNER_PRIVATE_HEADERS },
       );
     }
-    console.error("owner_blue_lock_failed", { message: error instanceof Error ? error.message : "Unknown lock error" });
-    return NextResponse.json({ error: "Unable to acquire the Blue Live Verify one-shot lock." }, { status: 502, headers: OWNER_PRIVATE_HEADERS });
-  }
+    lockAcquired = true;
 
-  try {
     const dispatchUrl = `https://api.github.com/repos/${OWNER_REPOSITORY}/actions/workflows/${WORKFLOW}/dispatches`;
     const response = await fetch(dispatchUrl, {
       method: "POST",
@@ -111,8 +169,9 @@ export async function POST(request) {
     });
 
     if (response.status !== 204) {
-      await del(lockPath).catch(() => {});
+      const cleaned = await cleanupLock(lockPath);
       lockAcquired = false;
+      if (!cleaned) return cleanupPendingResponse(revision);
       const body = await response.text().catch(() => "");
       console.error("owner_blue_dispatch_failed", { status: response.status, bodyLength: body.length });
       return NextResponse.json(
@@ -128,13 +187,17 @@ export async function POST(request) {
         workflow: WORKFLOW,
         repository: OWNER_REPOSITORY,
         revision,
+        lockLeaseSeconds: LOCK_TTL_MS / 1000,
         message: "BLUE LIVE VERIFY DISPATCHED",
         published: false,
       },
       { status: 202, headers: OWNER_PRIVATE_HEADERS },
     );
   } catch (error) {
-    if (lockAcquired) await del(lockPath).catch(() => {});
+    if (lockAcquired) {
+      const cleaned = await cleanupLock(lockPath);
+      if (!cleaned) return cleanupPendingResponse(revision);
+    }
     console.error("owner_blue_dispatch_failed", { message: error instanceof Error ? error.message : "Unknown dispatch error" });
     return NextResponse.json({ error: "Unable to dispatch Blue Live Verify." }, { status: 502, headers: OWNER_PRIVATE_HEADERS });
   }
