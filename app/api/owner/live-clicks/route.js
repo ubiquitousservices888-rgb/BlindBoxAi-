@@ -38,7 +38,7 @@ export async function GET(request) {
       generatedAt: new Date().toISOString(),
       windowHours: 24,
       totals: {
-        ebayEpn: Number(byProvider.ebay_epn || 0),
+        ebayEpn: Number(byProvider.ebay_epn || 0) + Number(byProvider.ebay_epn_live || 0),
         amazonAssociates: Number(byProvider.amazon_associates || 0),
         allAffiliate: Number(telemetry?.clicksLoaded || 0),
         qualifiedHuman: Number(telemetry?.funnel?.outboundClicks || 0),
