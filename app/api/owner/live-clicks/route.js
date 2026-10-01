@@ -41,7 +41,7 @@ export async function GET(request) {
         ebayEpn: Number(byProvider.ebay_epn || 0) + Number(byProvider.ebay_epn_live || 0),
         amazonAssociates: Number(byProvider.amazon_associates || 0),
         allAffiliate: Number(telemetry?.clicksLoaded || 0),
-        qualifiedHuman: Number(telemetry?.funnel?.outboundClicks || 0),
+        qualifiedHuman: Number(telemetry?.funnel?.qualifiedAffiliateClicks || 0),
       },
       recent: recent.map((item) => ({
         id: item.id || item.customId || null,
@@ -52,8 +52,6 @@ export async function GET(request) {
         itemSlug: item.itemSlug || null,
         source: item.source || item.campaignSource || null,
         campaignId: item.campaignId || null,
-        clientClass: item.clientClass || null,
-        qualityReason: item.qualityReason || null,
       })),
     }, { headers: PRIVATE_HEADERS });
   } catch (error) {
