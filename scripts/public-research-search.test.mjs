@@ -25,6 +25,9 @@ test("scheduled research collector covers every mandate lane with two bounded se
   assert.match(source, /fetchSourcesBounded\(sources, 10\)/);
   assert.match(source, /item\.feedUrl/);
   assert.match(source, /\.slice\(0, 96\)/);
+  assert.match(source, /scoreCollectibleOpportunity/);
+  assert.match(source, /opportunityAssessment: scoreCollectibleOpportunity/);
+  assert.match(source, /singleSourceConclusion: true/);
 });
 
 test("public research reader returns sanitized ranked matches without treating them as comps", async () => {

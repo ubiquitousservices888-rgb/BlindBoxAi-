@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { scoreCollectibleOpportunity } from "../lib/collectible-opportunity-score.mjs";
 
 const ROOT = path.join(process.cwd(), "data", "know-it-all");
 const OUT = path.join(ROOT, "latest-public-research.json");
@@ -140,6 +141,16 @@ const items = selectFindingsByLane(results, results.reduce((total, result) => to
     ...item,
     title: redact(item.title),
     summary: redact(item.summary),
+    // Raw public-research findings are discovery inputs, not ranked opportunities.
+    // Run the production evidence gate now so incomplete/single-source findings
+    // remain explicitly ineligible until independent completed-sale and
+    // affiliate-economics verification is added downstream.
+    opportunityAssessment: scoreCollectibleOpportunity({
+      completedSaleEvidence: false,
+      soldSampleCount: 0,
+      affiliateEconomicsVerified: false,
+      singleSourceConclusion: true,
+    }),
   }))
   .filter((item) => {
     const key = item.feedUrl
