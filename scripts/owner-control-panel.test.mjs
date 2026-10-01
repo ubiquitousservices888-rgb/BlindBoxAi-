@@ -30,6 +30,8 @@ test("control room shows truthful live eBay and Amazon click telemetry", () => {
   assert.match(clicksRoute, /byProvider\.amazon_associates/);
   assert.match(panel, /provider === "ebay_epn" \|\| provider === "ebay_epn_live"/);
   assert.match(clicksRoute, /qualifiedHuman/);
+  assert.match(clicksRoute, /qualifiedAffiliateClicks/);
+  assert.doesNotMatch(clicksRoute, /clientClass|qualityReason/);
 });
 
 test("action feed is owner-only and reads server-side GitHub status", () => {
@@ -42,6 +44,7 @@ test("action feed is owner-only and reads server-side GitHub status", () => {
   assert.match(actionsRoute, /Owner Blue live verify once/);
   assert.match(actionsRoute, /page <= 20/);
   assert.match(actionsRoute, /"waiting", "requested"/);
+  assert.match(actionsRoute, /run\.name === "Owner Blue live verify once" && run\.event !== "workflow_dispatch"/);
 });
 
 test("Blue button dispatch is explicit owner action and never publishes", () => {
@@ -61,6 +64,18 @@ test("Blue button dispatch is explicit owner action and never publishes", () => 
   assert.match(blueDispatchRoute, /allowOverwrite: false/);
   assert.match(blueDispatchRoute, /blue-live-verify-lock/);
   assert.match(blueDispatchRoute, /await del\(lockPath\)/);
+  const authGuard = blueDispatchRoute.indexOf("assertOwnerCode(ownerCode)");
+  const productionGuard = blueDispatchRoute.indexOf('process.env.VERCEL_ENV !== "production"');
+  const dispatchCall = blueDispatchRoute.indexOf("/dispatches");
+  assert.ok(authGuard >= 0 && authGuard < dispatchCall, "owner auth must run before GitHub dispatch");
+  assert.ok(productionGuard >= 0 && productionGuard < dispatchCall, "production/main gate must run before GitHub dispatch");
   assert.match(blueDispatchRoute, /published: false/);
   assert.doesNotMatch(blueDispatchRoute, /BUFFER_API_TOKEN|publish-approved-review|record_channel|action:\s*"claim"/);
+});
+
+test("GitHub owner routes share one security helper", () => {
+  assert.match(actionsRoute, /github-owner\.mjs/);
+  assert.match(blueDispatchRoute, /github-owner\.mjs/);
+  assert.doesNotMatch(actionsRoute, /function githubHeaders|function unauthorized/);
+  assert.doesNotMatch(blueDispatchRoute, /function githubHeaders|function unauthorized/);
 });
