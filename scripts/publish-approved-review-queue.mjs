@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import {
   DISCLOSURE,
   videoCaptionForService,
@@ -24,6 +26,35 @@ const PUBLISHED_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v
 const BLINDBOXAI_URL = "https://www.blindboxai.com";
 const REVIEW_OIDC_AUDIENCE = "blindboxai-review-publisher";
 const FEED_OIDC_AUDIENCE = "blindboxai-video-publisher";
+const RECEIPT_PATH = "output/video-pipeline/state.json";
+
+function updatePublicationReceipt({ state, channels, bufferPostIds, publicUrls }) {
+  if (!fs.existsSync(RECEIPT_PATH)) return;
+  const receipt = JSON.parse(fs.readFileSync(RECEIPT_PATH, "utf8"));
+  const publications = receipt.publications && typeof receipt.publications === "object"
+    ? { ...receipt.publications }
+    : {};
+  for (const channel of channels) {
+    publications[channel] = {
+      ...(publications[channel] || {}),
+      status: "published",
+      externalId: bufferPostIds[channel] || publications[channel]?.externalId || null,
+      publicUrl: publicUrls[channel] || publications[channel]?.publicUrl || null,
+      error: null,
+    };
+  }
+  const now = new Date().toISOString();
+  receipt.state = state;
+  receipt.publications = publications;
+  receipt.review = {
+    ...(receipt.review || {}),
+    publicationState: state,
+    publishedChannels: channels,
+  };
+  if (state === "PUBLISHED") receipt.publishedAt = now;
+  receipt.updatedAt = now;
+  fs.writeFileSync(RECEIPT_PATH, JSON.stringify(receipt, null, 2) + "\n");
+}
 
 function required(value, label) {
   const text = String(value ?? "").trim();
@@ -201,7 +232,16 @@ try {
     });
     console.log(`REVIEW_QUEUE_CHANNEL_RECORDED: ${channel}`);
     if (!recorded?.complete) {
-      console.log(`REVIEW_QUEUE_CHANNELS_PENDING: ${targetChannels.filter((value) => !(recorded?.item?.published_channels || []).includes(value)).join(",")}`);
+      const partialChannels = Array.isArray(recorded?.item?.published_channels)
+        ? recorded.item.published_channels
+        : [channel];
+      updatePublicationReceipt({
+        state: "PARTIALLY_PUBLISHED",
+        channels: partialChannels,
+        bufferPostIds: recorded?.item?.buffer_post_ids || { [channel]: result.id },
+        publicUrls: recorded?.item?.public_urls || { [channel]: result.publicUrl },
+      });
+      console.log(`REVIEW_QUEUE_CHANNELS_PENDING: ${targetChannels.filter((value) => !partialChannels.includes(value)).join(",")}`);
       process.exit(0);
     }
   }
@@ -234,6 +274,12 @@ try {
     bufferPostIds: mergedBufferPostIds,
     publicUrls: mergedPublicUrls,
     campaignId: campaignIds[0],
+  });
+  updatePublicationReceipt({
+    state: "PUBLISHED",
+    channels: feedChannels,
+    bufferPostIds: mergedBufferPostIds,
+    publicUrls: mergedPublicUrls,
   });
 
   console.log(`REVIEW_QUEUE_COMPLETE: ${item.research_run_id}`);

@@ -41,6 +41,8 @@ jobs:
   publish-approved:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: social-production
     env:
       DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: youtube,tiktok

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
+import { verifyGitHubOidcRequest } from "../../../../lib/github-oidc.mjs";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
 const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/owner-blue-live-verify-once.yml@refs/heads/main`;
-const OIDC_ISSUER = "https://token.actions.githubusercontent.com";
 const OIDC_AUDIENCE = "blindboxai-owner-live-verify";
-const OIDC_JWKS = "https://token.actions.githubusercontent.com/.well-known/jwks";
 const REVIEW_BUCKET_PREFIX =
   "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/";
 const MAX_BYTES = 100 * 1024 * 1024;
@@ -24,63 +24,6 @@ function json(body, status = 200) {
 
 function clean(value, max = 200) {
   return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
-}
-
-function parseJwtPart(value) {
-  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
-}
-
-async function verifyGitHubOidc(request) {
-  const auth = request.headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) return null;
-
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const [encodedHeader, encodedPayload, encodedSignature] = parts;
-    const header = parseJwtPart(encodedHeader);
-    const payload = parseJwtPart(encodedPayload);
-    if (header?.alg !== "RS256" || !header?.kid) return null;
-
-    const jwksResponse = await fetch(OIDC_JWKS, { cache: "no-store" });
-    if (!jwksResponse.ok) return null;
-    const jwks = await jwksResponse.json();
-    const jwk = Array.isArray(jwks?.keys)
-      ? jwks.keys.find((candidate) => candidate?.kid === header.kid && candidate?.kty === "RSA")
-      : null;
-    if (!jwk) return null;
-
-    const key = await crypto.subtle.importKey(
-      "jwk",
-      jwk,
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
-    const verified = await crypto.subtle.verify(
-      { name: "RSASSA-PKCS1-v1_5" },
-      key,
-      Buffer.from(encodedSignature, "base64url"),
-      new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`),
-    );
-    if (!verified) return null;
-
-    const now = Math.floor(Date.now() / 1000);
-    const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (payload.iss !== OIDC_ISSUER) return null;
-    if (!audiences.includes(OIDC_AUDIENCE)) return null;
-    if (payload.repository !== REPOSITORY) return null;
-    if (payload.ref !== "refs/heads/main") return null;
-    if (payload.workflow_ref !== WORKFLOW_REF) return null;
-    if (payload.event_name !== "push") return null;
-    if (!Number.isFinite(Number(payload.exp)) || Number(payload.exp) <= now) return null;
-    if (payload.nbf && Number(payload.nbf) > now) return null;
-    if (!/^[0-9a-f]{40}$/.test(String(payload.sha || ""))) return null;
-    return payload;
-  } catch {
-    return null;
-  }
 }
 
 function validSourceUrl(value) {
@@ -139,7 +82,12 @@ export async function POST(request) {
     return json({ error: "production_main_required" }, 403);
   }
 
-  const oidc = await verifyGitHubOidc(request);
+  const oidc = await verifyGitHubOidcRequest(request, {
+    audience: OIDC_AUDIENCE,
+    repository: REPOSITORY,
+    workflowRef: WORKFLOW_REF,
+    allowedEvents: ["push"],
+  });
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 
   const deployedRevision = String(process.env.VERCEL_GIT_COMMIT_SHA || "");

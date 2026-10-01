@@ -525,3 +525,43 @@ test("publisher rejects an empty configured channel set before claiming", () => 
   const claim = source.indexOf('action: dryRun ? "peek" : "claim"');
   assert.ok(guard >= 0 && claim > guard);
 });
+
+
+test("publisher mutation paths require the social-production owner environment", () => {
+  const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  const feed = fs.readFileSync(new URL("../supabase/functions/published-video-feed/index.ts", import.meta.url), "utf8");
+  const workflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
+  assert.match(queue, /OWNER_GATED_SUBJECT/);
+  assert.match(queue, /hasOwnerGate/);
+  assert.match(feed, /OWNER_GATED_SUBJECT/);
+  assert.match(feed, /hasOwnerGate/);
+  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
+});
+
+test("queue approval is idempotent for the exact already-approved video", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  assert.match(source, /existing\?\.status === "approved"/);
+  assert.match(source, /idempotent: true/);
+  assert.match(source, /idempotent: false/);
+});
+
+test("publication receipt records partial state and only becomes published after feed success", () => {
+  const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const partial = source.indexOf('state: "PARTIALLY_PUBLISHED"');
+  const feed = source.indexOf("await postJson(PUBLISHED_FEED_URL");
+  const published = source.indexOf('state: "PUBLISHED"', feed);
+  assert.ok(partial >= 0);
+  assert.ok(feed > partial);
+  assert.ok(published > feed);
+  assert.match(source, /updatePublicationReceipt/);
+});
+
+test("autonomous live publish requires an explicit YouTube audience decision", () => {
+  const source = fs.readFileSync(new URL("../.github/workflows/autonomous-video.yml", import.meta.url), "utf8");
+  assert.match(source, /youtube_audience:/);
+  assert.match(source, /default: unreviewed/);
+  assert.match(source, /- made_for_kids/);
+  assert.match(source, /- not_made_for_kids/);
+  assert.match(source, /YOUTUBE_AUDIENCE: \$\{\{ inputs\.youtube_audience \}\}/);
+  assert.doesNotMatch(source, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+});

@@ -11,8 +11,12 @@ const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: fals
 const GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 const GITHUB_AUDIENCE = "blindboxai-review-publisher";
 const GITHUB_REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
-const GITHUB_WORKFLOW_REF = `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
+const ALLOWED_GITHUB_WORKFLOWS = new Set([
+  `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`,
+  `${GITHUB_REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`,
+]);
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
+const OWNER_GATED_SUBJECT = `repo:${GITHUB_REPOSITORY}:environment:social-production`;
 const OWNER_REVIEW_PAGE_SIZE = 1000;
 const OWNER_REVIEW_MAX_PAGES = 50;
 
@@ -90,13 +94,22 @@ async function ownerControlAuthorized(req: Request) {
     return response.ok;
   } catch { return false; }
 }
+function hasOwnerGate(payload: Record<string, unknown>) {
+  return String(payload.environment || "") === "social-production" ||
+    String(payload.sub || "") === OWNER_GATED_SUBJECT;
+}
+
 async function githubAuthorized(req: Request) {
   try {
     const auth = req.headers.get("authorization") || "";
     const token = auth.replace(/^Bearer\s+/i, "");
     if (!token) return false;
     const { payload } = await jwtVerify(token, githubJwks, { issuer: GITHUB_ISSUER, audience: GITHUB_AUDIENCE });
-    return payload.repository === GITHUB_REPOSITORY && payload.ref === "refs/heads/main" && payload.workflow_ref === GITHUB_WORKFLOW_REF;
+    const workflowRef = String(payload.workflow_ref || "");
+    if (payload.repository !== GITHUB_REPOSITORY || payload.ref !== "refs/heads/main" || !ALLOWED_GITHUB_WORKFLOWS.has(workflowRef)) return false;
+    if (!hasOwnerGate(payload as Record<string, unknown>)) return false;
+    if (workflowRef.endsWith("/autonomous-video.yml@refs/heads/main") && payload.event_name !== "workflow_dispatch") return false;
+    return true;
   } catch { return false; }
 }
 async function stage(req: Request, body: any) {
@@ -145,8 +158,26 @@ async function approve(req: Request, body: any) {
   const now = new Date().toISOString();
   const { data, error } = await db.from("review_video_queue").update({ status: "approved", approved_at: now, updated_at: now, last_error: null }).eq("video_url", videoUrl).eq("status", "ready_for_review").select("research_run_id,video_url,title,vertical").maybeSingle();
   if (error) return json({ error: "Approval failed" }, 500);
-  if (!data) return json({ error: "Video is not waiting for approval" }, 409);
-  return json({ ok: true, state: "APPROVED", ...data });
+  if (!data) {
+    const { data: existing, error: existingError } = await db.from("review_video_queue")
+      .select("research_run_id,video_url,title,vertical,status,approved_at")
+      .eq("video_url", videoUrl)
+      .maybeSingle();
+    if (existingError) return json({ error: "Approval lookup failed" }, 500);
+    if (existing?.status === "approved" && existing.approved_at) {
+      return json({
+        ok: true,
+        state: "APPROVED",
+        research_run_id: existing.research_run_id,
+        video_url: existing.video_url,
+        title: existing.title,
+        vertical: existing.vertical,
+        idempotent: true,
+      });
+    }
+    return json({ error: "Video is not waiting for approval" }, 409);
+  }
+  return json({ ok: true, state: "APPROVED", ...data, idempotent: false });
 }
 async function reject(req: Request, body: any) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);

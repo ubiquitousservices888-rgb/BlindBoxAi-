@@ -5,17 +5,28 @@ import { readFileSync } from "node:fs";
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const route = read("../app/api/owner/live-verify/route.js");
 const workflow = read("../.github/workflows/owner-blue-live-verify-once.yml");
+const oidcVerifier = read("../lib/github-oidc.mjs");
 
 test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
   assert.match(route, /process\.env\.VERCEL_ENV !== "production"/);
   assert.match(route, /process\.env\.VERCEL_GIT_COMMIT_REF !== "main"/);
   assert.match(route, /blindboxai-owner-live-verify/);
   assert.match(route, /owner-blue-live-verify-once\.yml@refs\/heads\/main/);
-  assert.match(route, /payload\.repository !== REPOSITORY/);
-  assert.match(route, /payload\.ref !== "refs\/heads\/main"/);
-  assert.match(route, /payload\.workflow_ref !== WORKFLOW_REF/);
-  assert.match(route, /payload\.event_name !== "push"/);
+  assert.match(route, /verifyGitHubOidcRequest/);
+  assert.match(route, /allowedEvents: \["push"\]/);
+  assert.match(route, /repository: REPOSITORY/);
+  assert.match(route, /workflowRef: WORKFLOW_REF/);
   assert.match(route, /deployedRevision !== oidc\.sha/);
+  assert.match(oidcVerifier, /requiredRef = "refs\/heads\/main"/);
+  assert.match(oidcVerifier, /JWKS_TIMEOUT_MS/);
+  assert.match(oidcVerifier, /JWKS_TTL_MS/);
+  assert.match(oidcVerifier, /Number\.isFinite\(notBefore\)/);
+  assert.match(oidcVerifier, /payload\.repository !== repository/);
+  assert.match(oidcVerifier, /payload\.ref !== requiredRef/);
+  assert.match(oidcVerifier, /payload\.workflow_ref !== workflowRef/);
+  assert.match(oidcVerifier, /events\.has\(String\(payload\.event_name/);
+  assert.match(oidcVerifier, /payload\.iss !== OIDC_ISSUER/);
+  assert.match(oidcVerifier, /audiences\.includes\(audience\)/);
 });
 
 test("one-shot Owner Blue verifier exercises canonical safe uploader and owner delete paths", () => {

@@ -4,7 +4,17 @@ import { AMAZON_VIDEO_CTA, AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCL
 
 const now = new Date("2026-08-09T12:00:00.000Z");
 const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
-const ready = () => markRendered(createRenderRecord(product, generateVideoScript(product, now), ["tiktok", "instagram"], now), { id: "render-1", videoUrl: "https://cdn.example/video.mp4" }, now);
+const ready = () => ({
+  ...markRendered(
+    createRenderRecord(product, generateVideoScript(product, now), ["tiktok", "instagram"], now),
+    { id: "render-1", videoUrl: "https://cdn.example/video.mp4" },
+    now,
+  ),
+  review: {
+    researchRunId: "rv-0123456789abcdef",
+    campaignId: "bb-rv-0123456789abcdef",
+  },
+});
 const jsonResponse = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
 describe("verified-data gate", () => {
@@ -65,18 +75,63 @@ describe("render and manual review gates", () => {
 
 describe("safe publishing", () => {
   it("requires manual approval", async () => await assert.rejects(() => publishApproved(ready(), async () => ({ id: "x" }), now)));
+  it("fails closed without the exact review researchRunId", async () => {
+    const missing = approve(ready(), now);
+    delete missing.review;
+    await assert.rejects(
+      () => publishApproved(missing, async () => ({ id: "x" }), now),
+      /Exact review researchRunId is required/,
+    );
+
+    const inexact = approve(ready(), now);
+    inexact.review = {
+      researchRunId: "rf-0123456789abcdef",
+      campaignId: "bb-rf-0123456789abcdef",
+    };
+    await assert.rejects(
+      () => publishApproved(inexact, async () => ({ id: "x" }), now),
+      /Exact review researchRunId is required/,
+    );
+  });
+
   it("prevents duplicates and retries only failed channels", async () => { let calls = []; let first = true; const publisher = async ({ channel }) => { calls.push(channel); if (channel === "instagram" && first) throw new Error("temporary"); return { id: `${channel}-1` }; }; let state = await publishApproved(approve(ready(), now), publisher, now); assert.equal(state.state, STATES.PARTIAL); assert.deepEqual(calls, ["tiktok", "instagram"]); first = false; calls = []; state = await publishApproved(state, publisher, now); assert.equal(state.state, STATES.PUBLISHED); assert.deepEqual(calls, ["instagram"]); assert.equal(state.publications.tiktok.externalId, "tiktok-1"); });
+
+  it("publishes channel-specific tracked BlindBoxAI CTAs when review attribution exists", async () => {
+    const record = approve(ready(), now);
+    record.review = {
+      researchRunId: "rv-0123456789abcdef",
+      campaignId: "bb-rv-0123456789abcdef",
+    };
+    const sent = {};
+    const state = await publishApproved(record, async ({ channel, caption }) => {
+      sent[channel] = caption;
+      return { id: `${channel}-tracked` };
+    }, now);
+    assert.equal(state.state, STATES.PUBLISHED);
+    assert.match(sent.tiktok, /campaign=bb-rv-0123456789abcdef/);
+    assert.match(sent.tiktok, /source=tiktok/);
+    assert.match(sent.instagram, /campaign=bb-rv-0123456789abcdef/);
+    assert.match(sent.instagram, /source=instagram/);
+    assert.equal(state.publications.tiktok.campaignId, "bb-rv-0123456789abcdef");
+    assert.match(state.publications.tiktok.ctaUrl, /source=tiktok/);
+  });
 
   it("compacts Twitter captions without dropping the CTA or disclosure", async () => {
     const longProduct = {
       ...product,
       claims: [{ text: `Verified collector detail ${"x".repeat(320)}`, sourceId: "official" }],
     };
-    const record = markRendered(
-      createRenderRecord(longProduct, generateVideoScript(longProduct, now), ["twitter"], now),
-      { id: "render-long", videoUrl: "https://cdn.example/long.mp4" },
-      now,
-    );
+    const record = {
+      ...markRendered(
+        createRenderRecord(longProduct, generateVideoScript(longProduct, now), ["twitter"], now),
+        { id: "render-long", videoUrl: "https://cdn.example/long.mp4" },
+        now,
+      ),
+      review: {
+        researchRunId: "rv-fedcba9876543210",
+        campaignId: "bb-rv-fedcba9876543210",
+      },
+    };
     let sentCaption = null;
     const state = await publishApproved(approve(record, now), async ({ caption }) => {
       sentCaption = caption;
