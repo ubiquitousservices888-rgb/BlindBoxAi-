@@ -5,8 +5,8 @@ import { assertOwnerCode } from "../../../../lib/evidence";
 import {
   githubOwnerHeaders,
   OWNER_LOGIN,
-  OWNER_OWNER_PRIVATE_HEADERS,
-  OWNER_OWNER_REPOSITORY,
+  OWNER_PRIVATE_HEADERS,
+  OWNER_REPOSITORY,
   ownerUnauthorized,
 } from "../../../../lib/github-owner.mjs";
 
