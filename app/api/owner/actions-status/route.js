@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode } from "../../../../lib/evidence";
+import {
+  githubOwnerHeaders,
+  OWNER_OWNER_PRIVATE_HEADERS,
+  OWNER_OWNER_REPOSITORY,
+  ownerUnauthorized,
+} from "../../../../lib/github-owner.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
-const PRIVATE_HEADERS = {
-  "Cache-Control": "private, no-store, max-age=0",
-  Vary: "Authorization",
-};
 
 const CONTROL_WORKFLOWS = Object.freeze([
   "BlindBoxAI release gate",
@@ -24,36 +24,24 @@ const CONTROL_WORKFLOWS = Object.freeze([
 ]);
 const ACTIVE_STATUSES = new Set(["queued", "pending", "in_progress", "waiting", "requested"]);
 
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_HEADERS });
-}
-
-function githubHeaders(token) {
-  return {
-    Accept: "application/vnd.github+json",
-    Authorization: `Bearer ${token}`,
-    "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "BlindBoxAI-owner-control/1.0",
-  };
-}
-
 async function latestControlRuns(token) {
   const wanted = new Set(CONTROL_WORKFLOWS);
   const latest = new Map();
 
   for (let page = 1; page <= 20 && wanted.size; page += 1) {
-    const url = new URL(`https://api.github.com/repos/${REPOSITORY}/actions/runs`);
+    const url = new URL(`https://api.github.com/repos/${OWNER_REPOSITORY}/actions/runs`);
     url.searchParams.set("branch", "main");
     url.searchParams.set("per_page", "100");
     url.searchParams.set("page", String(page));
 
-    const response = await fetch(url, { headers: githubHeaders(token), cache: "no-store" });
+    const response = await fetch(url, { headers: githubOwnerHeaders(token), cache: "no-store" });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(`actions_runs_${response.status}`);
 
     const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
     for (const run of runs) {
       if (!wanted.has(run?.name)) continue;
+      if (run.name === "Owner Blue live verify once" && run.event !== "workflow_dispatch") continue;
       latest.set(run.name, run);
       wanted.delete(run.name);
     }
@@ -69,14 +57,14 @@ export async function GET(request) {
   try {
     assertOwnerCode(ownerCode);
   } catch {
-    return unauthorized();
+    return ownerUnauthorized();
   }
 
   const token = String(process.env.GITHUB_OWNER_APPROVAL_TOKEN || "").trim();
   if (!token) {
     return NextResponse.json(
       { error: "GitHub owner-control token is not configured.", configured: false },
-      { status: 503, headers: PRIVATE_HEADERS },
+      { status: 503, headers: OWNER_PRIVATE_HEADERS },
     );
   }
 
@@ -110,15 +98,15 @@ export async function GET(request) {
       {
         ok: true,
         configured: true,
-        repository: REPOSITORY,
+        repository: OWNER_REPOSITORY,
         revision: process.env.VERCEL_GIT_COMMIT_SHA || null,
         items,
         summary,
       },
-      { headers: PRIVATE_HEADERS },
+      { headers: OWNER_PRIVATE_HEADERS },
     );
   } catch (error) {
     console.error("owner_actions_status_failed", { message: error instanceof Error ? error.message : "Unknown GitHub status error" });
-    return NextResponse.json({ error: "Unable to read GitHub Actions status." }, { status: 502, headers: PRIVATE_HEADERS });
+    return NextResponse.json({ error: "Unable to read GitHub Actions status." }, { status: 502, headers: OWNER_PRIVATE_HEADERS });
   }
 }
