@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { money, numberOrStatus } from "../../lib/revenue-status.mjs";
+import ControlPanel from "./ControlPanel";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
@@ -265,6 +266,7 @@ export default function DashboardClient() {
     }));
 
   return <div style={{ display: "grid", gap: 24 }}>
+    <ControlPanel activeCode={activeCode} />
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h2 style={{ marginTop: 0 }}>Owner video control</h2>
       <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
@@ -329,7 +331,7 @@ export default function DashboardClient() {
     <section>
       <h2>Revenue control room</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 12 }}>
-        <Stat label="Clicks last 24h" value={snapshot.totals?.epnClicksLast24h ?? 0} />
+        <Stat label="All affiliate clicks last 24h" value={snapshot.totals?.epnClicksLast24h ?? 0} />
         <Stat label="EPN orders" value={numberOrStatus(epn.orders)} />
         <Stat label="EPN earnings" value={money(epn.earnings)} />
         <Stat label="EPN EPC" value={money(epn.epc, epnEpcStatus(epn.status))} />
