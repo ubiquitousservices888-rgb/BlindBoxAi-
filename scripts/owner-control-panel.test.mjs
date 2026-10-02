@@ -70,7 +70,7 @@ test("Blue button dispatch is explicit owner action and never publishes", () => 
   assert.match(blueDispatchRoute, /tokenOwner\(token\)/);
   assert.match(blueDispatchRoute, /allowOverwrite: false/);
   assert.match(blueDispatchRoute, /blue-live-verify-lock/);
-  assert.match(blueDispatchRoute, /await del\(lockPath\)/);
+  assert.match(blueDispatchRoute, /cleanupLock\(lockPath\)/);
   const authGuard = blueDispatchRoute.indexOf("assertOwnerCode(ownerCode)");
   const productionGuard = blueDispatchRoute.indexOf('process.env.VERCEL_ENV !== "production"');
   const dispatchCall = blueDispatchRoute.indexOf("/dispatches");
