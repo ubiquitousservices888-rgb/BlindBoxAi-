@@ -44,9 +44,13 @@ test("action feed is owner-only and reads server-side GitHub status", () => {
   assert.match(actionsRoute, /BlindBoxAI release gate/);
   assert.match(actionsRoute, /Build BlindBoxAI Live Wallpaper/);
   assert.match(actionsRoute, /Owner Blue live verify once/);
-  assert.match(actionsRoute, /page <= 20/);
+  assert.match(actionsRoute, /latestWorkflowRun/);
+  assert.match(actionsRoute, /actions\/workflows\/\$\{file\}\/runs/);
+  assert.match(actionsRoute, /per_page", "10"/);
+  assert.match(actionsRoute, /CACHE_TTL_MS = 60_000/);
+  assert.match(actionsRoute, /controlRunsInFlight/);
   assert.match(actionsRoute, /"waiting", "requested"/);
-  assert.match(actionsRoute, /run\.name === "Owner Blue live verify once" && run\.event !== "workflow_dispatch"/);
+  assert.match(actionsRoute, /run\?\.event === workflow\.event/);
 });
 
 test("Blue button dispatch is explicit owner action and never publishes", () => {
