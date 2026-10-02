@@ -194,11 +194,21 @@ export async function POST(request) {
       { status: 202, headers: OWNER_PRIVATE_HEADERS },
     );
   } catch (error) {
+    // A transport exception is indeterminate: GitHub may have accepted the dispatch
+    // before the response was lost. Retain the lease so a retry cannot enqueue a
+    // duplicate verifier. The bounded lease provides the safe recovery path.
     if (lockAcquired) {
-      const cleaned = await cleanupLock(lockPath);
-      if (!cleaned) return cleanupPendingResponse(revision);
+      console.error("owner_blue_dispatch_lock_retained", { revision });
     }
     console.error("owner_blue_dispatch_failed", { message: error instanceof Error ? error.message : "Unknown dispatch error" });
-    return NextResponse.json({ error: "Unable to dispatch Blue Live Verify." }, { status: 502, headers: OWNER_PRIVATE_HEADERS });
+    return NextResponse.json(
+      {
+        error: "Unable to confirm Blue Live Verify dispatch. The one-shot lease is retained to prevent duplicates.",
+        revision,
+        dispatchOutcome: "indeterminate",
+        retryAfterSeconds: LOCK_TTL_MS / 1000,
+      },
+      { status: 502, headers: OWNER_PRIVATE_HEADERS },
+    );
   }
 }
