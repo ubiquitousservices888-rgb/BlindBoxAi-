@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { verifyGitHubOidcRequest } from "../../../../lib/github-oidc.mjs";
+import { OWNER_LOGIN, OWNER_REPOSITORY } from "../../../../lib/github-owner.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
-const OWNER_LOGIN = "ubiquitousservices888-rgb";
+const REPOSITORY = OWNER_REPOSITORY;
 const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/owner-blue-live-verify-once.yml@refs/heads/main`;
 const OIDC_AUDIENCE = "blindboxai-owner-live-verify";
 const REVIEW_BUCKET_PREFIX =
