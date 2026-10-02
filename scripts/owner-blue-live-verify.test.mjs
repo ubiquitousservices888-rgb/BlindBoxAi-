@@ -58,11 +58,11 @@ test("one-shot workflow is serialized only for marked pushes and retries transie
   assert.match(workflow, /id-token: write/);
   assert.match(
     workflow,
-    /\(github\.actor == 'ubiquitousservices888-rgb' && \(\(github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)\)\)\) && 'owner-blue-live-verify'/,
+    /\(github\.actor == github\.repository_owner && \(\(github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)\)\)\) && 'owner-blue-live-verify'/,
   );
   assert.match(workflow, /owner-blue-live-verify-unmarked-\{0\}/);
   assert.match(workflow, /cancel-in-progress: false/);
-  assert.match(workflow, /github\.actor == 'ubiquitousservices888-rgb'/);
+  assert.match(workflow, /github\.actor == github\.repository_owner/);
   assert.match(workflow, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)/);
 
