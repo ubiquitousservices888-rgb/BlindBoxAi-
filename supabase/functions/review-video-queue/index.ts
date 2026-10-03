@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
 import { createHash } from "node:crypto";
 import { collectPaginatedRows, REVIEW_QUEUE_OVERFLOW_ERROR } from "../_shared/review-queue-pagination.mjs";
+import { isPublicVideoTitle } from "../_shared/public-video-title.mjs";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -17,9 +18,6 @@ const ALLOWED_GITHUB_WORKFLOWS = new Set([
 ]);
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const OWNER_GATED_SUBJECT = `repo:${GITHUB_REPOSITORY}:environment:social-production`;
-const REVIEW_PUBLISHER_WORKFLOW_REF =
-  `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
-const OWNER_GITHUB_ACTOR = "ubiquitousservices888-rgb";
 const OWNER_REVIEW_PAGE_SIZE = 1000;
 const OWNER_REVIEW_MAX_PAGES = 50;
 
@@ -34,13 +32,6 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff", ...cors() } });
 }
 function clean(value: unknown, max = 240) { return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, max); }
-function isPublicVideoTitle(value: unknown) {
-  const title = clean(value, 100);
-  if (!title || /https?:\/\//i.test(title)) return false;
-  if (!/[A-Za-z]/.test(title) || /^\d+$/.test(title)) return false;
-  if (/^(?:img|vid(?:eo)?|mov|pxl|clip|recording|screen[ _-]?record(?:ing)?)[ ._-]*\d*$/i.test(title)) return false;
-  return true;
-}
 function safeHttps(value: unknown) { try { const url = new URL(clean(value, 500)); return url.protocol === "https:" ? url.toString() : null; } catch { return null; } }
 function safePublicUrl(channel: string, value: unknown) {
   const raw = safeHttps(value);
@@ -117,9 +108,6 @@ async function githubAuthorized(req: Request) {
     const { payload } = await jwtVerify(token, githubJwks, { issuer: GITHUB_ISSUER, audience: GITHUB_AUDIENCE });
     const workflowRef = String(payload.workflow_ref || "");
     if (payload.repository !== GITHUB_REPOSITORY || payload.ref !== "refs/heads/main" || !ALLOWED_GITHUB_WORKFLOWS.has(workflowRef)) return false;
-    if (workflowRef === REVIEW_PUBLISHER_WORKFLOW_REF) {
-      return payload.event_name === "workflow_dispatch" && String(payload.actor || "") === OWNER_GITHUB_ACTOR;
-    }
     if (!hasOwnerGate(payload as Record<string, unknown>)) return false;
     if (workflowRef.endsWith("/autonomous-video.yml@refs/heads/main") && payload.event_name !== "workflow_dispatch") return false;
     return true;
