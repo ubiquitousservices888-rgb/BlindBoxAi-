@@ -34,6 +34,15 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
+  const youtubeAudience = String(body?.youtubeAudience ?? "").trim();
+  const researchRunId = String(body?.researchRunId ?? "").trim();
+  if (!["made_for_kids", "not_made_for_kids"].includes(youtubeAudience)) {
+    return NextResponse.json({ error: "Choose the YouTube audience before approval." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
+    return NextResponse.json({ error: "This review item is missing its exact research run ID." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+
   try {
     const response = await fetch(REVIEW_QUEUE_URL, {
       method: "POST",
@@ -47,6 +56,12 @@ export async function POST(request) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       return NextResponse.json({ error: result?.error || "Unable to approve this review video." }, { status: response.status, headers: PRIVATE_HEADERS });
+    }
+    if (String(result?.research_run_id ?? "") !== researchRunId) {
+      return NextResponse.json(
+        { error: "Approval response did not match the exact reviewed video.", launch: { status: "blocked_identity_mismatch" } },
+        { status: 409, headers: PRIVATE_HEADERS },
+      );
     }
 
     const githubToken = String(process.env.GITHUB_OWNER_APPROVAL_TOKEN ?? "").trim();
@@ -64,8 +79,8 @@ export async function POST(request) {
     try {
       const launch = await dispatchApprovedReviewPublication({
         token: githubToken,
-        researchRunId: result?.research_run_id,
-        youtubeAudience: body?.youtubeAudience,
+        researchRunId,
+        youtubeAudience,
       });
       return NextResponse.json({ ...result, launch }, { headers: PRIVATE_HEADERS });
     } catch (launchError) {
