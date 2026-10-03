@@ -34,13 +34,15 @@ permissions:
   id-token: write
 
 concurrency:
-  group: publish-approved-review-videos
+  group: publish-approved-review-videos-${{ inputs.publish_channel }}
   cancel-in-progress: false
 
 jobs:
   publish-approved:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: social-production
     env:
       DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: youtube,tiktok
