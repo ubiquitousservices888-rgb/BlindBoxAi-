@@ -126,14 +126,14 @@ async function stageForResearch({ accessCode, blob, title, file, metadata }) {
   return body;
 }
 
-async function approveVideo({ accessCode, videoUrl }) {
+async function approveVideo({ accessCode, videoUrl, researchRunId }) {
   const response = await fetch("/api/owner/approve-review", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ videoUrl, youtubeAudience: "not_made_for_kids" }),
+    body: JSON.stringify({ videoUrl, researchRunId, youtubeAudience: "not_made_for_kids" }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
@@ -176,7 +176,7 @@ export default function MediaUploadForm() {
     setBusy(true);
     setError("");
     try {
-      await approveVideo({ accessCode, videoUrl: result.url });
+      await approveVideo({ accessCode, videoUrl: result.url, researchRunId: stageResult?.researchRunId });
       setApproved(true);
       setStatus("approved");
       setAccessCode("");
@@ -261,7 +261,7 @@ export default function MediaUploadForm() {
 
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Research title</strong>
-        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} required disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
+        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
