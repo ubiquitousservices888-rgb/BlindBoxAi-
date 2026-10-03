@@ -15,6 +15,7 @@ on:
         options:
           - youtube
           - tiktok
+          - all
       research_run_id:
         description: "Exact approved row (rv- followed by 16 hex characters)"
         required: true
@@ -34,7 +35,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: publish-approved-review-videos-${{ inputs.publish_channel }}
+  group: publish-approved-review-videos-${{ inputs.research_run_id }}
   cancel-in-progress: false
 
 jobs:
