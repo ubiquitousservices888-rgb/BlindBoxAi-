@@ -129,7 +129,7 @@ test("Blue approval binds launch to the exact queue row and permits blank title 
   assert.match(approvalRoute, /Choose the YouTube audience before approval/);
   assert.match(approvalRoute, /result\?\.research_run_id.*researchRunId/);
   assert.match(queuedWorkflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(queuedWorkflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.publish_channel \}\}/);
+  assert.match(queuedWorkflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.research_run_id \}\}/);
 });
 
 test("new queue publishing requires explicit approval before Buffer publishing", () => {
