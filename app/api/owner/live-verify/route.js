@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { verifyGitHubOidcRequest } from "../../../../lib/github-oidc.mjs";
+import { OWNER_LOGIN, OWNER_REPOSITORY } from "../../../../lib/github-owner.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
+const REPOSITORY = OWNER_REPOSITORY;
 const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/owner-blue-live-verify-once.yml@refs/heads/main`;
 const OIDC_AUDIENCE = "blindboxai-owner-live-verify";
 const REVIEW_BUCKET_PREFIX =
@@ -86,7 +87,8 @@ export async function POST(request) {
     audience: OIDC_AUDIENCE,
     repository: REPOSITORY,
     workflowRef: WORKFLOW_REF,
-    allowedEvents: ["push"],
+    allowedEvents: ["push", "workflow_dispatch"],
+    requiredActor: OWNER_LOGIN,
   });
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 

@@ -3,18 +3,19 @@ name: Owner Blue live verify once
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: ${{ contains(github.event.head_commit.message, '[owner-blue-live-verify]') && 'owner-blue-live-verify' || format('owner-blue-live-verify-unmarked-{0}', github.run_id) }}
+  group: ${{ (github.actor == github.repository_owner && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[owner-blue-live-verify]')))) && 'owner-blue-live-verify' || format('owner-blue-live-verify-unmarked-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
   verify-owner-blue:
-    if: contains(github.event.head_commit.message, '[owner-blue-live-verify]')
+    if: github.actor == github.repository_owner && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[owner-blue-live-verify]')))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

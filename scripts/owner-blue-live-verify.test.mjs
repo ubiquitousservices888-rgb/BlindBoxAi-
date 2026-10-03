@@ -13,9 +13,10 @@ test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
   assert.match(route, /blindboxai-owner-live-verify/);
   assert.match(route, /owner-blue-live-verify-once\.yml@refs\/heads\/main/);
   assert.match(route, /verifyGitHubOidcRequest/);
-  assert.match(route, /allowedEvents: \["push"\]/);
+  assert.match(route, /allowedEvents: \["push", "workflow_dispatch"\]/);
   assert.match(route, /repository: REPOSITORY/);
   assert.match(route, /workflowRef: WORKFLOW_REF/);
+  assert.match(route, /requiredActor: OWNER_LOGIN/);
   assert.match(route, /deployedRevision !== oidc\.sha/);
   assert.match(oidcVerifier, /requiredRef = "refs\/heads\/main"/);
   assert.match(oidcVerifier, /JWKS_TIMEOUT_MS/);
@@ -24,6 +25,7 @@ test("one-shot Owner Blue verifier is production/main OIDC gated", () => {
   assert.match(oidcVerifier, /payload\.repository !== repository/);
   assert.match(oidcVerifier, /payload\.ref !== requiredRef/);
   assert.match(oidcVerifier, /payload\.workflow_ref !== workflowRef/);
+  assert.match(oidcVerifier, /requiredActor && payload\.actor !== requiredActor/);
   assert.match(oidcVerifier, /events\.has\(String\(payload\.event_name/);
   assert.match(oidcVerifier, /payload\.iss !== OIDC_ISSUER/);
   assert.match(oidcVerifier, /audiences\.includes\(audience\)/);
@@ -54,9 +56,14 @@ test("one-shot Owner Blue verifier cannot publish", () => {
 test("one-shot workflow is serialized only for marked pushes and retries transient identity failures", () => {
   assert.match(workflow, /push:\s*\n\s+branches: \[main\]/);
   assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\) && 'owner-blue-live-verify'/);
+  assert.match(
+    workflow,
+    /\(github\.actor == github\.repository_owner && \(\(github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)\)\)\) && 'owner-blue-live-verify'/,
+  );
   assert.match(workflow, /owner-blue-live-verify-unmarked-\{0\}/);
   assert.match(workflow, /cancel-in-progress: false/);
+  assert.match(workflow, /github\.actor == github\.repository_owner/);
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[owner-blue-live-verify\]'\)/);
 
   const loopStart = workflow.indexOf("for attempt in $(seq 1 24); do");
