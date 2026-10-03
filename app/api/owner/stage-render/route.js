@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { verifyGitHubOidcRequest } from "../../../../lib/github-oidc.mjs";
-import { requirePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
+import { resolvePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../../../lib/review-shorts-eligibility.mjs";
 
 export const runtime = "nodejs";
@@ -239,12 +239,7 @@ export async function POST(request) {
     });
   }
 
-  let title;
-  try {
-    title = requirePublicVideoTitle(body.title, { label: "Video title", maxLength: 100 });
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "invalid_title" }, 400);
-  }
+  const title = resolvePublicVideoTitle(body.title, { maxLength: 100 });
 
   const sizeBytes = Number(body.sizeBytes);
   const durationSeconds = Number(body.durationSeconds);
