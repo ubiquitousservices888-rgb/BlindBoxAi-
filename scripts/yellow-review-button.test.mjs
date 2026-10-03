@@ -237,6 +237,31 @@ test("review publisher sends required YouTube metadata while omitting metadata f
   assert.doesNotMatch(createRequests[0].query, /PostInputMetaData/);
 });
 
+
+test("Blue approval dispatches exactly one YouTube and one TikTok live workflow run", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options = {}) => {
+    requests.push({ url: String(url), options });
+    return { ok: true, status: 204 };
+  };
+
+  const result = await dispatchApprovedReviewPublication({
+    token: "masked-test-token",
+    researchRunId: "rv-0123456789abcdef",
+    youtubeAudience: "not_made_for_kids",
+    fetchImpl,
+  });
+
+  assert.deepEqual(result.channels, ["youtube", "tiktok"]);
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every((request) => request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")));
+  const inputs = requests.map((request) => JSON.parse(request.options.body).inputs);
+  assert.deepEqual(inputs.map((item) => item.publish_channel), ["youtube", "tiktok"]);
+  assert.ok(inputs.every((item) => item.dry_run === false));
+  assert.ok(inputs.every((item) => item.research_run_id === "rv-0123456789abcdef"));
+  assert.ok(inputs.every((item) => item.youtube_audience === "not_made_for_kids"));
+});
+
 test("successful queued publishing is linked into the public homepage feed", () => {
   assert.match(queuedPublisher, /published-video-feed/);
   assert.match(queuedPublisher, /blindboxai-video-publisher/);
