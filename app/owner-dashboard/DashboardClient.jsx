@@ -163,12 +163,12 @@ export default function DashboardClient() {
         method: "POST",
         headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ videoUrl }),
+        body: JSON.stringify({ videoUrl, youtubeAudience: "not_made_for_kids" }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
       setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
-      setReviewMessage("APPROVED — this video is in the approved queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
+      setReviewMessage("APPROVED + LAUNCH DISPATCHED — YouTube and TikTok will run automatically. YouTube audience: not made for kids.");
       etagRef.current = "";
       await Promise.all([load(activeCode, false), loadReviewQueue(activeCode)]);
     } catch (cause) {
@@ -272,7 +272,7 @@ export default function DashboardClient() {
       <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
         OPEN SAFE VIDEO UPLOADER
       </a>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>Every Supabase review-queue video waiting for owner approval is loaded here. Watch the finished video, then press the blue approval button. Publishing remains a separate protected action.</p>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Every Supabase review-queue video waiting for owner approval is loaded here. Watch the finished video, then press the blue button once. That approval launches YouTube + TikTok automatically while keeping the protected publishing checks.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
       {reviewQueueError ? <p role="alert" style={{ color: "crimson" }}>{reviewQueueError}</p> : null}
 
@@ -292,14 +292,14 @@ export default function DashboardClient() {
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
                 <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
-                  {approved ? "APPROVED FOR QUEUE" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "BLUE APPROVE"}
+                  {approved ? "LAUNCH DISPATCHED" : approvingReviewUrl === item.mediaUrl ? "APPROVING + LAUNCHING…" : "BLUE APPROVE + LAUNCH"}
                 </button>
                 <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
                   {deletingReviewId === item.researchRunId ? "DELETING…" : "DELETE"}
                 </button>
               </div>
               {watching ? <video src={item.mediaUrl} controls autoPlay playsInline preload="metadata" style={{ width: "100%", marginTop: 12, borderRadius: 10, background: "black" }} /> : null}
-              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video is in the approved queue. A separate manual GitHub run is required to publish it." : "Watch the full video first. Press BLUE APPROVE only when it passes. DELETE permanently removes the uploaded review-media file and takes it out of this approval list."}</p>
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved and its YouTube + TikTok publishing runs were dispatched." : "Watch the full video first. BLUE APPROVE + LAUNCH confirms YouTube: not made for kids and starts YouTube + TikTok. DELETE permanently removes the uploaded review-media file and takes it out of this approval list."}</p>
             </article>
           );
         }) : <p>No videos are currently staged for review in the dashboard window.</p>}
