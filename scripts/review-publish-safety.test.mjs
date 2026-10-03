@@ -345,11 +345,13 @@ test("channel-aware queue claim skips rows that already completed the requested 
   assert.match(source, /claim\(req, body\)/);
 });
 
-test("channel-specific publishing runs one requested platform while preserving the full completion target", () => {
+test("channel selector supports one channel or serialized all while preserving the full completion target", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /const configuredChannels =/);
+  assert.match(source, /const publishAllChannels = requestedChannel === "all"/);
   assert.match(source, /const targetChannels = configuredChannels/);
-  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /const eligibleChannels = publishAllChannels/);
+  assert.match(source, /publishAllChannels[\s\S]*?\? targetChannels/);
   assert.match(source, /targetChannels,/);
   assert.match(source, /const feedChannels =/);
   assert.match(source, /channels: feedChannels/);
