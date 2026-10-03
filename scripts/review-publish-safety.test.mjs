@@ -349,6 +349,18 @@ test("channel-specific publishing runs one requested platform while preserving t
   assert.match(source, /youtube,tiktok/);
 });
 
+test("legacy queue titles are repaired only while holding the exact publishing lease", () => {
+  const publisher = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
+  const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
+  assert.match(publisher, /resolvePublicVideoTitle/);
+  assert.match(publisher, /action: "repair_title"/);
+  assert.match(queue, /async function repairTitle/);
+  assert.match(queue, /isPublicVideoTitle\(title\)/);
+  assert.match(queue, /\.eq\("status", "publishing"\)/);
+  assert.match(queue, /\.eq\("publishing_at", leaseToken\)/);
+  assert.match(queue, /action === "repair_title"/);
+});
+
 test("queue stores only channel records with verified public URLs", () => {
   const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   assert.match(source, /safePublicUrl\(channel, body\?\.publicUrl\)/);
