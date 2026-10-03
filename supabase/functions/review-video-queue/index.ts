@@ -31,6 +31,13 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff", ...cors() } });
 }
 function clean(value: unknown, max = 240) { return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, max); }
+function isPublicVideoTitle(value: unknown) {
+  const title = clean(value, 100);
+  if (!title || /https?:\/\//i.test(title)) return false;
+  if (!/[A-Za-z]/.test(title) || /^\d+$/.test(title)) return false;
+  if (/^(?:img|vid(?:eo)?|mov|pxl|clip|recording|screen[ _-]?record(?:ing)?)[ ._-]*\d*$/i.test(title)) return false;
+  return true;
+}
 function safeHttps(value: unknown) { try { const url = new URL(clean(value, 500)); return url.protocol === "https:" ? url.toString() : null; } catch { return null; } }
 function safePublicUrl(channel: string, value: unknown) {
   const raw = safeHttps(value);
@@ -312,6 +319,26 @@ async function claim(req: Request, body: any) {
   if (claimError) return json({ error: "Queue claim failed" }, 500);
   return json({ ok: true, item: claimed || null });
 }
+async function repairTitle(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40);
+  const leaseToken = leaseTokenFrom(body);
+  const title = clean(body?.title, 100);
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
+  if (!isPublicVideoTitle(title)) return json({ error: "Invalid repaired public title" }, 400);
+
+  const { data, error } = await db.from("review_video_queue")
+    .update({ title, updated_at: new Date().toISOString(), last_error: null })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .select("research_run_id,title,status,publishing_at")
+    .maybeSingle();
+  if (error) return json({ error: "Queue title repair failed" }, 500);
+  if (!data) return json({ error: "Queue title repair lost its publishing lease" }, 409);
+  return json({ ok: true, item: data });
+}
 function leaseTokenFrom(body: any) {
   const token = clean(body?.leaseToken, 40);
   return token && !Number.isNaN(Date.parse(token)) ? token : "";
@@ -414,6 +441,7 @@ Deno.serve(async (req: Request) => {
   if (action === "delete") return deleteReview(req, body);
   if (action === "peek") return peek(req, body);
   if (action === "claim") return claim(req, body);
+  if (action === "repair_title") return repairTitle(req, body);
   if (action === "record_channel") return recordChannel(req, body);
   if (action === "release") return release(req, body);
   if (action === "complete") return complete(req, body);
