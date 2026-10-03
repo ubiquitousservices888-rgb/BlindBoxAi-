@@ -116,6 +116,8 @@ test("public video titles auto-repair launch-blocking names without inventing pr
     "Pokémon 30th: Asking Price vs Sold Price",
   );
   assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
+  assert.throws(() => requirePublicVideoTitle("DSC_0001"), /must describe the video/);
+  assert.throws(() => requirePublicVideoTitle("IMG_20260919_123456.MOV"), /must describe the video/);
 });
 
 test("Blue approval binds launch to the exact queue row and permits blank title repair", () => {
@@ -256,25 +258,22 @@ test("review publisher sends required YouTube metadata while omitting metadata f
 });
 
 
-test("Blue approval dispatches and approves exactly one YouTube and one TikTok production run", async () => {
+test("Blue approval dispatches one serialized YouTube + TikTok production run", async () => {
   const requests = [];
-  let dispatchCount = 0;
   const fetchImpl = async (url, options = {}) => {
     const request = { url: String(url), options };
     requests.push(request);
     const method = options.method || "GET";
     if (method === "POST" && request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")) {
-      dispatchCount += 1;
       return jsonResponse({
-        workflow_run_id: dispatchCount === 1 ? 101 : 102,
-        html_url: `https://github.com/example/actions/runs/${dispatchCount === 1 ? 101 : 102}`,
+        workflow_run_id: 101,
+        html_url: "https://github.com/example/actions/runs/101",
       });
     }
-    if (method === "GET" && /\/actions\/runs\/(101|102)\/pending_deployments$/.test(request.url)) {
-      const runId = request.url.includes("/101/") ? 101 : 102;
-      return jsonResponse([{ environment: { id: runId + 1000, name: "social-production" }, current_user_can_approve: true }]);
+    if (method === "GET" && request.url.endsWith("/actions/runs/101/pending_deployments")) {
+      return jsonResponse([{ environment: { id: 1101, name: "social-production" }, current_user_can_approve: true }]);
     }
-    if (method === "POST" && /\/actions\/runs\/(101|102)\/pending_deployments$/.test(request.url)) {
+    if (method === "POST" && request.url.endsWith("/actions/runs/101/pending_deployments")) {
       return { ok: true, status: 204, json: async () => ({}) };
     }
     throw new Error(`unexpected GitHub request: ${method} ${request.url}`);
@@ -290,19 +289,18 @@ test("Blue approval dispatches and approves exactly one YouTube and one TikTok p
 
   assert.deepEqual(result.channels, ["youtube", "tiktok"]);
   assert.equal(result.status, "dispatched_and_environment_approved");
-  assert.ok(result.runs.every((run) => run.environmentApproved === true));
+  assert.equal(result.run.environmentApproved, true);
   const dispatchRequests = requests.filter((request) => request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches"));
-  assert.equal(dispatchRequests.length, 2);
-  const dispatchBodies = dispatchRequests.map((request) => JSON.parse(request.options.body));
-  assert.ok(dispatchBodies.every((body) => body.return_run_details === true));
-  const inputs = dispatchBodies.map((body) => body.inputs);
-  assert.deepEqual(inputs.map((item) => item.publish_channel), ["youtube", "tiktok"]);
-  assert.ok(inputs.every((item) => item.dry_run === false));
-  assert.ok(inputs.every((item) => item.research_run_id === "rv-0123456789abcdef"));
-  assert.ok(inputs.every((item) => item.youtube_audience === "not_made_for_kids"));
+  assert.equal(dispatchRequests.length, 1);
+  const dispatchBody = JSON.parse(dispatchRequests[0].options.body);
+  assert.equal(dispatchBody.return_run_details, true);
+  assert.equal(dispatchBody.inputs.publish_channel, "all");
+  assert.equal(dispatchBody.inputs.dry_run, false);
+  assert.equal(dispatchBody.inputs.research_run_id, "rv-0123456789abcdef");
+  assert.equal(dispatchBody.inputs.youtube_audience, "not_made_for_kids");
   const approvalRequests = requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments"));
-  assert.equal(approvalRequests.length, 2);
-  assert.ok(approvalRequests.every((request) => JSON.parse(request.options.body).state === "approved"));
+  assert.equal(approvalRequests.length, 1);
+  assert.equal(JSON.parse(approvalRequests[0].options.body).state, "approved");
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {
