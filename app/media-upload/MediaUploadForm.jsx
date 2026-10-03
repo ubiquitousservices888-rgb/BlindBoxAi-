@@ -133,7 +133,7 @@ async function approveVideo({ accessCode, videoUrl }) {
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ videoUrl }),
+    body: JSON.stringify({ videoUrl, youtubeAudience: "not_made_for_kids" }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
@@ -303,10 +303,10 @@ export default function MediaUploadForm() {
               <p>Research campaign: <code>{stageResult.campaignId}</code></p>
               {!approved ? (
                 <button type="button" disabled={busy || !accessCode} onClick={approveCurrentVideo} style={{ padding: 14, fontWeight: 800, background: "#2563eb", color: "white", border: 0, borderRadius: 8 }}>
-                  APPROVE THIS VIDEO FOR QUEUE
+                  BLUE APPROVE + LAUNCH
                 </button>
               ) : (
-                <p role="status"><strong>APPROVED.</strong> This exact video is queued for a separate manual GitHub publishing run after the channel and media checks.</p>
+                <p role="status"><strong>APPROVED + LAUNCH DISPATCHED.</strong> YouTube and TikTok are now handled automatically. YouTube audience: not made for kids.</p>
               )}
             </>
           ) : stagingPayload ? (
