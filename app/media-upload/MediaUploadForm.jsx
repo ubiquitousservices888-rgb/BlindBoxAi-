@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { requirePublicVideoTitle } from "../../lib/public-video-title.mjs";
+import { resolvePublicVideoTitle } from "../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
@@ -198,11 +198,8 @@ export default function MediaUploadForm() {
     if (!file) return setError("Choose an MP4 video first.");
     if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) return setError("Only MP4 video files are allowed.");
     if (file.size <= 0 || file.size > MAX_VIDEO_SIZE) return setError("Video must be larger than 0 bytes and no more than 100 MB.");
-    try {
-      requirePublicVideoTitle(title, { label: "Video title" });
-    } catch (cause) {
-      return setError(cause.message);
-    }
+    const repairedTitle = resolvePublicVideoTitle(title, { maxLength: 100 });
+    if (repairedTitle !== title) setTitle(repairedTitle);
 
     setBusy(true);
     setProgress(0);
@@ -224,7 +221,7 @@ export default function MediaUploadForm() {
       uploadedBlob = blob;
       setResult(blob);
 
-      const payload = { blob, title: title.trim().slice(0, 100), file, metadata };
+      const payload = { blob, title: repairedTitle, file, metadata };
       setStagingPayload(payload);
       setStatus("staging");
       const staged = await stageForResearch({ accessCode, ...payload });
