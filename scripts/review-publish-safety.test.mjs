@@ -354,11 +354,16 @@ test("legacy queue titles are repaired only while holding the exact publishing l
   const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   assert.match(publisher, /resolvePublicVideoTitle/);
   assert.match(publisher, /action: "repair_title"/);
-  assert.match(queue, /async function repairTitle/);
-  assert.match(queue, /isPublicVideoTitle\(title\)/);
-  assert.match(queue, /\.eq\("status", "publishing"\)/);
-  assert.match(queue, /\.eq\("publishing_at", leaseToken\)/);
+  const repairStart = queue.indexOf("async function repairTitle(");
+  const repairEnd = queue.indexOf("async function recordChannel(", repairStart);
+  assert.ok(repairStart >= 0 && repairEnd > repairStart);
+  const repairBody = queue.slice(repairStart, repairEnd);
+  assert.match(repairBody, /isPublicVideoTitle\(title\)/);
+  assert.match(repairBody, /\.eq\("status", "publishing"\)/);
+  assert.match(repairBody, /\.eq\("publishing_at", leaseToken\)/);
   assert.match(queue, /action === "repair_title"/);
+  assert.match(publisher, /TITLE_REPAIR_PENDING/);
+  assert.match(publisher, /\["PUBLIC_VERIFICATION_PENDING", "TITLE_REPAIR_PENDING"\]/);
 });
 
 test("queue stores only channel records with verified public URLs", () => {
@@ -539,19 +544,16 @@ test("publisher rejects an empty configured channel set before claiming", () => 
 });
 
 
-test("canonical queue publishing trusts only an owner workflow_dispatch while legacy publishers retain the environment gate", () => {
+test("canonical queue publishing keeps the social-production environment gate", () => {
   const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   const feed = fs.readFileSync(new URL("../supabase/functions/published-video-feed/index.ts", import.meta.url), "utf8");
   const workflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
-  assert.match(queue, /REVIEW_PUBLISHER_WORKFLOW_REF/);
-  assert.match(queue, /OWNER_GITHUB_ACTOR/);
-  assert.match(queue, /payload\.event_name === "workflow_dispatch"/);
-  assert.match(feed, /REVIEW_PUBLISHER_WORKFLOW_REF/);
-  assert.match(feed, /OWNER_GITHUB_ACTOR/);
-  assert.match(feed, /payload\.event_name === "workflow_dispatch"/);
   assert.match(queue, /OWNER_GATED_SUBJECT/);
+  assert.match(queue, /hasOwnerGate/);
   assert.match(feed, /OWNER_GATED_SUBJECT/);
-  assert.doesNotMatch(workflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(feed, /hasOwnerGate/);
+  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(workflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.publish_channel \}\}/);
 });
 
 test("queue approval is idempotent for the exact already-approved video", () => {
