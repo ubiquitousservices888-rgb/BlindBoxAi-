@@ -10,7 +10,7 @@ import {
   resolveReviewBufferChannel,
 } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
-import { resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { isPublicVideoTitle, resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -94,10 +94,11 @@ const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "you
 if (!configuredChannels.length) {
   throw new Error("VIDEO_CHANNELS must contain at least one service");
 }
-if (requestedChannel && !configuredChannels.includes(requestedChannel)) {
+const publishAllChannels = requestedChannel === "all";
+if (requestedChannel && !publishAllChannels && !configuredChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
 }
-if ((!requestedChannel || requestedChannel === "youtube") && configuredChannels.includes("youtube") &&
+if ((!requestedChannel || requestedChannel === "youtube" || publishAllChannels) && configuredChannels.includes("youtube") &&
     !["made_for_kids", "not_made_for_kids"].includes(youtubeAudience)) {
   throw new Error("Owner must select the YouTube Made-for-Kids audience decision for this exact video");
 }
@@ -126,6 +127,7 @@ if (!item) {
 }
 const leaseToken = dryRun ? "" : String(item.publishing_at ?? "").trim();
 try {
+  const titleNeedsRepair = !isPublicVideoTitle(item.title);
   const publicTitle = resolvePublicVideoTitle(item.title, {
     vertical: item.vertical,
     researchRunId: item.research_run_id,
@@ -133,7 +135,7 @@ try {
   });
   const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
   if (!dryRun) required(leaseToken, "queue lease token");
-  if (publicTitle !== String(item.title ?? "").trim()) {
+  if (titleNeedsRepair) {
     if (dryRun) {
       console.log(`REVIEW_QUEUE_WOULD_REPAIR_TITLE: ${publicTitle}`);
     } else {
@@ -154,7 +156,11 @@ try {
   }
 
   const targetChannels = configuredChannels;
-  const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
+  const eligibleChannels = publishAllChannels
+    ? targetChannels
+    : requestedChannel
+      ? [requestedChannel]
+      : targetChannels;
   const recordedPublicUrls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
   const completedChannels = new Set(
     (Array.isArray(item.published_channels) ? item.published_channels : [])
@@ -265,7 +271,6 @@ try {
         publicUrls: recorded?.item?.public_urls || { [channel]: result.publicUrl },
       });
       console.log(`REVIEW_QUEUE_CHANNELS_PENDING: ${targetChannels.filter((value) => !partialChannels.includes(value)).join(",")}`);
-      process.exit(0);
     }
   }
 
