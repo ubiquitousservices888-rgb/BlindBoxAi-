@@ -527,15 +527,19 @@ test("publisher rejects an empty configured channel set before claiming", () => 
 });
 
 
-test("publisher mutation paths require the social-production owner environment", () => {
+test("canonical queue publishing trusts only an owner workflow_dispatch while legacy publishers retain the environment gate", () => {
   const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   const feed = fs.readFileSync(new URL("../supabase/functions/published-video-feed/index.ts", import.meta.url), "utf8");
   const workflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
+  assert.match(queue, /REVIEW_PUBLISHER_WORKFLOW_REF/);
+  assert.match(queue, /OWNER_GITHUB_ACTOR/);
+  assert.match(queue, /payload\.event_name === "workflow_dispatch"/);
+  assert.match(feed, /REVIEW_PUBLISHER_WORKFLOW_REF/);
+  assert.match(feed, /OWNER_GITHUB_ACTOR/);
+  assert.match(feed, /payload\.event_name === "workflow_dispatch"/);
   assert.match(queue, /OWNER_GATED_SUBJECT/);
-  assert.match(queue, /hasOwnerGate/);
   assert.match(feed, /OWNER_GATED_SUBJECT/);
-  assert.match(feed, /hasOwnerGate/);
-  assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.doesNotMatch(workflow, /environment:\s*\n\s*name:\s*social-production/);
 });
 
 test("queue approval is idempotent for the exact already-approved video", () => {
