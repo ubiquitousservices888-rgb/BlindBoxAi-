@@ -3,7 +3,7 @@
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-10-03
-**Functional baseline inspected:** `main` after PR #255 merge at `2fce903ae91c229b27af13db34fee11f1cdc9bab`
+**Functional baseline inspected:** PR #256 reviewed implementation, based on `main` after PR #255 at `2fce903ae91c229b27af13db34fee11f1cdc9bab`
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -29,7 +29,7 @@ Current invariants:
 - default mode: `dry_run: true`;
 - production video channels are pinned exactly to `youtube,tiktok`;
 - X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
-- a run can target one exact channel with `publish_channel`; every live run requires it;
+- a run requires an explicit `publish_channel`; owner recovery can target one exact channel, while the Blue launch uses `all` to serialize the pinned YouTube + TikTok targets in one workflow;
 - a run can target one exact approved row with `research_run_id`; every live run requires this exact selector;
 - the Blue approval surface explicitly carries the owner's YouTube audience decision (`not_made_for_kids` in the current owner UI) into the launch dispatch;
 - the workflow calls `scripts/publish-approved-review-queue.mjs`;
@@ -40,7 +40,7 @@ Current invariants:
 - Buffer credentials are referenced by name only and must never be printed.
 
 This is the canonical publisher when discussing an owner-approved review-queue item.
-The owner-authenticated Blue approval is the single recurring human launch step for this path. `/api/owner/approve-review` approves the exact queue row, dispatches one YouTube run plus one TikTok run through `publish-approved-reviews.yml`, and uses the owner-only GitHub token to approve only those exact runs at the existing `social-production` environment gate. The environment gate remains in place, so its scoped configuration and OIDC subject remain intact. The workflow still accepts exact row/channel inputs and remains manually runnable by the owner for recovery or diagnostics. Actual public posts remain **UNVERIFIED** until Buffer returns verified platform URLs and the queue records them. The longer-term immutable manifest and daily publication cap are planned, not implemented.
+The owner-authenticated Blue approval is the single recurring human launch step for this path. `/api/owner/approve-review` approves the exact queue row, dispatches one serialized YouTube + TikTok run through `publish-approved-reviews.yml`, and uses the owner-only GitHub token to approve only that exact run at the existing `social-production` environment gate. The environment gate remains in place, so its scoped configuration and OIDC subject remain intact. The workflow still accepts exact row/channel inputs and remains manually runnable by the owner for recovery or diagnostics. Actual public posts remain **UNVERIFIED** until Buffer returns verified platform URLs and the queue records them. The longer-term immutable manifest and daily publication cap are planned, not implemented.
 
 ## Other video paths are separate, not replacements
 
