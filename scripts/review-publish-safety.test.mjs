@@ -219,11 +219,11 @@ test("verification searches the same 45-day window as duplicate detection", () =
   assert.match(source, /45 \* 86400000/);
 });
 
-test("caps one execution to exactly one Buffer post", () => {
-  assert.equal(MAX_BUFFER_POSTS_PER_EXECUTION, 1);
+test("caps one reviewed execution to the two canonical video channels", () => {
+  assert.equal(MAX_BUFFER_POSTS_PER_EXECUTION, 2);
   const { selected, deferred } = cappedPublishChannels("youtube,tiktok,twitter");
-  assert.deepEqual(selected, ["youtube"]);
-  assert.deepEqual(deferred, ["tiktok", "twitter"]);
+  assert.deepEqual(selected, ["youtube", "tiktok"]);
+  assert.deepEqual(deferred, ["twitter"]);
 });
 
 test("dry-run parsing is explicit", () => {
@@ -291,26 +291,37 @@ test("queue publisher dry-run uses peek and exits before Buffer creation", () =>
   assert.match(source, /const configuredChannels =/);
   assert.match(source, /Requested channel is not in VIDEO_CHANNELS/);
   assert.match(source, /const targetChannels = configuredChannels/);
-  assert.match(source, /const eligibleChannels = requestedChannel \? \[requestedChannel\] : targetChannels/);
+  assert.match(source, /const eligibleChannels = publishAllChannels/);
+  assert.match(source, /publishAllChannels \? undefined : requestedChannel \|\| undefined/);
 });
 
-test("publisher resumes only deferred channels on later runs", () => {
+test("publisher serializes both channels and skips any channel already verified on retry", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   assert.match(source, /published_channels/);
   assert.match(source, /remainingChannels = eligibleChannels\.filter/);
+  assert.match(source, /for \(const channel of channels\)/);
   assert.match(source, /action: "record_channel"/);
   assert.match(source, /if \(!recorded\?\.complete\)/);
+  const partialStart = source.indexOf("if (!recorded?.complete)");
+  const partialEnd = source.indexOf("\n    }", partialStart);
+  assert.doesNotMatch(source.slice(partialStart, partialEnd), /process\.exit/);
   assert.doesNotMatch(source, /action: "complete", researchRunId: item\.research_run_id, success: true/);
 });
 
-test("queue edge function records one channel and re-approves until all target channels are complete", () => {
+test("queue edge function keeps one lease across channels and reopens failures for retry", () => {
   const source = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   assert.match(source, /action === "record_channel"/);
   assert.match(source, /published_channels/);
   assert.match(source, /buffer_post_ids/);
-  assert.match(source, /status: "approved"/);
+  assert.match(source, /status: "publishing"/);
+  assert.match(source, /publishing_at: leaseToken/);
   assert.match(source, /status: "published"/);
   assert.match(source, /targetChannels\.every/);
+  const completeStart = source.indexOf("async function complete(");
+  const completeEnd = source.indexOf("Deno.serve(", completeStart);
+  const completeBody = source.slice(completeStart, completeEnd);
+  assert.match(completeBody, /status: "approved"/);
+  assert.match(completeBody, /publishing_at: null/);
 });
 
 test("dry-run uses read-only peek and reports the exact next channel without Buffer", () => {
@@ -407,7 +418,7 @@ test("workflow requires explicit channel and exact review row inputs", () => {
   const optionsBlock = channelBlock.slice(channelBlock.indexOf("options:"));
   assert.deepEqual(
     [...optionsBlock.matchAll(/^[ \t]+- ([a-z0-9_-]+)$/gm)].map((match) => match[1]),
-    ["youtube", "tiktok"],
+    ["youtube", "tiktok", "all"],
   );
 
   const runBlock = source.slice(runStart, audienceStart);
@@ -553,7 +564,13 @@ test("canonical queue publishing keeps the social-production environment gate", 
   assert.match(feed, /OWNER_GATED_SUBJECT/);
   assert.match(feed, /hasOwnerGate/);
   assert.match(workflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(workflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.publish_channel \}\}/);
+  assert.match(workflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.research_run_id \}\}/);
+  const queueAuthStart = queue.indexOf("async function githubAuthorized");
+  const queueAuthEnd = queue.indexOf("async function stage", queueAuthStart);
+  const feedAuthStart = feed.indexOf("async function authorized");
+  const feedAuthEnd = feed.indexOf("Deno.serve", feedAuthStart);
+  assert.match(queue.slice(queueAuthStart, queueAuthEnd), /hasOwnerGate/);
+  assert.match(feed.slice(feedAuthStart, feedAuthEnd), /hasOwnerGate/);
 });
 
 test("queue approval is idempotent for the exact already-approved video", () => {
