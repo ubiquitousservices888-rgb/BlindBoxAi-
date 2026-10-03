@@ -137,12 +137,18 @@ try {
     if (dryRun) {
       console.log(`REVIEW_QUEUE_WOULD_REPAIR_TITLE: ${publicTitle}`);
     } else {
-      await postJson(REVIEW_QUEUE_URL, reviewToken, {
-        action: "repair_title",
-        researchRunId: item.research_run_id,
-        leaseToken,
-        title: publicTitle,
-      });
+      try {
+        await postJson(REVIEW_QUEUE_URL, reviewToken, {
+          action: "repair_title",
+          researchRunId: item.research_run_id,
+          leaseToken,
+          title: publicTitle,
+        });
+      } catch (cause) {
+        const error = new Error(`Title repair could not be persisted: ${cause instanceof Error ? cause.message : String(cause)}`);
+        error.code = "TITLE_REPAIR_PENDING";
+        throw error;
+      }
       console.log(`REVIEW_QUEUE_TITLE_REPAIRED: ${item.research_run_id}`);
     }
   }
@@ -304,7 +310,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   if (dryRun || !leaseToken) throw error;
-  if (error?.code === "PUBLIC_VERIFICATION_PENDING") {
+  if (["PUBLIC_VERIFICATION_PENDING", "TITLE_REPAIR_PENDING"].includes(error?.code)) {
     await postJson(REVIEW_QUEUE_URL, reviewToken, {
       action: "release",
       researchRunId: item.research_run_id,
