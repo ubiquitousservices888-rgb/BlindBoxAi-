@@ -154,8 +154,8 @@ export default function DashboardClient() {
     if (permission !== "granted") setError("Browser notifications were not enabled.");
   }
 
-  async function approveReviewVideo(videoUrl) {
-    if (!activeCode || !videoUrl || approvingReviewUrl || busy) return;
+  async function approveReviewVideo(videoUrl, researchRunId) {
+    if (!activeCode || !videoUrl || !researchRunId || approvingReviewUrl || busy) return;
     setApprovingReviewUrl(videoUrl);
     setError("");
     try {
@@ -163,7 +163,7 @@ export default function DashboardClient() {
         method: "POST",
         headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ videoUrl, youtubeAudience: "not_made_for_kids" }),
+        body: JSON.stringify({ videoUrl, researchRunId, youtubeAudience: "not_made_for_kids" }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
@@ -291,7 +291,7 @@ export default function DashboardClient() {
                 <button type="button" onClick={() => setWatchingReviewUrl(watching ? "" : item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
-                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
                   {approved ? "LAUNCH DISPATCHED" : approvingReviewUrl === item.mediaUrl ? "APPROVING + LAUNCHING…" : "BLUE APPROVE + LAUNCH"}
                 </button>
                 <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
