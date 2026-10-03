@@ -101,15 +101,33 @@ test("public video titles auto-repair launch-blocking names without inventing pr
     resolvePublicVideoTitle("3061", { researchRunId: "rv-0123456789abcdef" }),
     "BlindBoxAI Collectible Review — Item 3061",
   );
+  for (const cameraName of ["VID_20260919", "DSC_0001", "IMG_20260919_123456.MOV"]) {
+    assert.equal(
+      resolvePublicVideoTitle(cameraName, { vertical: "pokemon_tcg", researchRunId: "rv-0123456789abcdef" }),
+      "BlindBoxAI Pokémon Collectible Review — Ref abcdef",
+    );
+  }
   assert.equal(
-    resolvePublicVideoTitle("VID_20260919", { vertical: "pokemon_tcg", researchRunId: "rv-0123456789abcdef" }),
-    "BlindBoxAI Pokémon Collectible Review — Ref abcdef",
+    resolvePublicVideoTitle("", { researchRunId: "rv-0123456789abcdef" }),
+    "BlindBoxAI Collectible Review — Ref abcdef",
   );
   assert.equal(
     resolvePublicVideoTitle("Pokémon 30th: Asking Price vs Sold Price"),
     "Pokémon 30th: Asking Price vs Sold Price",
   );
   assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
+});
+
+test("Blue approval binds launch to the exact queue row and permits blank title repair", () => {
+  assert.match(dashboard, /researchRunId/);
+  assert.match(dashboard, /JSON\.stringify\(\{ videoUrl, researchRunId, youtubeAudience:/);
+  assert.match(uploadPage, /researchRunId: stageResult\?\.researchRunId/);
+  assert.doesNotMatch(uploadPage, /maxLength=\{100\} required/);
+  assert.match(approvalRoute, /\^rv-\[a-f0-9\]\{16\}\$/);
+  assert.match(approvalRoute, /Choose the YouTube audience before approval/);
+  assert.match(approvalRoute, /result\?\.research_run_id.*researchRunId/);
+  assert.match(queuedWorkflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(queuedWorkflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.publish_channel \}\}/);
 });
 
 test("new queue publishing requires explicit approval before Buffer publishing", () => {
@@ -238,11 +256,28 @@ test("review publisher sends required YouTube metadata while omitting metadata f
 });
 
 
-test("Blue approval dispatches exactly one YouTube and one TikTok live workflow run", async () => {
+test("Blue approval dispatches and approves exactly one YouTube and one TikTok production run", async () => {
   const requests = [];
+  let dispatchCount = 0;
   const fetchImpl = async (url, options = {}) => {
-    requests.push({ url: String(url), options });
-    return { ok: true, status: 204 };
+    const request = { url: String(url), options };
+    requests.push(request);
+    const method = options.method || "GET";
+    if (method === "POST" && request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")) {
+      dispatchCount += 1;
+      return jsonResponse({
+        workflow_run_id: dispatchCount === 1 ? 101 : 102,
+        html_url: `https://github.com/example/actions/runs/${dispatchCount === 1 ? 101 : 102}`,
+      });
+    }
+    if (method === "GET" && /\/actions\/runs\/(101|102)\/pending_deployments$/.test(request.url)) {
+      const runId = request.url.includes("/101/") ? 101 : 102;
+      return jsonResponse([{ environment: { id: runId + 1000, name: "social-production" }, current_user_can_approve: true }]);
+    }
+    if (method === "POST" && /\/actions\/runs\/(101|102)\/pending_deployments$/.test(request.url)) {
+      return { ok: true, status: 204, json: async () => ({}) };
+    }
+    throw new Error(`unexpected GitHub request: ${method} ${request.url}`);
   };
 
   const result = await dispatchApprovedReviewPublication({
@@ -250,16 +285,24 @@ test("Blue approval dispatches exactly one YouTube and one TikTok live workflow 
     researchRunId: "rv-0123456789abcdef",
     youtubeAudience: "not_made_for_kids",
     fetchImpl,
+    delayImpl: async () => {},
   });
 
   assert.deepEqual(result.channels, ["youtube", "tiktok"]);
-  assert.equal(requests.length, 2);
-  assert.ok(requests.every((request) => request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")));
-  const inputs = requests.map((request) => JSON.parse(request.options.body).inputs);
+  assert.equal(result.status, "dispatched_and_environment_approved");
+  assert.ok(result.runs.every((run) => run.environmentApproved === true));
+  const dispatchRequests = requests.filter((request) => request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches"));
+  assert.equal(dispatchRequests.length, 2);
+  const dispatchBodies = dispatchRequests.map((request) => JSON.parse(request.options.body));
+  assert.ok(dispatchBodies.every((body) => body.return_run_details === true));
+  const inputs = dispatchBodies.map((body) => body.inputs);
   assert.deepEqual(inputs.map((item) => item.publish_channel), ["youtube", "tiktok"]);
   assert.ok(inputs.every((item) => item.dry_run === false));
   assert.ok(inputs.every((item) => item.research_run_id === "rv-0123456789abcdef"));
   assert.ok(inputs.every((item) => item.youtube_audience === "not_made_for_kids"));
+  const approvalRequests = requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments"));
+  assert.equal(approvalRequests.length, 2);
+  assert.ok(approvalRequests.every((request) => JSON.parse(request.options.body).state === "approved"));
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {
