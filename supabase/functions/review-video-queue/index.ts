@@ -370,7 +370,7 @@ async function recordChannel(req: Request, body: any) {
   const now = new Date().toISOString();
   const patch = allDone
     ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, published_at: now, updated_at: now, last_error: null }
-    : { status: "approved", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, publishing_at: null, updated_at: now, last_error: null };
+    : { status: "publishing", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, publishing_at: leaseToken, updated_at: now, last_error: null };
 
   const { data, error } = await db.from("review_video_queue")
     .update(patch)
@@ -416,7 +416,12 @@ async function complete(req: Request, body: any) {
   }
   const now = new Date().toISOString();
   const { error } = await db.from("review_video_queue")
-    .update({ status: "failed", updated_at: now, last_error: clean(body?.error, 500) || "Publish failed" })
+    .update({
+      status: "approved",
+      publishing_at: null,
+      updated_at: now,
+      last_error: clean(body?.error, 500) || "Publish failed; row reopened for safe retry",
+    })
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
     .eq("publishing_at", leaseToken);
