@@ -10,7 +10,7 @@ import {
   resolveReviewBufferChannel,
 } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
-import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -126,9 +126,26 @@ if (!item) {
 }
 const leaseToken = dryRun ? "" : String(item.publishing_at ?? "").trim();
 try {
-  const publicTitle = requirePublicVideoTitle(item.title, { label: "review queue title", maxLength: 100 });
+  const publicTitle = resolvePublicVideoTitle(item.title, {
+    vertical: item.vertical,
+    researchRunId: item.research_run_id,
+    maxLength: 100,
+  });
   const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
   if (!dryRun) required(leaseToken, "queue lease token");
+  if (publicTitle !== String(item.title ?? "").trim()) {
+    if (dryRun) {
+      console.log(`REVIEW_QUEUE_WOULD_REPAIR_TITLE: ${publicTitle}`);
+    } else {
+      await postJson(REVIEW_QUEUE_URL, reviewToken, {
+        action: "repair_title",
+        researchRunId: item.research_run_id,
+        leaseToken,
+        title: publicTitle,
+      });
+      console.log(`REVIEW_QUEUE_TITLE_REPAIRED: ${item.research_run_id}`);
+    }
+  }
 
   const targetChannels = configuredChannels;
   const eligibleChannels = requestedChannel ? [requestedChannel] : targetChannels;
