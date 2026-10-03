@@ -4,7 +4,8 @@ import fs from "node:fs";
 import test from "node:test";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
-import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { requirePublicVideoTitle, resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { dispatchApprovedReviewPublication } from "../lib/owner-review-launch.mjs";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
@@ -27,7 +28,7 @@ const jsonResponse = (body, status = 200) => ({
 });
 
 test("staged videos have watch and per-video approval controls", () => {
-  assert.match(uploadPage, /APPROVE THIS VIDEO FOR QUEUE/);
+  assert.match(uploadPage, /BLUE APPROVE \+ LAUNCH/);
   assert.match(uploadPage, /<video src=\{result\.url\}/);
   assert.match(uploadPage, /\/api\/owner\/approve-review/);
   assert.doesNotMatch(uploadPage, /APPROVE & LAUNCH ALL READY VIDEOS/);
@@ -95,13 +96,40 @@ test("manual upload script parses and rejects an unreviewed YouTube audience bef
   assert.doesNotMatch(result.stderr, /SyntaxError|fetch failed/);
 });
 
-test("public video titles reject numeric internal IDs", () => {
-  assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
-  assert.throws(() => requirePublicVideoTitle("VID_20260919"), /must describe the video/);
+test("public video titles auto-repair launch-blocking names without inventing product facts", () => {
   assert.equal(
-    requirePublicVideoTitle("Pokémon 30th: Asking Price vs Sold Price"),
+    resolvePublicVideoTitle("3061", { researchRunId: "rv-0123456789abcdef" }),
+    "BlindBoxAI Collectible Review — Item 3061",
+  );
+  for (const cameraName of ["VID_20260919", "DSC_0001", "IMG_20260919_123456.MOV"]) {
+    assert.equal(
+      resolvePublicVideoTitle(cameraName, { vertical: "pokemon_tcg", researchRunId: "rv-0123456789abcdef" }),
+      "BlindBoxAI Pokémon Collectible Review — Ref abcdef",
+    );
+  }
+  assert.equal(
+    resolvePublicVideoTitle("", { researchRunId: "rv-0123456789abcdef" }),
+    "BlindBoxAI Collectible Review — Ref abcdef",
+  );
+  assert.equal(
+    resolvePublicVideoTitle("Pokémon 30th: Asking Price vs Sold Price"),
     "Pokémon 30th: Asking Price vs Sold Price",
   );
+  assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
+  assert.throws(() => requirePublicVideoTitle("DSC_0001"), /must describe the video/);
+  assert.throws(() => requirePublicVideoTitle("IMG_20260919_123456.MOV"), /must describe the video/);
+});
+
+test("Blue approval binds launch to the exact queue row and permits blank title repair", () => {
+  assert.match(dashboard, /researchRunId/);
+  assert.match(dashboard, /JSON\.stringify\(\{ videoUrl, researchRunId, youtubeAudience:/);
+  assert.match(uploadPage, /researchRunId: stageResult\?\.researchRunId/);
+  assert.doesNotMatch(uploadPage, /maxLength=\{100\} required/);
+  assert.match(approvalRoute, /\^rv-\[a-f0-9\]\{16\}\$/);
+  assert.match(approvalRoute, /Choose the YouTube audience before approval/);
+  assert.match(approvalRoute, /result\?\.research_run_id.*researchRunId/);
+  assert.match(queuedWorkflow, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(queuedWorkflow, /group:\s*publish-approved-review-videos-\$\{\{ inputs\.research_run_id \}\}/);
 });
 
 test("new queue publishing requires explicit approval before Buffer publishing", () => {
@@ -109,6 +137,7 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(stageRoute, /action:\s*"stage"/);
   assert.match(approvalRoute, /review-video-queue/);
   assert.match(approvalRoute, /action:\s*"approve"/);
+  assert.match(approvalRoute, /dispatchApprovedReviewPublication/);
   assert.match(queuedWorkflow, /id-token:\s*write/);
   assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
   assert.match(queuedPublisher, /action:\s*dryRun\s*\?\s*"peek"\s*:\s*"claim"/);
@@ -228,6 +257,52 @@ test("review publisher sends required YouTube metadata while omitting metadata f
   assert.doesNotMatch(createRequests[0].query, /PostInputMetaData/);
 });
 
+
+test("Blue approval dispatches one serialized YouTube + TikTok production run", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options = {}) => {
+    const request = { url: String(url), options };
+    requests.push(request);
+    const method = options.method || "GET";
+    if (method === "POST" && request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")) {
+      return jsonResponse({
+        workflow_run_id: 101,
+        html_url: "https://github.com/example/actions/runs/101",
+      });
+    }
+    if (method === "GET" && request.url.endsWith("/actions/runs/101/pending_deployments")) {
+      return jsonResponse([{ environment: { id: 1101, name: "social-production" }, current_user_can_approve: true }]);
+    }
+    if (method === "POST" && request.url.endsWith("/actions/runs/101/pending_deployments")) {
+      return { ok: true, status: 204, json: async () => ({}) };
+    }
+    throw new Error(`unexpected GitHub request: ${method} ${request.url}`);
+  };
+
+  const result = await dispatchApprovedReviewPublication({
+    token: "masked-test-token",
+    researchRunId: "rv-0123456789abcdef",
+    youtubeAudience: "not_made_for_kids",
+    fetchImpl,
+    delayImpl: async () => {},
+  });
+
+  assert.deepEqual(result.channels, ["youtube", "tiktok"]);
+  assert.equal(result.status, "dispatched_and_environment_approved");
+  assert.equal(result.run.environmentApproved, true);
+  const dispatchRequests = requests.filter((request) => request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches"));
+  assert.equal(dispatchRequests.length, 1);
+  const dispatchBody = JSON.parse(dispatchRequests[0].options.body);
+  assert.equal(dispatchBody.return_run_details, true);
+  assert.equal(dispatchBody.inputs.publish_channel, "all");
+  assert.equal(dispatchBody.inputs.dry_run, false);
+  assert.equal(dispatchBody.inputs.research_run_id, "rv-0123456789abcdef");
+  assert.equal(dispatchBody.inputs.youtube_audience, "not_made_for_kids");
+  const approvalRequests = requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments"));
+  assert.equal(approvalRequests.length, 1);
+  assert.equal(JSON.parse(approvalRequests[0].options.body).state, "approved");
+});
+
 test("successful queued publishing is linked into the public homepage feed", () => {
   assert.match(queuedPublisher, /published-video-feed/);
   assert.match(queuedPublisher, /blindboxai-video-publisher/);
@@ -240,7 +315,7 @@ test("successful queued publishing is linked into the public homepage feed", () 
 
 test("review staging route forwards only approved client fields", () => {
   assert.doesNotMatch(stageRoute, /\.\.\.body/);
-  assert.match(stageRoute, /publicTitle = requirePublicVideoTitle\(body\?\.title/);
+  assert.match(stageRoute, /publicTitle = resolvePublicVideoTitle\(body\?\.title/);
   assert.match(stageRoute, /title: publicTitle/);
   assert.match(stageRoute, /assertYoutubeShortsMetadata\(body\)/);
   assert.match(stageRoute, /typeof value === "number" && Number\.isFinite\(value\)/);

@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
 import { createHash } from "node:crypto";
 import { collectPaginatedRows, REVIEW_QUEUE_OVERFLOW_ERROR } from "../_shared/review-queue-pagination.mjs";
+import { isPublicVideoTitle } from "../_shared/public-video-title.mjs";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -312,6 +313,26 @@ async function claim(req: Request, body: any) {
   if (claimError) return json({ error: "Queue claim failed" }, 500);
   return json({ ok: true, item: claimed || null });
 }
+async function repairTitle(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40);
+  const leaseToken = leaseTokenFrom(body);
+  const title = clean(body?.title, 100);
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
+  if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
+  if (!isPublicVideoTitle(title)) return json({ error: "Invalid repaired public title" }, 400);
+
+  const { data, error } = await db.from("review_video_queue")
+    .update({ title, updated_at: new Date().toISOString(), last_error: null })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .select("research_run_id,title,status,publishing_at")
+    .maybeSingle();
+  if (error) return json({ error: "Queue title repair failed" }, 500);
+  if (!data) return json({ error: "Queue title repair lost its publishing lease" }, 409);
+  return json({ ok: true, item: data });
+}
 function leaseTokenFrom(body: any) {
   const token = clean(body?.leaseToken, 40);
   return token && !Number.isNaN(Date.parse(token)) ? token : "";
@@ -349,7 +370,7 @@ async function recordChannel(req: Request, body: any) {
   const now = new Date().toISOString();
   const patch = allDone
     ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, published_at: now, updated_at: now, last_error: null }
-    : { status: "approved", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, publishing_at: null, updated_at: now, last_error: null };
+    : { status: "publishing", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, publishing_at: leaseToken, updated_at: now, last_error: null };
 
   const { data, error } = await db.from("review_video_queue")
     .update(patch)
@@ -395,7 +416,12 @@ async function complete(req: Request, body: any) {
   }
   const now = new Date().toISOString();
   const { error } = await db.from("review_video_queue")
-    .update({ status: "failed", updated_at: now, last_error: clean(body?.error, 500) || "Publish failed" })
+    .update({
+      status: "approved",
+      publishing_at: null,
+      updated_at: now,
+      last_error: clean(body?.error, 500) || "Publish failed; row reopened for safe retry",
+    })
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
     .eq("publishing_at", leaseToken);
@@ -414,6 +440,7 @@ Deno.serve(async (req: Request) => {
   if (action === "delete") return deleteReview(req, body);
   if (action === "peek") return peek(req, body);
   if (action === "claim") return claim(req, body);
+  if (action === "repair_title") return repairTitle(req, body);
   if (action === "record_channel") return recordChannel(req, body);
   if (action === "release") return release(req, body);
   if (action === "complete") return complete(req, body);

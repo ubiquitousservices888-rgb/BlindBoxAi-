@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { requirePublicVideoTitle } from "../../lib/public-video-title.mjs";
+import { resolvePublicVideoTitle } from "../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
@@ -126,14 +126,14 @@ async function stageForResearch({ accessCode, blob, title, file, metadata }) {
   return body;
 }
 
-async function approveVideo({ accessCode, videoUrl }) {
+async function approveVideo({ accessCode, videoUrl, researchRunId }) {
   const response = await fetch("/api/owner/approve-review", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ videoUrl }),
+    body: JSON.stringify({ videoUrl, researchRunId, youtubeAudience: "not_made_for_kids" }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
@@ -176,7 +176,7 @@ export default function MediaUploadForm() {
     setBusy(true);
     setError("");
     try {
-      await approveVideo({ accessCode, videoUrl: result.url });
+      await approveVideo({ accessCode, videoUrl: result.url, researchRunId: stageResult?.researchRunId });
       setApproved(true);
       setStatus("approved");
       setAccessCode("");
@@ -198,11 +198,8 @@ export default function MediaUploadForm() {
     if (!file) return setError("Choose an MP4 video first.");
     if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) return setError("Only MP4 video files are allowed.");
     if (file.size <= 0 || file.size > MAX_VIDEO_SIZE) return setError("Video must be larger than 0 bytes and no more than 100 MB.");
-    try {
-      requirePublicVideoTitle(title, { label: "Video title" });
-    } catch (cause) {
-      return setError(cause.message);
-    }
+    const repairedTitle = resolvePublicVideoTitle(title, { maxLength: 100 });
+    if (repairedTitle !== title) setTitle(repairedTitle);
 
     setBusy(true);
     setProgress(0);
@@ -224,7 +221,7 @@ export default function MediaUploadForm() {
       uploadedBlob = blob;
       setResult(blob);
 
-      const payload = { blob, title: title.trim().slice(0, 100), file, metadata };
+      const payload = { blob, title: repairedTitle, file, metadata };
       setStagingPayload(payload);
       setStatus("staging");
       const staged = await stageForResearch({ accessCode, ...payload });
@@ -264,7 +261,7 @@ export default function MediaUploadForm() {
 
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Research title</strong>
-        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} required disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
+        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
@@ -306,10 +303,10 @@ export default function MediaUploadForm() {
               <p>Research campaign: <code>{stageResult.campaignId}</code></p>
               {!approved ? (
                 <button type="button" disabled={busy || !accessCode} onClick={approveCurrentVideo} style={{ padding: 14, fontWeight: 800, background: "#2563eb", color: "white", border: 0, borderRadius: 8 }}>
-                  APPROVE THIS VIDEO FOR QUEUE
+                  BLUE APPROVE + LAUNCH
                 </button>
               ) : (
-                <p role="status"><strong>APPROVED.</strong> This exact video is queued for a separate manual GitHub publishing run after the channel and media checks.</p>
+                <p role="status"><strong>APPROVED + LAUNCH DISPATCHED.</strong> YouTube and TikTok are now handled automatically. YouTube audience: not made for kids.</p>
               )}
             </>
           ) : stagingPayload ? (
