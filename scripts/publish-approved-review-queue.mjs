@@ -111,7 +111,7 @@ if (!dryRun && !requestedChannel) {
 const reviewToken = await getGithubOidcToken(REVIEW_OIDC_AUDIENCE);
 const queueResult = await postJson(REVIEW_QUEUE_URL, reviewToken, {
   action: dryRun ? "peek" : "claim",
-  channel: requestedChannel || undefined,
+  channel: publishAllChannels ? undefined : requestedChannel || undefined,
   researchRunId: requestedRunId || undefined,
 });
 const item = queueResult?.item;
