@@ -4,7 +4,8 @@ import fs from "node:fs";
 import test from "node:test";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
-import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { requirePublicVideoTitle, resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { dispatchApprovedReviewPublication } from "../lib/owner-review-launch.mjs";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
@@ -27,7 +28,7 @@ const jsonResponse = (body, status = 200) => ({
 });
 
 test("staged videos have watch and per-video approval controls", () => {
-  assert.match(uploadPage, /APPROVE THIS VIDEO FOR QUEUE/);
+  assert.match(uploadPage, /BLUE APPROVE \+ LAUNCH/);
   assert.match(uploadPage, /<video src=\{result\.url\}/);
   assert.match(uploadPage, /\/api\/owner\/approve-review/);
   assert.doesNotMatch(uploadPage, /APPROVE & LAUNCH ALL READY VIDEOS/);
@@ -95,13 +96,20 @@ test("manual upload script parses and rejects an unreviewed YouTube audience bef
   assert.doesNotMatch(result.stderr, /SyntaxError|fetch failed/);
 });
 
-test("public video titles reject numeric internal IDs", () => {
-  assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
-  assert.throws(() => requirePublicVideoTitle("VID_20260919"), /must describe the video/);
+test("public video titles auto-repair launch-blocking names without inventing product facts", () => {
   assert.equal(
-    requirePublicVideoTitle("Pokémon 30th: Asking Price vs Sold Price"),
+    resolvePublicVideoTitle("3061", { researchRunId: "rv-0123456789abcdef" }),
+    "BlindBoxAI Collectible Review — Item 3061",
+  );
+  assert.equal(
+    resolvePublicVideoTitle("VID_20260919", { vertical: "pokemon_tcg", researchRunId: "rv-0123456789abcdef" }),
+    "BlindBoxAI Pokémon Collectible Review — Ref abcdef",
+  );
+  assert.equal(
+    resolvePublicVideoTitle("Pokémon 30th: Asking Price vs Sold Price"),
     "Pokémon 30th: Asking Price vs Sold Price",
   );
+  assert.throws(() => requirePublicVideoTitle("3061"), /must describe the video/);
 });
 
 test("new queue publishing requires explicit approval before Buffer publishing", () => {
@@ -109,6 +117,7 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(stageRoute, /action:\s*"stage"/);
   assert.match(approvalRoute, /review-video-queue/);
   assert.match(approvalRoute, /action:\s*"approve"/);
+  assert.match(approvalRoute, /dispatchApprovedReviewPublication/);
   assert.match(queuedWorkflow, /id-token:\s*write/);
   assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
   assert.match(queuedPublisher, /action:\s*dryRun\s*\?\s*"peek"\s*:\s*"claim"/);
@@ -240,7 +249,7 @@ test("successful queued publishing is linked into the public homepage feed", () 
 
 test("review staging route forwards only approved client fields", () => {
   assert.doesNotMatch(stageRoute, /\.\.\.body/);
-  assert.match(stageRoute, /publicTitle = requirePublicVideoTitle\(body\?\.title/);
+  assert.match(stageRoute, /publicTitle = resolvePublicVideoTitle\(body\?\.title/);
   assert.match(stageRoute, /title: publicTitle/);
   assert.match(stageRoute, /assertYoutubeShortsMetadata\(body\)/);
   assert.match(stageRoute, /typeof value === "number" && Number\.isFinite\(value\)/);
