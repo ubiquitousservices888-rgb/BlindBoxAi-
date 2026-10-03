@@ -16,6 +16,9 @@ const ALLOWED_WORKFLOWS = new Set([
 ]);
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const OWNER_GATED_SUBJECT = `repo:${GITHUB_REPOSITORY}:environment:social-production`;
+const REVIEW_PUBLISHER_WORKFLOW_REF =
+  `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`;
+const OWNER_GITHUB_ACTOR = "ubiquitousservices888-rgb";
 
 function hasOwnerGate(payload: Record<string, unknown>) {
   return String(payload.environment || "") === "social-production" ||
@@ -42,6 +45,9 @@ async function authorized(req: Request) {
     const { payload } = await jwtVerify(token, githubJwks, { issuer: GITHUB_ISSUER, audience: GITHUB_AUDIENCE });
     const workflowRef = String(payload.workflow_ref || "");
     if (payload.repository !== GITHUB_REPOSITORY || payload.ref !== "refs/heads/main" || !ALLOWED_WORKFLOWS.has(workflowRef)) return false;
+    if (workflowRef === REVIEW_PUBLISHER_WORKFLOW_REF) {
+      return payload.event_name === "workflow_dispatch" && String(payload.actor || "") === OWNER_GITHUB_ACTOR;
+    }
     if (!hasOwnerGate(payload as Record<string, unknown>)) return false;
     if (workflowRef.endsWith("/autonomous-video.yml@refs/heads/main") && payload.event_name !== "workflow_dispatch") return false;
     return true;
