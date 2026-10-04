@@ -25,7 +25,7 @@ function fixture(t) {
   ].join("\n"));
   write(root, "README.md", "Governance: see AGENTS.md.\n");
   write(root, "docs/CONTEXT_TRANSFER.md", "Use the state vocabulary defined in AGENTS.md.\n");
-  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn is not an active production target.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
+  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nSpecialist path: hair-salon-owner-approval.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn is not an active production target.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
   write(root, ".github/workflows/publish-approved-reviews.yml", [
     "name: Publish approved review videos",
     "on:",

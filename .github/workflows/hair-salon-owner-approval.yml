@@ -5,11 +5,9 @@ on:
     branches: [main]
     paths:
       - .github/workflows/hair-salon-owner-approval.yml
-  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: hair-salon-owner-approval
@@ -18,19 +16,29 @@ concurrency:
 jobs:
   prepare:
     name: Verify exact MP4 and stage approved review media
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       video_url: ${{ steps.stage.outputs.video_url }}
     env:
       SOURCE_VIDEO_URL: https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4
       EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
       EXPECTED_SIZE: "121797"
-      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify immutable main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -67,6 +75,8 @@ jobs:
       - name: Stage exact MP4 in approved Vercel Blob review namespace
         id: stage
         shell: bash
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
@@ -83,7 +93,8 @@ jobs:
             bytes,
             {
               access: "public",
-              addRandomSuffix: true,
+              addRandomSuffix: false,
+              allowOverwrite: true,
               contentType: "video/mp4",
               multipart: true,
               token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -110,8 +121,12 @@ jobs:
 
   publish-after-owner-approval:
     name: Blue approval → YouTube + TikTok → live verification
+    if: github.ref == 'refs/heads/main'
     needs: prepare
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     environment:
       name: social-production
       url: ${{ needs.prepare.outputs.video_url }}
@@ -122,14 +137,20 @@ jobs:
       DRY_RUN: "false"
       YOUTUBE_AUDIENCE: not_made_for_kids
       VIDEO_CHANNELS: youtube,tiktok
-      BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
       PUBLISHED_VIDEO_FEED_URL: https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify immutable main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -141,6 +162,9 @@ jobs:
         run: npm ci
 
       - name: Verify publishing configuration
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
         run: |
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
             echo "::error::Buffer production configuration is incomplete."
@@ -148,4 +172,7 @@ jobs:
           fi
 
       - name: Publish exact owner-approved video and require verified public URLs
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
         run: node scripts/publish-reviewed-upload.mjs
