@@ -25,7 +25,7 @@ function fixture(t) {
   ].join("\n"));
   write(root, "README.md", "Governance: see AGENTS.md.\n");
   write(root, "docs/CONTEXT_TRANSFER.md", "Use the state vocabulary defined in AGENTS.md.\n");
-  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn is not an active production target.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
+  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nSpecialist path: hair-salon-owner-approval.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn is not an active production target.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
   write(root, ".github/workflows/publish-approved-reviews.yml", [
     "name: Publish approved review videos",
     "on:",
@@ -41,6 +41,7 @@ function fixture(t) {
     "      VIDEO_CHANNELS: youtube,tiktok",
     "",
   ].join("\n"));
+  write(root, ".github/workflows/hair-salon-owner-approval.yml", "name: Hair Salon verified video — owner approval only\n");
   write(root, ".github/workflows/manual-reviewed-video.yml", [
     "name: Manual reviewed video",
     "on:",
@@ -138,4 +139,25 @@ test("missing owner eBay OAuth state fails", (t) => {
   const result = run(root);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /must record the owner eBay OAuth merge/);
+});
+
+
+test("missing Hair Salon specialist path state fails", (t) => {
+  const root = fixture(t);
+  const file = path.join(root, "docs/CURRENT_STATE.md");
+  fs.writeFileSync(
+    file,
+    fs.readFileSync(file, "utf8").replace("Specialist path: hair-salon-owner-approval.yml\n", ""),
+  );
+  const result = run(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must name the Hair Salon reviewed-video specialist path/);
+});
+
+test("missing Hair Salon workflow file fails", (t) => {
+  const root = fixture(t);
+  fs.rmSync(path.join(root, ".github/workflows/hair-salon-owner-approval.yml"));
+  const result = run(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /\.github\/workflows\/hair-salon-owner-approval\.yml: file missing/);
 });

@@ -50,6 +50,12 @@ The actual Buffer connection, channel name, content provenance, an owner Made-fo
 
 This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. A live YouTube run requires the owner to choose `youtube_audience` explicitly; the default `unreviewed` value fails closed. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
 
+### Hair Salon verified one-approval upload
+
+`.github/workflows/hair-salon-owner-approval.yml`
+
+This is an **ACTIVE SPECIALIST** one-video path for the already-reviewed Hair Salon MP4. It starts only from a push to `main` that changes this workflow; there is no caller-selectable `workflow_dispatch`. Both jobs fail closed unless `github.ref` is `refs/heads/main`, both check out the immutable triggering SHA before credential-bearing steps, and production credentials are step-scoped. The exact release asset is re-verified by byte size, SHA-256, duration, and 720×1280 dimensions, then staged at a content-addressed `media/review/sha256-<digest>.mp4` Vercel Blob pathname with overwrite disabled. Reruns reuse that same blob only after downloading it and proving the bytes still match the pinned digest and size, so identical reruns do not accumulate copies while future content gets a different URL. After owner approval, the publish job downloads the approved staged URL again and re-checks the pinned size and SHA-256 before any Buffer credential is exposed. Publishing remains behind the `social-production` owner approval and targets exactly YouTube + TikTok with `not_made_for_kids` for this reviewed video.
+
 ### Verified-product render pipeline
 
 `.github/workflows/autonomous-video.yml`

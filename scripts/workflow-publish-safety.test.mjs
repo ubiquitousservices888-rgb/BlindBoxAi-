@@ -75,3 +75,31 @@ test("no workflow may orchestrate or loop the approved-review publisher", () => 
 
   assert.deepEqual(offenders, []);
 });
+
+
+test("Hair Salon one-approval workflow is main-only, immutable, and bounded", () => {
+  const text = source("hair-salon-owner-approval.yml");
+
+  assert.match(text, /push:\s*\n\s+branches:\s*\[main\]/);
+  assert.doesNotMatch(text, /^\s{2}workflow_dispatch:\s*$/m);
+  assert.equal(
+    (text.match(/^\s{4}if:\s*github\.ref == 'refs\/heads\/main'\s*$/gm) || []).length,
+    2,
+  );
+  assert.equal(
+    (text.match(/^\s{10}ref:\s*\$\{\{ github\.sha \}\}\s*$/gm) || []).length,
+    2,
+  );
+  assert.doesNotMatch(text, /^\s{6}BLOB_READ_WRITE_TOKEN:\s*\$\{\{ secrets\./m);
+  assert.doesNotMatch(text, /^\s{6}BUFFER_API_TOKEN:\s*\$\{\{ secrets\./m);
+  assert.match(text, /media\/review\/sha256-/);
+  assert.match(text, /addRandomSuffix:\s*false/);
+  assert.match(text, /allowOverwrite:\s*false/);
+  assert.match(text, /Re-verify approved staged MP4 before publishing/);
+  assert.match(text, /AbortSignal\.timeout\(30_000\)/);
+  assert.ok((text.match(/--max-time 60/g) || []).length >= 3);
+  assert.equal((text.match(/timeout-minutes:\s*15/g) || []).length, 2);
+  assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
+  assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+});
