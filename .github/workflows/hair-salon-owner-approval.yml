@@ -132,7 +132,8 @@ jobs:
 
               if (response?.ok) return { response, body };
               const revisionPending =
-                response?.status === 409 && body?.error === "production_revision_not_ready";
+                (response?.status === 409 && body?.error === "production_revision_not_ready") ||
+                (response?.status === 401 && body?.error === "github_oidc_required");
               if (!revisionPending) return { response, body };
 
               const sleepMs = Math.min(5000, deadline - Date.now());
@@ -160,63 +161,74 @@ jobs:
 
           const videoUrl = String(upload.body.videoUrl || "");
           const path = String(upload.body.path || "");
-          if (!/^https:\/\/lazzdoadoqzrzlarerfx\.supabase\.co\/storage\/v1\/object\/public\/blindboxai-review-videos\/media\/review\/[a-zA-Z0-9._-]+\.mp4$/.test(videoUrl)) {
-            throw new Error("Canonical upload returned an unapproved Supabase media URL");
-          }
-          if (!/^media\/review\/[a-zA-Z0-9._-]+\.mp4$/.test(path)) {
-            throw new Error("Canonical upload returned an invalid Supabase storage path");
+          const created = upload.body?.created === true;
+          const expectedPath = `media/review/sha256-${expectedSha}.mp4`;
+          const expectedVideoUrl =
+            `https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/${expectedPath}`;
+
+          if (path !== expectedPath || videoUrl !== expectedVideoUrl) {
+            throw new Error("Canonical upload did not return the content-addressed Hair Salon Supabase URL");
           }
 
-          const canonicalResponse = await fetch(videoUrl, {
-            cache: "no-store",
-            headers: { "cache-control": "no-cache" },
-            signal: AbortSignal.timeout(30_000),
-          });
-          if (!canonicalResponse.ok) throw new Error(`Canonical Supabase fetch failed: ${canonicalResponse.status}`);
-          const canonicalBytes = Buffer.from(await canonicalResponse.arrayBuffer());
-          const canonicalSha = createHash("sha256").update(canonicalBytes).digest("hex");
-          if (canonicalBytes.byteLength !== expectedSize || canonicalSha !== expectedSha) {
-            throw new Error("Canonical Supabase object does not match the verified Hair Salon source");
-          }
+          try {
+            const canonicalResponse = await fetch(videoUrl, {
+              cache: "no-store",
+              headers: { "cache-control": "no-cache" },
+              signal: AbortSignal.timeout(30_000),
+            });
+            if (!canonicalResponse.ok) throw new Error(`Canonical Supabase fetch failed: ${canonicalResponse.status}`);
+            const canonicalBytes = Buffer.from(await canonicalResponse.arrayBuffer());
+            const canonicalSha = createHash("sha256").update(canonicalBytes).digest("hex");
+            if (canonicalBytes.byteLength !== expectedSize || canonicalSha !== expectedSha) {
+              throw new Error("Canonical Supabase object does not match the verified Hair Salon source");
+            }
 
-          const staged = await request({
-            action: "stage",
-            videoUrl,
-            path,
-            title: process.env.REVIEWED_VIDEO_TITLE,
-            sha256: canonicalSha,
-            sizeBytes: canonicalBytes.byteLength,
-            durationSeconds,
-            width,
-            height,
-          }, 60000);
+            const staged = await request({
+              action: "stage",
+              videoUrl,
+              path,
+              title: process.env.REVIEWED_VIDEO_TITLE,
+              sha256: canonicalSha,
+              sizeBytes: canonicalBytes.byteLength,
+              durationSeconds,
+              width,
+              height,
+            }, 60000);
 
-          if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
-            throw new Error(
-              `Supabase review staging failed: ${staged.response?.status || 0} ${staged.body?.error || "unknown"}`,
-            );
-          }
+            if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
+              throw new Error(
+                `Supabase review staging failed: ${staged.response?.status || 0} ${staged.body?.error || "unknown"}`,
+              );
+            }
 
-          const researchRunId = String(staged.body.researchRunId || "");
-          const campaignId = String(staged.body.campaignId || "");
-          if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
-            throw new Error("Supabase review staging returned an invalid researchRunId");
-          }
-          if (campaignId !== `bb-${researchRunId}`) {
-            throw new Error("Supabase review staging returned an invalid campaignId");
-          }
+            const researchRunId = String(staged.body.researchRunId || "");
+            const campaignId = String(staged.body.campaignId || "");
+            if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
+              throw new Error("Supabase review staging returned an invalid researchRunId");
+            }
+            if (campaignId !== `bb-${researchRunId}`) {
+              throw new Error("Supabase review staging returned an invalid campaignId");
+            }
 
-          const output = process.env.GITHUB_OUTPUT;
-          await import("node:fs").then(({ appendFileSync }) => {
-            appendFileSync(
-              output,
-              `video_url=${videoUrl}\nresearch_run_id=${researchRunId}\ncampaign_id=${campaignId}\n`,
-            );
-            appendFileSync(
-              process.env.GITHUB_STEP_SUMMARY,
-              `## Ready for owner approval\n\n[Watch the canonical Supabase MP4](${videoUrl})\n\nResearch run: ${researchRunId}\n\nCampaign: ${campaignId}\n\nExact SHA-256 verified before READY_FOR_REVIEW. Publishing remains blocked behind **social-production**.\n`,
-            );
-          });
+            const output = process.env.GITHUB_OUTPUT;
+            await import("node:fs").then(({ appendFileSync }) => {
+              appendFileSync(
+                output,
+                `video_url=${videoUrl}\nresearch_run_id=${researchRunId}\ncampaign_id=${campaignId}\n`,
+              );
+              appendFileSync(
+                process.env.GITHUB_STEP_SUMMARY,
+                `## Ready for owner approval\n\n[Watch the canonical Supabase MP4](${videoUrl})\n\nResearch run: ${researchRunId}\n\nCampaign: ${campaignId}\n\nExact SHA-256 verified before READY_FOR_REVIEW. Publishing remains blocked behind **social-production**.\n`,
+              );
+            });
+          } catch (error) {
+            if (created) {
+              try {
+                await request({ action: "cleanup", videoUrl, path }, 15000);
+              } catch {}
+            }
+            throw error;
+          }
           NODE
 
   publish-after-owner-approval:
@@ -262,6 +274,39 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Ensure ffprobe is available for canonical publisher
+        shell: bash
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffprobe >/dev/null 2>&1
+
+      - name: Preflight Buffer destinations before approving queue row
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { resolveReviewBufferChannel } from "./lib/buffer-review-publisher.mjs";
+
+          if (!process.env.BUFFER_API_TOKEN || !process.env.BUFFER_ORGANIZATION_ID) {
+            throw new Error("Buffer production configuration is incomplete");
+          }
+
+          for (const channel of ["youtube", "tiktok"]) {
+            const target = await resolveReviewBufferChannel({
+              token: process.env.BUFFER_API_TOKEN,
+              organizationId: process.env.BUFFER_ORGANIZATION_ID,
+              channel,
+            });
+            if (!target?.channelId) throw new Error(`${channel}: Buffer destination is unavailable`);
+            console.log(`BUFFER_PREFLIGHT_OK=${channel}`);
+          }
+          NODE
 
       - name: Re-verify exact Supabase object after Blue approval
         shell: bash
@@ -316,17 +361,6 @@ jobs:
             throw new Error("Approved research ID does not match the reviewed Supabase asset");
           }
           NODE
-
-      - name: Verify Buffer production configuration
-        env:
-          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
-        shell: bash
-        run: |
-          if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
-            echo "::error::Buffer production configuration is incomplete."
-            exit 1
-          fi
 
       - name: Publish and verify YouTube
         env:
