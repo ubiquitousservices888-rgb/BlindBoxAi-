@@ -527,10 +527,15 @@ export async function POST(request) {
       if (stagedResearchRunId) {
         await cleanupStagedReview(origin, ownerCode, stagedResearchRunId);
       }
-      const storageCleanupCompleted = await cleanupStorageObject(ownerCode, path);
+      // Hair Salon uses a shared content-addressed canonical object. A retry can
+      // stage an object created by an earlier successful run, so never delete
+      // that shared object from the stage error path.
+      const storageCleanupCompleted = hairSalonWorkflow
+        ? false
+        : await cleanupStorageObject(ownerCode, path);
       return json({
         error: error instanceof Error ? error.message : "render_staging_failed",
-        cleanupAttempted: true,
+        cleanupAttempted: !hairSalonWorkflow,
         storageCleanupCompleted,
       }, 502);
     }
