@@ -15,24 +15,29 @@ concurrency:
 
 jobs:
   prepare:
-    name: Verify exact MP4 and stage approved review media
+    name: Verify exact MP4 and stage in canonical Supabase review queue
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
+      id-token: write
     outputs:
-      video_url: ${{ steps.stage.outputs.video_url }}
+      video_url: \${{ steps.stage.outputs.video_url }}
+      research_run_id: \${{ steps.stage.outputs.research_run_id }}
+      campaign_id: \${{ steps.stage.outputs.campaign_id }}
     env:
       SOURCE_VIDEO_URL: https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4
+      REVIEWED_VIDEO_TITLE: THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box
       EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
       EXPECTED_SIZE: "121797"
+      STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
     steps:
-      - name: Checkout
+      - name: Checkout immutable main revision
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          ref: ${{ github.sha }}
+          ref: \${{ github.sha }}
 
       - name: Verify immutable main revision
         shell: bash
@@ -41,25 +46,21 @@ jobs:
           test "$GITHUB_REF" = "refs/heads/main"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci
-
       - name: Install ffprobe
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ffmpeg
 
       - name: Download and verify exact source asset
+        id: source
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --silent --show-error --connect-timeout 15 --max-time 60 "$SOURCE_VIDEO_URL" --output hair-salon.mp4
+          curl --fail --location --silent --show-error \
+            --connect-timeout 15 --max-time 60 \
+            "$SOURCE_VIDEO_URL" \
+            --output hair-salon.mp4
+
           test "$(stat -c %s hair-salon.mp4)" = "$EXPECTED_SIZE"
           printf '%s  %s\n' "$EXPECTED_SHA256" "hair-salon.mp4" | sha256sum --check -
 
@@ -73,108 +74,180 @@ jobs:
             if (width !== 720 || height !== 1280) throw new Error("Video dimensions changed from verified 720x1280");
           ' "$duration" "$width" "$height"
 
-      - name: Stage exact MP4 in approved Vercel Blob review namespace
+          {
+            echo "duration=$duration"
+            echo "width=$width"
+            echo "height=$height"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload exact asset to Supabase and stage READY_FOR_REVIEW
         id: stage
-        shell: bash
         env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          SOURCE_DURATION: \${{ steps.source.outputs.duration }}
+          SOURCE_WIDTH: \${{ steps.source.outputs.width }}
+          SOURCE_HEIGHT: \${{ steps.source.outputs.height }}
+        shell: bash
         run: |
-          set -euo pipefail
-          if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
-            echo "::error::BLOB_READ_WRITE_TOKEN is not configured."
-            exit 1
-          fi
           node --input-type=module <<'NODE'
           import { createHash } from "node:crypto";
-          import fs from "node:fs";
-          import { list, put } from "@vercel/blob";
 
-          const bytes = fs.readFileSync("hair-salon.mp4");
           const expectedSha = process.env.EXPECTED_SHA256;
           const expectedSize = Number(process.env.EXPECTED_SIZE);
-          const pathname = `media/review/sha256-${expectedSha}.mp4`;
-          const token = process.env.BLOB_READ_WRITE_TOKEN;
+          const durationSeconds = Number(process.env.SOURCE_DURATION);
+          const width = Number(process.env.SOURCE_WIDTH);
+          const height = Number(process.env.SOURCE_HEIGHT);
 
-          const page = await list({
-            prefix: pathname,
-            limit: 100,
-            token,
+          const oidcUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          oidcUrl.searchParams.set("audience", "blindboxai-autonomous-render-stage");
+          const oidcResponse = await fetch(oidcUrl, {
+            headers: { Authorization: \`Bearer \${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}\` },
+            signal: AbortSignal.timeout(15_000),
           });
-          const existing = page.blobs.find((blob) => blob.pathname === pathname);
+          if (!oidcResponse.ok) throw new Error(\`GitHub OIDC request failed: \${oidcResponse.status}\`);
+          const oidcBody = await oidcResponse.json();
+          const token = String(oidcBody?.value || "");
+          if (!token) throw new Error("GitHub OIDC token response was empty");
 
-          let result;
-          if (existing) {
-            const response = await fetch(existing.url, {
-              cache: "no-store",
-              headers: { "cache-control": "no-cache" },
-              signal: AbortSignal.timeout(30_000),
-            });
-            if (!response.ok) throw new Error(`Existing staged Blob fetch failed: ${response.status}`);
-            const existingBytes = Buffer.from(await response.arrayBuffer());
-            const existingSha = createHash("sha256").update(existingBytes).digest("hex");
-            if (existingBytes.byteLength !== expectedSize || existingSha !== expectedSha) {
-              throw new Error("Existing content-addressed review Blob does not match the verified source");
+          async function request(payload, maxWaitMs = 240000) {
+            const deadline = Date.now() + maxWaitMs;
+            let response = null;
+            let body = {};
+            while (Date.now() < deadline) {
+              const remainingMs = deadline - Date.now();
+              try {
+                response = await fetch(process.env.STAGE_RENDER_URL, {
+                  method: "POST",
+                  headers: {
+                    Authorization: \`Bearer \${token}\`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(payload),
+                  signal: AbortSignal.timeout(Math.max(1, Math.min(15_000, remainingMs))),
+                });
+                body = await response.json().catch(() => ({}));
+              } catch (error) {
+                response = null;
+                body = { error: error?.name === "TimeoutError" ? "request_timeout" : "request_failed" };
+              }
+
+              if (response?.ok) return { response, body };
+              const revisionPending =
+                response?.status === 409 && body?.error === "production_revision_not_ready";
+              if (!revisionPending) return { response, body };
+
+              const sleepMs = Math.min(5000, deadline - Date.now());
+              if (sleepMs <= 0) break;
+              await new Promise((resolve) => setTimeout(resolve, sleepMs));
             }
-            result = existing;
-          } else {
-            result = await put(
-              pathname,
-              bytes,
-              {
-                access: "public",
-                addRandomSuffix: false,
-                allowOverwrite: false,
-                contentType: "video/mp4",
-                multipart: true,
-                token,
-              },
+            return { response, body: { ...body, error: body?.error || "production_revision_timeout" } };
+          }
+
+          const upload = await request({
+            action: "upload",
+            sourceVideoUrl: process.env.SOURCE_VIDEO_URL,
+            title: process.env.REVIEWED_VIDEO_TITLE,
+            sizeBytes: expectedSize,
+            durationSeconds,
+            width,
+            height,
+          });
+
+          if (!upload.response?.ok || upload.body?.state !== "CANONICAL_UPLOADED") {
+            throw new Error(
+              \`Supabase canonical upload failed: \${upload.response?.status || 0} \${upload.body?.error || "unknown"}\`,
             );
           }
 
-          const url = new URL(result.url);
-          if (!url.hostname.endsWith(".public.blob.vercel-storage.com")) throw new Error("Unexpected Vercel Blob host");
-          if (url.pathname !== `/${pathname}`) {
-            throw new Error("Unexpected content-addressed review-media path");
+          const videoUrl = String(upload.body.videoUrl || "");
+          const path = String(upload.body.path || "");
+          if (!/^https:\/\/lazzdoadoqzrzlarerfx\.supabase\.co\/storage\/v1\/object\/public\/blindboxai-review-videos\/media\/review\/[a-zA-Z0-9._-]+\.mp4$/.test(videoUrl)) {
+            throw new Error("Canonical upload returned an unapproved Supabase media URL");
+          }
+          if (!/^media\/review\/[a-zA-Z0-9._-]+\.mp4$/.test(path)) {
+            throw new Error("Canonical upload returned an invalid Supabase storage path");
           }
 
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${result.url}\n`);
-          fs.appendFileSync(
-            process.env.GITHUB_STEP_SUMMARY,
-            `## Ready for owner approval\n\n[Watch the exact staged MP4](${result.url})\n\nSHA-256 verified before staging. Publishing remains blocked behind **social-production**.\n`,
-          );
+          const canonicalResponse = await fetch(videoUrl, {
+            cache: "no-store",
+            headers: { "cache-control": "no-cache" },
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (!canonicalResponse.ok) throw new Error(\`Canonical Supabase fetch failed: \${canonicalResponse.status}\`);
+          const canonicalBytes = Buffer.from(await canonicalResponse.arrayBuffer());
+          const canonicalSha = createHash("sha256").update(canonicalBytes).digest("hex");
+          if (canonicalBytes.byteLength !== expectedSize || canonicalSha !== expectedSha) {
+            throw new Error("Canonical Supabase object does not match the verified Hair Salon source");
+          }
+
+          const staged = await request({
+            action: "stage",
+            videoUrl,
+            path,
+            title: process.env.REVIEWED_VIDEO_TITLE,
+            sha256: canonicalSha,
+            sizeBytes: canonicalBytes.byteLength,
+            durationSeconds,
+            width,
+            height,
+          }, 60000);
+
+          if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
+            throw new Error(
+              \`Supabase review staging failed: \${staged.response?.status || 0} \${staged.body?.error || "unknown"}\`,
+            );
+          }
+
+          const researchRunId = String(staged.body.researchRunId || "");
+          const campaignId = String(staged.body.campaignId || "");
+          if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
+            throw new Error("Supabase review staging returned an invalid researchRunId");
+          }
+          if (campaignId !== \`bb-\${researchRunId}\`) {
+            throw new Error("Supabase review staging returned an invalid campaignId");
+          }
+
+          const output = process.env.GITHUB_OUTPUT;
+          await import("node:fs").then(({ appendFileSync }) => {
+            appendFileSync(
+              output,
+              \`video_url=\${videoUrl}\nresearch_run_id=\${researchRunId}\ncampaign_id=\${campaignId}\n\`,
+            );
+            appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              \`## Ready for owner approval\n\n[Watch the canonical Supabase MP4](\${videoUrl})\n\nResearch run: \${researchRunId}\n\nCampaign: \${campaignId}\n\nExact SHA-256 verified before READY_FOR_REVIEW. Publishing remains blocked behind **social-production**.\n\`,
+            );
+          });
           NODE
 
-      - name: Confirm staged MP4 is publicly readable
-        env:
-          VIDEO_URL: ${{ steps.stage.outputs.video_url }}
-        run: curl --fail --location --silent --show-error --connect-timeout 15 --max-time 60 --head "$VIDEO_URL" >/dev/null
-
   publish-after-owner-approval:
-    name: Blue approval → YouTube + TikTok → live verification
+    name: Blue approval → canonical YouTube + TikTok publisher → live verification
     if: github.ref == 'refs/heads/main'
     needs: prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
     environment:
       name: social-production
-      url: ${{ needs.prepare.outputs.video_url }}
+      url: \${{ needs.prepare.outputs.video_url }}
     env:
-      REVIEWED_VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
-      REVIEWED_VIDEO_TITLE: THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box
-      RESEARCH_RUN_ID: rv-7097fc885956f8b2
       DRY_RUN: "false"
-      YOUTUBE_AUDIENCE: not_made_for_kids
       VIDEO_CHANNELS: youtube,tiktok
-      PUBLISHED_VIDEO_FEED_URL: https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed
+      PUBLISH_RESEARCH_RUN_ID: \${{ needs.prepare.outputs.research_run_id }}
+      YOUTUBE_AUDIENCE: not_made_for_kids
+      BUFFER_API_TOKEN: \${{ secrets.BUFFER_API_TOKEN }}
+      BUFFER_ORGANIZATION_ID: \${{ vars.BUFFER_ORGANIZATION_ID }}
+      STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
+      REVIEWED_VIDEO_URL: \${{ needs.prepare.outputs.video_url }}
+      EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
+      EXPECTED_SIZE: "121797"
     steps:
-      - name: Checkout
+      - name: Checkout immutable main revision
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-          ref: ${{ github.sha }}
+          ref: \${{ github.sha }}
 
       - name: Verify immutable main revision
         shell: bash
@@ -192,34 +265,74 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Re-verify approved staged MP4 before publishing
+      - name: Re-verify exact Supabase object after Blue approval
         shell: bash
-        env:
-          VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
-          EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
-          EXPECTED_SIZE: "121797"
         run: |
           set -euo pipefail
+          case "$REVIEWED_VIDEO_URL" in
+            https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/*.mp4) ;;
+            *) echo "::error::Reviewed video is outside canonical Supabase storage."; exit 1 ;;
+          esac
+
           curl --fail --location --silent --show-error \
             --connect-timeout 15 --max-time 60 \
             --header "Cache-Control: no-cache" \
-            "$VIDEO_URL" \
+            "$REVIEWED_VIDEO_URL" \
             --output approved-hair-salon.mp4
           test "$(stat -c %s approved-hair-salon.mp4)" = "$EXPECTED_SIZE"
           printf '%s  %s\n' "$EXPECTED_SHA256" "approved-hair-salon.mp4" | sha256sum --check -
 
-      - name: Verify publishing configuration
-        env:
-          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+      - name: Approve exact Supabase review row after owner gate
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const oidcUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          oidcUrl.searchParams.set("audience", "blindboxai-autonomous-render-stage");
+          const oidcResponse = await fetch(oidcUrl, {
+            headers: { Authorization: \`Bearer \${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}\` },
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (!oidcResponse.ok) throw new Error(\`GitHub OIDC request failed: \${oidcResponse.status}\`);
+          const oidcBody = await oidcResponse.json();
+          const token = String(oidcBody?.value || "");
+          if (!token) throw new Error("GitHub OIDC token response was empty");
+
+          const response = await fetch(process.env.STAGE_RENDER_URL, {
+            method: "POST",
+            headers: {
+              Authorization: \`Bearer \${token}\`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "approve",
+              researchRunId: process.env.PUBLISH_RESEARCH_RUN_ID,
+              videoUrl: process.env.REVIEWED_VIDEO_URL,
+            }),
+            signal: AbortSignal.timeout(30_000),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok || body?.state !== "APPROVED") {
+            throw new Error(\`Canonical review approval failed: \${response.status} \${body?.error || "unknown"}\`);
+          }
+          if (body.researchRunId !== process.env.PUBLISH_RESEARCH_RUN_ID) {
+            throw new Error("Approved research ID does not match the reviewed Supabase asset");
+          }
+          NODE
+
+      - name: Verify Buffer production configuration
+        shell: bash
         run: |
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
             echo "::error::Buffer production configuration is incomplete."
             exit 1
           fi
 
-      - name: Publish exact owner-approved video and require verified public URLs
+      - name: Publish and verify YouTube
         env:
-          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
-        run: node scripts/publish-reviewed-upload.mjs
+          PUBLISH_CHANNEL: youtube
+        run: node scripts/publish-approved-review-queue.mjs
+
+      - name: Publish and verify TikTok
+        env:
+          PUBLISH_CHANNEL: tiktok
+        run: node scripts/publish-approved-review-queue.mjs
