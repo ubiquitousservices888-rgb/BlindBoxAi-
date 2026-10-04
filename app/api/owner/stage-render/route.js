@@ -9,8 +9,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const REPOSITORY = "ubiquitousservices888-rgb/BlindBoxAi-";
-const WORKFLOW_REF = `${REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`;
+const AUTONOMOUS_WORKFLOW_REF = `${REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`;
+const HAIR_SALON_WORKFLOW_REF = `${REPOSITORY}/.github/workflows/hair-salon-owner-approval.yml@refs/heads/main`;
+const TRUSTED_WORKFLOWS = [
+  { workflowRef: AUTONOMOUS_WORKFLOW_REF, allowedEvents: ["push", "workflow_dispatch"] },
+  { workflowRef: HAIR_SALON_WORKFLOW_REF, allowedEvents: ["push"] },
+];
 const OIDC_AUDIENCE = "blindboxai-autonomous-render-stage";
+const OWNER_GATED_SUBJECT = `repo:${REPOSITORY}:environment:social-production`;
+const HAIR_SALON_RELEASE_SOURCE =
+  "https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4";
 const VIDEO_UPLOAD_BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const REVIEW_OBJECT_PREFIX =
@@ -48,7 +56,10 @@ function allowedSourceVideoUrl(value) {
       host === "cdn.creatomate.com" &&
       url.pathname.startsWith("/renders/");
     const vercelBlob = host.endsWith(".public.blob.vercel-storage.com");
-    return creatomateBackblaze || creatomateCdn || vercelBlob ? url.toString() : "";
+    const exactHairSalonRelease = url.toString() === HAIR_SALON_RELEASE_SOURCE;
+    return creatomateBackblaze || creatomateCdn || vercelBlob || exactHairSalonRelease
+      ? url.toString()
+      : "";
   } catch {
     return "";
   }
@@ -170,17 +181,30 @@ async function cleanupStagedReview(origin, ownerCode, researchRunId) {
   } catch {}
 }
 
+async function verifyTrustedGithubOidc(request) {
+  for (const trusted of TRUSTED_WORKFLOWS) {
+    const payload = await verifyGitHubOidcRequest(request, {
+      audience: OIDC_AUDIENCE,
+      repository: REPOSITORY,
+      workflowRef: trusted.workflowRef,
+      allowedEvents: trusted.allowedEvents,
+    });
+    if (payload) return payload;
+  }
+  return null;
+}
+
+function ownerGatePresent(oidc) {
+  return String(oidc?.environment || "") === "social-production" ||
+    String(oidc?.sub || "") === OWNER_GATED_SUBJECT;
+}
+
 export async function POST(request) {
   if (process.env.VERCEL_ENV !== "production" || process.env.VERCEL_GIT_COMMIT_REF !== "main") {
     return json({ error: "production_main_required" }, 403);
   }
 
-  const oidc = await verifyGitHubOidcRequest(request, {
-    audience: OIDC_AUDIENCE,
-    repository: REPOSITORY,
-    workflowRef: WORKFLOW_REF,
-    allowedEvents: ["push", "workflow_dispatch"],
-  });
+  const oidc = await verifyTrustedGithubOidc(request);
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 
   const deployedRevision = String(process.env.VERCEL_GIT_COMMIT_SHA || "");
@@ -215,8 +239,12 @@ export async function POST(request) {
   }
 
   if (action === "approve") {
-    if (oidc.event_name !== "workflow_dispatch") {
-      return json({ error: "manual_dispatch_required" }, 403);
+    const workflowRef = String(oidc.workflow_ref || "");
+    const approvalEventAllowed =
+      (workflowRef === AUTONOMOUS_WORKFLOW_REF && oidc.event_name === "workflow_dispatch") ||
+      (workflowRef === HAIR_SALON_WORKFLOW_REF && oidc.event_name === "push");
+    if (!ownerGatePresent(oidc) || !approvalEventAllowed) {
+      return json({ error: "owner_gate_required" }, 403);
     }
     const researchRunId = clean(body.researchRunId, 40);
     const videoUrl = canonicalReviewVideoUrl(body.videoUrl);
@@ -269,8 +297,19 @@ export async function POST(request) {
 
     let uploadedPath = "";
     try {
-      const sourceResponse = await fetch(sourceVideoUrl, { redirect: "error", cache: "no-store" });
+      const isHairSalonRelease = sourceVideoUrl === HAIR_SALON_RELEASE_SOURCE;
+      const sourceResponse = await fetch(sourceVideoUrl, {
+        redirect: isHairSalonRelease ? "follow" : "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(60_000),
+      });
       if (!sourceResponse.ok) throw new Error("source_video_unavailable");
+      if (isHairSalonRelease) {
+        const finalHost = new URL(sourceResponse.url).hostname.toLowerCase();
+        if (!["release-assets.githubusercontent.com", "objects.githubusercontent.com"].includes(finalHost)) {
+          throw new Error("source_video_redirect_untrusted");
+        }
+      }
       const advertised = Number(sourceResponse.headers.get("content-length") || 0);
       if (Number.isFinite(advertised) && advertised > MAX_BYTES) {
         throw new Error("source_video_size_invalid");
