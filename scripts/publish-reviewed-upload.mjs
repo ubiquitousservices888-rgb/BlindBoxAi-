@@ -5,6 +5,7 @@ import {
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
+import { validateReviewedVideoUrl } from "../lib/review-video-url.mjs";
 
 const BLINDBOXAI_URL = "https://www.blindboxai.com";
 const OIDC_AUDIENCE = "blindboxai-video-publisher";
@@ -14,19 +15,6 @@ function required(value, label) {
   const text = String(value ?? "").trim();
   if (!text) throw new Error(`${label} is required`);
   return text;
-}
-
-function validateVideoUrl(value) {
-  const text = required(value, "REVIEWED_VIDEO_URL");
-  let url;
-  try { url = new URL(text); } catch { throw new Error("REVIEWED_VIDEO_URL must be a valid URL"); }
-  if (url.protocol !== "https:" || !/\.mp4$/i.test(url.pathname)) {
-    throw new Error("REVIEWED_VIDEO_URL must be an HTTPS MP4");
-  }
-  if (!url.hostname.endsWith(".public.blob.vercel-storage.com") || !url.pathname.startsWith("/media/review/")) {
-    throw new Error("REVIEWED_VIDEO_URL must use the approved Vercel Blob review-media namespace");
-  }
-  return url.toString();
 }
 
 function inferVertical(value) {
@@ -83,7 +71,7 @@ async function recordPublishedVideo({ title, videoUrl, researchRunId, results, f
   return payload;
 }
 
-const videoUrl = validateVideoUrl(process.env.REVIEWED_VIDEO_URL);
+const videoUrl = validateReviewedVideoUrl(process.env.REVIEWED_VIDEO_URL);
 const title = requirePublicVideoTitle(process.env.REVIEWED_VIDEO_TITLE, { label: "REVIEWED_VIDEO_TITLE", maxLength: 100 });
 
 const researchRunId = required(process.env.RESEARCH_RUN_ID, "RESEARCH_RUN_ID");

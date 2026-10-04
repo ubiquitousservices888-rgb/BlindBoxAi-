@@ -90,13 +90,11 @@ test("Hair Salon one-approval workflow is main-only, immutable, and bounded", ()
     (text.match(/^\s{10}ref:\s*\$\{\{ github\.sha \}\}\s*$/gm) || []).length,
     2,
   );
-  assert.doesNotMatch(text, /^\s{6}BLOB_READ_WRITE_TOKEN:\s*\$\{\{ secrets\./m);
+  assert.doesNotMatch(text, /BLOB_READ_WRITE_TOKEN|@vercel\/blob/);
   assert.doesNotMatch(text, /^\s{6}BUFFER_API_TOKEN:\s*\$\{\{ secrets\./m);
-  assert.match(text, /media\/review\/sha256-/);
-  assert.match(text, /addRandomSuffix:\s*false/);
-  assert.match(text, /allowOverwrite:\s*false/);
-  assert.match(text, /Re-verify approved staged MP4 before publishing/);
-  assert.match(text, /AbortSignal\.timeout\(30_000\)/);
+  assert.match(text, /https:\/\/www\.blindboxai\.com\/api\/media\/review\/sha256-[a-f0-9]{64}\.mp4/);
+  assert.match(text, /Wait for deployed content-addressed review media/);
+  assert.match(text, /Re-verify approved content-addressed MP4 before publishing/);
   assert.ok((text.match(/--max-time 60/g) || []).length >= 3);
   assert.equal((text.match(/timeout-minutes:\s*15/g) || []).length, 2);
   assert.match(text, /environment:\s*\n\s*name:\s*social-production/);

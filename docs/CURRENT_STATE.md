@@ -2,8 +2,8 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-09-27
-**Functional baseline inspected:** `main` after PR #233 merge at `72c7eb7af6ed786eb0ae17dbeb5dbd3fe84e47d1`
+**Last reconciled:** 2026-10-04
+**Functional baseline inspected:** `main` after PR #258 merge at `594622b98edb17a3fbc1a7dc8dfd140888931efe`
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -54,7 +54,7 @@ This validates one exact uploaded MP4, waits at the `social-production` environm
 
 `.github/workflows/hair-salon-owner-approval.yml`
 
-This is an **ACTIVE SPECIALIST** one-video path for the already-reviewed Hair Salon MP4. It starts only from a push to `main` that changes this workflow; there is no caller-selectable `workflow_dispatch`. Both jobs fail closed unless `github.ref` is `refs/heads/main`, both check out the immutable triggering SHA before credential-bearing steps, and production credentials are step-scoped. The exact release asset is re-verified by byte size, SHA-256, duration, and 720×1280 dimensions, then staged at a content-addressed `media/review/sha256-<digest>.mp4` Vercel Blob pathname with overwrite disabled. Reruns reuse that same blob only after downloading it and proving the bytes still match the pinned digest and size, so identical reruns do not accumulate copies while future content gets a different URL. After owner approval, the publish job downloads the approved staged URL again and re-checks the pinned size and SHA-256 before any Buffer credential is exposed. Publishing remains behind the `social-production` owner approval and targets exactly YouTube + TikTok with `not_made_for_kids` for this reviewed video.
+This is an **ACTIVE SPECIALIST** one-video path for the already-reviewed Hair Salon MP4. It starts only from a push to `main` that changes this workflow; there is no caller-selectable `workflow_dispatch`. Both jobs fail closed unless `github.ref` is `refs/heads/main`, both check out the immutable triggering SHA before credential-bearing steps, and production credentials are step-scoped. The exact GitHub release asset is re-verified by byte size, SHA-256, duration, and 720×1280 dimensions. Production then exposes those bytes through the content-addressed BlindBoxAI route `/api/media/review/sha256-<digest>.mp4`; that route fetches the fixed source and refuses to serve it unless size and SHA-256 still match the digest embedded in the public URL. The prepare job waits for that deployed URL and independently verifies its bytes before presenting it for owner review. After owner approval, the publish job downloads the same content-addressed URL again and re-checks the pinned size and SHA-256 before any Buffer credential is exposed. This path therefore does not depend on a GitHub `BLOB_READ_WRITE_TOKEN`. Publishing remains behind the `social-production` owner approval and targets exactly YouTube + TikTok with `not_made_for_kids` for this reviewed video.
 
 ### Verified-product render pipeline
 
