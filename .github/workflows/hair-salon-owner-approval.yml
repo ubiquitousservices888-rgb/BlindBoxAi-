@@ -1,0 +1,151 @@
+name: Hair Salon verified video — owner approval only
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hair-salon-owner-approval.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: hair-salon-owner-approval
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Verify exact MP4 and stage approved review media
+    runs-on: ubuntu-latest
+    outputs:
+      video_url: ${{ steps.stage.outputs.video_url }}
+    env:
+      SOURCE_VIDEO_URL: https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4
+      EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
+      EXPECTED_SIZE: "121797"
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install ffprobe
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+
+      - name: Download and verify exact source asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error "$SOURCE_VIDEO_URL" --output hair-salon.mp4
+          test "$(stat -c %s hair-salon.mp4)" = "$EXPECTED_SIZE"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "hair-salon.mp4" | sha256sum --check -
+
+          duration="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 hair-salon.mp4)"
+          width="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 hair-salon.mp4)"
+          height="$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 hair-salon.mp4)"
+
+          node -e '
+            const [duration, width, height] = process.argv.slice(1).map(Number);
+            if (!Number.isFinite(duration) || duration < 1 || duration > 180) throw new Error("Video duration is not Shorts-eligible");
+            if (width !== 720 || height !== 1280) throw new Error("Video dimensions changed from verified 720x1280");
+          ' "$duration" "$width" "$height"
+
+      - name: Stage exact MP4 in approved Vercel Blob review namespace
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "::error::BLOB_READ_WRITE_TOKEN is not configured."
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import { put } from "@vercel/blob";
+
+          const bytes = fs.readFileSync("hair-salon.mp4");
+          const result = await put(
+            "media/review/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4",
+            bytes,
+            {
+              access: "public",
+              addRandomSuffix: true,
+              contentType: "video/mp4",
+              multipart: true,
+              token: process.env.BLOB_READ_WRITE_TOKEN,
+            },
+          );
+
+          const url = new URL(result.url);
+          if (!url.hostname.endsWith(".public.blob.vercel-storage.com")) throw new Error("Unexpected Vercel Blob host");
+          if (!url.pathname.startsWith("/media/review/") || !url.pathname.endsWith(".mp4")) {
+            throw new Error("Unexpected review-media path");
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${result.url}\n`);
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## Ready for owner approval\n\n[Watch the exact staged MP4](${result.url})\n\nSHA-256 verified before staging. Publishing remains blocked behind **social-production**.\n`,
+          );
+          NODE
+
+      - name: Confirm staged MP4 is publicly readable
+        env:
+          VIDEO_URL: ${{ steps.stage.outputs.video_url }}
+        run: curl --fail --location --silent --show-error --head "$VIDEO_URL" >/dev/null
+
+  publish-after-owner-approval:
+    name: Blue approval → YouTube + TikTok → live verification
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: social-production
+      url: ${{ needs.prepare.outputs.video_url }}
+    env:
+      REVIEWED_VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
+      REVIEWED_VIDEO_TITLE: THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box
+      RESEARCH_RUN_ID: rv-7097fc885956f8b2
+      DRY_RUN: "false"
+      YOUTUBE_AUDIENCE: not_made_for_kids
+      VIDEO_CHANNELS: youtube,tiktok
+      BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+      PUBLISHED_VIDEO_FEED_URL: https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify publishing configuration
+        run: |
+          if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
+            echo "::error::Buffer production configuration is incomplete."
+            exit 1
+          fi
+
+      - name: Publish exact owner-approved video and require verified public URLs
+        run: node scripts/publish-reviewed-upload.mjs
