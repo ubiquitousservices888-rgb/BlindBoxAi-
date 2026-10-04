@@ -84,27 +84,55 @@ jobs:
             exit 1
           fi
           node --input-type=module <<'NODE'
+          import { createHash } from "node:crypto";
           import fs from "node:fs";
-          import { put } from "@vercel/blob";
+          import { list, put } from "@vercel/blob";
 
           const bytes = fs.readFileSync("hair-salon.mp4");
-          const result = await put(
-            "media/review/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4",
-            bytes,
-            {
-              access: "public",
-              addRandomSuffix: false,
-              allowOverwrite: true,
-              contentType: "video/mp4",
-              multipart: true,
-              token: process.env.BLOB_READ_WRITE_TOKEN,
-            },
-          );
+          const expectedSha = process.env.EXPECTED_SHA256;
+          const expectedSize = Number(process.env.EXPECTED_SIZE);
+          const pathname = `media/review/sha256-${expectedSha}.mp4`;
+          const token = process.env.BLOB_READ_WRITE_TOKEN;
+
+          const page = await list({
+            prefix: pathname,
+            limit: 100,
+            token,
+          });
+          const existing = page.blobs.find((blob) => blob.pathname === pathname);
+
+          let result;
+          if (existing) {
+            const response = await fetch(existing.url, {
+              cache: "no-store",
+              headers: { "cache-control": "no-cache" },
+            });
+            if (!response.ok) throw new Error(`Existing staged Blob fetch failed: ${response.status}`);
+            const existingBytes = Buffer.from(await response.arrayBuffer());
+            const existingSha = createHash("sha256").update(existingBytes).digest("hex");
+            if (existingBytes.byteLength !== expectedSize || existingSha !== expectedSha) {
+              throw new Error("Existing content-addressed review Blob does not match the verified source");
+            }
+            result = existing;
+          } else {
+            result = await put(
+              pathname,
+              bytes,
+              {
+                access: "public",
+                addRandomSuffix: false,
+                allowOverwrite: false,
+                contentType: "video/mp4",
+                multipart: true,
+                token,
+              },
+            );
+          }
 
           const url = new URL(result.url);
           if (!url.hostname.endsWith(".public.blob.vercel-storage.com")) throw new Error("Unexpected Vercel Blob host");
-          if (!url.pathname.startsWith("/media/review/") || !url.pathname.endsWith(".mp4")) {
-            throw new Error("Unexpected review-media path");
+          if (url.pathname !== `/${pathname}`) {
+            throw new Error("Unexpected content-addressed review-media path");
           }
 
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `video_url=${result.url}\n`);
@@ -160,6 +188,21 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Re-verify approved staged MP4 before publishing
+        shell: bash
+        env:
+          VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
+          EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
+          EXPECTED_SIZE: "121797"
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            --header "Cache-Control: no-cache" \
+            "$VIDEO_URL" \
+            --output approved-hair-salon.mp4
+          test "$(stat -c %s approved-hair-salon.mp4)" = "$EXPECTED_SIZE"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "approved-hair-salon.mp4" | sha256sum --check -
 
       - name: Verify publishing configuration
         env:

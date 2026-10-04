@@ -52,6 +52,7 @@ requireMatch("AGENTS.md", /docs\/CURRENT_STATE\.md/, "must point agents to the c
 requireMatch("AGENTS.md", /docs\/CONTEXT_TRANSFER\.md/, "must require the canonical handoff protocol");
 requireMatch("docs/CURRENT_STATE.md", /publish-approved-reviews\.yml/, "must name the canonical review-queue publisher");
 requireMatch("docs/CURRENT_STATE.md", /hair-salon-owner-approval\.yml/, "must name the Hair Salon reviewed-video specialist path");
+read(".github/workflows/hair-salon-owner-approval.yml");
 requireMatch("docs/CURRENT_STATE.md", /youtube,tiktok/, "must record the canonical reviewed-video channel set");
 requireMatch("docs/CURRENT_STATE.md", /merged PR #227/, "must record the merged YouTube\/TikTok target decision");
 requireMatch("docs/CURRENT_STATE.md", /X\/Twitter is parked/, "must record the parked X\/Twitter decision");
