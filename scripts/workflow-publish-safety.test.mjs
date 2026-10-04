@@ -96,6 +96,9 @@ test("Hair Salon one-approval workflow is main-only, immutable, and bounded", ()
   assert.match(text, /addRandomSuffix:\s*false/);
   assert.match(text, /allowOverwrite:\s*false/);
   assert.match(text, /Re-verify approved staged MP4 before publishing/);
+  assert.match(text, /AbortSignal\.timeout\(30_000\)/);
+  assert.ok((text.match(/--max-time 60/g) || []).length >= 3);
+  assert.equal((text.match(/timeout-minutes:\s*15/g) || []).length, 2);
   assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
   assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);

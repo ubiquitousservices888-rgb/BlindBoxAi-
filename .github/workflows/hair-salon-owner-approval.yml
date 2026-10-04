@@ -18,6 +18,7 @@ jobs:
     name: Verify exact MP4 and stage approved review media
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     outputs:
@@ -58,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --location --silent --show-error "$SOURCE_VIDEO_URL" --output hair-salon.mp4
+          curl --fail --location --silent --show-error --connect-timeout 15 --max-time 60 "$SOURCE_VIDEO_URL" --output hair-salon.mp4
           test "$(stat -c %s hair-salon.mp4)" = "$EXPECTED_SIZE"
           printf '%s  %s\n' "$EXPECTED_SHA256" "hair-salon.mp4" | sha256sum --check -
 
@@ -106,6 +107,7 @@ jobs:
             const response = await fetch(existing.url, {
               cache: "no-store",
               headers: { "cache-control": "no-cache" },
+              signal: AbortSignal.timeout(30_000),
             });
             if (!response.ok) throw new Error(`Existing staged Blob fetch failed: ${response.status}`);
             const existingBytes = Buffer.from(await response.arrayBuffer());
@@ -145,13 +147,14 @@ jobs:
       - name: Confirm staged MP4 is publicly readable
         env:
           VIDEO_URL: ${{ steps.stage.outputs.video_url }}
-        run: curl --fail --location --silent --show-error --head "$VIDEO_URL" >/dev/null
+        run: curl --fail --location --silent --show-error --connect-timeout 15 --max-time 60 --head "$VIDEO_URL" >/dev/null
 
   publish-after-owner-approval:
     name: Blue approval → YouTube + TikTok → live verification
     if: github.ref == 'refs/heads/main'
     needs: prepare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
@@ -198,6 +201,7 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --location --silent --show-error \
+            --connect-timeout 15 --max-time 60 \
             --header "Cache-Control: no-cache" \
             "$VIDEO_URL" \
             --output approved-hair-salon.mp4
