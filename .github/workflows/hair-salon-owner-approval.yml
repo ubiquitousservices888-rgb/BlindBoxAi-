@@ -201,7 +201,7 @@ jobs:
               );
             }
 
-            const researchRunId = String(staged.body.researchRunId || "");
+            stagingCommitted = true;\n\n            const researchRunId = String(staged.body.researchRunId || "");
             const campaignId = String(staged.body.campaignId || "");
             if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
               throw new Error("Supabase review staging returned an invalid researchRunId");
