@@ -236,8 +236,6 @@ jobs:
       VIDEO_CHANNELS: youtube,tiktok
       PUBLISH_RESEARCH_RUN_ID: ${{ needs.prepare.outputs.research_run_id }}
       YOUTUBE_AUDIENCE: not_made_for_kids
-      BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
-      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
       STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
       REVIEWED_VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
       EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
@@ -320,6 +318,9 @@ jobs:
           NODE
 
       - name: Verify Buffer production configuration
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
         shell: bash
         run: |
           if [ -z "$BUFFER_API_TOKEN" ] || [ -z "$BUFFER_ORGANIZATION_ID" ]; then
@@ -330,9 +331,13 @@ jobs:
       - name: Publish and verify YouTube
         env:
           PUBLISH_CHANNEL: youtube
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
         run: node scripts/publish-approved-review-queue.mjs
 
       - name: Publish and verify TikTok
         env:
           PUBLISH_CHANNEL: tiktok
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
         run: node scripts/publish-approved-review-queue.mjs
