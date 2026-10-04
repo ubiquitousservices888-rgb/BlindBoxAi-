@@ -13,12 +13,20 @@ const AUTONOMOUS_WORKFLOW_REF = `${REPOSITORY}/.github/workflows/autonomous-vide
 const HAIR_SALON_WORKFLOW_REF = `${REPOSITORY}/.github/workflows/hair-salon-owner-approval.yml@refs/heads/main`;
 const TRUSTED_WORKFLOWS = [
   { workflowRef: AUTONOMOUS_WORKFLOW_REF, allowedEvents: ["push", "workflow_dispatch"] },
-  { workflowRef: HAIR_SALON_WORKFLOW_REF, allowedEvents: ["push"] },
+  {
+    workflowRef: HAIR_SALON_WORKFLOW_REF,
+    allowedEvents: ["push"],
+    requiredActor: "ubiquitousservices888-rgb",
+  },
 ];
 const OIDC_AUDIENCE = "blindboxai-autonomous-render-stage";
 const OWNER_GATED_SUBJECT = `repo:${REPOSITORY}:environment:social-production`;
 const HAIR_SALON_RELEASE_SOURCE =
   "https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4";
+const HAIR_SALON_SHA256 = "7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0";
+const HAIR_SALON_SIZE = 121797;
+const HAIR_SALON_TITLE = "THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box";
+const HAIR_SALON_REVIEW_PATH = `media/review/sha256-${HAIR_SALON_SHA256}.mp4`;
 const VIDEO_UPLOAD_BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const REVIEW_OBJECT_PREFIX =
@@ -188,6 +196,7 @@ async function verifyTrustedGithubOidc(request) {
       repository: REPOSITORY,
       workflowRef: trusted.workflowRef,
       allowedEvents: trusted.allowedEvents,
+      requiredActor: trusted.requiredActor ?? null,
     });
     if (payload) return payload;
   }
@@ -208,7 +217,7 @@ export async function POST(request) {
   if (!oidc) return json({ error: "github_oidc_required" }, 401);
 
   const deployedRevision = String(process.env.VERCEL_GIT_COMMIT_SHA || "");
-  if (!/^[0-9a-f]{40}$/.test(deployedRevision) || deployedRevision !== oidc.sha) {
+  if (!/^[0-9a-f]{40}$/.test(deployedRevision)) {
     return json({ error: "production_revision_not_ready" }, 409);
   }
 
@@ -227,6 +236,12 @@ export async function POST(request) {
 
   const action = clean(body.action, 20);
   const origin = new URL(request.url).origin;
+  const workflowRef = String(oidc.workflow_ref || "");
+  const hairSalonWorkflow = workflowRef === HAIR_SALON_WORKFLOW_REF;
+
+  if (!(action === "approve" && ownerGatePresent(oidc)) && deployedRevision !== oidc.sha) {
+    return json({ error: "production_revision_not_ready" }, 409);
+  }
 
   if (action === "cleanup") {
     const path = safeReviewPath(body.path);
@@ -234,12 +249,16 @@ export async function POST(request) {
     if (!path || !videoUrl || videoUrl !== `${REVIEW_OBJECT_PREFIX}${path}`) {
       return json({ error: "invalid_cleanup_target" }, 400);
     }
+    const autonomousPrefix = `media/review/autonomous-${String(oidc.sha).slice(0, 12)}-`;
+    const cleanupAllowed = hairSalonWorkflow
+      ? path === HAIR_SALON_REVIEW_PATH
+      : workflowRef === AUTONOMOUS_WORKFLOW_REF && path.startsWith(autonomousPrefix);
+    if (!cleanupAllowed) return json({ error: "cleanup_target_not_authorized" }, 403);
     const deleted = await cleanupStorageObject(ownerCode, path);
     return json({ deleted, path, videoUrl }, deleted ? 200 : 502);
   }
 
   if (action === "approve") {
-    const workflowRef = String(oidc.workflow_ref || "");
     const approvalEventAllowed =
       (workflowRef === AUTONOMOUS_WORKFLOW_REF && oidc.event_name === "workflow_dispatch") ||
       (workflowRef === HAIR_SALON_WORKFLOW_REF && oidc.event_name === "push");
@@ -291,6 +310,32 @@ export async function POST(request) {
     return json({ error: error instanceof Error ? error.message : "invalid_probe_metadata" }, 400);
   }
 
+  if (hairSalonWorkflow) {
+    if (
+      title !== HAIR_SALON_TITLE ||
+      Math.round(sizeBytes) !== HAIR_SALON_SIZE ||
+      Math.round(width) !== 720 ||
+      Math.round(height) !== 1280
+    ) {
+      return json({ error: "hair_salon_metadata_mismatch" }, 403);
+    }
+    if (action === "upload" && clean(body.sourceVideoUrl, 1000) !== HAIR_SALON_RELEASE_SOURCE) {
+      return json({ error: "hair_salon_source_mismatch" }, 403);
+    }
+    if (action === "stage") {
+      const expectedHash = clean(body.sha256, 64).toLowerCase();
+      const path = safeReviewPath(body.path);
+      const videoUrl = canonicalReviewVideoUrl(body.videoUrl);
+      if (
+        expectedHash !== HAIR_SALON_SHA256 ||
+        path !== HAIR_SALON_REVIEW_PATH ||
+        videoUrl !== `${REVIEW_OBJECT_PREFIX}${HAIR_SALON_REVIEW_PATH}`
+      ) {
+        return json({ error: "hair_salon_canonical_mismatch" }, 403);
+      }
+    }
+  }
+
   if (action === "upload") {
     const sourceVideoUrl = allowedSourceVideoUrl(body.sourceVideoUrl);
     if (!sourceVideoUrl) return json({ error: "invalid_render_source" }, 400);
@@ -318,8 +363,46 @@ export async function POST(request) {
       if (bytes.byteLength !== Math.round(sizeBytes)) {
         throw new Error("source_video_size_mismatch");
       }
+      const sourceSha = createHash("sha256").update(bytes).digest("hex");
+      if (hairSalonWorkflow && sourceSha !== HAIR_SALON_SHA256) {
+        throw new Error("hair_salon_source_hash_mismatch");
+      }
 
-      const path = `media/review/autonomous-${String(oidc.sha).slice(0, 12)}-${randomUUID().replace(/-/g, "").slice(0, 12)}.mp4`;
+      const path = hairSalonWorkflow
+        ? HAIR_SALON_REVIEW_PATH
+        : `media/review/autonomous-${String(oidc.sha).slice(0, 12)}-${randomUUID().replace(/-/g, "").slice(0, 12)}.mp4`;
+      const expectedUrl = `${REVIEW_OBJECT_PREFIX}${path}`;
+
+      if (hairSalonWorkflow) {
+        const existingResponse = await fetch(expectedUrl, {
+          cache: "no-store",
+          headers: { "cache-control": "no-cache" },
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (existingResponse.ok) {
+          const existingBytes = await readBoundedResponseBytes(existingResponse, MAX_BYTES);
+          const existingSha = createHash("sha256").update(existingBytes).digest("hex");
+          if (existingBytes.byteLength !== HAIR_SALON_SIZE || existingSha !== HAIR_SALON_SHA256) {
+            throw new Error("hair_salon_existing_object_mismatch");
+          }
+          return json({
+            ok: true,
+            state: "CANONICAL_UPLOADED",
+            revision: deployedRevision,
+            sourceVideoUrl,
+            videoUrl: expectedUrl,
+            path,
+            sizeBytes: existingBytes.byteLength,
+            created: false,
+            approved: false,
+            published: false,
+          });
+        }
+        if (![400, 404].includes(existingResponse.status)) {
+          throw new Error(`hair_salon_existing_object_check_failed:${existingResponse.status}`);
+        }
+      }
+
       const ticket = await apiJson(origin, "/api/media/free-upload-ticket", {
         ownerCode,
         method: "POST",
@@ -331,7 +414,6 @@ export async function POST(request) {
       if (ticket.data?.path !== path) throw new Error("upload_ticket_path_mismatch");
 
       const canonicalVideoUrl = canonicalReviewVideoUrl(ticket.data.publicUrl);
-      const expectedUrl = `${REVIEW_OBJECT_PREFIX}${path}`;
       if (!canonicalVideoUrl || canonicalVideoUrl !== expectedUrl) {
         throw new Error("upload_ticket_public_url_invalid");
       }
@@ -355,6 +437,7 @@ export async function POST(request) {
         videoUrl: canonicalVideoUrl,
         path,
         sizeBytes: bytes.byteLength,
+        created: true,
         approved: false,
         published: false,
       });
