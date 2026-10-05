@@ -99,6 +99,8 @@ test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed,
   assert.match(text, /CANONICAL_UPLOADED/);
   assert.match(text, /READY_FOR_REVIEW/);
   assert.match(text, /Re-verify exact Supabase object after Blue approval/);
+  assert.match(text, /action: "approve"/);
+  assert.match(text, /body\?\.state !== "APPROVED"/);
   assert.match(text, /node scripts\/publish-approved-review-queue\.mjs/);
   assert.match(text, /AbortSignal\.timeout\(30_000\)/);
   assert.ok((text.match(/--max-time 60/g) || []).length >= 2);
