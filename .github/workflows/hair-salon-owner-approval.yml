@@ -13,6 +13,14 @@ concurrency:
   group: hair-salon-owner-approval
   cancel-in-progress: false
 
+# Single immutable asset manifest shared by prepare and publisher jobs.
+env:
+  SOURCE_VIDEO_URL: https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4
+  REVIEWED_VIDEO_TITLE: THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box
+  EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
+  EXPECTED_SIZE: "121797"
+  STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
+
 jobs:
   prepare:
     name: Verify exact MP4 and stage in canonical Supabase review queue
@@ -26,12 +34,6 @@ jobs:
       video_url: ${{ steps.stage.outputs.video_url }}
       research_run_id: ${{ steps.stage.outputs.research_run_id }}
       campaign_id: ${{ steps.stage.outputs.campaign_id }}
-    env:
-      SOURCE_VIDEO_URL: https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4
-      REVIEWED_VIDEO_TITLE: THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box
-      EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
-      EXPECTED_SIZE: "121797"
-      STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
     steps:
       - name: Checkout immutable main revision
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -132,10 +134,11 @@ jobs:
               }
 
               if (response?.ok) return { response, body };
-              const revisionPending =
+              const retryable =
+                !response ||
                 (response?.status === 409 && body?.error === "production_revision_not_ready") ||
                 (response?.status === 401 && body?.error === "github_oidc_required");
-              if (!revisionPending) return { response, body };
+              if (!retryable) return { response, body };
 
               const sleepMs = Math.min(5000, deadline - Date.now());
               if (sleepMs <= 0) break;
@@ -251,10 +254,7 @@ jobs:
       VIDEO_CHANNELS: youtube,tiktok
       PUBLISH_RESEARCH_RUN_ID: ${{ needs.prepare.outputs.research_run_id }}
       YOUTUBE_AUDIENCE: not_made_for_kids
-      STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
       REVIEWED_VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
-      EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
-      EXPECTED_SIZE: "121797"
     steps:
       - name: Checkout immutable main revision
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
