@@ -91,6 +91,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { createHash } from "node:crypto";
 
+          let stagingCommitted = false;
           const expectedSha = process.env.EXPECTED_SHA256;
           const expectedSize = Number(process.env.EXPECTED_SIZE);
           const durationSeconds = Number(process.env.SOURCE_DURATION);
@@ -193,7 +194,7 @@ jobs:
               durationSeconds,
               width,
               height,
-            }, 60000);
+            }, 240000);
 
             if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
               throw new Error(
@@ -222,7 +223,7 @@ jobs:
               );
             });
           } catch (error) {
-            if (created) {
+            if (created && !stagingCommitted) {
               try {
                 await request({ action: "cleanup", videoUrl, path }, 15000);
               } catch {}
