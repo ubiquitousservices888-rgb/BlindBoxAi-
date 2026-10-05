@@ -111,7 +111,7 @@ jobs:
           const token = String(oidcBody?.value || "");
           if (!token) throw new Error("GitHub OIDC token response was empty");
 
-          async function request(payload, maxWaitMs = 240000) {
+          async function request(payload, maxWaitMs = 240000, { retryTransportFailure = true } = {}) {
             const deadline = Date.now() + maxWaitMs;
             let response = null;
             let body = {};
@@ -135,7 +135,7 @@ jobs:
 
               if (response?.ok) return { response, body };
               const retryable =
-                !response ||
+                (retryTransportFailure && !response) ||
                 (response?.status === 409 && body?.error === "production_revision_not_ready") ||
                 (response?.status === 401 && body?.error === "github_oidc_required");
               if (!retryable) return { response, body };
@@ -155,7 +155,7 @@ jobs:
             durationSeconds,
             width,
             height,
-          });
+          }, 240000, { retryTransportFailure: false });
 
           if (!upload.response?.ok || upload.body?.state !== "CANONICAL_UPLOADED") {
             throw new Error(

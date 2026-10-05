@@ -97,6 +97,9 @@ test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed,
   assert.match(text, /blindboxai-review-videos\/media\/review/);
   assert.match(text, /STAGE_RENDER_URL:\s*https:\/\/www\.blindboxai\.com\/api\/owner\/stage-render/);
   assert.match(text, /CANONICAL_UPLOADED/);
+  assert.match(text, /retryTransportFailure = true/);
+  assert.match(text, /\(retryTransportFailure && !response\)/);
+  assert.match(text, /\}, 240000, \{ retryTransportFailure: false \}\);/);
   assert.match(text, /READY_FOR_REVIEW/);
   assert.match(text, /Re-verify exact Supabase object after Blue approval/);
   assert.match(text, /action: "approve"/);
