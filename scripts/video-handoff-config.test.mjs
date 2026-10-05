@@ -139,17 +139,25 @@ test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW
 });
 
 test("Hair Salon one-approval path uses canonical Supabase storage and publisher without Vercel Blob", () => {
-  assert.match(hairSalonWorkflow, /Stage exact MP4|Upload exact asset to Supabase/);
+  assert.match(hairSalonWorkflow, /Upload exact asset to Supabase and stage READY_FOR_REVIEW/);
+  assert.match(hairSalonWorkflow, /EXPECTED_SHA256:\s*7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0/);
+  assert.match(hairSalonWorkflow, /EXPECTED_SIZE:\s*"121797"/);
+  assert.match(hairSalonWorkflow, /stat -c %s hair-salon\.mp4/);
+  assert.match(hairSalonWorkflow, /sha256sum --check -/);
+  assert.match(hairSalonWorkflow, /width !== 720 \|\| height !== 1280/);
   assert.match(hairSalonWorkflow, /lazzdoadoqzrzlarerfx\.supabase\.co\/storage\/v1\/object\/public\/blindboxai-review-videos/);
   assert.match(hairSalonWorkflow, /STAGE_RENDER_URL:\s*https:\/\/www\.blindboxai\.com\/api\/owner\/stage-render/);
   assert.match(hairSalonWorkflow, /CANONICAL_UPLOADED/);
   assert.match(hairSalonWorkflow, /READY_FOR_REVIEW/);
-  assert.match(hairSalonWorkflow, /environment:\s*\n\s*name:\s*social-production/);
-  assert.match(hairSalonWorkflow, /PUBLISH_RESEARCH_RUN_ID:/);
-  assert.match(hairSalonWorkflow, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
-  assert.match(hairSalonWorkflow, /PUBLISH_CHANNEL: youtube/);
-  assert.match(hairSalonWorkflow, /PUBLISH_CHANNEL: tiktok/);
-  assert.match(hairSalonWorkflow, /node scripts\/publish-approved-review-queue\.mjs/);
+  const publisherJob = hairSalonWorkflow.match(/\n  publish-after-owner-approval:[\s\S]*$/)?.[0] ?? "";
+  assert.match(publisherJob, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(publisherJob, /PUBLISH_RESEARCH_RUN_ID:/);
+  assert.match(publisherJob, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+  assert.match(publisherJob, /action: "approve"/);
+  assert.match(publisherJob, /body\?\.state !== "APPROVED"|body\?\.state !== \"APPROVED\"/);
+  assert.match(publisherJob, /PUBLISH_CHANNEL: youtube/);
+  assert.match(publisherJob, /PUBLISH_CHANNEL: tiktok/);
+  assert.match(publisherJob, /node scripts\/publish-approved-review-queue\.mjs/);
   assert.doesNotMatch(hairSalonWorkflow, /BLOB_READ_WRITE_TOKEN|@vercel\/blob|publish-reviewed-upload\.mjs|public\.blob\.vercel-storage\.com/);
 });
 
