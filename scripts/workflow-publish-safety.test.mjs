@@ -77,7 +77,7 @@ test("no workflow may orchestrate or loop the approved-review publisher", () => 
 });
 
 
-test("Hair Salon one-approval workflow is main-only, immutable, and bounded", () => {
+test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed, and bounded", () => {
   const text = source("hair-salon-owner-approval.yml");
 
   assert.match(text, /push:\s*\n\s+branches:\s*\[main\]/);
@@ -90,15 +90,25 @@ test("Hair Salon one-approval workflow is main-only, immutable, and bounded", ()
     (text.match(/^\s{10}ref:\s*\$\{\{ github\.sha \}\}\s*$/gm) || []).length,
     2,
   );
+  assert.equal((text.match(/^\s{6}id-token:\s*write\s*$/gm) || []).length, 2);
   assert.doesNotMatch(text, /^\s{6}BLOB_READ_WRITE_TOKEN:\s*\$\{\{ secrets\./m);
   assert.doesNotMatch(text, /^\s{6}BUFFER_API_TOKEN:\s*\$\{\{ secrets\./m);
-  assert.match(text, /media\/review\/sha256-/);
-  assert.match(text, /addRandomSuffix:\s*false/);
-  assert.match(text, /allowOverwrite:\s*false/);
-  assert.match(text, /Re-verify approved staged MP4 before publishing/);
+  assert.doesNotMatch(text, /@vercel\/blob|public\.blob\.vercel-storage\.com|publish-reviewed-upload\.mjs/);
+  assert.match(text, /blindboxai-review-videos\/media\/review/);
+  assert.match(text, /STAGE_RENDER_URL:\s*https:\/\/www\.blindboxai\.com\/api\/owner\/stage-render/);
+  assert.match(text, /CANONICAL_UPLOADED/);
+  assert.match(text, /retryTransportFailure = true/);
+  assert.match(text, /\(retryTransportFailure && !response\)/);
+  assert.match(text, /\}, 240000, \{ retryTransportFailure: false \}\);/);
+  assert.match(text, /READY_FOR_REVIEW/);
+  assert.match(text, /Re-verify exact Supabase object after Blue approval/);
+  assert.match(text, /action: "approve"/);
+  assert.match(text, /body\?\.state !== "APPROVED"/);
+  assert.match(text, /node scripts\/publish-approved-review-queue\.mjs/);
   assert.match(text, /AbortSignal\.timeout\(30_000\)/);
-  assert.ok((text.match(/--max-time 60/g) || []).length >= 3);
-  assert.equal((text.match(/timeout-minutes:\s*15/g) || []).length, 2);
+  assert.ok((text.match(/--max-time 60/g) || []).length >= 2);
+  assert.equal((text.match(/timeout-minutes:\s*15/g) || []).length, 1);
+  assert.equal((text.match(/timeout-minutes:\s*20/g) || []).length, 1);
   assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
   assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);

@@ -13,6 +13,7 @@ const ALLOWED_WORKFLOWS = new Set([
   `${GITHUB_REPOSITORY}/.github/workflows/manual-reviewed-video.yml@refs/heads/main`,
   `${GITHUB_REPOSITORY}/.github/workflows/publish-approved-reviews.yml@refs/heads/main`,
   `${GITHUB_REPOSITORY}/.github/workflows/autonomous-video.yml@refs/heads/main`,
+  `${GITHUB_REPOSITORY}/.github/workflows/hair-salon-owner-approval.yml@refs/heads/main`,
 ]);
 const githubJwks = createRemoteJWKSet(new URL("https://token.actions.githubusercontent.com/.well-known/jwks"));
 const OWNER_GATED_SUBJECT = `repo:${GITHUB_REPOSITORY}:environment:social-production`;
@@ -44,6 +45,7 @@ async function authorized(req: Request) {
     if (payload.repository !== GITHUB_REPOSITORY || payload.ref !== "refs/heads/main" || !ALLOWED_WORKFLOWS.has(workflowRef)) return false;
     if (!hasOwnerGate(payload as Record<string, unknown>)) return false;
     if (workflowRef.endsWith("/autonomous-video.yml@refs/heads/main") && payload.event_name !== "workflow_dispatch") return false;
+    if (workflowRef.endsWith("/hair-salon-owner-approval.yml@refs/heads/main") && payload.event_name !== "push") return false;
     return true;
   } catch { return false; }
 }

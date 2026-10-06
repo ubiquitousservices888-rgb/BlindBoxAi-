@@ -59,6 +59,7 @@ test("review-only video workflow validates attribution, uses configured renderer
   assert.doesNotMatch(reviewOnlyWorkflow, /npm run video:publish|BUFFER_API_TOKEN|social-production/);
 });
 
+const hairSalonWorkflow = fs.readFileSync(new URL("../.github/workflows/hair-salon-owner-approval.yml", import.meta.url), "utf8");
 const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/route.js", import.meta.url), "utf8");
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
 const uploadBroker = fs.readFileSync(new URL("../supabase/functions/blindbox-video-upload/index.ts", import.meta.url), "utf8");
@@ -132,7 +133,41 @@ test("autonomous render handoff ffprobes canonical bytes before READY_FOR_REVIEW
   assert.match(stageRenderRoute, /action === "cleanup"/);
   assert.match(stageRenderRoute, /approved:\s*false/);
   assert.match(stageRenderRoute, /published:\s*false/);
-  assert.doesNotMatch(stageRenderRoute, /BUFFER_API_TOKEN|video:publish|social-production/);
+  assert.doesNotMatch(stageRenderRoute, /BUFFER_API_TOKEN|video:publish/);
+  assert.match(stageRenderRoute, /OWNER_GATED_SUBJECT/);
+  assert.match(stageRenderRoute, /ownerGatePresent/);
+});
+
+test("Hair Salon one-approval path uses canonical Supabase storage and publisher without Vercel Blob", () => {
+  assert.match(hairSalonWorkflow, /Upload exact asset to Supabase and stage READY_FOR_REVIEW/);
+  assert.match(hairSalonWorkflow, /EXPECTED_SHA256:\s*7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0/);
+  assert.match(hairSalonWorkflow, /EXPECTED_SIZE:\s*"121797"/);
+  assert.match(hairSalonWorkflow, /stat -c %s hair-salon\.mp4/);
+  assert.match(hairSalonWorkflow, /sha256sum --check -/);
+  assert.match(hairSalonWorkflow, /width !== 720 \|\| height !== 1280/);
+  assert.match(hairSalonWorkflow, /lazzdoadoqzrzlarerfx\.supabase\.co\/storage\/v1\/object\/public\/blindboxai-review-videos/);
+  assert.match(hairSalonWorkflow, /STAGE_RENDER_URL:\s*https:\/\/www\.blindboxai\.com\/api\/owner\/stage-render/);
+  assert.match(hairSalonWorkflow, /CANONICAL_UPLOADED/);
+  assert.match(hairSalonWorkflow, /READY_FOR_REVIEW/);
+  const publisherJob = hairSalonWorkflow.match(/\n  publish-after-owner-approval:[\s\S]*$/)?.[0] ?? "";
+  assert.match(publisherJob, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(publisherJob, /PUBLISH_RESEARCH_RUN_ID:/);
+  assert.match(publisherJob, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+  assert.match(publisherJob, /action: "approve"/);
+  assert.match(publisherJob, /body\?\.state !== "APPROVED"|body\?\.state !== \"APPROVED\"/);
+  assert.match(publisherJob, /PUBLISH_CHANNEL: youtube/);
+  assert.match(publisherJob, /PUBLISH_CHANNEL: tiktok/);
+  assert.match(publisherJob, /node scripts\/publish-approved-review-queue\.mjs/);
+  assert.doesNotMatch(hairSalonWorkflow, /BLOB_READ_WRITE_TOKEN|@vercel\/blob|publish-reviewed-upload\.mjs|public\.blob\.vercel-storage\.com/);
+});
+
+test("stage-render explicitly trusts the immutable Hair Salon workflow and exact release source", () => {
+  assert.match(stageRenderRoute, /hair-salon-owner-approval\.yml@refs\/heads\/main/);
+  assert.match(stageRenderRoute, /HAIR_SALON_RELEASE_SOURCE/);
+  assert.match(stageRenderRoute, /2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified\.mp4/);
+  assert.match(stageRenderRoute, /HAIR_SALON_WORKFLOW_REF && oidc\.event_name === "push"/);
+  assert.match(stageRenderRoute, /owner_gate_required/);
+  assert.match(stageRenderRoute, /source_video_redirect_untrusted/);
 });
 
 
@@ -164,7 +199,9 @@ test("review storage broker keeps deletion owner-only and malformed requests fai
 test("protected autonomous publisher is explicitly trusted and Edge Functions deploy from reviewed main", () => {
   for (const source of [reviewQueueFunction, publishedFeedFunction]) {
     assert.match(source, /autonomous-video\.yml@refs\/heads\/main/);
+    assert.match(source, /hair-salon-owner-approval\.yml@refs\/heads\/main/);
     assert.match(source, /payload\.event_name !== "workflow_dispatch"/);
+    assert.match(source, /hair-salon-owner-approval\.yml@refs\/heads\/main"\) && payload\.event_name !== "push"/);
     assert.match(source, /refs\/heads\/main/);
   }
   assert.match(publishingGateDeployWorkflow, /push:\s*\n\s*branches: \[main\]/);
