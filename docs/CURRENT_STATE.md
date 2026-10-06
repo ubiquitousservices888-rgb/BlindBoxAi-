@@ -36,6 +36,7 @@ Current invariants:
 - dry runs read the approved row, probe the public MP4, and inspect the active Buffer destination without creating a Buffer post;
 - YouTube video media must independently probe as no longer than three minutes and square or 9:16 portrait;
 - the Buffer YouTube channel's `serviceId` must equal `UCwaUc4e4iv2Q4P1nxlVrTvw`, the channel currently authorized in vidIQ;
+- owner-approved Buffer `shareNow` publication may use that exact channel while its scheduling queue is paused; locked or disconnected destinations still fail closed;
 - a bad title, inaccessible media, incompatible Short, or wrong Buffer destination blocks the post; a live claimed row is marked failed rather than left on a 45-minute lease;
 - Buffer credentials are referenced by name only and must never be printed.
 
