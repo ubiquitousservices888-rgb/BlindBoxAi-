@@ -218,6 +218,9 @@ test("staging reports missing and invalid timestamps without selecting them", as
       ["future", "future-dated"],
     ]);
     assert.equal(status.excluded[0].checkedAt, null);
+    const preview = fs.readFileSync(path.join(output, "preview.md"), "utf8");
+    assert.match(preview, /unknown: invalid-checkedAt \(never checked\)/);
+    assert.doesNotMatch(preview, /last checked null/);
 
     status = run([...invalids, {
       ...base, id: "fresh", checkedAt: new Date(Date.now() - 86400000).toISOString(),
