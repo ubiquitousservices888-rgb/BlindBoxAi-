@@ -4,7 +4,7 @@
 Convert useful public collectible research into **qualified early-access opt-ins**, and only then test willingness to pay. Keep existing EPN/Amazon disclosure and destination rules unchanged. No cold automation, mass unsolicited posts, unaudited prices, auto-spend, or autonomous social publishing.
 
 ## What exists vs what is proposed
-- **Live code on merge/deploy:** /pro early-access landing, server-only Supabase waitlist, privacy notice, attribution, and a browser-local resale margin scenario calculator.
+- **Live code on merge/deploy:** /pro early-access landing, server-only Supabase waitlist, privacy notice, attribution, plus a discoverable /tools/resale-margin browser-local scenario calculator in the XML sitemap.
 - **Existing public service:** reviewed completed-sale evidence and Mr. Know It All at /ask (subject to actual evidence availability).
 - **Not yet live:** alerts, batch valuation, CSV exports, account/saved collections, billing, alpha invitations. Planned $9/month is a hypothesis, not MRR.
 
