@@ -54,7 +54,7 @@ if (!recent.length) {
     "A researcher must re-check official terms and eligibility, then record a completed-check ISO UTC timestamp (YYYY-MM-DDTHH:mm:ssZ) in checkedAt. Never backdate or automatically renew evidence.",
     "",
     "## Excluded sources",
-    ...excluded.map(({ id, checkedAt, reason }) => `- ${id}: ${reason} (last checked ${checkedAt})`),
+    ...excluded.map(({ id, checkedAt, reason }) => `- ${id}: ${reason} (${checkedAt ? `last checked ${checkedAt}` : "never checked"})`),
     "",
   ].join("\n");
   fs.writeFileSync(path.join(outputDir, "preview.md"), preview);
