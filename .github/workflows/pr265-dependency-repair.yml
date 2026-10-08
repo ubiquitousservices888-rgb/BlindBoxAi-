@@ -1,0 +1,38 @@
+name: PR265 temporary dependency repair
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/pr265-dependency-repair.yml
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: ${{ github.event.pull_request.number == 265 && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - name: Regenerate patched dependency lock
+        run: |
+          npm install sharp@0.35.5 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm audit fix --package-lock-only --ignore-scripts --no-fund
+          npm ci
+          npm audit --audit-level=high
+          node --test scripts/mr-know-it-all-tool-bot.test.mjs
+      - name: Commit verified dependency patch to PR
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: patch high-severity MCP and Sharp dependencies"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          fi
