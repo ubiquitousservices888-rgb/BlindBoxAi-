@@ -4,6 +4,8 @@ import {
   assertPartnershipSafety,
   buildPartnershipCandidate,
   partnershipScore,
+  partnershipEvidenceStatus,
+  PARTNERSHIP_EVIDENCE_MAX_AGE_MS,
   rankPartnershipOpportunities,
 } from "../lib/partnership-flywheel.mjs";
 
@@ -156,6 +158,74 @@ test("staging ranks fresh opportunities without reviving expired evidence", asyn
     assert.equal(status.recentCount, 1);
     assert.deepEqual(status.excluded.map((item) => item.id), ["expired"]);
     assert.equal(candidate.selected.id, "recent");
+    assert.equal(candidate.contactAutomatically, false);
+    assert.equal(candidate.applyAutomatically, false);
+    assert.equal(candidate.spendAutomatically, false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+
+test("evidence timestamps require completed-check UTC, reject future, and share a 30-day cutoff", () => {
+  const point = new Date("2026-10-08T13:00:00Z");
+  assert.equal(PARTNERSHIP_EVIDENCE_MAX_AGE_MS, 30 * 86400000);
+  assert.equal(partnershipEvidenceStatus("2026-10-08T12:59:59Z", point), "fresh");
+  assert.equal(partnershipEvidenceStatus("2026-10-08T12:59:59.000Z", point), "fresh");
+  assert.equal(partnershipEvidenceStatus("2026-10-08", point), "invalid-checkedAt");
+  assert.equal(partnershipEvidenceStatus(undefined, point), "invalid-checkedAt");
+  assert.equal(partnershipEvidenceStatus("2026-02-30T12:00:00Z", point), "invalid-checkedAt");
+  assert.equal(partnershipEvidenceStatus("2026-10-08T13:00:01Z", point), "future-dated");
+  assert.equal(partnershipEvidenceStatus(new Date(point.getTime() - PARTNERSHIP_EVIDENCE_MAX_AGE_MS).toISOString(), point), "fresh");
+  assert.equal(partnershipEvidenceStatus(new Date(point.getTime() - PARTNERSHIP_EVIDENCE_MAX_AGE_MS - 1).toISOString(), point), "stale");
+});
+
+test("staging reports missing and invalid timestamps without selecting them", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "partnership-invalid-"));
+  const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "partnership-flywheel-stage.mjs");
+  const input = path.join(tmp, "source.json");
+  const output = path.join(tmp, "output");
+  const base = {
+    name: "Affiliate", organization: "Example Store", type: "affiliate",
+    active: true, sourceUrl: "https://example.com/affiliate",
+    evidence: "Test-only evidence.", eligibilityStatus: "unknown",
+  };
+  const run = (records) => {
+    fs.writeFileSync(input, JSON.stringify({ opportunities: records }));
+    execFileSync(process.execPath, [script], {
+      env: { ...process.env, PARTNERSHIP_OPPORTUNITIES_FILE: input, PARTNERSHIP_OUTPUT_DIR: output },
+      encoding: "utf8",
+    });
+    return JSON.parse(fs.readFileSync(path.join(output, "status.json"), "utf8"));
+  };
+  try {
+    const invalids = [
+      { ...base }, // no id or checkedAt
+      { ...base, id: "date-only", checkedAt: "2026-10-08" },
+      { ...base, id: "future", checkedAt: new Date(Date.now() + 86400000).toISOString() },
+    ];
+    let status = run(invalids);
+    assert.equal(status.state, "NEEDS_FRESH_RESEARCH");
+    assert.equal(fs.existsSync(path.join(output, "candidate.json")), false);
+    assert.deepEqual(status.excluded.map(({ id, reason }) => [id, reason]), [
+      ["unknown", "invalid-checkedAt"],
+      ["date-only", "invalid-checkedAt"],
+      ["future", "future-dated"],
+    ]);
+    assert.equal(status.excluded[0].checkedAt, null);
+
+    status = run([...invalids, {
+      ...base, id: "fresh", checkedAt: new Date(Date.now() - 86400000).toISOString(),
+    }]);
+    assert.equal(status.state, "READY_FOR_REVIEW");
+    assert.equal(status.recentCount, 1);
+    const candidate = JSON.parse(fs.readFileSync(path.join(output, "candidate.json"), "utf8"));
+    assert.equal(candidate.selected.id, "fresh");
     assert.equal(candidate.contactAutomatically, false);
     assert.equal(candidate.applyAutomatically, false);
     assert.equal(candidate.spendAutomatically, false);
