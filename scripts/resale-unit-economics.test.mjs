@@ -21,15 +21,24 @@ test("fees and both shipping legs affect real resale margin", () => {
   assert.equal(r.valid, true);
   assert.equal(r.netProfit, 15);
   assert.equal(r.sellingFee, 5);
+  assert.equal(r.maxPurchasePrice, 35);
   assert.ok(Math.abs(r.breakEvenSalePrice - 33.333333333333336) < 0.00001);
 });
+test("purchase ceiling respects desired profit and rejects unattainable targets", () => {
+  const possible = calculateResaleMargin({ purchase: 20, inboundShipping: 4, salesTax: 2, salePrice: 50, feePercent: 10, outboundShipping: 4, desiredProfit: 10 });
+  assert.equal(possible.valid, true);
+  assert.equal(possible.maxPurchasePrice, 25);
+  const impossible = calculateResaleMargin({ salePrice: 5, outboundShipping: 10, desiredProfit: 2 });
+  assert.ok(impossible.maxPurchasePrice < 0);
+});
+
 test("loss is displayed as a loss rather than a profit", () => {
   const r = calculateResaleMargin({ purchase: 35, salePrice: 30, feePercent: 10, outboundShipping: 5 });
   assert.equal(r.valid, true);
   assert.equal(r.netProfit, -13);
 });
 test("rejects invalid and negative inputs and fee rates of 100 percent", () => {
-  for (const bad of [{ purchase: -1 }, { salePrice: "not-a-number" }, { feePercent: 100 }, { feePercent: "Infinity" }]) {
+  for (const bad of [{ purchase: -1 }, { salePrice: "not-a-number" }, { feePercent: 100 }, { feePercent: "Infinity" }, { desiredProfit: -5 }]) {
     assert.equal(calculateResaleMargin(bad).valid, false);
   }
 });
