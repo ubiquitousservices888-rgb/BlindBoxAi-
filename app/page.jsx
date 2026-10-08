@@ -118,6 +118,7 @@ export default async function Home() {
           <div className="bv-actions">
             <Link className="bv-button bv-button-primary" href="/ask">Ask Mr. Know It All →</Link>
             <a className="bv-button bv-button-secondary" href="#collectibles">Browse verified collectibles</a>
+            <Link className="bv-button bv-button-secondary" href="/pro?utm_source=site&utm_medium=home&utm_campaign=alpha_launch_202610">Free margin tool + alpha access →</Link>
           </div>
           <p className="bv-micro">Verified means at least two documented completed sales. Freshness is shown separately using a {PUBLIC_PRICE_FRESHNESS_DAYS}-day window.</p>
         </div>
