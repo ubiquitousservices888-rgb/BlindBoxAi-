@@ -50,21 +50,34 @@ jobs:
         run: node --test scripts/partnership-flywheel.test.mjs
       - name: Stage researcher, finder, and seeker output
         run: node scripts/partnership-flywheel-stage.mjs
-      - name: Upload review candidate
+      - name: Upload review candidate or fresh-research report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: partnership-flywheel-review
           path: output/partnership-flywheel
           retention-days: 7
           if-no-files-found: error
-      - name: Confirm no autonomous outreach
+      - name: Confirm review-only output or fresh-research requirement
         run: |
           node --input-type=module <<'NODE'
           import fs from "node:fs";
-          const candidate = JSON.parse(fs.readFileSync("output/partnership-flywheel/candidate.json", "utf8"));
-          if (candidate.state !== "READY_FOR_REVIEW") throw new Error("Partnership candidate escaped review state");
-          if (candidate.contactAutomatically !== false) throw new Error("Automatic contact must remain disabled");
-          if (candidate.applyAutomatically !== false) throw new Error("Automatic applications must remain disabled");
-          if (candidate.spendAutomatically !== false) throw new Error("Automatic spending must remain disabled");
-          console.log("Partnership candidate is review-only and no email, DM, application, contract, or spend was executed.");
+          const dir = "output/partnership-flywheel";
+          const status = JSON.parse(fs.readFileSync(`${dir}/status.json`, "utf8"));
+          const candidatePath = `${dir}/candidate.json`;
+          if (status.state === "NEEDS_FRESH_RESEARCH") {
+            if (status.recentCount !== 0 || fs.existsSync(candidatePath)) {
+              throw new Error("Expired evidence must never produce a partnership candidate");
+            }
+            console.log("NEEDS_FRESH_RESEARCH: no unverified candidate advanced to review.");
+          } else {
+            if (status.state !== "READY_FOR_REVIEW" || status.recentCount < 1) {
+              throw new Error("Unexpected partnership staging status");
+            }
+            const candidate = JSON.parse(fs.readFileSync(candidatePath, "utf8"));
+            if (candidate.state !== "READY_FOR_REVIEW") throw new Error("Partnership candidate escaped review state");
+            if (candidate.contactAutomatically !== false) throw new Error("Automatic contact must remain disabled");
+            if (candidate.applyAutomatically !== false) throw new Error("Automatic applications must remain disabled");
+            if (candidate.spendAutomatically !== false) throw new Error("Automatic spending must remain disabled");
+            console.log("Partnership candidate is review-only; no outreach, applications, contracts, or spend executed.");
+          }
           NODE
