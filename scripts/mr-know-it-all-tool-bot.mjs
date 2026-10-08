@@ -9,6 +9,7 @@ function edgeUrl() {
   return `${origin}/functions/v1/mr-know-it-all-ingest`;
 }
 const OIDC_AUDIENCE = "blindboxai-research-bot";
+const WORKER_ERROR_OUTCOME = "worker_error";
 const BATCH_SIZE = Math.min(100, Math.max(1, Number(process.env.RESEARCH_BATCH_SIZE) || 25));
 const CONCURRENCY = Math.min(10, Math.max(1, Number(process.env.RESEARCH_CONCURRENCY) || 5));
 const SALES_LIMIT_PER_CONDITION = Math.min(50, Math.max(1, Number(process.env.SALES_LIMIT_PER_CONDITION) || 20));
@@ -293,7 +294,7 @@ async function runBounded(items, oidcToken) {
     settled.forEach((entry, index) => {
       results.push(entry.status === "fulfilled"
         ? entry.value
-        : { id: chunk[index]?.id, outcome: "worker_error", error: clean(entry.reason?.message || entry.reason, 240) });
+        : { id: chunk[index]?.id, outcome: WORKER_ERROR_OUTCOME, error: clean(entry.reason?.message || entry.reason, 240) });
     });
   }
   return results;
@@ -305,7 +306,7 @@ async function main() {
   const pull = await edgeCall("bot_pull", { limit: BATCH_SIZE }, { oidcToken });
   const items = Array.isArray(pull?.items) ? pull.items : [];
   const results = await runBounded(items, oidcToken);
-  const failed = results.filter((result) => result.outcome === "worker_error");
+  const failed = results.filter((result) => result.outcome === WORKER_ERROR_OUTCOME);
   if (failed.length > 0) process.exitCode = 1;
   console.log(JSON.stringify({
     workerErrors: failed.length,
