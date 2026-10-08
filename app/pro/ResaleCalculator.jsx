@@ -23,7 +23,7 @@ export default function ResaleCalculator() {
   const started = Object.values(inputs).some((value) => value !== "");
 
   return (
-    <section className="plan" style={{ marginTop: "24px" }} aria-labelledby="resale-margin-title">
+    <section className="plan" style={{ marginTop: "24px", maxWidth: "none" }} aria-labelledby="resale-margin-title">
       <h2 id="resale-margin-title">Free resale margin check</h2>
       <p style={{ lineHeight: 1.6 }}>
         A price can look like a bargain and still lose money after fees. Try your
