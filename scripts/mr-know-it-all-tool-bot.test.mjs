@@ -100,3 +100,11 @@ test("research queue controls bound backlog, reserve public capacity, drain orph
   assert.match(workerSource, /accepted\.length === 0/);
   assert.match(workerSource, /retryHours: successfulEmptyCooldown \? 720 : 6/);
 });
+
+
+test("worker errors cause a failing scheduled run without suppressing the result summary", () => {
+  const source = fs.readFileSync(new URL("./mr-know-it-all-tool-bot.mjs", import.meta.url), "utf8");
+  assert.match(source, /results\.filter\(\(result\) => result\.outcome === "worker_error"\)/);
+  assert.match(source, /if \(failed\.length > 0\) process\.exitCode = 1/);
+  assert.match(source, /workerErrors: failed\.length/);
+});
