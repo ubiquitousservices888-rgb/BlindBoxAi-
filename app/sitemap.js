@@ -25,6 +25,8 @@ export default async function sitemap() {
   const stable = [
     { url: `${SITE}/`, changeFrequency: "daily", priority: 1 },
     { url: `${SITE}/tools/buy-or-pass`, changeFrequency: "daily", priority: 0.95 },
+    { url: `${SITE}/tools/resale-margin`, changeFrequency: "weekly", priority: 0.85 },
+    { url: `${SITE}/pro`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE}/ask`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE}/ai-family`, changeFrequency: "weekly", priority: 0.75 },
     { url: `${SITE}/guides/mew-ex-152-vs-158`, changeFrequency: "daily", priority: 0.9 },
