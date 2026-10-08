@@ -305,7 +305,10 @@ async function main() {
   const pull = await edgeCall("bot_pull", { limit: BATCH_SIZE }, { oidcToken });
   const items = Array.isArray(pull?.items) ? pull.items : [];
   const results = await runBounded(items, oidcToken);
+  const failed = results.filter((result) => result.outcome === "worker_error");
+  if (failed.length > 0) process.exitCode = 1;
   console.log(JSON.stringify({
+    workerErrors: failed.length,
     questionBankSize: Array.isArray(questionBank?.items) ? questionBank.items.length : 0,
     requestedBatchSize: BATCH_SIZE,
     salesLimitPerCondition: SALES_LIMIT_PER_CONDITION,
