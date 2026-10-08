@@ -10,6 +10,7 @@ const fields = [
   ["salePrice", "Expected resale price", "Use a plausible sale, not an unsold ask"],
   ["feePercent", "Selling fees (%)", "Enter your actual platform/payment rate"],
   ["outboundShipping", "Outbound shipping", "Packing and postage you will pay"],
+  ["desiredProfit", "Target profit", "Minimum profit you want after listed costs"],
 ];
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -54,6 +55,8 @@ export default function ResaleCalculator() {
           <p><strong>Estimated net {result.netProfit >= 0 ? "profit" : "loss"}: {currency.format(result.netProfit)}</strong></p>
           <p>Estimated selling fee: {currency.format(result.sellingFee)}</p>
           <p>Break-even resale price: {currency.format(result.breakEvenSalePrice)}</p>
+          <p><strong>Maximum buy price for target profit: {result.maxPurchasePrice >= 0 ? currency.format(result.maxPurchasePrice) : "No feasible nonnegative price"}</strong></p>
+          <p className="fine">The maximum buy price assumes all other inputs stay fixed; purchase tax may change with purchase price.</p>
           <p className="fine">
             {result.netProfit < 0
               ? "This scenario loses money. Consider passing unless the assumptions change."
