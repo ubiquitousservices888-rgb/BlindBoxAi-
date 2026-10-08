@@ -10,7 +10,7 @@ const fields = [
   ["salePrice", "Expected resale price", "Use a plausible sale, not an unsold ask"],
   ["feePercent", "Selling fees (%)", "Enter your actual platform/payment rate"],
   ["outboundShipping", "Outbound shipping", "Packing and postage you will pay"],
-  ["desiredProfit", "Target profit", "Minimum profit you want after listed costs"],
+  ["desiredProfit", "Target profit (optional)", "Profit goal above all listed costs; defaults to zero"],
 ];
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -18,8 +18,9 @@ const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "
 export default function ResaleCalculator() {
   const [inputs, setInputs] = useState({});
   const result = calculateResaleMargin(inputs);
-  const ready = inputs.purchase !== undefined && inputs.purchase !== "" &&
-    inputs.salePrice !== undefined && inputs.salePrice !== "";
+  const requiredFields = ["purchase", "inboundShipping", "salesTax", "salePrice", "feePercent", "outboundShipping"];
+  const ready = requiredFields.every((key) => inputs[key] !== undefined && inputs[key] !== "");
+  const started = Object.values(inputs).some((value) => value !== "");
 
   return (
     <section className="plan" style={{ marginTop: "24px" }} aria-labelledby="resale-margin-title">
@@ -40,15 +41,17 @@ export default function ResaleCalculator() {
               step="0.01"
               inputMode="decimal"
               aria-label={label}
+              aria-describedby={`resale-hint-${key}`}
               placeholder="0.00"
               value={inputs[key] ?? ""}
               onChange={(e) => setInputs((current) => ({ ...current, [key]: e.target.value }))}
               style={{ padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--line, #ccc)", background: "transparent", color: "inherit", width: "100%" }}
             />
-            <small className="fine">{hint}</small>
+            <small className="fine" id={`resale-hint-${key}`}>{hint}</small>
           </label>
         ))}
       </div>
+      {started && !ready && <p role="status" className="fine">Complete every purchase, sale, shipping, tax, and fee field before reviewing a margin. Enter 0 explicitly when a cost does not apply. Target profit is optional.</p>}
       {ready && !result.valid && <p role="alert" className="fine">{result.reason}</p>}
       {ready && result.valid && (
         <div aria-live="polite" style={{ marginTop: "16px", padding: "14px", border: "1px solid var(--line, #ccc)", borderRadius: "10px" }}>
