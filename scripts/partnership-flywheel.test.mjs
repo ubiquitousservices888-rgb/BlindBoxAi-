@@ -95,3 +95,71 @@ test("selection-not-guaranteed receives the same risk penalty as equivalent flag
   assert.equal(partnershipScore(selection, { now }), partnershipScore(approval, { now }));
   assert.ok(partnershipScore(selection, { now }) < partnershipScore(unflagged, { now }));
 });
+
+test("staging excludes expired evidence and writes a truthful needs-research artifact", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "partnership-stage-"));
+  try {
+    const input = path.join(tmp, "source.json");
+    const output = path.join(tmp, "output");
+    const oldDate = new Date(Date.now() - 45 * 86400000).toISOString();
+    fs.writeFileSync(input, JSON.stringify({ opportunities: [{
+      id: "old-affiliate", name: "Old Affiliate", organization: "Example Store",
+      type: "affiliate", active: true, sourceUrl: "https://example.com/affiliate",
+      checkedAt: oldDate, evidence: "Previously checked evidence.", eligibilityStatus: "unknown",
+    }] }));
+    const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "partnership-flywheel-stage.mjs");
+    const stdout = execFileSync(process.execPath, [script], {
+      env: { ...process.env, PARTNERSHIP_OPPORTUNITIES_FILE: input, PARTNERSHIP_OUTPUT_DIR: output }, encoding: "utf8",
+    });
+    const status = JSON.parse(fs.readFileSync(path.join(output, "status.json"), "utf8"));
+    assert.equal(status.state, "NEEDS_FRESH_RESEARCH");
+    assert.equal(status.recentCount, 0);
+    assert.deepEqual(status.excluded.map((item) => item.id), ["old-affiliate"]);
+    assert.equal(fs.existsSync(path.join(output, "candidate.json")), false);
+    assert.match(stdout, /NEEDS_FRESH_RESEARCH/);
+    assert.match(fs.readFileSync(path.join(output, "preview.md"), "utf8"), /last checked/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("staging ranks fresh opportunities without reviving expired evidence", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "partnership-stage-"));
+  try {
+    const input = path.join(tmp, "source.json");
+    const output = path.join(tmp, "output");
+    const base = {
+      type: "affiliate", active: true, sourceUrl: "https://example.com/affiliate",
+      evidence: "Evidence checked for testing.", eligibilityStatus: "unknown", fitTags: ["collectibles"],
+    };
+    fs.writeFileSync(input, JSON.stringify({ opportunities: [
+      { ...base, id: "expired", name: "Expired", organization: "Expired Store", checkedAt: new Date(Date.now() - 45 * 86400000).toISOString() },
+      { ...base, id: "recent", name: "Recent", organization: "Recent Store", checkedAt: new Date(Date.now() - 86400000).toISOString() },
+    ] }));
+    const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "partnership-flywheel-stage.mjs");
+    execFileSync(process.execPath, [script], {
+      env: { ...process.env, PARTNERSHIP_OPPORTUNITIES_FILE: input, PARTNERSHIP_OUTPUT_DIR: output }, encoding: "utf8",
+    });
+    const status = JSON.parse(fs.readFileSync(path.join(output, "status.json"), "utf8"));
+    const candidate = JSON.parse(fs.readFileSync(path.join(output, "candidate.json"), "utf8"));
+    assert.equal(status.state, "READY_FOR_REVIEW");
+    assert.equal(status.recentCount, 1);
+    assert.deepEqual(status.excluded.map((item) => item.id), ["expired"]);
+    assert.equal(candidate.selected.id, "recent");
+    assert.equal(candidate.contactAutomatically, false);
+    assert.equal(candidate.applyAutomatically, false);
+    assert.equal(candidate.spendAutomatically, false);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
