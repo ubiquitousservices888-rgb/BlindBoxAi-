@@ -1,0 +1,51 @@
+name: Temporary dependency lockfile repair (PR 263)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "package.json"
+      - ".github/workflows/temporary-dependency-lockfile-repair.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ github.event.pull_request.number == 263 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/partnership-stale-evidence-2026-10-08' && github.actor == 'ubiquitousservices888-rgb' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted PR branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: true
+      - name: Setup Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Generate registry-verified lockfile without install scripts
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const root = JSON.parse(fs.readFileSync('package.json','utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          if (root.dependencies.sharp !== '0.35.5') throw new Error('Unexpected sharp pin');
+          if (lock.packages['node_modules/sharp']?.version !== '0.35.5') throw new Error('Sharp lockfile not patched');
+          if (lock.packages['node_modules/@modelcontextprotocol/client']?.version !== '2.2.0') throw new Error('MCP client lockfile not patched');
+          if (lock.packages['node_modules/@modelcontextprotocol/core']?.version !== '2.2.0') throw new Error('MCP core lockfile not patched');
+          console.log('Registry-pinned lockfile security checks passed');
+          NODE
+      - name: Commit generated lockfile only
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already matches package.json"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- package-lock.json
+          git commit -m "security(lock): resolve patched sharp and MCP packages"
+          git push origin HEAD:refs/heads/fix/partnership-stale-evidence-2026-10-08
