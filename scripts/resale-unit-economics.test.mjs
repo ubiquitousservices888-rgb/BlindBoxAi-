@@ -1,5 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+
+const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("alpha acquisition pages are publicly discoverable and first-party", () => {
+  const sitemap = read("app/sitemap.js");
+  const landing = read("app/tools/resale-margin/page.jsx");
+  const home = read("app/page.jsx");
+  assert.match(sitemap, /\$\{SITE\}\/tools\/resale-margin/);
+  assert.match(sitemap, /\$\{SITE\}\/pro/);
+  assert.match(landing, /join the free reseller alpha list/);
+  assert.match(home, /utm_campaign=alpha_launch_202610/);
+  assert.doesNotMatch(landing, /ebay\.com\/itm\//);
+});
 import { calculateResaleMargin } from "../lib/resale-unit-economics.mjs";
 
 test("fees and both shipping legs affect real resale margin", () => {
