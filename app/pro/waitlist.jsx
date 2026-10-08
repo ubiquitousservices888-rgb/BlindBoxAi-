@@ -126,7 +126,7 @@ export default function Waitlist() {
         style={{ flex: "1 1 200px", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--line, #ccc)", background: "transparent", color: "inherit" }}
       />
       <button className="cta" type="submit" disabled={status === "sending"}>
-        {status === "sending" ? "Joining…" : "Join the waitlist →"}
+        {status === "sending" ? "Joining…" : "Get free early access →"}
       </button>
       {status === "error" && (
         <p className="fine" style={{ color: "crimson", flexBasis: "100%" }}>
