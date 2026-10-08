@@ -13,6 +13,13 @@ test("alpha acquisition pages are publicly discoverable and first-party", () => 
   assert.match(landing, /join the free reseller alpha list/);
   assert.match(home, /utm_campaign=alpha_launch_202610/);
   assert.doesNotMatch(landing, /ebay\.com\/itm\//);
+  const pro = read("app/pro/page.jsx");
+  const waitlist = read("app/pro/waitlist.jsx");
+  assert.match(home, /href="\/tools\/resale-margin\?utm_source=site/);
+  assert.match(landing, /href="\/pro\?utm_source=site/);
+  assert.match(pro, /<Waitlist\s*\/>/);
+  assert.match(waitlist, /fetch\("\/api\/waitlist"/);
+  assert.doesNotMatch(landing, /https?:\/\/[^"']+\/(?:signup|subscribe)/);
 });
 import { calculateResaleMargin } from "../lib/resale-unit-economics.mjs";
 
@@ -43,6 +50,11 @@ test("loss is displayed as a loss rather than a profit", () => {
   assert.equal(r.valid, true);
   assert.equal(r.netProfit, -13);
 });
+test("finite inputs that overflow a derived dollar amount are invalid", () => {
+  const r = calculateResaleMargin({ purchase: 1e308, inboundShipping: 1e308, salePrice: 1e308 });
+  assert.equal(r.valid, false);
+});
+
 test("rejects invalid and negative inputs and fee rates of 100 percent", () => {
   for (const bad of [{ purchase: -1 }, { salePrice: "not-a-number" }, { feePercent: 100 }, { feePercent: "Infinity" }, { desiredProfit: -5 }]) {
     assert.equal(calculateResaleMargin(bad).valid, false);
