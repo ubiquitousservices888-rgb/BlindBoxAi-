@@ -32,6 +32,12 @@ test("purchase ceiling respects desired profit and rejects unattainable targets"
   assert.ok(impossible.maxPurchasePrice < 0);
 });
 
+test("exact cent-level break-even never displays a phantom negative zero", () => {
+  const r = calculateResaleMargin({ purchase: 0.1, inboundShipping: 0.2, salePrice: 0.3 });
+  assert.equal(r.netProfit, 0);
+  assert.equal(Object.is(r.netProfit, -0), false);
+});
+
 test("loss is displayed as a loss rather than a profit", () => {
   const r = calculateResaleMargin({ purchase: 35, salePrice: 30, feePercent: 10, outboundShipping: 5 });
   assert.equal(r.valid, true);
