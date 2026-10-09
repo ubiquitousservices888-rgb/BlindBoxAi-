@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { reviewVideoLandingUrl } from "../lib/review-landing-url.mjs";
+import { HAIR_SALON_MEDIA_URL, HAIR_SALON_TITLE, HAIR_SALON_SHA256, HAIR_SALON_REVIEW_PATH, REVIEW_OBJECT_PREFIX } from "../lib/hair-salon-asset.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 import { ebayOutboundPath } from "../lib/data.js";
 
 const item = {
-  title: "THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box",
-  video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/sha256-7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0.mp4",
+  title: HAIR_SALON_TITLE,
+  video_url: HAIR_SALON_MEDIA_URL,
   research_run_id: "rv-3c9c9bb78c37ff6a",
 };
 
@@ -36,4 +37,9 @@ test("changed media or title cannot acquire the specialist Hair Salon CTA", () =
     "https://www.blindboxai.com");
   assert.equal(reviewVideoLandingUrl({ ...item, title: "Another collectible" }),
     "https://www.blindboxai.com");
+});
+
+test("canonical Hair Salon URL derives from the one immutable asset manifest", () => {
+  assert.equal(HAIR_SALON_REVIEW_PATH, `media/review/sha256-${HAIR_SALON_SHA256}.mp4`);
+  assert.equal(HAIR_SALON_MEDIA_URL, `${REVIEW_OBJECT_PREFIX}${HAIR_SALON_REVIEW_PATH}`);
 });
