@@ -66,6 +66,8 @@ jobs:
           # CI validates affiliate URL construction with the repository EPN campaign secret.
           # The campaign ID is never stored in source control.
           NEXT_PUBLIC_EPN_CAMPID: ${{ secrets.NEXT_PUBLIC_EPN_CAMPID }}
+      - name: Verify public Hair Salon MP4 and tracked landing URLs without affiliate clicks
+        run: node scripts/verify-hair-salon-urls.mjs
 
   build:
     name: Build
