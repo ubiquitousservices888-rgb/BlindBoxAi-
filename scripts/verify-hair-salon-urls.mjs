@@ -4,14 +4,15 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { reviewVideoLandingUrl } from "../lib/review-landing-url.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
+import { HAIR_SALON_TITLE, HAIR_SALON_MEDIA_URL, HAIR_SALON_SHA256, HAIR_SALON_SIZE } from "../lib/hair-salon-asset.mjs";
 
 const item = {
-  title: "THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box",
-  video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/sha256-7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0.mp4",
+  title: HAIR_SALON_TITLE,
+  video_url: HAIR_SALON_MEDIA_URL,
   research_run_id: "rv-3c9c9bb78c37ff6a",
 };
-const expectedDigest = "7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0";
-const expectedBytes = 121797;
+const expectedDigest = HAIR_SALON_SHA256;
+const expectedBytes = HAIR_SALON_SIZE;
 
 async function publicGet(url) {
   const response = await fetch(url, {
