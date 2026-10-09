@@ -68,6 +68,22 @@ describe("Amazon Associates accessory path", () => {
     assert.match(videoPipelineSource, /AMAZON_VIDEO_CTA = "https:\/\/blindboxai\.com\/shop\/accessories"/);
   });
 
+  it("Amazon accessory landing recognizes standard UTM and explicit campaign/source tags", () => {
+    const pageSource = fs.readFileSync(
+      new URL("../app/shop/accessories/page.jsx", import.meta.url),
+      "utf8",
+    );
+    assert.match(pageSource, /normalizeCampaignId\(query\?\.campaign\) \|\| normalizeCampaignId\(query\?\.utm_campaign\)/);
+    assert.match(pageSource, /query\?\.source \|\| query\?\.utm_source \|\| "amazon_accessories"/);
+    // First-party attribution must never silently insert extra tracking
+    // parameters into the Amazon Special Link beyond the approved Associate tag.
+    const url = new URL(buildAmazonSearchUrl("display-turntable"));
+    assert.equal(url.searchParams.get("tag"), AMAZON_ASSOCIATE_TAG);
+    assert.equal(url.searchParams.has("utm_campaign"), false);
+    assert.equal(url.searchParams.has("utm_source"), false);
+    assert.equal(url.searchParams.has("campaign"), false);
+  });
+
   it("primary Amazon shop links go directly to Amazon while first-party logging stays non-blocking", () => {
     const pageSource = fs.readFileSync(new URL("../app/shop/accessories/page.jsx", import.meta.url), "utf8");
     const linkSource = fs.readFileSync(new URL("../app/shop/accessories/AmazonAffiliateLink.jsx", import.meta.url), "utf8");
