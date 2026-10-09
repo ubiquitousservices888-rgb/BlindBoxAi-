@@ -416,9 +416,10 @@ async function handleBotFinish(body: any) {
   const status = cleanText(body?.status, 20);
   if (!queueId || !["queued", "verified", "blocked"].includes(status)) return json({ error: "Queue finish fields invalid" }, 400);
   const { data: claimed, error: readError } = await db.from("mr_know_it_all_research_queue")
-    .select("id,attempts,status").eq("id", queueId).eq("status", "researching").maybeSingle();
+    .select("id,attempts,status").eq("id", queueId).maybeSingle();
   if (readError) return json({ error: "Queue claim lookup failed" }, 500);
-  if (!claimed) return json({ error: "Queue item is not actively claimed" }, 409);
+  if (!claimed) return json({ error: "Queue item not found" }, 404);
+  if (claimed.status !== "researching") return json({ error: "Queue item is not actively claimed" }, 409);
   // A completed attempt at or beyond the threshold must not get a short retry.
   const requestedRetryHours = Math.max(1, Math.min(720, Number(body?.retryHours) || 6));
   const retryHours = status === "queued" && Number(claimed.attempts || 0) >= 8 ? 720 : requestedRetryHours;
@@ -430,7 +431,7 @@ async function handleBotFinish(body: any) {
     updated_at: new Date().toISOString(),
     last_note: cleanText(body?.note, 500) || null,
     last_result: lastResult,
-  }).eq("id", queueId).eq("status", "researching").select("id");
+  }).eq("id", queueId).eq("status", "researching").eq("attempts", claimed.attempts).select("id");
   if (error) return json({ error: "Queue update failed" }, 500);
   if (!finished?.length) return json({ error: "Queue claim changed before finish" }, 409);
   return json({ ok: true, status, nextAttemptAt });
