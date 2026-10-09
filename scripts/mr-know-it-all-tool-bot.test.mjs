@@ -157,3 +157,15 @@ test("scheduled worker completes successfully when mocked queue items finish", (
   assert.equal(summary.results.length, 1);
   assert.equal(summary.results[0].outcome, "cataloged_waiting_for_provider");
 });
+
+
+test("ingest seed does not overwrite queue states and finish enforces eight-attempt cooldown", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/mr-know-it-all-ingest/index.ts", import.meta.url), "utf8");
+  const seed = source.slice(source.indexOf("async function handleBotSeed("), source.indexOf("async function handleBotPull("));
+  const finish = source.slice(source.indexOf("async function handleBotFinish("), source.indexOf("Deno.serve("));
+  assert.match(seed, /research_queue"\)\.insert\(/);
+  assert.doesNotMatch(seed, /research_queue"\)\.upsert\(/);
+  assert.match(seed, /error\.code !== "23505"/);
+  assert.match(finish, /Number\(claimed\.attempts \|\| 0\) >= 8 \? 720/);
+  assert.match(finish, /\.eq\("status", "researching"\)\.select\("id"\)/);
+});
