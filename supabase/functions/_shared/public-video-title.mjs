@@ -10,7 +10,7 @@ const CAMERA_FILE_TITLE_RE =
   /^(?:img|dsc|dcim|vid(?:eo)?|mov|pxl|clip|recording|screen[ _-]?record(?:ing)?)(?:[ ._-]*\d+)*(?:\.(?:mp4|mov|m4v|avi|mkv|webm))?$/i;
 
 export function cleanPublicVideoTitle(value, maxLength = 100) {
-  return String(value ?? "")
+  return String(typeof value === "string" || typeof value === "number" ? value : "")
     .replace(/[<>]/g, "")
     .replace(/[\r\n\t]+/g, " ")
     .replace(/[\u0000-\u001F\u007F]/g, " ")
