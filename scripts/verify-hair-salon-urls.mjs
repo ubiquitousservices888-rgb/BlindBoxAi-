@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { reviewVideoLandingUrl } from "../lib/review-landing-url.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
+import { fetchApprovedPublicUrl } from "../lib/read-only-url-fetch.mjs";
 import { HAIR_SALON_TITLE, HAIR_SALON_MEDIA_URL, HAIR_SALON_SHA256, HAIR_SALON_SIZE } from "../lib/hair-salon-asset.mjs";
 
 const item = {
@@ -14,20 +15,21 @@ const item = {
 const expectedDigest = HAIR_SALON_SHA256;
 const expectedBytes = HAIR_SALON_SIZE;
 
-async function publicGet(url) {
-  const response = await fetch(url, {
-    method: "GET",
-    redirect: "follow",
-    cache: "no-store",
-    headers: { "User-Agent": "BlindBoxAI-read-only-video-verification/1.0" },
-    signal: AbortSignal.timeout(20000),
-  });
-  assert.equal(response.status, 200, `${new URL(url).pathname}: public HTTP 200 required`);
-  return response;
+function allowedMediaUrl(candidate) {
+  return candidate.toString() === item.video_url;
+}
+
+function allowedLandingUrl(candidate, service) {
+  return candidate.protocol === "https:" &&
+    candidate.port === "" &&
+    ["blindboxai.com", "www.blindboxai.com"].includes(candidate.hostname) &&
+    candidate.pathname.replace(/\/$/, "") === "/series/labubu-the-monsters-hair-salon" &&
+    candidate.searchParams.get("campaign") === "bb-rv-3c9c9bb78c37ff6a" &&
+    candidate.searchParams.get("source") === service;
 }
 
 async function verifyMedia() {
-  const response = await publicGet(item.video_url);
+  const { response } = await fetchApprovedPublicUrl(item.video_url, { allowUrl: allowedMediaUrl });
   assert.match(response.headers.get("content-type") || "", /^video\/mp4\b/i);
   const chunks = [];
   let total = 0;
@@ -46,8 +48,10 @@ async function verifyLanding(service) {
   const url = buildTrackedSocialCta(reviewVideoLandingUrl(item), {
     runId: item.research_run_id, service,
   });
-  const response = await publicGet(url);
-  const final = new URL(response.url);
+  const { response, finalUrl } = await fetchApprovedPublicUrl(url, {
+    allowUrl: (candidate) => allowedLandingUrl(candidate, service),
+  });
+  const final = new URL(finalUrl);
   assert.ok(["blindboxai.com", "www.blindboxai.com"].includes(final.hostname));
   assert.equal(final.pathname.replace(/\/$/, ""), "/series/labubu-the-monsters-hair-salon");
   assert.equal(final.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
