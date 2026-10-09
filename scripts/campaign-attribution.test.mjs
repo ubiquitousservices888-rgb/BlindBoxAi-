@@ -151,7 +151,7 @@ test("empty campaign and source preserve legacy link shape", () => {
 test("campaign or source-only attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
   assert.match(template, /<CampaignAttributionBridge\s*\/>/);
   assert.match(attributionBridge, /preserveInternalCampaignLink/);
-  assert.match(attributionBridge, /anchor\\.setAttribute\\("href", attributedHref\\)/);
+  assert.ok(attributionBridge.includes('anchor.setAttribute("href", attributedHref)'));
   assert.match(attributionBridge, /window\.location\.assign\(attributedHref\)/);
   assert.doesNotMatch(attributionBridge, /document\.cookie|localStorage|sessionStorage/);
 });
