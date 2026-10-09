@@ -23,7 +23,7 @@ export function cleanPublicVideoTitle(value, maxLength = 100) {
 export function isPublicVideoTitle(value) {
   const title = cleanPublicVideoTitle(value, 100);
   if (!title || /https?:\/\//i.test(title)) return false;
-  if (!/[A-Za-z]/.test(title)) return false;
+  if (!/\p{L}/u.test(title)) return false;
   if (/^\d+$/.test(title)) return false;
   if (CAMERA_FILE_TITLE_RE.test(title)) return false;
   return true;
