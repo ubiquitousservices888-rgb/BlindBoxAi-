@@ -55,7 +55,16 @@ async function verifyLanding(service) {
   const html = await response.text();
   assert.match(html, /Hair Salon/);
   assert.match(html, /As an eBay Partner, BlindBoxAI may earn a commission/);
-  console.log(`HAIR_SALON_LANDING: VERIFIED_HTTP_200:${service}`);
+  // Parse server-rendered first-party redirect without requesting it: test
+  // affiliate campaign retention without recording fake/automated clicks.
+  const outboundHref = html.match(/href="([^"]*\/api\/out\/ebay\?[^"]+)"/)?.[1];
+  assert.ok(outboundHref, "The Hair Salon landing must expose an internal eBay affiliate CTA");
+  const outbound = new URL(outboundHref.replaceAll("&amp;", "&"), final);
+  assert.equal(outbound.origin, final.origin);
+  assert.equal(outbound.pathname, "/api/out/ebay");
+  assert.equal(outbound.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
+  assert.equal(outbound.searchParams.get("source"), service);
+  console.log(`HAIR_SALON_LANDING_AND_EPN_LINK: VERIFIED_HTTP_200:${service}`);
 }
 
 await verifyMedia();
