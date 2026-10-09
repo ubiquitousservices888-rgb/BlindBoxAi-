@@ -3,7 +3,7 @@
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-10-03
-**Functional baseline inspected:** PR #256 reviewed implementation, based on `main` after PR #255 at `2fce903ae91c229b27af13db34fee11f1cdc9bab`
+**Functional baseline inspected:** PR #256 proposed Blue launch implementation; production remains unverified until merged, deployed and independently checked. Current `main` includes the Hair Salon specialist path.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -49,6 +49,12 @@ The owner-authenticated Blue approval is the single recurring human launch step 
 `.github/workflows/manual-reviewed-video.yml`
 
 This validates one exact uploaded MP4, waits at the `social-production` environment, then publishes the exact owner-reviewed upload. A live YouTube run requires the owner to choose `youtube_audience` explicitly; the default `unreviewed` value fails closed. Its `VIDEO_CHANNELS` value is configurable through the repository variable with an exact fallback of `youtube,tiktok`; that configurability is local to this workflow and does not redefine the canonical review-queue publisher.
+
+### Hair Salon verified one-approval upload
+
+`.github/workflows/hair-salon-owner-approval.yml`
+
+This is an **ACTIVE SPECIALIST** one-video path for the already-reviewed Hair Salon MP4. It starts only from a push to `main` that changes this workflow; there is no caller-selectable `workflow_dispatch`. Both jobs fail closed unless `github.ref` is `refs/heads/main`, both check out the immutable triggering SHA, and GitHub OIDC is used instead of a storage secret. The exact GitHub release asset is re-verified by byte size, SHA-256, duration, and 720×1280 dimensions, then the production `/api/owner/stage-render` handoff copies it into the canonical Supabase `blindboxai-review-videos/media/review/` namespace and stages that exact Supabase URL into `review_video_queue` as `READY_FOR_REVIEW`. The canonical Supabase bytes are re-hashed before review and again after Blue approval. This Hair Salon workflow does not use `BLOB_READ_WRITE_TOKEN`, `@vercel/blob`, or the direct reviewed-upload publisher. After the protected `social-production` approval, it approves the exact queue row and calls `scripts/publish-approved-review-queue.mjs` separately for YouTube and TikTok with `not_made_for_kids`, requiring verified public platform URLs before completion.
 
 ### Verified-product render pipeline
 
