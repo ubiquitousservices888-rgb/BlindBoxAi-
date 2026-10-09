@@ -295,6 +295,7 @@ test("Blue approval dispatches one serialized YouTube + TikTok production run", 
   const dispatchBody = JSON.parse(dispatchRequests[0].options.body);
   assert.equal(dispatchBody.return_run_details, true);
   assert.equal(dispatchBody.inputs.publish_channel, "all");
+  assert.equal(dispatchBody.ref, "main");
   assert.equal(dispatchBody.inputs.dry_run, false);
   assert.equal(dispatchBody.inputs.research_run_id, "rv-0123456789abcdef");
   assert.equal(dispatchBody.inputs.youtube_audience, "not_made_for_kids");
