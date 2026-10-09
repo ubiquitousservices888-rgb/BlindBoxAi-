@@ -150,7 +150,7 @@ test("empty campaign and source preserve legacy link shape", () => {
 
 test("campaign or source-only attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
   assert.match(template, /<CampaignAttributionBridge\s*\/>/);
-  assert.match(attributionBridge, /preserveInternalCampaignLink/);
+  assert.ok(attributionBridge.includes("const attributedHref = preserveInternalCampaignLink(window.location.href, rawHref)"));
   assert.ok(attributionBridge.includes('anchor.setAttribute("href", attributedHref)'));
   assert.match(attributionBridge, /window\.location\.assign\(attributedHref\)/);
   assert.doesNotMatch(attributionBridge, /document\.cookie|localStorage|sessionStorage/);
@@ -206,4 +206,40 @@ test("attribution ignores external links and unrelated explicit campaigns", () =
   assert.equal(next.searchParams.get("source"), "tiktok");
   assert.equal(next.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
   assert.equal(preserveInternalCampaignLink("https://www.blindboxai.com/", "/series/test"), null);
+});
+
+test("source-only video navigation retains source with no invented campaign", () => {
+  const landing = "https://www.blindboxai.com/?source=youtube";
+  const target = new URL(preserveInternalCampaignLink(landing,
+    "/series/labubu?source=site"), landing);
+  assert.equal(target.searchParams.get("source"), "youtube");
+  assert.equal(target.searchParams.has("campaign"), false);
+});
+
+test("source-only UTM traffic supersedes only generic source or utm_source templates", () => {
+  const landing = "https://www.blindboxai.com/?utm_source=tiktok";
+  const target = new URL(preserveInternalCampaignLink(landing,
+    "/series/labubu?utm_source=site"), landing);
+  assert.equal(target.searchParams.get("source"), "tiktok");
+  assert.equal(target.searchParams.has("utm_source"), false);
+  const preservedExplicit = new URL(preserveInternalCampaignLink(landing,
+    "/series/labubu?source=newsletter"), landing);
+  assert.equal(preservedExplicit.searchParams.get("source"), "newsletter");
+});
+
+test("UTM campaigns are inherited only when destination has no conflicting marketing campaign", () => {
+  const landing = "https://www.blindboxai.com/?utm_campaign=bb-rv-3c9c9bb78c37ff6a&utm_source=youtube";
+  const inherited = new URL(preserveInternalCampaignLink(landing,
+    "/series/labubu?source=page"), landing);
+  assert.equal(inherited.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
+  assert.equal(inherited.searchParams.get("source"), "youtube");
+
+  const video = "https://www.blindboxai.com/?campaign=bb-rv-3c9c9bb78c37ff6a&source=youtube";
+  const differentCampaign = "/tools/resale-margin?utm_source=site&utm_medium=home&utm_campaign=alpha_launch_202610";
+  assert.equal(preserveInternalCampaignLink(video, differentCampaign), null);
+  const sameCampaign = new URL(preserveInternalCampaignLink(video,
+    "/series/labubu?utm_campaign=bb-rv-3c9c9bb78c37ff6a&utm_source=site"), video);
+  assert.equal(sameCampaign.searchParams.get("source"), "youtube");
+  assert.equal(sameCampaign.searchParams.has("utm_source"), false);
+  assert.equal(sameCampaign.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
 });
