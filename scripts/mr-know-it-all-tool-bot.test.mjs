@@ -167,5 +167,6 @@ test("ingest seed does not overwrite queue states and finish enforces eight-atte
   assert.doesNotMatch(seed, /research_queue"\)\.upsert\(/);
   assert.match(seed, /error\.code !== "23505"/);
   assert.match(finish, /Number\(claimed\.attempts \|\| 0\) >= 8 \? 720/);
-  assert.match(finish, /\.eq\("status", "researching"\)\.select\("id"\)/);
+  assert.match(finish, /\.eq\("status", "researching"\)\.eq\("attempts", claimed\.attempts\)\.select\("id"\)/);
+  assert.match(finish, /Queue item not found/);
 });
