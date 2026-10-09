@@ -302,6 +302,7 @@ test("Blue approval dispatches one serialized YouTube + TikTok production run", 
   const approvalRequests = requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments"));
   assert.equal(approvalRequests.length, 1);
   assert.equal(JSON.parse(approvalRequests[0].options.body).state, "approved");
+  assert.deepEqual(JSON.parse(approvalRequests[0].options.body).environment_ids, [1101]);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {
