@@ -61,6 +61,7 @@ test("review-only video workflow validates attribution, uses configured renderer
 
 const hairSalonWorkflow = fs.readFileSync(new URL("../.github/workflows/hair-salon-owner-approval.yml", import.meta.url), "utf8");
 const stageRenderRoute = fs.readFileSync(new URL("../app/api/owner/stage-render/route.js", import.meta.url), "utf8");
+const hairSalonAsset = fs.readFileSync(new URL("../lib/hair-salon-asset.mjs", import.meta.url), "utf8");
 const storageAuthRoute = fs.readFileSync(new URL("../app/api/owner/storage-auth/route.js", import.meta.url), "utf8");
 const uploadBroker = fs.readFileSync(new URL("../supabase/functions/blindbox-video-upload/index.ts", import.meta.url), "utf8");
 const reviewQueueFunction = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
