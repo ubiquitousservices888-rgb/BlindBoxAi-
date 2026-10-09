@@ -28,7 +28,7 @@ Run the following **aggregate-only** read-only query inside the project owner's 
 ```sql
 SELECT
   COALESCE(NULLIF(source, ''), 'direct') AS source,
-  COALESCE(NULLIF(utm_campaign, ''), 'unattributed') AS campaign,
+  COALESCE(NULLIF(campaign, ''), NULLIF(utm_campaign, ''), 'unattributed') AS campaign,
   COUNT(*) AS stored_unverified_submissions
 FROM public.waitlist_signups
 WHERE COALESCE(source, '') <> 'owner_test'
