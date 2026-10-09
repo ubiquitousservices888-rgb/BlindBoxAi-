@@ -8,6 +8,7 @@ import {
   normalizeAttributionSource,
   normalizeCampaignId,
   normalizeSource,
+  preserveInternalCampaignLink,
   resolveRequestAttribution,
 } from "../lib/campaign-attribution.mjs";
 
@@ -149,11 +150,8 @@ test("empty campaign and source preserve legacy link shape", () => {
 
 test("campaign or source-only attribution survives internal BlindBoxAI navigation without tracking cookies", () => {
   assert.match(template, /<CampaignAttributionBridge\s*\/>/);
-  assert.match(attributionBridge, /current\.searchParams\.get\("campaign"\)/);
-  assert.match(attributionBridge, /current\.searchParams\.get\("source"\) \|\| current\.searchParams\.get\("utm_source"\)/);
-  assert.match(attributionBridge, /if \(!campaignId && source === "none"\) return;/);
-  assert.match(attributionBridge, /next\.searchParams\.set\("campaign", campaignId\)/);
-  assert.match(attributionBridge, /next\.searchParams\.set\("source", normalizeSource\(source\)\)/);
+  assert.match(attributionBridge, /preserveInternalCampaignLink/);
+  assert.match(attributionBridge, /anchor\\.setAttribute\\("href", attributedHref\\)/);
   assert.match(attributionBridge, /window\.location\.assign\(attributedHref\)/);
   assert.doesNotMatch(attributionBridge, /document\.cookie|localStorage|sessionStorage/);
 });
@@ -185,4 +183,27 @@ test("series eBay clicks put recovered source into both Supabase event and EPN c
   assert.match(ebayReadonlyResolver, /campaignId \|\| hasMarketingSource[\s\S]*?epnCustomId\(/);
   assert.match(ebayRoute, /source:\s*hasMarketingSource \|\| campaignId \? outboundSource : attribution\.source/);
   assert.match(ebayRoute, /metadata:\s*\{ attributionRecoveredFrom: requestAttribution\.recoveredFrom \}/);
+});
+
+test("Hair Salon social campaign survives source=page affiliate templates", () => {
+  const incoming = "https://www.blindboxai.com/series/labubu-the-monsters-hair-salon?campaign=bb-rv-3c9c9bb78c37ff6a&source=youtube";
+  const targetPath = preserveInternalCampaignLink(incoming,
+    "/api/out/ebay?series=labubu-the-monsters-hair-salon&kind=active&source=page");
+  const target = new URL(targetPath, incoming);
+  assert.equal(target.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
+  assert.equal(target.searchParams.get("source"), "youtube");
+  assert.deepEqual(resolveRequestAttribution({
+    campaign: target.searchParams.get("campaign"), source: target.searchParams.get("source"),
+  }), { campaignId: "bb-rv-3c9c9bb78c37ff6a", source: "youtube", recoveredFrom: "query_campaign" });
+});
+
+test("attribution ignores external links and unrelated explicit campaigns", () => {
+  const landing = "https://www.blindboxai.com/?campaign=bb-rv-3c9c9bb78c37ff6a&source=tiktok";
+  assert.equal(preserveInternalCampaignLink(landing, "https://www.ebay.com/"), null);
+  assert.equal(preserveInternalCampaignLink(landing, "/series/test?campaign=another-campaign&source=reddit"), null);
+  const next = new URL(preserveInternalCampaignLink(landing,
+    "/series/labubu-the-monsters-hair-salon?source=site"), landing);
+  assert.equal(next.searchParams.get("source"), "tiktok");
+  assert.equal(next.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
+  assert.equal(preserveInternalCampaignLink("https://www.blindboxai.com/", "/series/test"), null);
 });
