@@ -16,8 +16,11 @@ export const metadata = {
 
 export default async function AccessoriesShopPage({ searchParams }) {
   const query = await searchParams;
-  const campaignId = normalizeCampaignId(query?.campaign);
-  const source = normalizeSource(query?.source || "amazon_accessories");
+  // Accept standard UTM landing links as well as native BlindBoxAI campaign tags.
+  // Keep campaign and source on first-party pages; Amazon destination URLs
+  // contain only the approved Associate tag and product-category search.
+  const campaignId = normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign);
+  const source = normalizeSource(query?.source || query?.utm_source || "amazon_accessories");
   const offers = allAmazonAccessoryOffers();
 
   return (
