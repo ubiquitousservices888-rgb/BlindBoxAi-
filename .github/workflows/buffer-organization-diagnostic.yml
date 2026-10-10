@@ -50,3 +50,26 @@ jobs:
 
           echo "Buffer organizations found: $org_count"
           printf '%s' "$response" | jq -r '.data.account.organizations[] | "::notice title=Buffer organization::name=\(.name) id=\(.id)"'
+
+      - name: Read configured channel identities and connection flags
+        env:
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const query = 'query Channels($organizationId: OrganizationId!) { channels(input: { organizationId: $organizationId }) { id service serviceId externalLink isQueuePaused isDisconnected isLocked } }';
+          const response = await fetch('https://api.buffer.com', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.BUFFER_API_TOKEN},
+            body: JSON.stringify({query, variables: {organizationId: process.env.BUFFER_ORGANIZATION_ID}})
+          });
+          const result = await response.json();
+          if (!response.ok || result.errors?.length) {
+            console.error('BUFFER_CHANNEL_DIAGNOSTIC: API_QUERY_FAILED');
+            process.exit(1);
+          }
+          for (const channel of result.data?.channels ?? []) {
+            const {id, service, serviceId, isQueuePaused, isDisconnected, isLocked} = channel;
+            console.log(JSON.stringify({id, service, serviceId, isQueuePaused, isDisconnected, isLocked}));
+          }
+          NODE
