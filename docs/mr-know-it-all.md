@@ -64,6 +64,11 @@ The daily report appears in the Actions run summary and as the
 series pages. Affiliate auditing verifies repository URL construction; it does
 not click tracked links or prove commission attribution in provider reports.
 Stale price counts request attention; they do not automatically rewrite prices.
+Primary video source timestamps are also reported as fresh, due-soon (27–30
+days), expired, or unknown. Reverification requires actual source retrieval,
+not a timestamp update. The October 10 Hair Salon source check is recorded in
+`data/evidence/hair-salon-source-check-20261010.json`; its retail listing is not
+completed-sale evidence.
 Failed page/revision probes or affiliate audits fail the workflow.
 
 Category research fails before persistence if no usable findings were retrieved,

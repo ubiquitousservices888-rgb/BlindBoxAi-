@@ -126,3 +126,13 @@ test("question storage redacts credential-like and payment material", () => {
   const clean = redactQuestionForStorage("Pokemon api_key=fixture-private contact me@example.com 1234 5678 9012 3456");
   assert.doesNotMatch(clean, /fixture-private|me@example.com|1234/);
 });
+
+test("daily report distinguishes expiring, expired, and future-dated primary video sources", async () => {
+  const report = await runDailyResearchCheck({ now: new Date(timestamp), catalog: [],
+    videoProducts: [{ id: "fixture", sources: [
+      { id: "expiring", checkedAt: "2026-09-12T14:00:00Z" },
+      { id: "expired", checkedAt: "2026-09-01T14:00:00Z" },
+      { id: "future", checkedAt: "2027-01-01" },
+    ] }], fetchImpl: async url => url.endsWith("/api/health") ? Response.json({ app: "blindboxai", status: "ok", revision: "a".repeat(40) }) : new Response("ok") });
+  assert.deepEqual(report.videoSources.map(source => source.status), ["due-soon", "expired", "unknown"]);
+});
