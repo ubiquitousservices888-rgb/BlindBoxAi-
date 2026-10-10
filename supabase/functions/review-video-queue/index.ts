@@ -120,16 +120,44 @@ async function stage(req: Request, body: any) {
   const sizeBytes = Number(body?.sizeBytes || 0), durationSeconds = Number(body?.durationSeconds || 0), width = Number(body?.width || 0), height = Number(body?.height || 0);
   if (!videoUrl || !title || !Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > 104857600 || ![durationSeconds,width,height].every((v) => Number.isFinite(v) && v > 0)) return json({ error: "Invalid review metadata" }, 400);
   const researchRunId = `rv-${createHash("sha256").update(videoUrl).digest("hex").slice(0,16)}`;
+  // Staging is create-only. Never turn an approved, publishing or published row
+  // back into ready_for_review, including during concurrent retries.
+  const staged = {
+    research_run_id: researchRunId, video_url: videoUrl, title,
+    size_bytes: Math.round(sizeBytes), duration_seconds: durationSeconds,
+    width: Math.round(width), height: Math.round(height),
+    vertical: verticalFor(title), status: "ready_for_review",
+  };
+  const fields = "research_run_id,video_url,title,size_bytes,duration_seconds,width,height,status";
   const { data: existing, error: existingError } = await db.from("review_video_queue")
-    .select("status")
-    .eq("research_run_id", researchRunId)
-    .maybeSingle();
+    .select(fields).eq("research_run_id", researchRunId).maybeSingle();
   if (existingError) return json({ error: "Queue lookup failed" }, 500);
-  if (existing?.status === "rejected") return json({ error: "Rejected review rows are immutable" }, 409);
-  const now = new Date().toISOString();
-  const { error } = await db.from("review_video_queue").upsert({ research_run_id: researchRunId, video_url: videoUrl, title, size_bytes: Math.round(sizeBytes), duration_seconds: durationSeconds, width: Math.round(width), height: Math.round(height), vertical: verticalFor(title), status: "ready_for_review", rejection_reason: null, rejected_at: null, last_error: null, updated_at: now }, { onConflict: "research_run_id" });
-  if (error) return json({ error: "Unable to stage video" }, 500);
-  return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}` });
+  if (existing && existing.status !== "ready_for_review") {
+    return json({ error: "review_state_immutable" }, 409);
+  }
+  const sameReview = (row: any) =>
+    row?.video_url === staged.video_url && row?.title === staged.title &&
+    Number(row?.size_bytes) === staged.size_bytes &&
+    Number(row?.duration_seconds) === staged.duration_seconds &&
+    Number(row?.width) === staged.width && Number(row?.height) === staged.height;
+  if (existing && !sameReview(existing)) return json({ error: "review_metadata_conflict" }, 409);
+
+  if (!existing) {
+    // PostgreSQL ON CONFLICT DO NOTHING is atomic; an owner approval that
+    // races this insert cannot be overwritten by a late staging request.
+    const { error } = await db.from("review_video_queue").upsert(
+      { ...staged, rejection_reason: null, rejected_at: null, last_error: null },
+      { onConflict: "research_run_id", ignoreDuplicates: true },
+    );
+    if (error) return json({ error: "Unable to stage video" }, 500);
+  }
+  const { data: current, error: readError } = await db.from("review_video_queue")
+    .select(fields).eq("research_run_id", researchRunId).maybeSingle();
+  if (readError || !current) return json({ error: "Queue lookup failed" }, 500);
+  if (current.status !== "ready_for_review" || !sameReview(current)) {
+    return json({ error: "review_state_immutable_or_conflicting" }, 409);
+  }
+  return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}`, idempotent: Boolean(existing) });
 }
 async function listReady(req: Request) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
