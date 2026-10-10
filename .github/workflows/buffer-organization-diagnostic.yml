@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           node --input-type=module <<'NODE'
-          const query = 'query Channels($organizationId: OrganizationId!) { channels(input: { organizationId: $organizationId }) { id service serviceId externalLink isQueuePaused isDisconnected isLocked } }';
+          const query = 'query Channels($organizationId: OrganizationId!) { channels(input: { organizationId: $organizationId, filter: { isLocked: false } }) { id service serviceId externalLink isQueuePaused isDisconnected isLocked } }';
           const response = await fetch('https://api.buffer.com', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.BUFFER_API_TOKEN},
