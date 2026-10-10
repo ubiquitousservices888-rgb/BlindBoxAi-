@@ -24,7 +24,7 @@ function allowedLandingUrl(candidate, service) {
     candidate.port === "" &&
     ["blindboxai.com", "www.blindboxai.com"].includes(candidate.hostname) &&
     candidate.pathname.replace(/\/$/, "") === "/series/labubu-the-monsters-hair-salon" &&
-    candidate.searchParams.get("campaign") === "bb-rv-3c9c9bb78c37ff6a" &&
+    candidate.searchParams.get("campaign") === `bb-${item.research_run_id}` &&
     candidate.searchParams.get("source") === service;
 }
 
