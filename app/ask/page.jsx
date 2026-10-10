@@ -165,13 +165,13 @@ export default function AskPage() {
                 <p>The question did not contain enough specific collectible terms to search the stored research. Add a set, character, player, brand, year, or product name.</p>
               ) : result.publicResearch.matches?.length > 0 ? (
                 <>
-                  <p>These are research leads, not independently verified answers or sold prices. Source publication dates and retrieval dates are separate.</p>
+                  <p>Official product facts are checked against the named source; other findings are research leads. Retail listings are separate from sold prices. Publication and retrieval dates are separate.</p>
                   <div className="research-leads">
                     {result.publicResearch.matches.map((item) => (
                       <article key={`${item.url}:${item.title}`}>
                         <a href={item.url} target="_blank" rel="noopener noreferrer"><strong>{item.title || "Public research source"}</strong></a>
                         <span>{item.source || item.topic || "Public source"}{item.published ? ` · ${item.published}` : ""}</span>
-                        <span>Retrieved: {item.researchedAt || "unknown"} · {item.freshnessStatus || "freshness unknown"}</span>
+                        <span>Retrieved: {item.researchedAt || "unknown"} · {item.freshnessStatus || "freshness unknown"} · {item.verificationStatus === "source-matched" ? "Official source matched" : "Research lead"}</span>
                         {item.summary ? <p>{item.summary}</p> : null}
                       </article>
                     ))}

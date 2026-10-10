@@ -178,3 +178,5 @@ npm run docs:state-check
 ```
 
 The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing required documentation files. The state check is deterministic and local; neither command uses credentials or makes network calls.
+
+Routine research freshness: supported official retail facts refresh automatically in the existing twice-daily public research workflow, without owner prompts. Exact POP MART product 7890 is extracted from its official US collection; retrieval time never substitutes for a sale date. Failed or ambiguous retrievals retain prior stored dated evidence. This changes no publishing or spending gate.

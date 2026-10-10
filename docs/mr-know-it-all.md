@@ -97,3 +97,5 @@ and the read-only daily report. Mocked tests verify approved publishers,
 cache/budget behavior, privacy rejection, retained stale evidence, and absence
 of production writes. A passing unit test is not proof of configured production
 storage, provider access, successful scheduled runs, or a live deployment.
+
+Routine supported fact refreshes run automatically without owner prompts. The existing twice-daily public-research collector fetches the official POP MART US collection and extracts the exact Hair Salon pendant product's current retail price. It persists source-matched findings through the existing research-ingest contract; customer lookup reads the newest matching evidence. Retail snapshots use actual retrieval dates, have no invented publication/sale date, and become stale after 48 hours. Missing, ambiguous or unavailable listings create no replacement fact, allowing older stored evidence to remain dated. This initial adapter covers the exact product ID 7890; other news findings remain research leads and completed-sale price freshness still requires an actual dated transaction.
