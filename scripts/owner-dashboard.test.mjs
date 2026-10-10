@@ -213,9 +213,9 @@ test("owner review requires playable video, completed playback, and explicit aud
   assert.match(dashboardClient, /onCanPlay/);
   assert.match(dashboardClient, /onEnded/);
   assert.match(dashboardClient, /onError/);
-  assert.match(dashboardClient, /reviewPlayback\\.status === "watched"/);
-  assert.match(dashboardClient, /reviewAudience\\[item\\.researchRunId\\]/);
-  assert.match(dashboardClient, /youtubeAudience: reviewAudience\\[researchRunId\\]/);
+  assert.match(dashboardClient, /reviewPlayback\.status === "watched"/);
+  assert.match(dashboardClient, /reviewAudience\[item\.researchRunId\]/);
+  assert.match(dashboardClient, /youtubeAudience: reviewAudience\[researchRunId\]/);
   assert.doesNotMatch(dashboardClient, /youtubeAudience: "not_made_for_kids"/);
   assert.match(dashboardClient, /videoWidth/);
   assert.match(dashboardClient, /videoHeight/);
