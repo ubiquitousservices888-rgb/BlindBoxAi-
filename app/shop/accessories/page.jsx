@@ -4,7 +4,7 @@ import {
   allAmazonAccessoryOffers,
   buildAmazonSearchUrl,
 } from "../../../lib/amazon-associates.mjs";
-import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
+import { resolveAmazonAccessoryAttribution } from "../../../lib/amazon-shop-attribution.mjs";
 import AmazonAffiliateLink from "./AmazonAffiliateLink";
 
 export const metadata = {
@@ -16,8 +16,7 @@ export const metadata = {
 
 export default async function AccessoriesShopPage({ searchParams }) {
   const query = await searchParams;
-  const campaignId = normalizeCampaignId(query?.campaign);
-  const source = normalizeSource(query?.source || "amazon_accessories");
+  const { campaignId, source } = resolveAmazonAccessoryAttribution(query);
   const offers = allAmazonAccessoryOffers();
 
   return (

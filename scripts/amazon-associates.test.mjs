@@ -10,6 +10,7 @@ import {
   getAmazonAccessoryOffer,
 } from "../lib/amazon-associates.mjs";
 import { affiliateReportRow, affiliateRollupKey } from "../lib/affiliate-reporting.mjs";
+import { resolveAmazonAccessoryAttribution } from "../lib/amazon-shop-attribution.mjs";
 import { classifyAmazonBeaconRequest } from "../app/api/events/amazon-affiliate-click/quality.mjs";
 import {
   buildLegacyRollupLines,
@@ -66,6 +67,50 @@ describe("Amazon Associates accessory path", () => {
     );
     assert.doesNotMatch(videoPipelineSource, /amazonOutboundPath/);
     assert.match(videoPipelineSource, /AMAZON_VIDEO_CTA = "https:\/\/blindboxai\.com\/shop\/accessories"/);
+  });
+
+  it("resolves explicit BlindBoxAI tags and real-world UTM labels deterministically", () => {
+    assert.deepEqual(resolveAmazonAccessoryAttribution({
+      campaign: "bb-rv-0123456789abcdef",
+      source: "youtube",
+      utm_campaign: "Black Friday",
+      utm_source: "facebook.com",
+    }), { campaignId: "bb-rv-0123456789abcdef", source: "youtube" });
+    assert.deepEqual(resolveAmazonAccessoryAttribution({
+      utm_campaign: "Black Friday",
+      utm_source: "facebook.com",
+    }), { campaignId: "black-friday", source: "facebook-com" });
+    assert.deepEqual(resolveAmazonAccessoryAttribution({}), {
+      campaignId: "", source: "amazon_accessories",
+    });
+    assert.deepEqual(resolveAmazonAccessoryAttribution({
+      utm_campaign: "<script>",
+      utm_source: "?",
+    }), { campaignId: "script", source: "amazon_accessories" });
+    const long = resolveAmazonAccessoryAttribution({
+      utm_campaign: "A".repeat(300),
+      utm_source: "S".repeat(300),
+    });
+    assert.ok(long.campaignId.length <= 80);
+    assert.ok(long.source.length <= 40);
+  });
+
+  it("Amazon landing passes resolved attribution to clicks while Special Links remain provider-only", () => {
+    const pageSource = fs.readFileSync(
+      new URL("../app/shop/accessories/page.jsx", import.meta.url), "utf8",
+    );
+    assert.match(pageSource, /resolveAmazonAccessoryAttribution\(query\)/);
+    assert.match(pageSource, /campaignId=\{campaignId\}/);
+    assert.match(pageSource, /source=\{source\}/);
+
+    const url = new URL(buildAmazonSearchUrl("display-turntable"));
+    assert.equal(url.origin, "https://www.amazon.com");
+    assert.equal(url.pathname, "/s");
+    assert.equal(url.searchParams.get("tag"), AMAZON_ASSOCIATE_TAG);
+    assert.deepEqual([...url.searchParams.keys()].sort(), ["k", "tag"]);
+    for (const key of ["utm_campaign", "utm_source", "campaign", "source"]) {
+      assert.equal(url.searchParams.has(key), false);
+    }
   });
 
   it("primary Amazon shop links go directly to Amazon while first-party logging stays non-blocking", () => {
