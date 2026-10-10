@@ -1,3 +1,4 @@
+import { refreshOfficialProducts, OFFICIAL_COLLECTION_URL } from "../lib/official-product-research.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { scoreCollectibleOpportunity } from "../lib/collectible-opportunity-score.mjs";
@@ -161,6 +162,8 @@ const items = selectFindingsByLane(results, results.reduce((total, result) => to
     return true;
   })
   .slice(0, 96);
+const officialFindings = await refreshOfficialProducts();
+items.push(...officialFindings);
 const artifact = {
   schema: "blindboxai/know-it-all/public-research/v2",
   agent: "Mr. Know It All",
@@ -181,12 +184,17 @@ const artifact = {
     sideEffectsPerformed: [],
     ownerApprovalRequiredForActions: true,
   },
+  officialRefresh: { url: OFFICIAL_COLLECTION_URL, status: officialFindings.length ? "source-matched" : "unavailable", previousEvidenceRetainedInStoredRuns: true },
   sources: results.map(({ source, error, items: found }) => ({ name: source.name, url: source.url, topic: source.topic, status: error ? "unavailable" : "ok", itemCount: found.length, error })),
   findings: items,
   nextStep: "Validate public findings against independent completed-sale, official-program, and authentication evidence before scoring opportunities; research cannot authorize transactions, publishing, outreach, or credential access.",
 };
 
 const serialized = redact(JSON.stringify(artifact, null, 2));
+if (!items.length) {
+  // An outage/empty discovery must not persist a misleading empty replacement.
+  throw new Error("No usable public findings retrieved; previous stored research is retained.");
+}
 await fs.mkdir(ROOT, { recursive: true });
 await fs.writeFile(OUT, serialized + "\n", "utf8");
 console.log(`Wrote ${items.length} public collectible findings to ${OUT}`);

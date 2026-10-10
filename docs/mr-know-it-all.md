@@ -1,98 +1,101 @@
 # Mr. Know It All
 
-Mr. Know It All is BlindBoxAI's evidence-first collector assistant. It covers the whole blind-box and designer-toy category, including POP MART and non-POP MART brands. The system deliberately separates two modes:
+**Documentation status: CANONICAL** for collector questions and scheduled research.
 
-1. optional public, read-only collector Q&A at `/ask`;
-2. private, twice-daily deterministic demand analysis for the BlindBoxAI owner.
+The earlier description of paid public AI answers, a 600-character request limit,
+and scheduled private Blob analysis was superseded by the deterministic public
+route and Supabase-backed research queue. The implementations listed below are
+current authority. Private Blob utilities remain legacy/reference helpers.
 
-The system has no purchase, bid, checkout, payment, enrollment, outreach, rendering, publishing, or account-control permission. It cannot create a financial transaction.
+## Customer and owner collector questions
 
-## Permission boundary
+`POST /api/mr-know-it-all` accepts `question` or `query`, 2–120 characters.
+`/ask` is the public interface. The owner can use the same collector research
+interface; this route does not expose private operational information or accept
+owner commands.
 
-| Capability | Public Q&A | Private scheduled analysis | Automatic side effect |
-|---|---:|---:|---:|
-| Read reviewed BlindBoxAI series data | Yes | Demand metadata only | None |
-| Search current public web sources | Yes, when enabled | No | None |
-| Answer collector questions | Yes, when enabled | N/A | Answer only |
-| Classify private collector demand | Encrypted input | Yes | None |
-| Create verified affiliate/publishing action automatically | No | No | Never |
-| Buy, bid, pay, enroll, contact, render, or publish | No | No | Never |
-| Guarantee profit, value, authenticity, or zero risk | No | No | Never |
+1. Reviewed completed-sale records are searched deterministically. At least two
+   documented completed sales are required; dated prices remain historical.
+2. The existing server-only stored public-research lookup searches recent runs.
+3. When matching leads are missing, stale, or have unknown dates, a bounded
+   credential-free question search retrieves Google News RSS. Only articles
+   identifying an approved collectible publisher are admitted. This is source
+   discovery, not article-content verification or a generated factual answer.
+4. Publication dates and retrieval timestamps are shown separately. A lead is
+   fresh only when both dates are valid, retrieval is within 48 hours, and
+   publication is within 30 days. Future or missing dates are unknown.
+5. The existing redacted question recorder retains research demand and queues
+   missing sold evidence. Question-specific discovery results are cached in
+   server memory, not persisted to the database as verified facts.
 
-The daily-product and video pipelines remain separate. A Mr. Know It All result cannot enter either pipeline automatically.
+Queries with detected private/credential material or no recognized collectible
+category are not sent to the external search. The interface discloses external
+search and asks customers to exclude private information. This detection is not
+an identity or personal-data guarantee; users must submit public product terms.
 
-## Optional public collector Q&A
+No hosted model or paid agent is enabled by this feature. Search is limited to
+one fixed HTTPS RSS endpoint, an eight-second deadline, 256 KB of response data,
+and six approved-source leads. Redirects are blocked. Per server instance,
+identical in-flight searches are combined, results are cached for 15 minutes
+(failures for one minute), and at most six distinct searches start per minute.
+These bounds are **not** a distributed global quota. Cold starts and multiple
+instances can each issue searches. Existing endpoint rate limits also apply.
 
-`POST /api/mr-know-it-all` accepts one JSON field, `question`, with a 600-character maximum. It stays disabled unless `MR_KNOW_IT_ALL_ENABLED=true`.
+If a refresh fails or retrieves no approved source, previous research is retained
+with its dates. Empty retrieval is never proof that a market or answer does not
+exist. Research leads cannot replace price evidence, authorize an action, or
+enter a publishing workflow.
 
-When deliberately enabled, public Q&A uses a server-only OpenAI API key for evidence-first answers and current web search. It blocks secret extraction and transaction/outreach requests, includes reviewed positive-USD catalog records only, returns HTTPS citations for current facts, and records only a privacy-redacted encrypted demand event. No visitor identity profile, payment data, full answer, or conversation thread is stored.
+## Existing scheduled research
 
-This optional public feature is not required for the scheduled private workflow. If the owner does not want model/API cost, leave `MR_KNOW_IT_ALL_ENABLED=false` and do not fund the optional Q&A path.
-
-## Free twice-daily private demand analysis
-
-`.github/workflows/mr-know-it-all-research.yml` runs at `02:17` and `14:17` UTC. This scheduled path does **not** use GitHub-hosted AI agents, GitHub AI Credits, an OpenAI API key, or an OpenAI research model.
-
-The runner:
-
-1. loads recent privacy-redacted question events from the dedicated private Vercel Blob store;
-2. decrypts them in memory with `MR_RESEARCH_ENCRYPTION_KEY`;
-3. applies deterministic local intent rules for authenticity, price/resale, releases, pull odds, buyer intent, series guides, and uncategorized collector demand;
-4. deduplicates repeated identical questions before counting demand;
-5. produces demand themes only; it does not invent current market evidence or automatically promote an unverified opportunity;
-6. encrypts the complete report with AES-256-GCM;
-7. writes and uploads only `*.json.enc` for 14 days.
-
-Because current external facts are not researched by a paid model in this free path, fresh market, affiliate-program, and transaction evidence must be verified separately before a candidate can pass the existing owner-review opportunity gate. This preserves the evidence standard instead of replacing missing research with guesses.
-
-Plaintext private questions and reports are never uploaded as workflow artifacts. Workflow logs receive no plaintext question content, brand, source, opportunity, score, or candidate count.
-
-## Private storage
-
-Use a dedicated **private** Vercel Blob store for question demand. Do not reuse the public evidence store.
-
-Required values for the scheduled workflow:
-
-- `MR_PRIVATE_BLOB_READ_WRITE_TOKEN` — GitHub Actions secret and Vercel server environment;
-- `MR_RESEARCH_ENCRYPTION_KEY` — GitHub Actions secret, Vercel server environment, and the owner's private local environment.
-
-Generate the encryption key in a trusted local terminal and save it in a password manager:
-
-```bash
-node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
-```
-
-Download an encrypted workflow artifact into the project and decrypt it locally with:
-
-```bash
-npm run mr:decrypt -- --input output/mr-know-it-all/private-research-....json.enc
-```
-
-Do not paste decrypted owner reports into a public issue, pull request, workflow log, or tracked file.
-
-## Opportunity gate
-
-The existing evidence gate remains authoritative for any separately researched candidate:
-
-| Status | Meaning |
-|---|---|
-| `READY_FOR_OWNER_REVIEW` | Low-risk review candidate with matching private demand, official evidence, recent transaction evidence, sufficient fresh sources, positive-USD observations, and an identified inbound monetization path. |
-| `RESEARCH_ONLY` | Potentially useful but evidence, sample size, or risk is not strong enough for owner action. |
-| `REJECTED` | Missing required proof, missing program evidence, stale evidence, unsafe claims, or another hard blocker. |
-
-`READY_FOR_OWNER_REVIEW` is not approval and does not mean profitable or risk-free. Human approval remains mandatory.
-
-## Configuration
-
-Server-only values must never use a `NEXT_PUBLIC_` prefix.
-
-| Name | Location | Purpose |
+| Workflow | UTC schedule | Responsibility |
 |---|---|---|
-| `OPENAI_API_KEY` | Vercel only, optional | Authenticates public Q&A only when deliberately enabled. Not used by scheduled research. |
-| `OPENAI_QA_MODEL` | Vercel, optional | Public Q&A model selection. |
-| `MR_KNOW_IT_ALL_ENABLED` | Vercel | Leave `false` for the no-model-cost configuration. |
-| `MR_PRIVATE_BLOB_READ_WRITE_TOKEN` | Vercel + GitHub Actions | Dedicated private store for encrypted question-demand events. |
-| `MR_RESEARCH_ENCRYPTION_KEY` | Vercel + GitHub Actions + owner private environment | Encrypts question events and owner reports. |
-| `MR_KNOW_IT_ALL_OUTPUT_DIR` | Workflow/local environment | Ignored directory for encrypted report output. |
+| `know-it-all-public-research.yml` | 02:17 and 14:17 daily | Credentialless category discovery, sanitized artifact, existing GitHub OIDC persistence |
+| `mr-know-it-all-tool-bot.yml` | Every six hours at minute 17 | Existing bounded research queue and strict completed-sale provider lookup |
+| `bounded-operations.yml` | 06:17 and 18:17 daily | Repository safety, evidence and dependency checks |
+| `daily-research-check.yml` | 13:37 daily | Affiliate URL audit, live page/revision checks, documented sale-date freshness report |
 
-The scheduled deterministic analysis requires no `OPENAI_API_KEY` and no `OPENAI_RESEARCH_MODEL`.
+The new daily check runs at 08:37 Central daylight time / 07:37 Central standard
+time. GitHub scheduling can be delayed; timestamps in its report show actual
+retrieval time. Scripts run on hosted runners independently of a phone.
+
+The daily report appears in the Actions run summary and as the
+`daily-research-check` JSON artifact for 14 days. It checks at most twelve reviewed
+series pages. Affiliate auditing verifies repository URL construction; it does
+not click tracked links or prove commission attribution in provider reports.
+Stale price counts request attention; they do not automatically rewrite prices.
+Primary video source timestamps are also reported as fresh, due-soon (27–30
+days), expired, or unknown. Reverification requires actual source retrieval,
+not a timestamp update. The October 10 Hair Salon source check is recorded in
+`data/evidence/hair-salon-source-check-20261010.json`; its retail listing is not
+completed-sale evidence.
+Failed page/revision probes or affiliate audits fail the workflow.
+
+Category research fails before persistence if no usable findings were retrieved,
+retaining previous stored research rather than publishing a false empty snapshot.
+The completed-sale worker still requires its configured approved provider.
+This change adds no provider, purchase, model, or paid render.
+
+## Configuration and access boundaries
+
+The existing stored-research reader uses `SUPABASE_URL` and the server-only
+`SUPABASE_SERVICE_ROLE_KEY`. Question recording uses the existing authorized
+Edge ingest path (`EVIDENCE_UPLOAD_CODE`). Existing scheduled research persistence
+and queue workers use GitHub OIDC. The completed-sale provider references
+`THE_CARD_API_KEY` by name. The new RSS fallback and daily health report need no
+new secret, schema, migration, or account.
+
+No secret values belong in logs, reports, source files, or client components.
+Public question research has no ability to deploy, buy, bid, pay, send outreach,
+render, publish, or change account credentials. Existing Blue owner approval
+remains authoritative for public publication.
+
+## Verification
+
+Run `npm run mr:test`, `npm run docs:state-check`, the repository release checks,
+and the read-only daily report. Mocked tests verify approved publishers,
+cache/budget behavior, privacy rejection, retained stale evidence, and absence
+of production writes. A passing unit test is not proof of configured production
+storage, provider access, successful scheduled runs, or a live deployment.
+
+Routine supported fact refreshes run automatically without owner prompts. The existing twice-daily public-research collector fetches the official POP MART US collection and extracts the exact Hair Salon pendant product's current retail price. It persists source-matched findings through the existing research-ingest contract; customer lookup reads the newest matching evidence. Retail snapshots use actual retrieval dates, have no invented publication/sale date, and become stale after 48 hours. Missing, ambiguous or unavailable listings create no replacement fact, allowing older stored evidence to remain dated. This initial adapter covers the exact product ID 7890; other news findings remain research leads and completed-sale price freshness still requires an actual dated transaction.

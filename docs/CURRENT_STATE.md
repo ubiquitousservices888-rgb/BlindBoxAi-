@@ -88,6 +88,25 @@ A subsystem document is authoritative only for that subsystem.
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
 
+## Collector research and daily checks
+
+`docs/mr-know-it-all.md` is CANONICAL for the deterministic `/ask` question
+interface, existing scheduled research, and the new credentialless
+question-specific source-discovery fallback. The earlier paid public AI / Blob
+schedule description in that subsystem document has been superseded.
+
+`.github/workflows/daily-research-check.yml` adds a daily read-only page/revision,
+affiliate URL, and documented sale-date freshness report. It never submits
+customer questions, visits tracked affiliate redirects, writes production data,
+refreshes prices by assertion, or reaches publishing. Existing category research
+and queued completed-sale retrieval retain their own workflows.
+
+Question-specific discovery is explicitly unverified research-lead retrieval,
+with publication and retrieval dates. It cannot promote a news finding into a
+verified price. Its cache/budget is per server instance, not a global quota.
+Production storage, actual successful schedules, and deployment of this
+addition remain **UNVERIFIED** until live evidence is captured.
+
 ## Owner-only eBay OAuth research
 
 Merged PR #168 added the owner-only eBay User OAuth research path now present on `main`.
@@ -159,3 +178,5 @@ npm run docs:state-check
 ```
 
 The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing required documentation files. The state check is deterministic and local; neither command uses credentials or makes network calls.
+
+Routine research freshness: supported official retail facts refresh automatically in the existing twice-daily public research workflow, without owner prompts. Exact POP MART product 7890 is extracted from its official US collection; retrieval time never substitutes for a sale date. Failed or ambiguous retrievals retain prior stored dated evidence. This changes no publishing or spending gate.
