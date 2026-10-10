@@ -141,3 +141,5 @@ jobs:
           node-version: "24"
       - name: Verify Vercel-served revision and read-only visitor path
         run: npm run qa:smoke
+      - name: Verify public Hair Salon MP4 and tracked landing URLs without affiliate clicks
+        run: node scripts/verify-hair-salon-urls.mjs
