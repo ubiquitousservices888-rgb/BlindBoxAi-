@@ -187,6 +187,10 @@ const artifact = {
 };
 
 const serialized = redact(JSON.stringify(artifact, null, 2));
+if (!items.length) {
+  // An outage/empty discovery must not persist a misleading empty replacement.
+  throw new Error("No usable public findings retrieved; previous stored research is retained.");
+}
 await fs.mkdir(ROOT, { recursive: true });
 await fs.writeFile(OUT, serialized + "\n", "utf8");
 console.log(`Wrote ${items.length} public collectible findings to ${OUT}`);

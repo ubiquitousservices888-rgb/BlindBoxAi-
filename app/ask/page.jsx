@@ -121,7 +121,7 @@ export default function AskPage() {
           required
         />
         <div className="ask-controls">
-          <span id="question-note">{question.length}/120 · completed sales only for verified evidence</span>
+          <span id="question-note">{question.length}/120 · Public collectible terms may be searched externally. Do not include private information.</span>
           <button type="submit" disabled={loading || question.trim().length < 2}>
             {loading ? "Researching…" : "Ask Mr. Know It All"}
           </button>
@@ -150,7 +150,12 @@ export default function AskPage() {
 
           {result.publicResearch && (
             <section className="public-research">
-              <h3>Twice-daily public research</h3>
+              <h3>Research for your question</h3>
+              {result.publicResearch.refreshStatus === "refreshed" && <p>Fresh sources were searched for this question.</p>}
+              {result.publicResearch.refreshStatus === "unavailable" && <p>A fresh search could not be completed. Previous research is retained with its dates.</p>}
+              {result.publicResearch.refreshStatus === "rate-limited" && <p>Fresh searches are temporarily busy. Please try again shortly.</p>}
+              {result.publicResearch.refreshStatus === "needs-public-collectible-terms" && <p>Add a collectible brand or category and an exact item name. Keep private information out of your question.</p>}
+              {result.publicResearch.refreshStatus === "no-approved-sources" && <p>No matching source from the approved publisher list was retrieved. That does not prove no information exists.</p>}
               {result.publicResearch.status !== "unavailable" && result.publicResearch.latestResearchedAt ? (
                 <p className="research-meta">Collected {new Date(result.publicResearch.latestResearchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}.</p>
               ) : null}
@@ -160,12 +165,13 @@ export default function AskPage() {
                 <p>The question did not contain enough specific collectible terms to search the stored research. Add a set, character, player, brand, year, or product name.</p>
               ) : result.publicResearch.matches?.length > 0 ? (
                 <>
-                  <p>These are public research leads from recent scheduled runs. They are not verified sold-price evidence until independently validated.</p>
+                  <p>These are research leads, not independently verified answers or sold prices. Source publication dates and retrieval dates are separate.</p>
                   <div className="research-leads">
                     {result.publicResearch.matches.map((item) => (
                       <article key={`${item.url}:${item.title}`}>
                         <a href={item.url} target="_blank" rel="noopener noreferrer"><strong>{item.title || "Public research source"}</strong></a>
                         <span>{item.source || item.topic || "Public source"}{item.published ? ` · ${item.published}` : ""}</span>
+                        <span>Retrieved: {item.researchedAt || "unknown"} · {item.freshnessStatus || "freshness unknown"}</span>
                         {item.summary ? <p>{item.summary}</p> : null}
                       </article>
                     ))}
