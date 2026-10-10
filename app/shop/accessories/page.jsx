@@ -4,7 +4,7 @@ import {
   allAmazonAccessoryOffers,
   buildAmazonSearchUrl,
 } from "../../../lib/amazon-associates.mjs";
-import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
+import { resolveAmazonAccessoryAttribution } from "../../../lib/amazon-shop-attribution.mjs";
 import AmazonAffiliateLink from "./AmazonAffiliateLink";
 
 export const metadata = {
@@ -16,11 +16,7 @@ export const metadata = {
 
 export default async function AccessoriesShopPage({ searchParams }) {
   const query = await searchParams;
-  // Accept standard UTM landing links as well as native BlindBoxAI campaign tags.
-  // Keep campaign and source on first-party pages; Amazon destination URLs
-  // contain only the approved Associate tag and product-category search.
-  const campaignId = normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign);
-  const source = normalizeSource(query?.source || query?.utm_source || "amazon_accessories");
+  const { campaignId, source } = resolveAmazonAccessoryAttribution(query);
   const offers = allAmazonAccessoryOffers();
 
   return (
