@@ -40,6 +40,9 @@ test("changed media or title cannot acquire the specialist Hair Salon CTA", () =
 });
 
 test("canonical Hair Salon URL derives from the one immutable asset manifest", () => {
+  assert.equal(HAIR_SALON_SHA256, "7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0");
+  assert.equal(HAIR_SALON_TITLE, "THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box");
+  assert.equal(REVIEW_OBJECT_PREFIX, "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/");
   assert.equal(HAIR_SALON_REVIEW_PATH, `media/review/sha256-${HAIR_SALON_SHA256}.mp4`);
   assert.equal(HAIR_SALON_MEDIA_URL, `${REVIEW_OBJECT_PREFIX}${HAIR_SALON_REVIEW_PATH}`);
 });
