@@ -73,3 +73,20 @@ jobs:
             console.log(JSON.stringify({id, service, serviceId, isQueuePaused, isDisconnected, isLocked}));
           }
           NODE
+
+      - name: Compare existing review post lookup filters without publishing
+        env:
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+        run: |
+          node --input-type=module <<'NODE'
+          const startDate = new Date(Date.now()-45*86400000).toISOString();
+          for (const withDate of [true,false]) {
+            const query = 'query Posts($organizationId: OrganizationId!) { posts(first: 50, input: { organizationId: $organizationId, filter: { channelIds: ["6a95b7b2065799be465f7085"], status: [scheduled, sending, sent]'+(withDate?', startDate: "'+startDate+'"':'')+' }, sort: [{field: createdAt, direction: desc}] }) { edges { node { id text status channelId externalLink createdAt sentAt } } pageInfo { hasNextPage endCursor } } }';
+            const response = await fetch('https://api.buffer.com',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+process.env.BUFFER_API_TOKEN},body:JSON.stringify({query,variables:{organizationId:process.env.BUFFER_ORGANIZATION_ID}})});
+            const result=await response.json();
+            if (!response.ok || result.errors?.length) {console.log('POST_DIAGNOSTIC_QUERY_FAILED');process.exitCode=1;continue;}
+            const posts=(result.data?.posts?.edges??[]).map(x=>x.node);
+            console.log(JSON.stringify({withDate,count:posts.length,pageInfo:result.data?.posts?.pageInfo}));
+            for(const {text,...post} of posts.filter(x=>x.text?.includes('bb-rv-3c9c9bb78c37ff6a'))) console.log(JSON.stringify(post));
+          }
+          NODE
