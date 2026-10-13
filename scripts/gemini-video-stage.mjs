@@ -37,7 +37,8 @@ const channels = (process.env.VIDEO_CHANNELS ?? "twitter,tiktok")
   .filter(Boolean);
 if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one Buffer service");
 
-const script = hardenGenerativeVideoScript(generateVideoScript(sanitizeProductForGenerativeVideo(product), now), DISCLOSURE);
+const safeEvidence = sanitizeProductForGenerativeVideo(product);
+const script = hardenGenerativeVideoScript(generateVideoScript(product, now, { evidenceProduct: safeEvidence }), DISCLOSURE);
 const record = createRenderRecord(product, script, channels, now);
 const rendered = await renderGeminiOmni({
   apiKey: process.env.GEMINI_API_KEY,
