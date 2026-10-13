@@ -17,10 +17,11 @@ test('ambiguous prices and other destinations never become verified facts', () =
   assert.deepEqual(parseOfficialProducts(html('39.99').replace(OFFICIAL_PRODUCT_URL, 'https://example.org'), time), []);
 });
 test('outage produces no replacement fact and fetch is fixed and redirect-free', async () => {
+  const requests = [];
   const result = await refreshOfficialProducts({ fetchImpl: async (url, options) => {
-    assert.equal(url, OFFICIAL_COLLECTION_URL);
-    assert.equal(options.redirect, 'error');
+    requests.push({ url, redirect: options.redirect });
     return new Response('down', { status: 503 });
   }});
   assert.deepEqual(result, []);
+  assert.deepEqual(requests, [{ url: OFFICIAL_COLLECTION_URL, redirect: 'error' }]);
 });
