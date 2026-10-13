@@ -8,7 +8,7 @@ import {
   markRendered,
   selectDailyProduct,
 } from "../lib/video-pipeline.mjs";
-import { hardenGenerativeVideoScript } from "../lib/epn-genai-safety.mjs";
+import { hardenGenerativeVideoScript, sanitizeProductForGenerativeVideo } from "../lib/epn-genai-safety.mjs";
 import { renderGeminiOmni } from "../lib/gemini-video-renderer.mjs";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
@@ -37,7 +37,7 @@ const channels = (process.env.VIDEO_CHANNELS ?? "twitter,tiktok")
   .filter(Boolean);
 if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one Buffer service");
 
-const script = hardenGenerativeVideoScript(generateVideoScript(product, now), DISCLOSURE);
+const script = hardenGenerativeVideoScript(generateVideoScript(sanitizeProductForGenerativeVideo(product), now), DISCLOSURE);
 const record = createRenderRecord(product, script, channels, now);
 const rendered = await renderGeminiOmni({
   apiKey: process.env.GEMINI_API_KEY,
