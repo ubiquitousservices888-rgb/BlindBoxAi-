@@ -14,6 +14,9 @@ test('new retrieval extracts changed official retail price without making sold e
 });
 test('ambiguous prices and other destinations never become verified facts', () => {
   assert.deepEqual(parseOfficialProducts(html('39.99 $50.00'), time), []);
+  assert.deepEqual(parseOfficialProducts(html('1,099.99'), time), []);
+  assert.equal(parseOfficialProducts(html('42.5'), time)[0].retailUSD, 42.5);
+  assert.deepEqual(parseOfficialProducts(html('42.500'), time), []);
   assert.deepEqual(parseOfficialProducts(html('39.99').replace(OFFICIAL_PRODUCT_URL, 'https://example.org'), time), []);
 });
 test('outage produces no replacement fact and fetch is fixed and redirect-free', async () => {
