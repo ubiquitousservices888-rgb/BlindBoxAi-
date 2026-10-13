@@ -37,7 +37,7 @@ No hosted model or paid agent is enabled by this feature. Search is limited to
 one fixed HTTPS RSS endpoint, an eight-second deadline, 256 KB of response data,
 and six approved-source leads. Redirects are blocked. Per server instance,
 identical in-flight searches are combined, results are cached for 15 minutes
-(failures for one minute), and at most six distinct searches start per minute.
+(failures for one minute), and at most six distinct searches start in each fixed 60-second window.
 These bounds are **not** a distributed global quota. Cold starts and multiple
 instances can each issue searches. Existing endpoint rate limits also apply.
 
