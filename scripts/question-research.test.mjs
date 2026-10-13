@@ -127,6 +127,41 @@ test("question storage redacts credential-like and payment material", () => {
   assert.doesNotMatch(clean, /fixture-private|me@example.com|1234/);
 });
 
+test("storage redaction removes private key blocks, quoted values and control-separated payment data", () => {
+  const pem = ["-----BEGIN PRIVATE KEY-----", "SYNTHETIC-NOT-A-KEY", "-----END PRIVATE KEY-----"].join("\n");
+  const redacted = redactQuestionForStorage(`Pokemon ${pem} password="several separate words" 1234\\t5678\\n9012 3456`);
+  assert.doesNotMatch(redacted, /SYNTHETIC-NOT-A-KEY|several separate words|1234|5678|9012|3456/);
+  assert.match(redacted, /\\[credential\\]/);
+  assert.match(redacted, /\\[payment data\\]/);
+});
+
+test("gift-card codes and synthetic AWS identifiers never reach external search", async () => {
+  let calls = 0;
+  const search = createQuestionResearch({ now, fetchImpl: async () => { calls += 1; throw new Error("unexpected external call"); } });
+  for (const query of ["Pokemon gift card 12345678", "Pokemon " + "AKIA" + "A".repeat(16)]) {
+    const result = await search(query);
+    assert.equal(result.refreshStatus, "needs-public-collectible-terms");
+  }
+  assert.equal(calls, 0);
+});
+
+test("cached leads are re-dated when publication freshness expires inside cache TTL", async () => {
+  let clock = Date.parse(timestamp);
+  let calls = 0;
+  const nearCutoff = new Date(clock - (30 * 86400000 - 60_000)).toUTCString();
+  const search = createQuestionResearch({ now: () => clock, fetchImpl: async () => {
+    calls += 1;
+    return new Response(feed("https://www.pokemon.com", nearCutoff));
+  } });
+  const initial = await search("Pokemon Charizard");
+  assert.equal(initial.matches[0].freshnessStatus, "fresh");
+  clock += 120_000;
+  const cached = await search("Pokemon Charizard");
+  assert.equal(cached.cacheHit, true);
+  assert.equal(cached.matches[0].freshnessStatus, "stale");
+  assert.equal(calls, 1);
+});
+
 test("daily report distinguishes expiring, expired, and future-dated primary video sources", async () => {
   const report = await runDailyResearchCheck({ now: new Date(timestamp), catalog: [],
     videoProducts: [{ id: "fixture", sources: [
