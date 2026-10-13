@@ -17,6 +17,31 @@ test("Performance by Day report produces orders earnings and EPC", () => {
   assert.equal(report.status, "Connected from EPN report");
 });
 
+test("Performance by Custom ID accepts Action Earnings and Click Earnings columns", () => {
+  const csv = [
+    "Custom ID,Clicks,Sales,Items Ordered,Transactions,Action Earnings,Click Earnings",
+    "bb1sfirst,3,$0.00,0,0,$1.25,$0.10",
+    "bb1ssecond,2,$0.00,0,0,$0.75,$0.05",
+  ].join("\n");
+  const report = parseEpnReportCsv(csv);
+  assert.equal(report.networkClicks, 5);
+  assert.equal(report.orders, 0);
+  assert.equal(report.earnings, 2.15);
+  assert.equal(report.epc, 0.43);
+  assert.equal(report.status, "Connected from EPN report");
+});
+
+test("a reported total earnings column overrides component columns without double counting", () => {
+  const csv = [
+    "Custom ID,Clicks,Transactions,Action Earnings,Click Earnings,Total Earnings",
+    "bb1sfirst,3,1,$0.70,$0.20,$0.90",
+  ].join("\n");
+  const report = parseEpnReportCsv(csv);
+  assert.equal(report.earnings, 0.9);
+  assert.equal(report.orders, 1);
+  assert.equal(report.epc, 0.3);
+});
+
 test("Transaction Detail counts approved unique transactions and excludes reversed rows", () => {
   const csv = [
     "Status,Partner Network Transaction ID,Earnings,Item",
