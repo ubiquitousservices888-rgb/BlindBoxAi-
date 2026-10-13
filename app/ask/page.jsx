@@ -152,7 +152,7 @@ export default function AskPage() {
             <section className="public-research">
               <h3>Research for your question</h3>
               {result.publicResearch.refreshStatus === "refreshed" && <p>Fresh sources were searched for this question.</p>}
-              {result.publicResearch.refreshStatus === "unavailable" && <p>A fresh search could not be completed. Previous research is retained with its dates.</p>}
+              {result.publicResearch.refreshStatus === "unavailable" && <p>A fresh search could not be completed. If available, previous research is retained with its dates.</p>}
               {result.publicResearch.refreshStatus === "rate-limited" && <p>Fresh searches are temporarily busy. Please try again shortly.</p>}
               {result.publicResearch.refreshStatus === "needs-public-collectible-terms" && <p>Add a collectible brand or category and an exact item name. Keep private information out of your question.</p>}
               {result.publicResearch.refreshStatus === "no-approved-sources" && <p>No matching source from the approved publisher list was retrieved. That does not prove no information exists.</p>}
