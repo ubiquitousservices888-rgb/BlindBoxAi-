@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-10T16:15:59.602369Z",
+  "method": "Read-only HTTPS GET of both official US pages; fields matched in received HTML. No purchase, render or publication.",
+  "claimsMatched": {
+    "releaseDateAndTime": true,
+    "dimensionsCm": true,
+    "materials": true,
+    "officialUsRetailUSD": true
+  },
+  "retailUSD": 39.99,
+  "isCompletedSaleEvidence": false,
+  "sources": [
+    {
+      "url": "https://www.popmart.com/us/products/7890/the-monsters-hair-salon-series-vinyl-plush-pendant-blind-box",
+      "httpStatus": 200,
+      "sha256": "27db1e0386a55e5e6320d2a322d3b7ae888b806298ea4db36e7703a3f88ffa65"
+    },
+    {
+      "url": "https://www.popmart.com/us/collection/11/the-monsters",
+      "httpStatus": 200,
+      "sha256": "aafa42712f4788cec20b362116f787a0a88969749e8b5fc322378b24f7f14c2f"
+    }
+  ]
+}

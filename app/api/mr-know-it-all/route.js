@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { buildDeterministicCompResponse } from "../../../lib/deterministic-comp-lookup.mjs";
 import { recordKnowItAllQuestion } from "../../../lib/mr-know-it-all-store.mjs";
 import { searchRecentPublicResearch } from "../../../lib/public-research-search.mjs";
+import { createQuestionResearch } from "../../../lib/question-research.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +75,13 @@ async function runtimePublicResearch(query) {
   return searchRecentPublicResearch(query);
 }
 
-export function createMrKnowItAllHandler({ recorder = runtimeRecorder, publicResearch = runtimePublicResearch } = {}) {
+const questionResearch = createQuestionResearch();
+async function runtimeQuestionResearch(query, stored) {
+  if (automatedTestRuntime()) return stored;
+  return questionResearch(query, stored);
+}
+
+export function createMrKnowItAllHandler({ recorder = runtimeRecorder, publicResearch = runtimePublicResearch, freshResearch = runtimeQuestionResearch } = {}) {
   return async function handleMrKnowItAll(request) {
     if (!originAllowed(request)) return json({ error: "Origin not allowed." }, { status: 403 });
     if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
@@ -114,6 +121,11 @@ export function createMrKnowItAllHandler({ recorder = runtimeRecorder, publicRes
       } catch {
         research = { ...research, status: "unavailable" };
       }
+      try {
+        research = await freshResearch(query, research);
+      } catch {
+        research = { ...research, refreshStatus: "unavailable" };
+      }
       const storage = await recorder({ question: query, result }).catch(() => ({ stored: false, reason: "write_failed" }));
       console.info("agent_question", {
         piiStored: false,
@@ -125,6 +137,7 @@ export function createMrKnowItAllHandler({ recorder = runtimeRecorder, publicRes
       return json({
         ...result,
         publicResearch: research,
+        researchQueued: Boolean(storage.queued),
         researchKey: crypto.createHash("sha256").update(query.trim().toLowerCase()).digest("hex"),
         researchStored: storage.stored,
       });

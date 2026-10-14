@@ -12,6 +12,7 @@ const workflowFiles = fs.readdirSync(workflowsDir)
 
 const scheduledAllowlist = new Set([
   "bounded-operations.yml",
+  "daily-research-check.yml",
   "evergreen-shopping-stage.yml",
   "know-it-all-public-research.yml",
   "know-it-all-transaction-verification.yml",
@@ -53,6 +54,17 @@ test("workflows with publishing commands cannot have schedules", () => {
     }
   }
   assert.deepEqual(offenders, []);
+});
+
+test("daily research health workflow has read-only permissions and no account credentials", () => {
+  const text = source("daily-research-check.yml");
+  assert.match(text, /^permissions:\s*\n  contents: read\s*$/m);
+  assert.equal((text.match(/^\s*permissions:\s*$/gm) || []).length, 1);
+  assert.match(text, /persist-credentials:\s*false/);
+  assert.match(text, /cancel-in-progress: false/);
+  assert.doesNotMatch(text, /secrets\.|permissions:\s*write-all|\b[a-z-]+:\s*write\b|publish|render|bot_pull|bot_seed/);
+  assert.match(text, /node scripts\/daily-research-check\.mjs/);
+  assert.match(text, /node scripts\/audit-epn-links\.mjs/);
 });
 
 test("no workflow may orchestrate or loop the approved-review publisher", () => {
