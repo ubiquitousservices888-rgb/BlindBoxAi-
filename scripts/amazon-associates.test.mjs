@@ -84,6 +84,13 @@ describe("Amazon Associates accessory path", () => {
       campaignId: "", source: "amazon_accessories",
     });
     assert.deepEqual(resolveAmazonAccessoryAttribution({
+      source: ["facebook", "instagram"],
+      utm_source: "youtube",
+    }), { campaignId: "", source: "youtube" });
+    assert.deepEqual(resolveAmazonAccessoryAttribution({
+      source: ["facebook", "instagram"],
+    }), { campaignId: "", source: "amazon_accessories" });
+    assert.deepEqual(resolveAmazonAccessoryAttribution({
       utm_campaign: "<script>",
       utm_source: "?",
     }), { campaignId: "script", source: "amazon_accessories" });
