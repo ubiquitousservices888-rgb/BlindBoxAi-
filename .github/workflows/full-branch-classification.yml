@@ -1,0 +1,40 @@
+name: Full branch classification (read only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-branch-classification
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    if: ${{ github.repository == 'ubiquitousservices888-rgb/BlindBoxAi-' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Classify all branches without mutations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --check scripts/audit-all-branches.mjs
+          node scripts/audit-all-branches.mjs
+      - name: Retain classification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: full-branch-classification
+          path: output/repository-audit/branch-classification.json
+          retention-days: 30
+          if-no-files-found: warn
