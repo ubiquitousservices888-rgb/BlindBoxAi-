@@ -1,13 +1,7 @@
-name: Retire four verified merged PR branches
+name: Audit four verified merged PR branches (read only)
 
 on:
   workflow_dispatch:
-    inputs:
-      execute:
-        description: "Read-only audit (branch deletion is disabled; no automatic apply)"
-        type: boolean
-        required: true
-        default: false
 
 permissions:
   contents: read
@@ -31,10 +25,9 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"
-      - name: Validate and retire only unchanged, fully merged PR branches
+      - name: Validate only unchanged, fully merged PR branches
         env:
           GH_TOKEN: ${{ github.token }}
-          APPLY: ${{ inputs.execute }}
         run: |
           node --check scripts/retire-verified-merged-branches.mjs
           node scripts/retire-verified-merged-branches.mjs
