@@ -1,0 +1,46 @@
+name: Daily research health and affiliate checks
+
+on:
+  schedule:
+    - cron: "37 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-research-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Audit affiliate URL construction
+        id: affiliate
+        run: node scripts/audit-epn-links.mjs
+      - name: Check live pages, revision, and price dates without production writes
+        if: always()
+        run: node scripts/daily-research-check.mjs
+      - name: Record affiliate result
+        if: always()
+        env:
+          AFFILIATE_OUTCOME: ${{ steps.affiliate.outcome }}
+        run: echo "Affiliate URL audit **$AFFILIATE_OUTCOME** (see audit logs for details)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload daily report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: daily-research-check
+          path: output/mr-know-it-all/daily-check.json
+          retention-days: 14
+          if-no-files-found: error

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { cardApiExactTargetMatches } from "../lib/the-card-api.mjs";
@@ -99,4 +101,72 @@ test("research queue controls bound backlog, reserve public capacity, drain orph
   assert.match(workerSource, /retryHours: insufficientIdentityCooldown \? 720 : 24/);
   assert.match(workerSource, /accepted\.length === 0/);
   assert.match(workerSource, /retryHours: successfulEmptyCooldown \? 720 : 6/);
+});
+
+
+const mockNetwork = `
+const respond = (status, payload) => ({ ok: status >= 200 && status < 300, status, json: async () => payload });
+globalThis.fetch = async (url, options = {}) => {
+  if (String(url).startsWith("https://oidc.example.test/")) return respond(200, { value: "mock-token" });
+  if (!String(url).includes("/functions/v1/mr-know-it-all-ingest")) throw new Error("Unexpected request URL");
+  const request = JSON.parse(options.body || "{}");
+  if (request.type === "bot_seed") return respond(200, { seeded: 1 });
+  if (request.type === "bot_pull") return respond(200, { items: [{ id: "test-item", vertical: "other_collectible_toy" }] });
+  if (request.type === "bot_finish") return process.env.MOCK_FINISH_FAIL === "1"
+    ? respond(403, { error: "permission denied" })
+    : respond(200, { ok: true });
+  throw new Error("Unexpected request type: " + request.type);
+};
+`;
+
+function runMockedScheduledBot(failFinish) {
+  const script = fileURLToPath(new URL("./mr-know-it-all-tool-bot.mjs", import.meta.url));
+  const preload = "data:text/javascript," + encodeURIComponent(mockNetwork);
+  const child = spawnSync(process.execPath, ["--import", preload, script], {
+    encoding: "utf8",
+    timeout: 15000,
+    env: {
+      PATH: process.env.PATH || "",
+      ACTIONS_ID_TOKEN_REQUEST_URL: "https://oidc.example.test/token",
+      ACTIONS_ID_TOKEN_REQUEST_TOKEN: "mock-request-token",
+      RESEARCH_BATCH_SIZE: "1",
+      MOCK_FINISH_FAIL: failFinish ? "1" : "0",
+    },
+  });
+  assert.equal(child.error, undefined, child.stderr);
+  assert.equal(child.signal, null, child.stderr);
+  return child;
+}
+
+test("scheduled worker reports per-row errors and exits nonzero after printing its summary", () => {
+  const child = runMockedScheduledBot(true);
+  assert.equal(child.status, 1, child.stderr);
+  const summary = JSON.parse(child.stdout);
+  assert.equal(summary.pulled, 1);
+  assert.equal(summary.workerErrors, 1);
+  assert.equal(summary.results.length, 1);
+  assert.equal(summary.results[0].outcome, "worker_error");
+  assert.match(summary.results[0].error, /bot_finish failed: 403/);
+});
+
+test("scheduled worker completes successfully when mocked queue items finish", () => {
+  const child = runMockedScheduledBot(false);
+  assert.equal(child.status, 0, child.stderr);
+  const summary = JSON.parse(child.stdout);
+  assert.equal(summary.workerErrors, 0);
+  assert.equal(summary.results.length, 1);
+  assert.equal(summary.results[0].outcome, "cataloged_waiting_for_provider");
+});
+
+
+test("ingest seed does not overwrite queue states and finish enforces eight-attempt cooldown", () => {
+  const source = fs.readFileSync(new URL("../supabase/functions/mr-know-it-all-ingest/index.ts", import.meta.url), "utf8");
+  const seed = source.slice(source.indexOf("async function handleBotSeed("), source.indexOf("async function handleBotPull("));
+  const finish = source.slice(source.indexOf("async function handleBotFinish("), source.indexOf("Deno.serve("));
+  assert.match(seed, /research_queue"\)\.insert\(/);
+  assert.doesNotMatch(seed, /research_queue"\)\.upsert\(/);
+  assert.match(seed, /error\.code !== "23505"/);
+  assert.match(finish, /Number\(claimed\.attempts \|\| 0\) >= 8 \? 720/);
+  assert.match(finish, /\.eq\("status", "researching"\)\.eq\("attempts", claimed\.attempts\)\.select\("id"\)/);
+  assert.match(finish, /json\(\{ error: "Queue item not found" \}, 404\)/);
 });

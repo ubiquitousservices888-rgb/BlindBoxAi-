@@ -1,40 +1,51 @@
 import Link from "next/link";
 import Waitlist from "./waitlist";
+import ResaleCalculator from "./ResaleCalculator";
 
 export const metadata = {
-  title: "Reseller tools waitlist | BlindBoxAI",
-  description: "Planned BlindBoxAI reseller tools for price alerts, bulk valuation, CSV export, and saved set-completion tracking. No charge while the product is in build.",
+  title: "Collector & reseller alpha | BlindBoxAI",
+  description: "Calculate a collectible resale margin with your own assumptions. Join free early access for BlindBoxAI reseller tools built around evidence, costs, and reasons to pass.",
 };
 
 export default function Pro() {
   return (
     <main>
       <Link className="crumb" href="/">← All series</Link>
-      <h1 className="ptitle">Reseller tools</h1>
-      <p style={{ maxWidth: "52ch", color: "var(--muted)", marginBottom: "20px" }}>
-        For people flipping blind boxes, not chasing them: email price alerts when a
-        figure&apos;s range moves, bulk valuation of a whole lot, CSV export, and saved
-        set-completion tracking. In build now.
+      <h1 className="ptitle">Collector & reseller alpha</h1>
+      <p style={{ maxWidth: "70ch", color: "var(--muted)", lineHeight: 1.65 }}>
+        Before you pay a premium, know what has actually sold, what the fees cost,
+        and when walking away is the better decision. BlindBoxAI keeps reviewed
+        sold-price evidence separate from asking prices and marks missing research.
       </p>
       <div className="plan">
-        <div className="amt mono">
-          Coming soon
-          <span style={{ fontSize: ".9rem", color: "var(--muted)", marginLeft: "8px" }}>
-            planned $9/mo
-          </span>
-        </div>
+        <p className="fine">EARLY ACCESS · NO CHARGE · NO GUARANTEED INVITE</p>
+        <h2>Help shape the next reseller tools</h2>
+        <p style={{ lineHeight: 1.65 }}>
+          We are recruiting early users who buy, trade, or resell blind boxes and
+          collectible cards. The margin calculator below works now. Price alerts,
+          bulk valuation, CSV export, and saved collections are proposed features,
+          not live paid services.
+        </p>
         <ul>
-          <li>Email price alerts on any figure</li>
-          <li>Bulk collection valuation</li>
-          <li>CSV export of every range</li>
-          <li>Saved set-completion tracking</li>
+          <li><strong>Actual sales over hype:</strong> reviewed completed sales and visible freshness matter more than optimistic listings.</li>
+          <li><strong>Real margin over sticker price:</strong> account for buy cost, inbound tax and shipping, selling fees, and fulfillment.</li>
+          <li><strong>A reason to pass:</strong> research should make it easier to avoid bad purchases, not pressure you into them.</li>
         </ul>
         <Waitlist />
-        <p className="fine" style={{ marginTop: "14px" }}>
-          No charge now, and no spam — one email when it launches. This tool helps you
-          avoid fakes and overpaying; it will never push you to buy more.
+        <p className="fine" style={{ marginTop: "12px" }}>
+          Opt in to hear about reseller tool availability. We will not charge or
+          enroll you automatically. Explore today's <Link href="/ask">public research assistant</Link> while the alpha develops.
         </p>
       </div>
+      <ResaleCalculator />
+      <section className="plan" style={{ marginTop: "24px" }}>
+        <h2>What could become paid</h2>
+        <p style={{ lineHeight: 1.65 }}>
+          Planned $9/month reseller tools: price-change alerts, collection-level
+          tracking, batch valuation, and CSV export. This is a product hypothesis,
+          not an active subscription. We will validate usefulness before charging.
+        </p>
+      </section>
     </main>
   );
 }

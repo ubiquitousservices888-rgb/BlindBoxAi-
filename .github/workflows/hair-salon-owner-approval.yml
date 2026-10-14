@@ -1,0 +1,380 @@
+name: Hair Salon verified video — owner approval only
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/hair-salon-owner-approval.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hair-salon-owner-approval
+  cancel-in-progress: false
+
+# Single immutable asset manifest shared by prepare and publisher jobs.
+env:
+  SOURCE_VIDEO_URL: https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4
+  REVIEWED_VIDEO_TITLE: THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box
+  EXPECTED_SHA256: 7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0
+  EXPECTED_SIZE: "121797"
+  STAGE_RENDER_URL: https://www.blindboxai.com/api/owner/stage-render
+
+jobs:
+  prepare:
+    name: Verify exact MP4 and stage in canonical Supabase review queue
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      video_url: ${{ steps.stage.outputs.video_url }}
+      research_run_id: ${{ steps.stage.outputs.research_run_id }}
+      campaign_id: ${{ steps.stage.outputs.campaign_id }}
+    steps:
+      - name: Checkout immutable main revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify immutable main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Install ffprobe
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+
+      - name: Download and verify exact source asset
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            --connect-timeout 15 --max-time 60 \
+            "$SOURCE_VIDEO_URL" \
+            --output hair-salon.mp4
+
+          test "$(stat -c %s hair-salon.mp4)" = "$EXPECTED_SIZE"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "hair-salon.mp4" | sha256sum --check -
+
+          duration="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 hair-salon.mp4)"
+          width="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 hair-salon.mp4)"
+          height="$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 hair-salon.mp4)"
+
+          node -e '
+            const [duration, width, height] = process.argv.slice(1).map(Number);
+            if (!Number.isFinite(duration) || duration < 1 || duration > 180) throw new Error("Video duration is not Shorts-eligible");
+            if (width !== 720 || height !== 1280) throw new Error("Video dimensions changed from verified 720x1280");
+          ' "$duration" "$width" "$height"
+
+          {
+            echo "duration=$duration"
+            echo "width=$width"
+            echo "height=$height"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload exact asset to Supabase and stage READY_FOR_REVIEW
+        id: stage
+        env:
+          SOURCE_DURATION: ${{ steps.source.outputs.duration }}
+          SOURCE_WIDTH: ${{ steps.source.outputs.width }}
+          SOURCE_HEIGHT: ${{ steps.source.outputs.height }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { createHash } from "node:crypto";
+
+          let stagingCommitted = false;
+          const expectedSha = process.env.EXPECTED_SHA256;
+          const expectedSize = Number(process.env.EXPECTED_SIZE);
+          const durationSeconds = Number(process.env.SOURCE_DURATION);
+          const width = Number(process.env.SOURCE_WIDTH);
+          const height = Number(process.env.SOURCE_HEIGHT);
+
+          const oidcUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          oidcUrl.searchParams.set("audience", "blindboxai-autonomous-render-stage");
+          const oidcResponse = await fetch(oidcUrl, {
+            headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (!oidcResponse.ok) throw new Error(`GitHub OIDC request failed: ${oidcResponse.status}`);
+          const oidcBody = await oidcResponse.json();
+          const token = String(oidcBody?.value || "");
+          if (!token) throw new Error("GitHub OIDC token response was empty");
+
+          async function request(payload, maxWaitMs = 240000, { retryTransportFailure = true } = {}) {
+            const deadline = Date.now() + maxWaitMs;
+            let response = null;
+            let body = {};
+            while (Date.now() < deadline) {
+              const remainingMs = deadline - Date.now();
+              try {
+                response = await fetch(process.env.STAGE_RENDER_URL, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(payload),
+                  signal: AbortSignal.timeout(Math.max(1, Math.min(15_000, remainingMs))),
+                });
+                body = await response.json().catch(() => ({}));
+              } catch (error) {
+                response = null;
+                body = { error: error?.name === "TimeoutError" ? "request_timeout" : "request_failed" };
+              }
+
+              if (response?.ok) return { response, body };
+              const retryable =
+                (retryTransportFailure && !response) ||
+                (response?.status === 409 && body?.error === "production_revision_not_ready") ||
+                (response?.status === 401 && body?.error === "github_oidc_required");
+              if (!retryable) return { response, body };
+
+              const sleepMs = Math.min(5000, deadline - Date.now());
+              if (sleepMs <= 0) break;
+              await new Promise((resolve) => setTimeout(resolve, sleepMs));
+            }
+            return { response, body: { ...body, error: body?.error || "production_revision_timeout" } };
+          }
+
+          const upload = await request({
+            action: "upload",
+            sourceVideoUrl: process.env.SOURCE_VIDEO_URL,
+            title: process.env.REVIEWED_VIDEO_TITLE,
+            sizeBytes: expectedSize,
+            durationSeconds,
+            width,
+            height,
+          }, 240000, { retryTransportFailure: false });
+
+          if (!upload.response?.ok || upload.body?.state !== "CANONICAL_UPLOADED") {
+            throw new Error(
+              `Supabase canonical upload failed: ${upload.response?.status || 0} ${upload.body?.error || "unknown"}`,
+            );
+          }
+
+          const videoUrl = String(upload.body.videoUrl || "");
+          const path = String(upload.body.path || "");
+          const created = upload.body?.created === true;
+          const expectedPath = `media/review/sha256-${expectedSha}.mp4`;
+          const expectedVideoUrl =
+            `https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/${expectedPath}`;
+
+          if (path !== expectedPath || videoUrl !== expectedVideoUrl) {
+            throw new Error("Canonical upload did not return the content-addressed Hair Salon Supabase URL");
+          }
+
+          try {
+            const canonicalResponse = await fetch(videoUrl, {
+              cache: "no-store",
+              headers: { "cache-control": "no-cache" },
+              signal: AbortSignal.timeout(30_000),
+            });
+            if (!canonicalResponse.ok) throw new Error(`Canonical Supabase fetch failed: ${canonicalResponse.status}`);
+            const canonicalBytes = Buffer.from(await canonicalResponse.arrayBuffer());
+            const canonicalSha = createHash("sha256").update(canonicalBytes).digest("hex");
+            if (canonicalBytes.byteLength !== expectedSize || canonicalSha !== expectedSha) {
+              throw new Error("Canonical Supabase object does not match the verified Hair Salon source");
+            }
+
+            const staged = await request({
+              action: "stage",
+              videoUrl,
+              path,
+              title: process.env.REVIEWED_VIDEO_TITLE,
+              sha256: canonicalSha,
+              sizeBytes: canonicalBytes.byteLength,
+              durationSeconds,
+              width,
+              height,
+            }, 240000);
+
+            if (!staged.response?.ok || staged.body?.state !== "READY_FOR_REVIEW") {
+              throw new Error(
+                `Supabase review staging failed: ${staged.response?.status || 0} ${staged.body?.error || "unknown"}`,
+              );
+            }
+
+            stagingCommitted = true;
+
+            const researchRunId = String(staged.body.researchRunId || "");
+            const campaignId = String(staged.body.campaignId || "");
+            if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
+              throw new Error("Supabase review staging returned an invalid researchRunId");
+            }
+            if (campaignId !== `bb-${researchRunId}`) {
+              throw new Error("Supabase review staging returned an invalid campaignId");
+            }
+
+            const output = process.env.GITHUB_OUTPUT;
+            await import("node:fs").then(({ appendFileSync }) => {
+              appendFileSync(
+                output,
+                `video_url=${videoUrl}\nresearch_run_id=${researchRunId}\ncampaign_id=${campaignId}\n`,
+              );
+              appendFileSync(
+                process.env.GITHUB_STEP_SUMMARY,
+                `## Ready for owner approval\n\n[Watch the canonical Supabase MP4](${videoUrl})\n\nResearch run: ${researchRunId}\n\nCampaign: ${campaignId}\n\nExact SHA-256 verified before READY_FOR_REVIEW. Publishing remains blocked behind **social-production**.\n`,
+              );
+            });
+          } catch (error) {
+            if (created && !stagingCommitted) {
+              try {
+                await request({ action: "cleanup", videoUrl, path }, 15000);
+              } catch {}
+            }
+            throw error;
+          }
+          NODE
+
+  publish-after-owner-approval:
+    name: Blue approval → canonical YouTube + TikTok publisher → live verification
+    if: github.ref == 'refs/heads/main'
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: social-production
+      url: ${{ needs.prepare.outputs.video_url }}
+    env:
+      DRY_RUN: "false"
+      VIDEO_CHANNELS: youtube,tiktok
+      PUBLISH_RESEARCH_RUN_ID: ${{ needs.prepare.outputs.research_run_id }}
+      YOUTUBE_AUDIENCE: not_made_for_kids
+      REVIEWED_VIDEO_URL: ${{ needs.prepare.outputs.video_url }}
+    steps:
+      - name: Checkout immutable main revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify immutable main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Ensure ffprobe is available for canonical publisher
+        shell: bash
+        run: |
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffprobe >/dev/null 2>&1
+
+      - name: Preflight Buffer destinations before approving queue row
+        env:
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { resolveReviewBufferChannel } from "./lib/buffer-review-publisher.mjs";
+
+          if (!process.env.BUFFER_API_TOKEN || !process.env.BUFFER_ORGANIZATION_ID) {
+            throw new Error("Buffer production configuration is incomplete");
+          }
+
+          for (const channel of ["youtube", "tiktok"]) {
+            const target = await resolveReviewBufferChannel({
+              token: process.env.BUFFER_API_TOKEN,
+              organizationId: process.env.BUFFER_ORGANIZATION_ID,
+              channel,
+            });
+            if (!target?.channelId) throw new Error(`${channel}: Buffer destination is unavailable`);
+            console.log(`BUFFER_PREFLIGHT_OK=${channel}`);
+          }
+          NODE
+
+      - name: Re-verify exact Supabase object after Blue approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$REVIEWED_VIDEO_URL" in
+            https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/*.mp4) ;;
+            *) echo "::error::Reviewed video is outside canonical Supabase storage."; exit 1 ;;
+          esac
+
+          curl --fail --location --silent --show-error \
+            --connect-timeout 15 --max-time 60 \
+            --header "Cache-Control: no-cache" \
+            "$REVIEWED_VIDEO_URL" \
+            --output approved-hair-salon.mp4
+          test "$(stat -c %s approved-hair-salon.mp4)" = "$EXPECTED_SIZE"
+          printf '%s  %s\n' "$EXPECTED_SHA256" "approved-hair-salon.mp4" | sha256sum --check -
+
+      - name: Approve exact Supabase review row after owner gate
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const oidcUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          oidcUrl.searchParams.set("audience", "blindboxai-autonomous-render-stage");
+          const oidcResponse = await fetch(oidcUrl, {
+            headers: { Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` },
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (!oidcResponse.ok) throw new Error(`GitHub OIDC request failed: ${oidcResponse.status}`);
+          const oidcBody = await oidcResponse.json();
+          const token = String(oidcBody?.value || "");
+          if (!token) throw new Error("GitHub OIDC token response was empty");
+
+          const response = await fetch(process.env.STAGE_RENDER_URL, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              action: "approve",
+              researchRunId: process.env.PUBLISH_RESEARCH_RUN_ID,
+              videoUrl: process.env.REVIEWED_VIDEO_URL,
+            }),
+            signal: AbortSignal.timeout(30_000),
+          });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok || body?.state !== "APPROVED") {
+            throw new Error(`Canonical review approval failed: ${response.status} ${body?.error || "unknown"}`);
+          }
+          if (body.researchRunId !== process.env.PUBLISH_RESEARCH_RUN_ID) {
+            throw new Error("Approved research ID does not match the reviewed Supabase asset");
+          }
+          NODE
+
+      - name: Publish and verify YouTube
+        env:
+          PUBLISH_CHANNEL: youtube
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+        run: node scripts/publish-approved-review-queue.mjs
+
+      - name: Publish and verify TikTok
+        env:
+          PUBLISH_CHANNEL: tiktok
+          BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+          BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
+        run: node scripts/publish-approved-review-queue.mjs

@@ -12,12 +12,12 @@ const workflowFiles = fs.readdirSync(workflowsDir)
 
 const scheduledAllowlist = new Set([
   "bounded-operations.yml",
+  "daily-research-check.yml",
   "evergreen-shopping-stage.yml",
   "know-it-all-public-research.yml",
   "know-it-all-transaction-verification.yml",
   "mr-know-it-all-tool-bot.yml",
   "narrative-flywheel-stage.yml",
-  "partnership-flywheel-stage.yml",
   "release-gate.yml",
 ]);
 
@@ -56,6 +56,17 @@ test("workflows with publishing commands cannot have schedules", () => {
   assert.deepEqual(offenders, []);
 });
 
+test("daily research health workflow has read-only permissions and no account credentials", () => {
+  const text = source("daily-research-check.yml");
+  assert.match(text, /^permissions:\s*\n  contents: read\s*$/m);
+  assert.equal((text.match(/^\s*permissions:\s*$/gm) || []).length, 1);
+  assert.match(text, /persist-credentials:\s*false/);
+  assert.match(text, /cancel-in-progress: false/);
+  assert.doesNotMatch(text, /secrets\.|permissions:\s*write-all|\b[a-z-]+:\s*write\b|publish|render|bot_pull|bot_seed/);
+  assert.match(text, /node scripts\/daily-research-check\.mjs/);
+  assert.match(text, /node scripts\/audit-epn-links\.mjs/);
+});
+
 test("no workflow may orchestrate or loop the approved-review publisher", () => {
   const offenders = [];
 
@@ -74,4 +85,42 @@ test("no workflow may orchestrate or loop the approved-review publisher", () => 
   }
 
   assert.deepEqual(offenders, []);
+});
+
+
+test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed, and bounded", () => {
+  const text = source("hair-salon-owner-approval.yml");
+
+  assert.match(text, /push:\s*\n\s+branches:\s*\[main\]/);
+  assert.doesNotMatch(text, /^\s{2}workflow_dispatch:\s*$/m);
+  assert.equal(
+    (text.match(/^\s{4}if:\s*github\.ref == 'refs\/heads\/main'\s*$/gm) || []).length,
+    2,
+  );
+  assert.equal(
+    (text.match(/^\s{10}ref:\s*\$\{\{ github\.sha \}\}\s*$/gm) || []).length,
+    2,
+  );
+  assert.equal((text.match(/^\s{6}id-token:\s*write\s*$/gm) || []).length, 2);
+  assert.doesNotMatch(text, /^\s{6}BLOB_READ_WRITE_TOKEN:\s*\$\{\{ secrets\./m);
+  assert.doesNotMatch(text, /^\s{6}BUFFER_API_TOKEN:\s*\$\{\{ secrets\./m);
+  assert.doesNotMatch(text, /@vercel\/blob|public\.blob\.vercel-storage\.com|publish-reviewed-upload\.mjs/);
+  assert.match(text, /blindboxai-review-videos\/media\/review/);
+  assert.match(text, /STAGE_RENDER_URL:\s*https:\/\/www\.blindboxai\.com\/api\/owner\/stage-render/);
+  assert.match(text, /CANONICAL_UPLOADED/);
+  assert.match(text, /retryTransportFailure = true/);
+  assert.match(text, /\(retryTransportFailure && !response\)/);
+  assert.match(text, /\}, 240000, \{ retryTransportFailure: false \}\);/);
+  assert.match(text, /READY_FOR_REVIEW/);
+  assert.match(text, /Re-verify exact Supabase object after Blue approval/);
+  assert.match(text, /action: "approve"/);
+  assert.match(text, /body\?\.state !== "APPROVED"/);
+  assert.match(text, /node scripts\/publish-approved-review-queue\.mjs/);
+  assert.match(text, /AbortSignal\.timeout\(30_000\)/);
+  assert.ok((text.match(/--max-time 60/g) || []).length >= 2);
+  assert.equal((text.match(/timeout-minutes:\s*15/g) || []).length, 1);
+  assert.equal((text.match(/timeout-minutes:\s*20/g) || []).length, 1);
+  assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
+  assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
+  assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
 });

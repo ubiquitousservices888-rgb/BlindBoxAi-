@@ -20,7 +20,6 @@ const CONTROL_WORKFLOWS = Object.freeze([
   { name: "Daily BlindBox pipeline validation (publishing paused)", file: "daily-blindbox-product.yml" },
   { name: "Labubu content validation (automation paused)", file: "labubu-buffer.yml" },
   { name: "Narrative flywheel candidate (review only)", file: "narrative-flywheel-stage.yml" },
-  { name: "Partnership flywheel candidate (review only)", file: "partnership-flywheel-stage.yml" },
 ]);
 const ACTIVE_STATUSES = new Set(["queued", "pending", "in_progress", "waiting", "requested"]);
 const CACHE_TTL_MS = 60_000;

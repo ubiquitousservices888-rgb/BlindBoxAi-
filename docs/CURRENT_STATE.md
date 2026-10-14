@@ -2,8 +2,8 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-10-03
-**Functional baseline inspected:** PR #256 proposed Blue launch implementation; production remains unverified until merged, deployed and independently checked. Current `main` includes the Hair Salon specialist path.
+**Last reconciled:** 2026-10-13
+**Functional baseline inspected:** current main with PR #268 and PR #269 merged; proposed PR #256 owner Blue launch is not live-verified until merged and deployed.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -29,18 +29,18 @@ Current invariants:
 - default mode: `dry_run: true`;
 - production video channels are pinned exactly to `youtube,tiktok`;
 - X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
-- a run requires an explicit `publish_channel`; owner recovery can target one exact channel, while the Blue launch uses `all` to serialize the pinned YouTube + TikTok targets in one workflow;
+- a run requires an explicit `publish_channel`; owner recovery can target one exact channel, while Blue launch uses `all` to serialize YouTube and TikTok;
 - a run can target one exact approved row with `research_run_id`; every live run requires this exact selector;
-- the Blue approval surface explicitly carries the owner's YouTube audience decision (`not_made_for_kids` in the current owner UI) into the launch dispatch;
+- owner Blue approval passes the exact reviewed video's explicit YouTube Made-for-Kids audience choice before dispatch;
 - the workflow calls `scripts/publish-approved-review-queue.mjs`;
 - dry runs read the approved row, probe the public MP4, and inspect the active Buffer destination without creating a Buffer post;
 - YouTube video media must independently probe as no longer than three minutes and square or 9:16 portrait;
 - the Buffer YouTube channel's `serviceId` must equal `UCwaUc4e4iv2Q4P1nxlVrTvw`, the channel currently authorized in vidIQ;
-- invalid numeric, camera-file, blank, or otherwise non-public titles are deterministically repaired without inventing product facts; inaccessible media, incompatible Shorts, wrong Buffer destinations, unverifiable posts, or broken affiliate requirements still block publishing;
+- owner-approved Buffer `shareNow` publication may use that exact channel while its scheduling queue is paused; locked or disconnected destinations still fail closed;
+- invalid public titles can be deterministically repaired while holding the exact publishing lease; unverified claims, inaccessible MP4, incompatible Shorts, wrong Buffer destinations, duplicate posts and affiliate errors must still block publishing;
 - Buffer credentials are referenced by name only and must never be printed.
 
-This is the canonical publisher when discussing an owner-approved review-queue item.
-The owner-authenticated Blue approval is the single recurring human launch step for this path. `/api/owner/approve-review` approves the exact queue row, dispatches one serialized YouTube + TikTok run through `publish-approved-reviews.yml`, and uses the owner-only GitHub token to approve only that exact run at the existing `social-production` environment gate. The environment gate remains in place, so its scoped configuration and OIDC subject remain intact. The workflow still accepts exact row/channel inputs and remains manually runnable by the owner for recovery or diagnostics. Actual public posts remain **UNVERIFIED** until Buffer returns verified platform URLs and the queue records them. The longer-term immutable manifest and daily publication cap are planned, not implemented.
+This is the canonical publisher for an owner-reviewed queue item. PR #256 changes Blue from queue-only approval into a single owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
 
 ## Other video paths are separate, not replacements
 
@@ -83,9 +83,28 @@ A subsystem document is authoritative only for that subsystem.
 ## Review-video upload paths
 
 - **Canonical phone uploader:** `/media-upload` requests a signed Supabase Storage upload ticket through `/api/media/free-upload-ticket`, uploads under `media/review/*.mp4`, then stages the resulting HTTPS URL through `/api/owner/stage-review` into the Supabase review queue. See [`free-video-storage.md`](./free-video-storage.md).
-- **Owner Blue review surface:** after owner authentication, `/owner-dashboard` uses owner-only `/api/owner/review-queue` to paginate current `ready_for_review` rows and render each exact MP4 plus Blue approval and Delete controls. The endpoint fails closed rather than returning a silently truncated list. `BLUE APPROVE + LAUNCH` calls `/api/owner/approve-review`, records owner approval, and automatically dispatches the exact row to YouTube and TikTok; publishing still fails closed on media, destination, duplicate, affiliate, and public-URL verification errors.
+- **Owner Blue review surface:** after owner authentication, `/owner-dashboard` uses owner-only `/api/owner/review-queue` to paginate the current `ready_for_review` rows and render the returned review list with each exact MP4 plus Blue approval and Delete controls. The endpoint fails closed rather than returning a silently truncated list. After the owner has watched the exact video and selected its YouTube audience, `BLUE APPROVE + LAUNCH` calls `/api/owner/approve-review` and requests the exact-run governed publisher; network/provider verification remains mandatory.
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
+
+## Collector research and daily checks
+
+`docs/mr-know-it-all.md` is CANONICAL for the deterministic `/ask` question
+interface, existing scheduled research, and the new credentialless
+question-specific source-discovery fallback. The earlier paid public AI / Blob
+schedule description in that subsystem document has been superseded.
+
+`.github/workflows/daily-research-check.yml` adds a daily read-only page/revision,
+affiliate URL, and documented sale-date freshness report. It never submits
+customer questions, visits tracked affiliate redirects, writes production data,
+refreshes prices by assertion, or reaches publishing. Existing category research
+and queued completed-sale retrieval retain their own workflows.
+
+Question-specific discovery is explicitly unverified research-lead retrieval,
+with publication and retrieval dates. It cannot promote a news finding into a
+verified price. Its cache/budget is per server instance, not a global quota.
+Production storage, actual successful schedules, and deployment of this
+addition remain **UNVERIFIED** until live evidence is captured.
 
 ## Owner-only eBay OAuth research
 
@@ -158,3 +177,5 @@ npm run docs:state-check
 ```
 
 The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing required documentation files. The state check is deterministic and local; neither command uses credentials or makes network calls.
+
+Routine research freshness: supported official retail facts refresh automatically in the existing twice-daily public research workflow, without owner prompts. Exact POP MART product 7890 is extracted from its official US collection; retrieval time never substitutes for a sale date. Failed or ambiguous retrievals retain prior stored dated evidence. This changes no publishing or spending gate.

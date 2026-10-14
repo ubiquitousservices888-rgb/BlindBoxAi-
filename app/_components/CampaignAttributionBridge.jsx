@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-
-import {
-  normalizeAttributionSource,
-  normalizeCampaignId,
-  normalizeSource,
-} from "../../lib/campaign-attribution.mjs";
+import { preserveInternalCampaignLink } from "../../lib/campaign-attribution.mjs";
 
 function isPlainLeftClick(event) {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -20,29 +15,15 @@ export default function CampaignAttributionBridge() {
       const anchor = element?.closest("a[href]");
       if (!anchor || anchor.hasAttribute("download")) return;
 
-      const current = new URL(window.location.href);
-      const campaignId = normalizeCampaignId(current.searchParams.get("campaign"));
-      const source = normalizeAttributionSource(
-        current.searchParams.get("source") || current.searchParams.get("utm_source"),
-      );
-      if (!campaignId && source === "none") return;
-
       const rawHref = anchor.getAttribute("href") || "";
       if (!rawHref || rawHref.startsWith("#") || /^(mailto:|tel:|javascript:)/i.test(rawHref)) return;
 
-      const next = new URL(rawHref, window.location.href);
-      if (next.origin !== window.location.origin) return;
+      const attributedHref = preserveInternalCampaignLink(window.location.href, rawHref);
+      if (!attributedHref) return;
+      const originalUrl = new URL(rawHref, window.location.href);
+      if (attributedHref === `${originalUrl.pathname}${originalUrl.search}${originalUrl.hash}`) return;
 
-      if (campaignId && !next.searchParams.has("campaign")) {
-        next.searchParams.set("campaign", campaignId);
-      }
-      if (source !== "none" && !next.searchParams.has("source")) {
-        next.searchParams.set("source", normalizeSource(source));
-      }
-
-      const attributedHref = `${next.pathname}${next.search}${next.hash}`;
       anchor.setAttribute("href", attributedHref);
-
       if (anchor.target === "_blank") return;
 
       event.preventDefault();

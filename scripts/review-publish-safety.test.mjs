@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import test from "node:test";
 
-import { assertVerifiedPublicPost, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
+import { assertVerifiedPublicPost, REVIEW_YOUTUBE_CHANNEL_ID, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -270,6 +270,33 @@ test("the review publisher refuses a different Buffer YouTube destination", asyn
   await assert.rejects(() => resolveReviewBufferChannel({
     token: "disposable-token", organizationId: "org-test", channel: "youtube", fetchImpl,
   }), /approved destination, found 0/);
+});
+
+test("review share-now resolver accepts the exact YouTube destination when only its schedule queue is paused", async () => {
+  const fetchImpl = async (_url, options) => {
+    const { query } = JSON.parse(options.body);
+    const data = query.includes("query Organizations")
+      ? { account: { organizations: [{ id: "org-test", name: "Public" }] } }
+      : { channels: [{
+          id: "buffer-youtube",
+          service: "youtube",
+          serviceId: REVIEW_YOUTUBE_CHANNEL_ID,
+          isLocked: false,
+          isDisconnected: false,
+          isQueuePaused: true,
+        }] };
+    return { ok: true, json: async () => ({ data }) };
+  };
+
+  const target = await resolveReviewBufferChannel({
+    token: "disposable-token",
+    organizationId: "org-test",
+    channel: "youtube",
+    fetchImpl,
+  });
+  assert.equal(target.id, "buffer-youtube");
+  assert.equal(target.serviceId, REVIEW_YOUTUBE_CHANNEL_ID);
+  assert.equal(target.isQueuePaused, true);
 });
 
 test("queue publisher dry-run uses peek and exits before Buffer creation", () => {
