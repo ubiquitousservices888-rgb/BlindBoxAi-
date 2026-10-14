@@ -30,8 +30,11 @@ if (unique.size !== branches.length) throw new Error("Duplicate branch names in 
 const records = [];
 // Sequential API calls reduce abuse/rate-limit risk and keep output deterministic.
 for (const b of branches) {
-  if (b.name === "main") continue;
-  const compare = await get("/compare/" + encodeURIComponent("main") + "..." + encodeURIComponent(b.name));
+  if (b.name === "main") {
+    records.push({ branch: "main", sha: main.commit.sha, protected: Boolean(b.protected), compareStatus: "identical", ahead: 0, behind: 0, category: "KEEP_MAIN", warning: "Protected default branch; never delete." });
+    continue;
+  }
+  const compare = await get("/compare/" + main.commit.sha + "..." + b.commit.sha);
   const status = compare.status;
   if (!["ahead", "behind", "diverged", "identical"].includes(status)) throw new Error("Unexpected compare status: " + status);
   const ahead = compare.ahead_by, behind = compare.behind_by;
