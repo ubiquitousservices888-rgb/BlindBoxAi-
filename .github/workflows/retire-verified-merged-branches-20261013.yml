@@ -1,21 +1,16 @@
 name: Retire four verified merged PR branches
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - scripts/retire-verified-merged-branches.mjs
-      - .github/workflows/retire-verified-merged-branches-20261013.yml
   workflow_dispatch:
     inputs:
       execute:
-        description: "Apply only the four SHA-pinned verified retirements (default is read-only)"
+        description: "Read-only audit (branch deletion is disabled; no automatic apply)"
         type: boolean
         required: true
         default: false
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 concurrency:
@@ -24,7 +19,7 @@ concurrency:
 
 jobs:
   retire-verified:
-    if: ${{ github.repository }} == 'ubiquitousservices888-rgb/BlindBoxAi-' && ${{ github.ref }} == 'refs/heads/main'
+    if: ${{ github.repository == 'ubiquitousservices888-rgb/BlindBoxAi-' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -39,7 +34,7 @@ jobs:
       - name: Validate and retire only unchanged, fully merged PR branches
         env:
           GH_TOKEN: ${{ github.token }}
-          APPLY: ${{ github.event_name == 'push' || inputs.execute }}
+          APPLY: ${{ inputs.execute }}
         run: |
           node --check scripts/retire-verified-merged-branches.mjs
           node scripts/retire-verified-merged-branches.mjs
