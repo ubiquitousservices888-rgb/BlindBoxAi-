@@ -129,10 +129,10 @@ test("question storage redacts credential-like and payment material", () => {
 
 test("storage redaction removes private key blocks, quoted values and control-separated payment data", () => {
   const pem = ["-----BEGIN PRIVATE KEY-----", "SYNTHETIC-NOT-A-KEY", "-----END PRIVATE KEY-----"].join("\n");
-  const redacted = redactQuestionForStorage(`Pokemon ${pem} password="several separate words" 1234\\t5678\\n9012 3456`);
+  const redacted = redactQuestionForStorage(`Pokemon ${pem} password="several separate words" 1234\t5678\n9012 3456`);
   assert.doesNotMatch(redacted, /SYNTHETIC-NOT-A-KEY|several separate words|1234|5678|9012|3456/);
-  assert.match(redacted, /\\[credential\\]/);
-  assert.match(redacted, /\\[payment data\\]/);
+  assert.match(redacted, /\[credential\]/);
+  assert.match(redacted, /\[payment data\]/);
 });
 
 test("gift-card codes and synthetic AWS identifiers never reach external search", async () => {
