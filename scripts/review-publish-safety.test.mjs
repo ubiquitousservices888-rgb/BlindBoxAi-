@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import test from "node:test";
+import { isPublicVideo, publicVideoStatusLabel, summarizePublicVideos } from "../lib/public-video-status.mjs";
 
 import { assertVerifiedPublicPost, REVIEW_YOUTUBE_CHANNEL_ID, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
@@ -628,4 +629,33 @@ test("autonomous live publish requires an explicit YouTube audience decision", (
   assert.match(source, /- not_made_for_kids/);
   assert.match(source, /YOUTUBE_AUDIENCE: \$\{\{ inputs\.youtube_audience \}\}/);
   assert.doesNotMatch(source, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+});
+
+test("public video feed fails closed on unknown statuses and differentiates partial distribution", () => {
+  const published = { status: "published", title: "Verified video", video_url: "https://cdn.example.test/one.mp4" };
+  const partial = { status: "partial", title: "Partially delivered", video_url: "https://cdn.example.test/two.mp4" };
+
+  assert.equal(publicVideoStatusLabel("published"), "Published");
+  assert.equal(publicVideoStatusLabel("partial"), "Partially published");
+  assert.equal(publicVideoStatusLabel("approved"), null);
+  assert.equal(publicVideoStatusLabel(undefined), null);
+
+  assert.equal(isPublicVideo(published), true);
+  assert.equal(isPublicVideo(partial), true);
+  assert.equal(isPublicVideo({ ...partial, status: "approved" }), false);
+  assert.equal(isPublicVideo({ ...partial, video_url: "http://cdn.example.test/two.mp4" }), false);
+  assert.equal(isPublicVideo({ ...partial, title: "" }), false);
+  assert.equal(isPublicVideo({ ...partial, video_url: "not-a-url" }), false);
+
+  assert.equal(summarizePublicVideos([published, partial]), "1 published · 1 partially published");
+  assert.equal(summarizePublicVideos([partial]), "0 published · 1 partially published");
+  assert.equal(summarizePublicVideos([published, published]), "2 published");
+  assert.equal(summarizePublicVideos([]), "0 published");
+
+  const homepage = fs.readFileSync(new URL("../app/page.jsx", import.meta.url), "utf8");
+  assert.match(homepage, /items\.filter\(isPublicVideo\)/);
+  assert.match(homepage, /summarizePublicVideos\(publishedVideos\)/);
+  assert.match(homepage, /publicVideoStatusLabel\(video\.status\)/);
+  assert.match(homepage, /Not all channels confirmed/);
+  assert.doesNotMatch(homepage, /<h2>Published collectible research\.<\/h2>|\{publishedVideos\.length\} published/);
 });
