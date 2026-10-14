@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { DISCLOSURE, generateVideoScript } from "../lib/video-pipeline.mjs";
+import { AMAZON_VIDEO_CTA, DISCLOSURE, generateVideoScript } from "../lib/video-pipeline.mjs";
 import {
   AUDIBLE_EPN_DISCLOSURE,
   disclosureFirstCaption,
@@ -26,6 +26,26 @@ const product = {
 assert.equal(isEbayDataSource(product.sources[1]), true);
 assert.equal(isEbayDataSource(product.sources[0]), false);
 
+for (const url of [
+  "https://ebay.io/developers",
+  "https://ebayinc.com/about",
+  "https://ebaystatic.com/media",
+  "https://ebayimg.com/photo",
+  "https://i.ebayimg.com/photo",
+  "https://www.ebay.com./item/123",
+  "https://i.ebayimg.com./photo",
+]) {
+  assert.equal(isEbayDataSource({ id: "test-source", url }), true, `Should block ${url}`);
+}
+for (const url of [
+  "https://notebay.com/example",
+  "https://ebaycom.io/example",
+  "https://ebay.com.evil.example/example",
+  "https://legitimate.example.org/collectibles",
+]) {
+  assert.equal(isEbayDataSource({ id: "test-source", url }), false, `Should not block ${url}`);
+}
+
 const safe = sanitizeProductForGenerativeVideo(product);
 assert.deepEqual(safe.sources.map((source) => source.id), ["official-brand"]);
 assert.deepEqual(safe.claims.map((claim) => claim.text), ["Official brand fact."]);
@@ -33,6 +53,27 @@ assert.ok(!JSON.stringify(safe).includes("ebay.com"));
 assert.ok(!JSON.stringify(safe).includes("sold-price"));
 
 const base = generateVideoScript(safe, now);
+
+const accessory = {
+  ...product,
+  id: "mixed-accessory",
+  name: "Collector Companion",
+  claims: [
+    product.claims[0],
+    { text: "eBay evidence says this is a display case.", sourceId: "ebay-sold" },
+  ],
+};
+const safeAccessory = sanitizeProductForGenerativeVideo(accessory);
+const accessoryScript = generateVideoScript(accessory, now, { evidenceProduct: safeAccessory });
+assert.equal(accessoryScript.productUrl, AMAZON_VIDEO_CTA);
+assert.ok(accessoryScript.caption.includes(AMAZON_VIDEO_CTA));
+assert.ok(accessoryScript.narration.includes(AMAZON_VIDEO_CTA));
+assert.deepEqual(accessoryScript.facts, ["Official brand fact."]);
+assert.ok(!accessoryScript.caption.includes("eBay evidence"));
+assert.ok(!accessoryScript.narration.includes("eBay evidence"));
+assert.throws(() => generateVideoScript(accessory, now, {
+  evidenceProduct: { ...safeAccessory, claims: [{ sourceId: "official-brand", text: "Invented fact." }] },
+}), /unrecognized claim/);
 const hardened = hardenGenerativeVideoScript(base, DISCLOSURE);
 assert.ok(hardened.displayTitle.startsWith("#ad • "));
 assert.ok(hardened.narration.startsWith(AUDIBLE_EPN_DISCLOSURE));

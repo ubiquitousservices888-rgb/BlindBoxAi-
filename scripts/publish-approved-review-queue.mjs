@@ -10,6 +10,7 @@ import {
   resolveReviewBufferChannel,
 } from "../lib/buffer-review-publisher.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
+import { reviewVideoLandingUrl } from "../lib/review-landing-url.mjs";
 import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
@@ -23,7 +24,6 @@ import {
 
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
 const PUBLISHED_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
-const BLINDBOXAI_URL = "https://www.blindboxai.com";
 const REVIEW_OIDC_AUDIENCE = "blindboxai-review-publisher";
 const FEED_OIDC_AUDIENCE = "blindboxai-video-publisher";
 const RECEIPT_PATH = "output/video-pipeline/state.json";
@@ -181,7 +181,7 @@ try {
 
   const results = [];
   for (const channel of channels) {
-    const trackedCta = buildTrackedSocialCta(BLINDBOXAI_URL, {
+    const trackedCta = buildTrackedSocialCta(reviewVideoLandingUrl(item), {
       runId: item.research_run_id,
       service: channel,
     });

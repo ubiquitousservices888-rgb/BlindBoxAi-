@@ -1,3 +1,10 @@
+import {
+  HAIR_SALON_SHA256,
+  HAIR_SALON_SIZE,
+  HAIR_SALON_TITLE,
+  HAIR_SALON_REVIEW_PATH,
+  REVIEW_OBJECT_PREFIX,
+} from "../../../../lib/hair-salon-asset.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
@@ -23,14 +30,8 @@ const OIDC_AUDIENCE = "blindboxai-autonomous-render-stage";
 const OWNER_GATED_SUBJECT = `repo:${REPOSITORY}:environment:social-production`;
 const HAIR_SALON_RELEASE_SOURCE =
   "https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/releases/download/blindbox-video-assets/2026-08-30-labubu-hair-salon-vinyl-plush-pendant-verified.mp4";
-const HAIR_SALON_SHA256 = "7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0";
-const HAIR_SALON_SIZE = 121797;
-const HAIR_SALON_TITLE = "THE MONSTERS Hair Salon Series — Vinyl Plush Pendant Blind Box";
-const HAIR_SALON_REVIEW_PATH = `media/review/sha256-${HAIR_SALON_SHA256}.mp4`;
 const VIDEO_UPLOAD_BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
-const REVIEW_OBJECT_PREFIX =
-  "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/";
 const MAX_BYTES = 100 * 1024 * 1024;
 
 function json(body, status = 200) {
