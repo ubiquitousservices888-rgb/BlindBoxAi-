@@ -2,8 +2,8 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-09-27
-**Functional baseline inspected:** `main` after PR #233 merge at `72c7eb7af6ed786eb0ae17dbeb5dbd3fe84e47d1`
+**Last reconciled:** 2026-10-13
+**Functional baseline inspected:** current main with PR #268 and PR #269 merged; proposed PR #256 owner Blue launch is not live-verified until merged and deployed.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -29,19 +29,18 @@ Current invariants:
 - default mode: `dry_run: true`;
 - production video channels are pinned exactly to `youtube,tiktok`;
 - X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
-- a run can target one exact channel with `publish_channel`; every live run requires it;
+- a run requires an explicit `publish_channel`; owner recovery can target one exact channel, while Blue launch uses `all` to serialize YouTube and TikTok;
 - a run can target one exact approved row with `research_run_id`; every live run requires this exact selector;
-- a YouTube run requires an explicit owner Made-for-Kids audience choice before it peeks or claims a row;
+- owner Blue approval passes the exact reviewed video's explicit YouTube Made-for-Kids audience choice before dispatch;
 - the workflow calls `scripts/publish-approved-review-queue.mjs`;
 - dry runs read the approved row, probe the public MP4, and inspect the active Buffer destination without creating a Buffer post;
 - YouTube video media must independently probe as no longer than three minutes and square or 9:16 portrait;
 - the Buffer YouTube channel's `serviceId` must equal `UCwaUc4e4iv2Q4P1nxlVrTvw`, the channel currently authorized in vidIQ;
 - owner-approved Buffer `shareNow` publication may use that exact channel while its scheduling queue is paused; locked or disconnected destinations still fail closed;
-- a bad title, inaccessible media, incompatible Short, or wrong Buffer destination blocks the post; a live claimed row is marked failed rather than left on a 45-minute lease;
+- invalid public titles can be deterministically repaired while holding the exact publishing lease; unverified claims, inaccessible MP4, incompatible Shorts, wrong Buffer destinations, duplicate posts and affiliate errors must still block publishing;
 - Buffer credentials are referenced by name only and must never be printed.
 
-This is the canonical publisher when discussing an already-approved review-queue item.
-The actual Buffer connection, channel name, content provenance, an owner Made-for-Kids decision for each chosen video, and a public YouTube post remain **UNVERIFIED** until checked in a production dry run and owner review. A blue approval only puts a row in the queue; a separate manual GitHub dispatch is required. It does not enter `social-production` in this workflow. The longer-term immutable manifest and daily publication cap are planned, not implemented.
+This is the canonical publisher for an owner-reviewed queue item. PR #256 changes Blue from queue-only approval into a single owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
 
 ## Other video paths are separate, not replacements
 
@@ -84,7 +83,7 @@ A subsystem document is authoritative only for that subsystem.
 ## Review-video upload paths
 
 - **Canonical phone uploader:** `/media-upload` requests a signed Supabase Storage upload ticket through `/api/media/free-upload-ticket`, uploads under `media/review/*.mp4`, then stages the resulting HTTPS URL through `/api/owner/stage-review` into the Supabase review queue. See [`free-video-storage.md`](./free-video-storage.md).
-- **Owner Blue review surface:** after owner authentication, `/owner-dashboard` uses owner-only `/api/owner/review-queue` to paginate the current `ready_for_review` rows and render the returned review list with each exact MP4 plus Blue approval and Delete controls. The endpoint fails closed rather than returning a silently truncated list. Approval still uses `/api/owner/approve-review`; this queue display does not publish.
+- **Owner Blue review surface:** after owner authentication, `/owner-dashboard` uses owner-only `/api/owner/review-queue` to paginate the current `ready_for_review` rows and render the returned review list with each exact MP4 plus Blue approval and Delete controls. The endpoint fails closed rather than returning a silently truncated list. After the owner has watched the exact video and selected its YouTube audience, `BLUE APPROVE + LAUNCH` calls `/api/owner/approve-review` and requests the exact-run governed publisher; network/provider verification remains mandatory.
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
 

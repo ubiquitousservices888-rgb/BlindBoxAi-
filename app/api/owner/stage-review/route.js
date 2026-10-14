@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
-import { requirePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
+import { resolvePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../../../lib/review-shorts-eligibility.mjs";
 
 export const runtime = "nodejs";
@@ -45,7 +45,7 @@ export async function POST(request) {
 
   let publicTitle;
   try {
-    publicTitle = requirePublicVideoTitle(body?.title, { label: "Video title" });
+    publicTitle = resolvePublicVideoTitle(body?.title, { maxLength: 100 });
     if (![body?.durationSeconds, body?.width, body?.height].every((value) => typeof value === "number" && Number.isFinite(value))) {
       throw new Error("YouTube Short needs numeric measured duration and video dimensions");
     }

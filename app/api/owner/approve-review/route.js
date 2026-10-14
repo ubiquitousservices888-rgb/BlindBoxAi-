@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode } from "../../../../lib/evidence";
+import { dispatchApprovedReviewPublication } from "../../../../lib/owner-review-launch.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,15 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
+  const youtubeAudience = String(body?.youtubeAudience ?? "").trim();
+  const researchRunId = String(body?.researchRunId ?? "").trim();
+  if (!["made_for_kids", "not_made_for_kids"].includes(youtubeAudience)) {
+    return NextResponse.json({ error: "Choose the YouTube audience before approval." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) {
+    return NextResponse.json({ error: "This review item is missing its exact research run ID." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+
   try {
     const response = await fetch(REVIEW_QUEUE_URL, {
       method: "POST",
@@ -47,7 +57,46 @@ export async function POST(request) {
     if (!response.ok) {
       return NextResponse.json({ error: result?.error || "Unable to approve this review video." }, { status: response.status, headers: PRIVATE_HEADERS });
     }
-    return NextResponse.json(result, { headers: PRIVATE_HEADERS });
+    if (String(result?.research_run_id ?? "") !== researchRunId) {
+      return NextResponse.json(
+        { error: "Approval response did not match the exact reviewed video.", launch: { status: "blocked_identity_mismatch" } },
+        { status: 409, headers: PRIVATE_HEADERS },
+      );
+    }
+
+    const githubToken = String(process.env.GITHUB_OWNER_APPROVAL_TOKEN ?? "").trim();
+    if (!githubToken) {
+      return NextResponse.json(
+        {
+          ...result,
+          error: "Video approved, but automatic publishing is not configured.",
+          launch: { status: "blocked_configuration", required: "GITHUB_OWNER_APPROVAL_TOKEN" },
+        },
+        { status: 503, headers: PRIVATE_HEADERS },
+      );
+    }
+
+    try {
+      const launch = await dispatchApprovedReviewPublication({
+        token: githubToken,
+        researchRunId,
+        youtubeAudience,
+      });
+      return NextResponse.json({ ...result, launch }, { headers: PRIVATE_HEADERS });
+    } catch (launchError) {
+      console.error("owner_review_launch_dispatch_failed", {
+        message: launchError instanceof Error ? launchError.message : "Unknown launch dispatch error",
+        status: Number.isInteger(launchError?.status) ? launchError.status : undefined,
+      });
+      return NextResponse.json(
+        {
+          ...result,
+          error: "Video approved, but automatic publishing dispatch failed. Press Blue again to retry safely.",
+          launch: { status: "dispatch_failed" },
+        },
+        { status: 502, headers: PRIVATE_HEADERS },
+      );
+    }
   } catch (error) {
     console.error("owner_video_approval_failed", { message: error instanceof Error ? error.message : "Unknown approval error" });
     return NextResponse.json({ error: "Unable to approve this review video." }, { status: 502, headers: PRIVATE_HEADERS });

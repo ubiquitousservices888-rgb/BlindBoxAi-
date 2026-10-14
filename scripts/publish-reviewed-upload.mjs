@@ -3,7 +3,7 @@ import {
   videoCaptionForService,
 } from "../lib/video-pipeline.mjs";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
-import { requirePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
 import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
 
 const BLINDBOXAI_URL = "https://www.blindboxai.com";
@@ -84,10 +84,14 @@ async function recordPublishedVideo({ title, videoUrl, researchRunId, results, f
 }
 
 const videoUrl = validateVideoUrl(process.env.REVIEWED_VIDEO_URL);
-const title = requirePublicVideoTitle(process.env.REVIEWED_VIDEO_TITLE, { label: "REVIEWED_VIDEO_TITLE", maxLength: 100 });
-
 const researchRunId = required(process.env.RESEARCH_RUN_ID, "RESEARCH_RUN_ID");
 if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) throw new Error("RESEARCH_RUN_ID is invalid");
+const rawTitle = process.env.REVIEWED_VIDEO_TITLE;
+const title = resolvePublicVideoTitle(rawTitle, {
+  vertical: inferVertical(rawTitle),
+  researchRunId,
+  maxLength: 100,
+});
 
 const channels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "youtube,tiktok")
   .split(",")

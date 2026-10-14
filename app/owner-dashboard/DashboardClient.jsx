@@ -34,6 +34,8 @@ export default function DashboardClient() {
   const [reviewQueue, setReviewQueue] = useState([]);
   const [reviewQueueError, setReviewQueueError] = useState("");
   const [watchingReviewUrl, setWatchingReviewUrl] = useState("");
+  const [reviewPlayback, setReviewPlayback] = useState({ videoUrl: "", status: "not_started", message: "" });
+  const [reviewAudience, setReviewAudience] = useState({});
   const [approvedReviewUrls, setApprovedReviewUrls] = useState(() => new Set());
   const [approvingReviewUrl, setApprovingReviewUrl] = useState("");
   const [deletingReviewId, setDeletingReviewId] = useState("");
@@ -154,8 +156,34 @@ export default function DashboardClient() {
     if (permission !== "granted") setError("Browser notifications were not enabled.");
   }
 
-  async function approveReviewVideo(videoUrl) {
-    if (!activeCode || !videoUrl || approvingReviewUrl || busy) return;
+  function openReviewVideo(videoUrl) {
+    const next = watchingReviewUrl === videoUrl ? "" : videoUrl;
+    setWatchingReviewUrl(next);
+    setReviewPlayback({ videoUrl: next, status: "loading", message: "" });
+  }
+
+  function reviewMetadata(videoUrl, event, expectedDuration) {
+    const player = event.currentTarget;
+    const duration = Number(player.duration);
+    const measured = Number(expectedDuration);
+    if (!Number.isFinite(duration) || duration <= 0 || !player.videoWidth || !player.videoHeight ||
+        (measured > 0 && Math.abs(duration - measured) > Math.max(2, measured * 0.1))) {
+      setReviewPlayback({ videoUrl, status: "failed", message: "Video duration or dimensions do not match the staged review. Do not approve." });
+      return;
+    }
+    setReviewPlayback({ videoUrl, status: "metadata_ready", message: "" });
+  }
+
+  async function approveReviewVideo(videoUrl, researchRunId) {
+    if (!activeCode || !videoUrl || !researchRunId || approvingReviewUrl || busy) return;
+    if (reviewPlayback.videoUrl !== videoUrl || reviewPlayback.status !== "watched") {
+      setError("Watch the playable video completely before approving.");
+      return;
+    }
+    if (!["made_for_kids", "not_made_for_kids"].includes(reviewAudience[researchRunId])) {
+      setError("Choose the YouTube audience for this exact video before approving.");
+      return;
+    }
     setApprovingReviewUrl(videoUrl);
     setError("");
     try {
@@ -163,12 +191,12 @@ export default function DashboardClient() {
         method: "POST",
         headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ videoUrl }),
+        body: JSON.stringify({ videoUrl, researchRunId, youtubeAudience: reviewAudience[researchRunId] }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
       setApprovedReviewUrls((previous) => new Set([...previous, videoUrl]));
-      setReviewMessage("APPROVED — this video is in the approved queue. Publishing needs a separate manual GitHub workflow run after channel and media checks.");
+      setReviewMessage("Owner approval recorded and publishing dispatched for the exact video. Track platform verification before calling it live.");
       etagRef.current = "";
       await Promise.all([load(activeCode, false), loadReviewQueue(activeCode)]);
     } catch (cause) {
@@ -195,7 +223,10 @@ export default function DashboardClient() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to delete this review video.");
-      if (watchingReviewUrl === item.mediaUrl) setWatchingReviewUrl("");
+      if (watchingReviewUrl === item.mediaUrl) {
+        setWatchingReviewUrl("");
+        setReviewPlayback({ videoUrl: "", status: "not_started", message: "" });
+      }
       setReviewQueue((previous) => previous.filter((row) => row?.research_run_id !== item.researchRunId));
       setReviewMessage(`DELETED — "${label}" was removed from the review queue and review-media storage.`);
       await loadReviewQueue(activeCode);
@@ -272,7 +303,7 @@ export default function DashboardClient() {
       <a href="/media-upload" style={{ display: "inline-block", padding: "15px 18px", border: 0, borderRadius: 10, background: "#facc15", color: "#111827", fontSize: 17, fontWeight: 800, textDecoration: "none" }}>
         OPEN SAFE VIDEO UPLOADER
       </a>
-      <p style={{ opacity: 0.75, marginBottom: 0 }}>Every Supabase review-queue video waiting for owner approval is loaded here. Watch the finished video, then press the blue approval button. Publishing remains a separate protected action.</p>
+      <p style={{ opacity: 0.75, marginBottom: 0 }}>Every Supabase review-queue video waiting for owner approval is loaded here. Watch the finished video, then press the blue button once. That approval launches YouTube + TikTok automatically while keeping the protected publishing checks.</p>
       {reviewMessage ? <p role="status" style={{ fontWeight: 700 }}>{reviewMessage}</p> : null}
       {reviewQueueError ? <p role="alert" style={{ color: "crimson" }}>{reviewQueueError}</p> : null}
 
@@ -281,6 +312,8 @@ export default function DashboardClient() {
         {reviewNotifications.length ? reviewNotifications.map((item) => {
           const approved = approvedReviewUrls.has(item.mediaUrl);
           const watching = watchingReviewUrl === item.mediaUrl;
+          const playbackPassed = reviewPlayback.videoUrl === item.mediaUrl && reviewPlayback.status === "watched";
+          const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
@@ -288,18 +321,39 @@ export default function DashboardClient() {
               <div style={{ opacity: 0.7, marginTop: 4 }}>{when(item.createdAt)}</div>
               <div style={{ opacity: 0.7, marginTop: 4 }}>{durationLabel(item.durationSeconds)}{item.sizeBytes > 0 ? ` · ${(item.sizeBytes / 1024 / 1024).toFixed(1)} MB` : ""}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
-                <button type="button" onClick={() => setWatchingReviewUrl(watching ? "" : item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
+                <button type="button" onClick={() => openReviewVideo(item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
-                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl)} disabled={approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
-                  {approved ? "APPROVED FOR QUEUE" : approvingReviewUrl === item.mediaUrl ? "APPROVING…" : "BLUE APPROVE"}
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId)} disabled={!playbackPassed || !validAudience || approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                  {approved ? "LAUNCH DISPATCHED" : approvingReviewUrl === item.mediaUrl ? "APPROVING + LAUNCHING…" : "BLUE APPROVE + LAUNCH"}
                 </button>
                 <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
                   {deletingReviewId === item.researchRunId ? "DELETING…" : "DELETE"}
                 </button>
               </div>
-              {watching ? <video src={item.mediaUrl} controls autoPlay playsInline preload="metadata" style={{ width: "100%", marginTop: 12, borderRadius: 10, background: "black" }} /> : null}
-              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video is in the approved queue. A separate manual GitHub run is required to publish it." : "Watch the full video first. Press BLUE APPROVE only when it passes. DELETE permanently removes the uploaded review-media file and takes it out of this approval list."}</p>
+              <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                <strong>YouTube audience (required for this exact video)</strong>
+                <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "not_made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "not_made_for_kids" }))} /> Not made for kids</label>
+                <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "made_for_kids" }))} /> Made for kids</label>
+              </div>
+              {watching ? (
+                <>
+                  <video
+                    key={item.mediaUrl}
+                    src={item.mediaUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    onLoadedMetadata={(event) => reviewMetadata(item.mediaUrl, event, item.durationSeconds)}
+                    onCanPlay={() => setReviewPlayback((previous) => previous.videoUrl === item.mediaUrl && previous.status === "metadata_ready" ? { ...previous, status: "playable" } : previous)}
+                    onEnded={() => setReviewPlayback((previous) => previous.videoUrl === item.mediaUrl && previous.status === "playable" ? { ...previous, status: "watched" } : previous)}
+                    onError={() => setReviewPlayback({ videoUrl: item.mediaUrl, status: "failed", message: "This video could not play. Approval blocked." })}
+                    style={{ width: "100%", marginTop: 12, borderRadius: 10, background: "black" }}
+                  />
+                  <p role="status" style={{ fontWeight: 700 }}>{reviewPlayback.videoUrl === item.mediaUrl ? (reviewPlayback.status === "watched" ? "Playback finished — owner may approve after reviewing the content." : reviewPlayback.message || "Playback: " + reviewPlayback.status) : "Open the video to verify playback."}</p>
+                </>
+              ) : null}
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved and its publishing workflow dispatched; live links still require verification." : "The Blue button unlocks only after this video plays through and you select the correct YouTube audience. Content, product facts and affiliate-link verification must also pass the production evidence gate. Delete removes a rejected review file."}</p>
             </article>
           );
         }) : <p>No videos are currently staged for review in the dashboard window.</p>}
