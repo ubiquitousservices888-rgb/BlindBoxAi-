@@ -3,19 +3,11 @@ import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
 import PublishedVideoStyles from "./_components/PublishedVideoStyles";
 import { allSeries, ebayOutboundPath, seriesPriceVerification } from "../lib/data";
 import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../lib/market-eligibility.mjs";
+import { isPublicVideo, publicVideoStatusLabel, summarizePublicVideos } from "../lib/public-video-status.mjs";
 
 export const revalidate = 300;
 
 const VIDEO_FEED_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/published-video-feed";
-
-function isPublicVideo(item) {
-  if (!item?.video_url || !String(item?.title ?? "").trim()) return false;
-  try {
-    return new URL(item.video_url).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 function videoVerticalLabel(vertical) {
   const key = String(vertical ?? "").trim().toLowerCase();
@@ -145,9 +137,9 @@ export default async function Home() {
           <div className="bv-section-head">
             <div>
               <p className="bv-kicker">Latest videos</p>
-              <h2>Published collectible research.</h2>
+              <h2>Recent collectible research videos.</h2>
             </div>
-            <span>{publishedVideos.length} published</span>
+            <span>{summarizePublicVideos(publishedVideos)}</span>
           </div>
           <div className="bv-video-grid">
             {publishedVideos.map((video) => (
@@ -156,7 +148,7 @@ export default async function Home() {
                 <div className="bv-video-copy">
                   <span>{videoVerticalLabel(video.vertical)}</span>
                   <h3>{video.title}</h3>
-                  <p>Published collectible research from BlindBoxAI.</p>
+                  <p>{publicVideoStatusLabel(video.status)} · {video.status === "partial" ? "Not all channels confirmed." : "Collector research from BlindBoxAI."}</p>
                 </div>
               </article>
             ))}
