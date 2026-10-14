@@ -3,7 +3,7 @@
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-10-13
-**Functional baseline inspected:** current main with PR #268 and PR #269 merged; proposed PR #256 owner Blue launch is not live-verified until merged and deployed.
+**Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Vercel production reached READY and the release-gate production smoke passed. No live platform post or affiliate commission is verified by this fact.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -40,7 +40,7 @@ Current invariants:
 - invalid public titles can be deterministically repaired while holding the exact publishing lease; unverified claims, inaccessible MP4, incompatible Shorts, wrong Buffer destinations, duplicate posts and affiliate errors must still block publishing;
 - Buffer credentials are referenced by name only and must never be printed.
 
-This is the canonical publisher for an owner-reviewed queue item. PR #256 changes Blue from queue-only approval into a single owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
+This is the canonical publisher for an owner-reviewed queue item. Merged PR #256 implements Blue as owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
 
 ## Other video paths are separate, not replacements
 
