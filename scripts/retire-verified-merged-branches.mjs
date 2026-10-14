@@ -16,7 +16,9 @@ if (!/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA || "")) {
 }
 const token = process.env.GH_TOKEN;
 if (!token) throw new Error("GitHub Actions token is required");
-const apply = process.env.APPLY === "true";
+// Read-only until a separately reviewed, race-safe deletion mechanism is provided.
+const apply = false;
+if (process.env.APPLY === "true") throw new Error("Branch deletion is disabled: safe atomic ref deletion is not available");
 
 async function request(method, path, { allow404 = false } = {}) {
   const response = await fetch("https://api.github.com" + path, {
@@ -40,7 +42,7 @@ for (const item of CANDIDATES) {
   if (!/^(?:fix|feat)\/[a-z0-9-]+$/.test(item.branch)) throw new Error("Unexpected branch allowlist entry");
   const pr = await request("GET", prefix + "/pulls/" + item.pr);
   if (pr.merged !== true || !pr.merged_at || pr.head?.ref !== item.branch ||
-      pr.head?.sha !== item.head || pr.base?.ref !== "main" ||
+      pr.head?.sha !== item.head || pr.head?.repo?.full_name !== REPO || pr.base?.ref !== "main" ||
       pr.merge_commit_sha !== item.merge) {
     throw new Error("Merged PR metadata does not match allowlist for #" + item.pr);
   }
@@ -67,15 +69,6 @@ for (const item of approved) {
     console.log("DRY_RUN_ELIGIBLE PR #" + item.pr + ": " + item.branch);
     continue;
   }
-  // Re-check the exact current ref immediately before deletion.
-  const refPath = prefix + "/git/ref/heads/" + item.branch;
-  const latest = await request("GET", refPath, { allow404: true });
-  if (!latest) {
-    console.log("ALREADY_RETIRED PR #" + item.pr + ": " + item.branch);
-    continue;
-  }
-  if (latest.object?.sha !== item.head) throw new Error("Branch moved after preflight: PR #" + item.pr);
-  await request("DELETE", prefix + "/git/refs/heads/" + item.branch);
-  console.log("RETIRED PR #" + item.pr + ": " + item.branch);
+  throw new Error("Deletion intentionally disabled until an atomic expected-SHA operation is available");
 }
 console.log("BRANCH_RETIREMENT_DONE eligible=" + approved.length + " apply=" + apply);
