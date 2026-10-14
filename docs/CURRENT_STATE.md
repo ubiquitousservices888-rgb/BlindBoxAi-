@@ -3,7 +3,7 @@
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-10-13
-**Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Vercel production reached READY and the release-gate production smoke passed. No live platform post or affiliate commission is verified by this fact.
+**Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Deployment READY and production smoke were reported in the release checks, but raw Vercel deployment ID, live HTTP status, and full smoke-run output are not retained here; this document marks independent deployment/smoke evidence **UNVERIFIED** until attached. No live platform post or affiliate commission is verified by this fact.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
