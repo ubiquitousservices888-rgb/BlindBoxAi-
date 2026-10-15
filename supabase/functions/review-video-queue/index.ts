@@ -127,9 +127,17 @@ async function stage(req: Request, body: any) {
     .maybeSingle();
   if (existingError) return json({ error: "Queue lookup failed" }, 500);
   if (existing?.status === "rejected") return json({ error: "Rejected review rows are immutable" }, 409);
+  if (existing && existing.status !== "ready_for_review") return json({ error: "Review row has already advanced beyond staging" }, 409);
   const now = new Date().toISOString();
-  const { error } = await db.from("review_video_queue").upsert({ research_run_id: researchRunId, video_url: videoUrl, title, size_bytes: Math.round(sizeBytes), duration_seconds: durationSeconds, width: Math.round(width), height: Math.round(height), vertical: verticalFor(title), status: "ready_for_review", rejection_reason: null, rejected_at: null, last_error: null, updated_at: now }, { onConflict: "research_run_id" });
+  const { error } = await db.from("review_video_queue").upsert({ research_run_id: researchRunId, video_url: videoUrl, title, size_bytes: Math.round(sizeBytes), duration_seconds: durationSeconds, width: Math.round(width), height: Math.round(height), vertical: verticalFor(title), status: "ready_for_review", rejection_reason: null, rejected_at: null, last_error: null, updated_at: now }, { onConflict: "research_run_id", ignoreDuplicates: true });
   if (error) return json({ error: "Unable to stage video" }, 500);
+  // Re-read after conflict-ignore: a concurrent owner action may have advanced the row.
+  const { data: canonical, error: canonicalError } = await db.from("review_video_queue")
+    .select("status")
+    .eq("research_run_id", researchRunId)
+    .maybeSingle();
+  if (canonicalError || !canonical) return json({ error: "Queue verification failed" }, 500);
+  if (canonical.status !== "ready_for_review") return json({ error: "Review row has already advanced beyond staging" }, 409);
   return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}` });
 }
 async function listReady(req: Request) {
