@@ -23,7 +23,8 @@ test("new rows report duplicate:false and existing ready rows duplicate:true", (
 
 test("existing advanced states return 409 and are never rewritten", () => {
   assert.match(stage, /canonical\.status !== "ready_for_review"/);
-  assert.match(stage, /"Review row has already advanced beyond staging" \}, 409/);\n  assert.match(stage, /canonical\.status !== "ready_for_review"/); // includes rejected
+  assert.match(stage, /"Review row has already advanced beyond staging" \}, 409/);
+  assert.match(stage, /canonical\.status !== "ready_for_review"/); // includes rejected
   assert.doesNotMatch(stage, /\.from\(["\x27]review_video_queue["\x27]\)[\s\S]*?\.update\(/);
 });
 
