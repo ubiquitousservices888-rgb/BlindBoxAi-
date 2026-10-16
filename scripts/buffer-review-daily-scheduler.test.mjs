@@ -15,6 +15,8 @@ const ctx = (patch={}) => ({
   verifyMediaImpl:async()=>true, probeYoutubeImpl:async()=>({durationSeconds:20,width:720,height:1280}),
   resolveChannelImpl:async()=>({id:"test-channel",service:"youtube",isQueuePaused:false,isDisconnected:false,isLocked:false}),
   findExistingImpl:async()=>null,
+  // Test-only atomic stand-in. A real shared, durable claim must be wired separately.
+  claimScheduleImpl:async()=>({claimed:true}),
   fetchImpl:async (_url,opt) => {
     const {variables} = JSON.parse(opt.body);
     return {ok:true,json:async()=>({data:{createPost:{__typename:"PostActionSuccess",post:{
@@ -76,4 +78,51 @@ test("no successful schedule claim when Buffer receipt is ambiguous",async()=>{
 test("swapped MP4 cannot inherit another video's owner approval",async()=>{
   const swapped=videoUrl.replace("approved.mp4","swapped.mp4");
   await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({videoUrl:swapped})),/exact video URL do not match/);
+});
+
+test("invalid calendar dates are rejected rather than silently normalized",()=>{
+  assert.throws(
+    ()=>validReviewedSchedule("2026-02-31T14:00:00Z",new Date("2026-02-27T12:00:00Z")),
+    /Scheduled time|UTC ISO/
+  );
+});
+test("forged or mixed CTA destinations cannot satisfy affiliate validation",async()=>{
+  const forged = caption.replace("https://www.blindboxai.com/", "https://evilblindboxai.com/");
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({caption:forged})),/Reviewed caption/);
+  const mixed = caption + "\\nhttps://evilblindboxai.com/?campaign=bb-" + researchRunId + "&source=youtube";
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({caption:mixed})),/Reviewed caption/);
+});
+test("live Buffer mutation fails closed without a shared atomic claim provider",async()=>{
+  let mutated=false;
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({
+    claimScheduleImpl:undefined,
+    fetchImpl:async()=>{mutated=true;throw Error("must not mutate");},
+  })),/atomic schedule claim|Atomic schedule claim/i);
+  assert.equal(mutated,false);
+});
+test("two simultaneous schedule calls must never create two Buffer posts",async()=>{
+  const claimed = new Set();
+  let createCount=0;
+  const claimScheduleImpl=async({researchRunId,channel,channelId})=>{
+    const key=researchRunId+":"+channel+":"+channelId;
+    if(claimed.has(key)) return {claimed:false};
+    claimed.add(key);
+    return {claimed:true};
+  };
+  const fetchImpl=async(_url,opt)=>{
+    createCount++;
+    const {variables}=JSON.parse(opt.body);
+    await new Promise(resolve=>setTimeout(resolve,3));
+    return {ok:true,json:async()=>({data:{createPost:{post:{
+      id:"unique-post",status:"scheduled",text:variables.input.text,
+      channelId:variables.input.channelId,dueAt:variables.input.dueAt,
+    }}}})};
+  };
+  const batch=await Promise.allSettled([
+    scheduleOwnerReviewedVideo(ctx({claimScheduleImpl,fetchImpl})),
+    scheduleOwnerReviewedVideo(ctx({claimScheduleImpl,fetchImpl})),
+  ]);
+  assert.equal(createCount,1,"only one external createPost is permitted");
+  assert.equal(batch.filter(x=>x.status==="fulfilled").length,1);
+  assert.equal(batch.filter(x=>x.status==="rejected").length,1);
 });
