@@ -5,7 +5,7 @@ import { planDailyVideo } from '../lib/daily-video-plan.mjs';
 const now = new Date('2026-10-16T14:00:00Z');
 const products = ['one','two','three'].map((id) => ({ id, name: id, productUrl: 'https://blindboxai.com/' + id }));
 const validateProduct = (product) => { if (product.id === 'stale') throw new Error('stale'); return product; };
-const makeScript = (product) => ({ caption: 'Verified ' + product.id + ': BlindBoxAI may earn a commission.', productUrl: product.productUrl });
+const makeScript = (product) => ({ caption: 'Verified ' + product.id + ': #ad BlindBoxAI may earn a commission from qualifying purchases.', productUrl: product.productUrl });
 const run = (patch = {}) => planDailyVideo({ products, history: [], now, validateProduct, makeScript, monthlyRenderLimit: 3, ...patch });
 test('selects exactly one deterministic unused verified item', () => {
   assert.deepEqual(run(), run());
@@ -34,6 +34,9 @@ test('never renders if monthly cap is zero or already consumed', () => {
 test('fails closed on invalid budget or missing verified script', () => {
   assert.throws(() => run({ monthlyRenderLimit: 40 }), /Monthly render limit/);
   assert.throws(() => run({ makeScript: () => ({ caption: 'invalid', productUrl: 'https://example.com' }) }), /disclosure/);
+});
+test('rejects off-site CTA and unauthorized redirects', () => {
+  assert.throws(() => run({ makeScript: (p) => ({ caption: '#ad BlindBoxAI may earn a commission from qualifying purchases.', productUrl: 'https://evil.example/series/fake' }) }), /first-party/);
 });
 test('rejects stale inventory as defined by production validation', () => {
   assert.equal(run({ products: [{ id: 'stale' }] }).status, 'NO_UNUSED_VERIFIED_PRODUCT');
