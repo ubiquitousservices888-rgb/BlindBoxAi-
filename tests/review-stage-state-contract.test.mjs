@@ -18,7 +18,7 @@ test("stage() uses atomic conflict-ignore rather than an overwriting upsert", ()
 test("new rows report duplicate:false and existing ready rows duplicate:true", () => {
   assert.match(stage, /inserted\.length > 0/);
   assert.match(stage, /duplicate: false/);
-  assert.match(stage, /duplicate: true/);
+  assert.match(stage, /duplicate: true/);\n  assert.match(stage, /title: canonical\\.title/);
 });
 
 test("existing advanced states return 409 and are never rewritten", () => {
