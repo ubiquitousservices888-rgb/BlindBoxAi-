@@ -1,0 +1,134 @@
+name: Daily verified video review candidate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/daily-video-review.yml'
+      - 'lib/daily-video-plan.mjs'
+      - 'scripts/daily-video-candidate*.mjs'
+      - 'scripts/workflow-publish-safety.test.mjs'
+  schedule:
+    - cron: '23 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: blindboxai-daily-video-review-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Verify safe daily candidate contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node --test scripts/daily-video-candidate.test.mjs
+      - run: node --test scripts/workflow-publish-safety.test.mjs
+      - run: npm run video:test
+
+  stage:
+    name: Create one verified review candidate (no posting)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      has_candidate: ${{ steps.plan.outputs.has_candidate }}
+      can_render: ${{ steps.plan.outputs.can_render }}
+      product_id: ${{ steps.plan.outputs.product_id }}
+    env:
+      NEXT_PUBLIC_EPN_CAMPID: '5339171775'
+      DAILY_VIDEO_MAX_RENDERS_PER_MONTH: ${{ vars.DAILY_VIDEO_MAX_RENDERS_PER_MONTH || '0' }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Read unexpired render-attempt receipts; fail closed if unavailable
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/daily-video/history
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=daily-video-candidate&per_page=100" > /tmp/daily-artifacts.json
+          count="$(jq -r '.total_count // 0' /tmp/daily-artifacts.json)"
+          if ! [[ "$count" =~ ^[0-9]+$ ]] || [ "$count" -gt 100 ]; then
+            echo '::error::Daily artifact history incomplete; refusing to render.'
+            exit 1
+          fi
+          jq -r '.artifacts[] | select(.expired == false) | .id' /tmp/daily-artifacts.json |
+          while read -r id; do
+            [ -n "$id" ] || continue
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" > "/tmp/daily-${id}.zip"
+            unzip -p "/tmp/daily-${id}.zip" candidate.json > "output/daily-video/history/candidate-${id}.json"
+          done
+      - name: Validate production source evidence
+        run: node scripts/video-pipeline.mjs validate
+      - name: Prepare one unused product and source-backed script
+        id: plan
+        run: node scripts/daily-video-candidate.mjs
+      - name: Preview only when paid rendering is not enabled
+        if: ${{ vars.DAILY_VIDEO_RENDER_ENABLED != 'true' || steps.plan.outputs.can_render != 'true' || steps.plan.outputs.has_candidate != 'true' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: daily-video-preview-${{ github.run_id }}
+          path: output/daily-video/candidate.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Reserve bounded render attempt before dispatch
+        if: ${{ vars.DAILY_VIDEO_RENDER_ENABLED == 'true' && steps.plan.outputs.has_candidate == 'true' && steps.plan.outputs.can_render == 'true' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: daily-video-candidate
+          path: output/daily-video/candidate.json
+          retention-days: 35
+          if-no-files-found: error
+      - run: echo 'No rendering, Buffer post, or protected publisher is called from this stage.'
+
+  dispatch-render:
+    name: Dispatch one hosted MP4 to exact owner-review path
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      vars.DAILY_VIDEO_RENDER_ENABLED == 'true' &&
+      needs.stage.outputs.has_candidate == 'true' &&
+      needs.stage.outputs.can_render == 'true'
+    needs: stage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SELECTED_PRODUCT_ID: ${{ needs.stage.outputs.product_id }}
+    steps:
+      - name: Dispatch review-only render; publication explicitly disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SELECTED_PRODUCT_ID" =~ ^[a-z0-9][a-z0-9-]{1,79}$ ]]
+          gh workflow run autonomous-video.yml --ref main \
+            --field publish_after_approval=false \
+            --field youtube_audience=unreviewed \
+            --field "product_id=$SELECTED_PRODUCT_ID"
+          echo 'Render dispatch accepted; review MP4 and owner approval still unverified.'
