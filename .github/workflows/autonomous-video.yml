@@ -7,6 +7,11 @@ on:
       - data/verified-video-products.json
   workflow_dispatch:
     inputs:
+      product_id:
+        description: 'Exact verified product ID for owner-review render; blank keeps the historical selection'
+        required: false
+        default: ''
+        type: string
       publish_after_approval:
         description: "After staging, allow the protected owner-approval publish job to become eligible"
         required: true
@@ -48,6 +53,10 @@ jobs:
         run: npm run video:test
       - name: Validate verified video source data
         run: node scripts/video-pipeline.mjs validate
+      - name: Preflight requested product before provider spending
+        env:
+          VIDEO_PRODUCT_ID: ${{ inputs.product_id || '' }}
+        run: node scripts/video-pipeline.mjs preflight
 
   render:
     name: Render one verified video for review
@@ -69,6 +78,7 @@ jobs:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
       GEMINI_VIDEO_RESOLUTION: ${{ vars.GEMINI_VIDEO_RESOLUTION || '360p' }}
+      VIDEO_PRODUCT_ID: ${{ inputs.product_id || '' }}
       ALLOW_MANUAL_VIDEO_RENDER: "true"
       ALLOW_GEMINI_VIDEO_RENDER: "true"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { approve, assertPublishableState, createBufferPublisher, createRenderRecord, DISCLOSURE, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { approve, assertPublishableState, createBufferPublisher, createRenderRecord, DISCLOSURE, generateVideoScript, markRendered, publishApproved, reject, renderCreatomate, selectRequestedVideoProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 import { assertBufferPublishReady } from "../lib/buffer-media-safety.mjs";
 import { hardenGenerativeVideoScript } from "../lib/epn-genai-safety.mjs";
 
@@ -17,13 +17,16 @@ if (command === "validate") {
   const products = read(dataFile).products ?? [];
   for (const product of products) validateVerifiedProduct(product);
   console.log(`Validated ${products.length} verified video product(s).`);
+} else if (command === "preflight") {
+  const selected = selectRequestedVideoProduct(read(dataFile).products ?? [], new Date(), process.env.VIDEO_PRODUCT_ID?.trim() || '');
+  console.log('VIDEO_PREFLIGHT_PRODUCT=' + selected.id);
 } else if (command === "daily") {
   if (process.env.ALLOW_MANUAL_VIDEO_RENDER !== "true") {
     throw new Error("Video rendering is paused. Set ALLOW_MANUAL_VIDEO_RENDER=true only for an owner-reviewed manual run.");
   }
   const now = new Date();
   const products = read(dataFile).products ?? [];
-  const product = selectDailyProduct(products, now);
+  const product = selectRequestedVideoProduct(products, now, process.env.VIDEO_PRODUCT_ID?.trim() || '');
   const channels = (process.env.VIDEO_CHANNELS ?? "twitter,tiktok").split(",").map((value) => value.trim()).filter(Boolean);
   if (!channels.length) throw new Error("VIDEO_CHANNELS must contain at least one Buffer service");
   const script = hardenGenerativeVideoScript(generateVideoScript(product, now), DISCLOSURE);
