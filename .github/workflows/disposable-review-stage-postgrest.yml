@@ -1,0 +1,79 @@
+name: Disposable review staging PostgREST contract
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/review-video-queue/index.ts"
+      - "tests/postgrest-stage-conflict.integration.mjs"
+      - ".github/workflows/disposable-review-stage-postgrest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  conflict-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: disposable-only
+          POSTGRES_DB: disposable
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d disposable"
+          --health-interval 5s
+          --health-timeout 4s
+          --health-retries 12
+    steps:
+      - name: Checkout exact PR version with no stored credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Install disposable PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends postgresql-client
+      - name: Create isolated test-only review queue
+        env:
+          PGPASSWORD: disposable-only
+        run: |
+          psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d disposable <<'SQL'
+          CREATE ROLE web_anon NOLOGIN;
+          CREATE TABLE public.review_video_queue (
+            research_run_id text PRIMARY KEY,
+            status text NOT NULL,
+            title text NOT NULL,
+            video_url text NOT NULL
+          );
+          GRANT USAGE ON SCHEMA public TO web_anon;
+          GRANT SELECT, INSERT, UPDATE ON public.review_video_queue TO web_anon;
+          SQL
+      - name: Launch ephemeral PostgREST HTTP API without external secrets
+        run: |
+          docker run -d --rm --name disposable-postgrest --network host \
+            -e PGRST_DB_URI="postgres://postgres:disposable-only@127.0.0.1:5432/disposable" \
+            -e PGRST_DB_SCHEMAS=public \
+            -e PGRST_DB_ANON_ROLE=web_anon \
+            -e PGRST_SERVER_PORT=3000 \
+            postgrest/postgrest:v12.2.12
+          for i in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:3000/review_video_queue >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Disposable PostgREST failed to become ready"
+          exit 1
+      - name: Prove ignored conflict preserves approval and rejected states
+        run: node --test tests/postgrest-stage-conflict.integration.mjs
+      - name: Dispose of isolated database runtime
+        if: always()
+        run: docker rm -f disposable-postgrest >/dev/null 2>&1 || true
