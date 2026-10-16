@@ -132,12 +132,13 @@ async function stage(req: Request, body: any) {
     return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, duplicate: false, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}` });
   }
   const { data: canonical, error: canonicalError } = await db.from("review_video_queue")
-    .select("status")
+    .select("status,title,video_url")
     .eq("research_run_id", researchRunId)
     .maybeSingle();
   if (canonicalError || !canonical) return json({ error: "Queue verification failed" }, 500);
   if (canonical.status !== "ready_for_review") return json({ error: "Review row has already advanced beyond staging" }, 409);
-  return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, duplicate: true, videoUrl, title, researchRunId, campaignId: `bb-${researchRunId}` });
+  if (canonical.video_url !== videoUrl || !canonical.title) return json({ error: "Canonical review identity mismatch" }, 409);
+  return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, duplicate: true, videoUrl: canonical.video_url, title: canonical.title, researchRunId, campaignId: `bb-${researchRunId}` });
 }
 async function listReady(req: Request) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
