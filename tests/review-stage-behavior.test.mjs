@@ -16,7 +16,7 @@ const makeStage = new Function(
 );
 const validUrl = "https://storage.example.test/media/review/test.mp4";
 const runId = "rv-" + createHash("sha256").update(validUrl).digest("hex").slice(0, 16);
-const row = (status) => ({research_run_id:runId, status, title:"Owner-verified collectible", approved_at:status === "approved" ? "2026-10-01T00:00:00Z" : null});
+const row = (status) => ({research_run_id:runId, status, title:"Owner-verified collectible", video_url:validUrl, approved_at:status === "approved" ? "2026-10-01T00:00:00Z" : null});
 function setup(initial, authorized = true) {
   const records = new Map(initial ? [[runId, structuredClone(initial)]] : []);
   let writes = 0;
@@ -39,7 +39,7 @@ function setup(initial, authorized = true) {
               assert.equal(field,"research_run_id");
               return {async maybeSingle() {
                 const stored=records.get(value);
-                return {data:stored ? {status:stored.status}:null,error:null};
+                return {data:stored ? {status:stored.status,title:stored.title,video_url:stored.video_url}:null,error:null};
               }};
             },
           };
@@ -80,5 +80,14 @@ test("unauthorized staging leaves queue unchanged",async () => {
   const s=setup(undefined,false);
   const result=await s.run();
   assert.equal(result.status,401);
+  assert.equal(s.writes,0);
+});
+
+test("duplicate returns canonical stored title, never a new uncommitted title",async()=>{
+  const stored=row("ready_for_review"); stored.title="Canonical previously reviewed title";
+  const s=setup(stored), result=await s.run();
+  assert.equal(result.status,200);
+  assert.equal(result.body.duplicate,true);
+  assert.equal(result.body.title,stored.title);
   assert.equal(s.writes,0);
 });
