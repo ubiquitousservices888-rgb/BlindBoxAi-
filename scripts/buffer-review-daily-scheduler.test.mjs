@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DISCLOSURE } from "../lib/video-pipeline.mjs";
+import { createHash } from "node:crypto";
 import { scheduleOwnerReviewedVideo, validReviewedSchedule } from "../lib/buffer-review-daily-scheduler.mjs";
 const now = new Date("2026-10-16T12:00:00.000Z");
 const dueAt = "2026-10-17T14:00:00.000Z";
-const researchRunId = "rv-0123456789abcdef";
 const videoUrl = "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/approved.mp4";
+const researchRunId = "rv-" + createHash("sha256").update(videoUrl).digest("hex").slice(0,16);
 const caption = `Watch this collector research: https://www.blindboxai.com/?campaign=bb-${researchRunId}&source=youtube\n${DISCLOSURE}`;
 const ctx = (patch={}) => ({
   token:"disposable-not-real", organizationId:"test-org", channel:"youtube",
@@ -70,4 +71,9 @@ test("no successful schedule claim when Buffer receipt is ambiguous",async()=>{
       id:"buffer-post",status:"scheduled",dueAt:null,channelId:"test-channel",text:caption,
     }}}})}),
   })),/exact scheduled receipt/);
+});
+
+test("swapped MP4 cannot inherit another video's owner approval",async()=>{
+  const swapped=videoUrl.replace("approved.mp4","swapped.mp4");
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({videoUrl:swapped})),/exact video URL do not match/);
 });
