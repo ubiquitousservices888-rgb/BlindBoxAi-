@@ -6,7 +6,7 @@ import {
   DISCLOSURE,
   generateVideoScript,
   markRendered,
-  selectDailyProduct,
+  selectRequestedVideoProduct,
 } from "../lib/video-pipeline.mjs";
 import { hardenGenerativeVideoScript, sanitizeProductForGenerativeVideo } from "../lib/epn-genai-safety.mjs";
 import { renderGeminiOmni } from "../lib/gemini-video-renderer.mjs";
@@ -30,7 +30,7 @@ if (!process.env.BLOB_READ_WRITE_TOKEN) throw new Error("BLOB_READ_WRITE_TOKEN i
 
 const now = new Date();
 const products = read(dataFile).products ?? [];
-const product = selectDailyProduct(products, now);
+const product = selectRequestedVideoProduct(products, now, process.env.VIDEO_PRODUCT_ID?.trim() || '');
 const channels = (process.env.VIDEO_CHANNELS ?? "twitter,tiktok")
   .split(",")
   .map((value) => value.trim())
