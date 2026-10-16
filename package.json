@@ -5,7 +5,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "qa:unit": "npm test && node --test scripts/qa-boundaries.test.mjs scripts/blindbox-supabase-boundary.test.mjs",
+    "qa:unit": "npm test && node --test scripts/qa-boundaries.test.mjs scripts/blindbox-supabase-boundary.test.mjs && npm run review-stage:contract:test",
     "qa:boundaries": "node scripts/qa-boundaries.mjs",
     "qa:integration": "node --test scripts/qa-services.integration.test.mjs",
     "qa:e2e": "playwright test",
@@ -70,7 +70,8 @@
     "browser:audit": "node --env-file-if-exists=.env.local scripts/browser-use-blindbox-audit.mjs",
     "browser:audit:run": "node --env-file-if-exists=.env.local scripts/browser-use-blindbox-audit.mjs --run",
     "browser:audit:test": "node --test scripts/browser-use-blindbox-audit.test.mjs",
-    "alpha:test": "node --test scripts/resale-unit-economics.test.mjs"
+    "alpha:test": "node --test scripts/resale-unit-economics.test.mjs",
+    "review-stage:contract:test": "node --test tests/review-stage-state-contract.test.mjs tests/review-stage-behavior.test.mjs"
   },
   "dependencies": {
     "@openai/agents": "0.16.0",
