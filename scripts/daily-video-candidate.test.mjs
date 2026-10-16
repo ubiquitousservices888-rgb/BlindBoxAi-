@@ -3,7 +3,7 @@ import test from 'node:test';
 import { planDailyVideo } from '../lib/daily-video-plan.mjs';
 
 const now = new Date('2026-10-16T14:00:00Z');
-const products = ['one','two','three'].map((id) => ({ id, name: id, productUrl: 'https://blindboxai.com/' + id }));
+const products = ['one','two','three'].map((id) => ({ id, name: id, productUrl: 'https://blindboxai.com/series/' + id }));
 const validateProduct = (product) => { if (product.id === 'stale') throw new Error('stale'); return product; };
 const makeScript = (product) => ({ caption: 'Verified ' + product.id + ': #ad BlindBoxAI may earn a commission from qualifying purchases.', productUrl: product.productUrl });
 const run = (patch = {}) => planDailyVideo({ products, history: [], now, validateProduct, makeScript, monthlyRenderLimit: 3, ...patch });
