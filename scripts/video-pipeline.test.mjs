@@ -177,7 +177,7 @@ describe("safe publishing", () => {
   });
 });
 
-test('exact daily-render product choice is validated before provider calls', () => {
+it('exact daily-render product choice is validated before provider calls', () => {
   assert.equal(selectRequestedVideoProduct([product], now, product.id).id, product.id);
   assert.throws(() => selectRequestedVideoProduct([product], now, 'nonexistent'), /not found/);
   assert.throws(() => selectRequestedVideoProduct([product], now, 'bad\nid'), /Invalid/);
