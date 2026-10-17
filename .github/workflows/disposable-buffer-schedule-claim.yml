@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 12
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
         env:
           POSTGRES_PASSWORD: disposable-only
           POSTGRES_DB: disposable
@@ -73,7 +73,7 @@ jobs:
             -e PGRST_DB_SCHEMAS=public \
             -e PGRST_DB_ANON_ROLE=web_anon \
             -e PGRST_SERVER_PORT=3000 \
-            postgrest/postgrest:v12.2.12
+            postgrest/postgrest:v12.2.12@sha256:5f4ce744539bbba786b4e24dbbd95bdb2a956dcf568c5374995a0ff4a68f5bd2
           for i in $(seq 1 45); do
             if curl --silent --fail http://127.0.0.1:3000/review_schedule_claims >/dev/null; then
               exit 0
