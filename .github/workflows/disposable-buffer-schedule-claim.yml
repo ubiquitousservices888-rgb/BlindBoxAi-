@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "lib/buffer-review-daily-scheduler.mjs"
+      - "lib/postgrest-review-schedule-store.mjs"
+      - "scripts/buffer-review-daily-scheduler.test.mjs"
       - "tests/disposable-buffer-schedule-claim.integration.mjs"
       - ".github/workflows/disposable-buffer-schedule-claim.yml"
   workflow_dispatch:
@@ -50,6 +52,7 @@ jobs:
           CREATE TABLE public.review_schedule_claims (
             research_run_id text NOT NULL,
             channel text NOT NULL CHECK (channel IN ('youtube','tiktok')),
+            channel_id text NOT NULL CHECK (length(trim(channel_id)) > 0),
             media_url text NOT NULL,
             status text NOT NULL CHECK (status IN ('claimed','scheduled')),
             buffer_post_id text,
