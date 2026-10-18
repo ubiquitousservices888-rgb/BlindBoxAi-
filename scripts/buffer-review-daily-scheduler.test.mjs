@@ -17,6 +17,7 @@ const ctx = (patch={}) => ({
   findExistingImpl:async()=>null,
   // Test-only atomic stand-in. A real shared, durable claim must be wired separately.
   claimScheduleImpl:async()=>({claimed:true}),
+  recordScheduledReceiptImpl:async({bufferPostId,dueAt})=>({status:"scheduled",bufferPostId,dueAt,publicUrl:null}),
   fetchImpl:async (_url,opt) => {
     const {variables} = JSON.parse(opt.body);
     return {ok:true,json:async()=>({data:{createPost:{__typename:"PostActionSuccess",post:{
@@ -125,4 +126,33 @@ test("two simultaneous schedule calls must never create two Buffer posts",async(
   assert.equal(createCount,1,"only one external createPost is permitted");
   assert.equal(batch.filter(x=>x.status==="fulfilled").length,1);
   assert.equal(batch.filter(x=>x.status==="rejected").length,1);
+});
+
+test("no Buffer write without durable receipt provider",async()=>{
+  let mutated=false;
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({
+    recordScheduledReceiptImpl:undefined,
+    fetchImpl:async()=>{mutated=true;throw Error("must not mutate");},
+  })),/durable|receipt providers/i);
+  assert.equal(mutated,false);
+});
+test("receipt persistence is required before claiming schedule success",async()=>{
+  let created=0;
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({
+    recordScheduledReceiptImpl:async()=>{throw Error("disposable store unavailable");},
+    fetchImpl:async(_url,opt)=>{
+      created++;
+      const x=JSON.parse(opt.body).variables.input;
+      return {ok:true,json:async()=>({data:{createPost:{post:{
+        id:"buffer-post",status:"scheduled",dueAt:x.dueAt,
+        channelId:x.channelId,text:x.text,
+      }}}})};
+    },
+  })),/disposable store unavailable/);
+  assert.equal(created,1,"a write may have succeeded; keep its original claim held");
+});
+test("receipt must match exact Buffer identity",async()=>{
+  await assert.rejects(()=>scheduleOwnerReviewedVideo(ctx({
+    recordScheduledReceiptImpl:async()=>({status:"scheduled",bufferPostId:"wrong",dueAt,publicUrl:null}),
+  })),/durably confirmed/);
 });
