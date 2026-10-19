@@ -116,6 +116,51 @@ test("external referral and conflicting first-party campaigns cannot overwrite e
   assert.deepEqual(sourceMismatch, { campaignId: "", source: "youtube", recoveredFrom: "query_source" });
 });
 
+test("untrusted referrer URLs never supply campaign identifiers", () => {
+  const campaign = "bb-rv-3c9c9bb78c37ff6a";
+  for (const referer of [
+    `http://blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https://user@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https://blindboxai.com:8443/?campaign=${campaign}&source=youtube`,
+  ]) {
+    assert.deepEqual(resolveRequestAttribution({ source: "page", referer }), {
+      campaignId: "", source: "page", recoveredFrom: "query_source",
+    });
+  }
+});
+
+test("valid UTM aliases survive invalid direct referrer campaign and generic source", () => {
+  assert.deepEqual(resolveRequestAttribution({
+    source: "page",
+    referer: "https://blindboxai.com/?campaign=bad%20campaign&source=page&utm_campaign=bb-rv-3c9c9bb78c37ff6a&utm_source=tiktok",
+  }), {
+    campaignId: "bb-rv-3c9c9bb78c37ff6a",
+    source: "tiktok",
+    recoveredFrom: "blindbox_referrer",
+  });
+});
+
+test("explicit channel-only outbound click cannot inherit a video campaign", () => {
+  assert.deepEqual(resolveRequestAttribution({
+    source: "youtube",
+    referer: "https://blindboxai.com/?campaign=bb-rv-3c9c9bb78c37ff6a&source=youtube",
+  }), {
+    campaignId: "", source: "youtube", recoveredFrom: "query_source",
+  });
+});
+
+test("recovering only a generic source with explicit campaign reports the referrer", () => {
+  assert.deepEqual(resolveRequestAttribution({
+    campaign: "bb-rv-3c9c9bb78c37ff6a",
+    source: "page",
+    referer: "https://blindboxai.com/?campaign=bb-rv-3c9c9bb78c37ff6a&source=tiktok",
+  }), {
+    campaignId: "bb-rv-3c9c9bb78c37ff6a",
+    source: "tiktok",
+    recoveredFrom: "blindbox_referrer",
+  });
+});
+
 test("EPN custom id carries campaign and source", () => {
   const id = epnCustomId({
     seriesSlug: "hirono-series",
