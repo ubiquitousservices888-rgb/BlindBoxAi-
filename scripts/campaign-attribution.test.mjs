@@ -72,6 +72,50 @@ test("missing or stripped referrer fails cleanly to none", () => {
   );
 });
 
+
+test("generic affiliate template source recovers the canonical video campaign from first-party referrer", () => {
+  assert.deepEqual(resolveRequestAttribution({
+    source: "page",
+    referer: "https://www.blindboxai.com/series/labubu-the-monsters-hair-salon?campaign=bb-rv-3c9c9bb78c37ff6a&source=youtube",
+  }), {
+    campaignId: "bb-rv-3c9c9bb78c37ff6a",
+    source: "youtube",
+    recoveredFrom: "blindbox_referrer",
+  });
+});
+
+test("UTM landing attribution survives server redirect even without client-side JavaScript", () => {
+  assert.deepEqual(resolveRequestAttribution({
+    source: "site",
+    referer: "https://blindboxai.com/shop/accessories?utm_campaign=bb-rv-3c9c9bb78c37ff6a&utm_source=tiktok",
+  }), {
+    campaignId: "bb-rv-3c9c9bb78c37ff6a",
+    source: "tiktok",
+    recoveredFrom: "blindbox_referrer",
+  });
+});
+
+test("external referral and conflicting first-party campaigns cannot overwrite explicit identifiers", () => {
+  const external = resolveRequestAttribution({
+    source: "page",
+    referer: "https://evilblindboxai.com/series/test?campaign=bb-rv-3c9c9bb78c37ff6a&source=youtube",
+  });
+  assert.deepEqual(external, { campaignId: "", source: "page", recoveredFrom: "query_source" });
+  const conflicting = resolveRequestAttribution({
+    campaign: "bb-rv-aaaaaaaaaaaaaaaa",
+    source: "page",
+    referer: "https://blindboxai.com/?campaign=bb-rv-bbbbbbbbbbbbbbbb&source=tiktok",
+  });
+  assert.deepEqual(conflicting, {
+    campaignId: "bb-rv-aaaaaaaaaaaaaaaa", source: "page", recoveredFrom: "query_campaign",
+  });
+  const sourceMismatch = resolveRequestAttribution({
+    source: "youtube",
+    referer: "https://blindboxai.com/?campaign=bb-rv-bbbbbbbbbbbbbbbb&source=tiktok",
+  });
+  assert.deepEqual(sourceMismatch, { campaignId: "", source: "youtube", recoveredFrom: "query_source" });
+});
+
 test("EPN custom id carries campaign and source", () => {
   const id = epnCustomId({
     seriesSlug: "hirono-series",
