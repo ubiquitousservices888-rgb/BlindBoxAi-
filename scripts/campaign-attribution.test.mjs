@@ -23,6 +23,24 @@ const offerRoute = readFileSync(new URL("../app/api/out/offer/route.js", import.
 const amazonRoute = readFileSync(new URL("../app/api/out/amazon/route.js", import.meta.url), "utf8");
 const template = readFileSync(new URL("../app/template.jsx", import.meta.url), "utf8");
 
+test("series outbound links validate and forward UTM campaign alongside explicit source", () => {
+  const seriesPage = readFileSync(new URL("../app/series/[slug]/page.jsx", import.meta.url), "utf8");
+  assert.match(seriesPage, /normalizeCampaignId\\(query\\?\\.campaign \\|\\| query\\?\\.utm_campaign\\)/);
+  assert.match(seriesPage, /normalizeSource\\(query\\?\\.source \\|\\| query\\?\\.utm_source\\)/);
+  assert.match(seriesPage, /const attribution = \\{ campaignId, source \\}/);
+  assert.match(seriesPage, /ebayOutboundPath\\(s\\.slug, f\\.name, "sold", attribution\\)/);
+  const campaign = normalizeCampaignId("bb-rv-3c9c9bb78c37ff6a");
+  const tagged = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: campaign, source: normalizeSource("youtube") }), "https://blindboxai.com");
+  assert.equal(tagged.searchParams.get("campaign"), campaign);
+  assert.equal(tagged.searchParams.get("source"), "youtube");
+  assert.match(epnCustomId({ series: "hirono-mist-walker", figure: "The Wingless Follower", kind: "sold", placement: "series_table", campaignId: campaign, source: "youtube" }), /bb-rv-3c9c9bb78c37ff6a/);
+  for (const input of ["bad id", ""]) {
+    const untagged = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: normalizeCampaignId(input), source: "youtube" }), "https://blindboxai.com");
+    assert.equal(untagged.searchParams.has("campaign"), false);
+    assert.equal(untagged.searchParams.get("source"), "youtube");
+  }
+});
+
 test("campaign ids reject unsafe input", () => {
   assert.equal(normalizeCampaignId("HIRONO-20260816-A"), "hirono-20260816-a");
   assert.equal(normalizeCampaignId("bad campaign?"), "");
