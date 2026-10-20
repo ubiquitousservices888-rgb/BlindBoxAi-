@@ -1,0 +1,127 @@
+# Owner-invoked, proposal-only issue resolver. No production credentials or merge access.
+name: OpenHands owner-gated issue resolver
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write # Read the issue and post a bounded failure/success notice
+  pull-requests: read
+
+concurrency:
+  group: openhands-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  propose-draft:
+    if: >-
+      github.event.sender.login == github.repository_owner &&
+      !github.event.issue.pull_request &&
+      (
+        (github.event_name == 'issues' && github.event.label.name == 'fix-me') ||
+        (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '@openhands-agent'))
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GH_REPO: ${{ github.repository }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out reviewed main without stored Git credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Set up Python 3.12
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: '3.12'
+      - name: Read approved issue and verify configuration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_LLM_API_KEY: ${{ secrets.LLM_API_KEY != '' }}
+          HAS_PAT_TOKEN: ${{ secrets.PAT_TOKEN != '' }}
+          MODEL_NAME: ${{ secrets.LLM_MODEL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$HAS_LLM_API_KEY" != 'true' || "$HAS_PAT_TOKEN" != 'true' ]]; then
+            echo '::error::Missing LLM_API_KEY or PAT_TOKEN repository secret.'
+            exit 1
+          fi
+          if [[ "$MODEL_NAME" != 'gemini/gemini-2.5-flash' && "$MODEL_NAME" != 'gemini/gemini-2.5-flash-lite' ]]; then
+            echo '::error::LLM_MODEL must be a supported Gemini Flash model.'
+            exit 1
+          fi
+          gh api "repos/${GH_REPO}/issues/${ISSUE_NUMBER}" --jq '. | "Issue: \(.number)\nTitle: \(.title)\n\nBody:\n\(.body // "")"' > "$RUNNER_TEMP/openhands-issue.txt"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ['RUNNER_TEMP']) / 'openhands-issue.txt'
+          if not (15 <= p.stat().st_size <= 16000):
+              raise SystemExit('STOP: issue content must be 15-16000 bytes')
+          PY
+          if [[ "$(gh pr list --state open --limit 100 --json title --jq "[.[] | select(.title == \"OpenHands proposal for issue #${ISSUE_NUMBER}\")] | length")" != '0' ]]; then
+            echo '::error::An OpenHands PR for this issue is already open.'
+            exit 1
+          fi
+          echo 'Owner trigger, configuration names, issue length, and duplicate check: PASS'
+      - name: Preserve immutable validator before the agent can edit files
+        run: git show HEAD:scripts/openhands-issue-resolver.py > "$RUNNER_TEMP/openhands-verified-validator.py"
+      - name: Install matched OpenHands SDK packages
+        run: |
+          python -m pip install --disable-pip-version-check 'openhands-sdk==1.43.1' 'openhands-tools==1.43.1'
+      - name: Propose changes without GitHub write token or production secrets
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          ISSUE_TEXT_FILE: ${{ runner.temp }}/openhands-issue.txt
+          OPENHANDS_MAX_ITER: '12'
+        run: |
+          python scripts/openhands-issue-resolver.py
+      - name: Enforce protected paths, change budget, and diff integrity
+        run: |
+          python "$RUNNER_TEMP/openhands-verified-validator.py" --validate-diff
+          git diff --check
+      - name: Install application dependencies for disposable tests
+        run: npm ci
+      - name: Run isolated unit and safety tests
+        timeout-minutes: 14
+        run: npm run qa:unit
+      - name: Commit and open DRAFT PR only
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="ai/openhands-issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}"
+          git config user.name 'openhands-proposal-bot'
+          git config user.email 'openhands-proposal-bot@users.noreply.github.com'
+          git switch -c "$branch"
+          git add --all
+          git diff --cached --check
+          git -c core.hooksPath=/dev/null commit -m "Propose bounded fix for issue #${ISSUE_NUMBER}"
+          gh auth setup-git
+          git push origin "HEAD:refs/heads/$branch"
+          cat > "$RUNNER_TEMP/openhands-pr-body.md" <<EOF
+          Owner-triggered OpenHands SDK proposal for issue #${ISSUE_NUMBER}.
+
+          - Draft only: no merge, deployment, public publishing, or payment activity.
+          - Model calls executed with no GitHub PAT or production credentials in the agent step.
+          - Protected-path allowlist, change budget, and isolated test suite checked.
+          - Human review and separate release gates remain mandatory.
+          EOF
+          gh pr create --draft --base main --head "$branch" --title "OpenHands proposal for issue #${ISSUE_NUMBER}" --body-file "$RUNNER_TEMP/openhands-pr-body.md"
+          gh pr view "$branch" --json isDraft,state --jq 'if .isDraft and .state == "OPEN" then "DRAFT_PR_VERIFIED" else error("PR_NOT_DRAFT") end'
+      - name: Explain failures on the issue without exposing credentials
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body "OpenHands proposal stopped safely. No completion is claimed and no production action was authorized. Check the workflow's failed step (never paste tokens or sensitive logs): https://github.com/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}"
