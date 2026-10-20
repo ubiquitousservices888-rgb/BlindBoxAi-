@@ -129,6 +129,30 @@ test("untrusted referrer URLs never supply campaign identifiers", () => {
   }
 });
 
+test("empty userinfo delimiters cannot contribute first-party attribution", () => {
+  const campaign = "bb-rv-3c9c9bb78c37ff6a";
+  for (const referer of [
+    `https://@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https://:@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https:\\\\@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `  https://@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https://\n@blindboxai.com/?campaign=${campaign}&source=youtube`,
+  ]) {
+    assert.deepEqual(resolveRequestAttribution({ source: "page", referer }), {
+      campaignId: "", source: "page", recoveredFrom: "query_source",
+    }, `must reject ${JSON.stringify(referer)}`);
+  }
+});
+
+test("at signs in first-party query parameters do not block attribution", () => {
+  assert.deepEqual(resolveRequestAttribution({
+    source: "page",
+    referer: "https://blindboxai.com/?campaign=bb-rv-3c9c9bb78c37ff6a&source=tiktok&note=a@b",
+  }), {
+    campaignId: "bb-rv-3c9c9bb78c37ff6a", source: "tiktok", recoveredFrom: "blindbox_referrer",
+  });
+});
+
 test("valid UTM aliases survive invalid direct referrer campaign and generic source", () => {
   assert.deepEqual(resolveRequestAttribution({
     source: "page",
