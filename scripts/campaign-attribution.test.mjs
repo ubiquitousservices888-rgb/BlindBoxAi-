@@ -23,9 +23,25 @@ const offerRoute = readFileSync(new URL("../app/api/out/offer/route.js", import.
 const amazonRoute = readFileSync(new URL("../app/api/out/amazon/route.js", import.meta.url), "utf8");
 const template = readFileSync(new URL("../app/template.jsx", import.meta.url), "utf8");
 
+test("invalid direct campaign falls back to valid UTM, repeated keys reject arrays", () => {
+  const query = { campaign: "bad id", utm_campaign: "bb-rv-3c9c9bb78c37ff6a" };
+  const campaignId = normalizeCampaignId(query.campaign) || normalizeCampaignId(query.utm_campaign);
+  assert.equal(campaignId, "bb-rv-3c9c9bb78c37ff6a");
+  const url = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId, source: "youtube" }), "https://blindboxai.com");
+  assert.equal(url.searchParams.get("campaign"), campaignId);
+  const repeated = ["bb-rv-a", "bb-rv-3c9c9bb78c37ff6a"];
+  assert.equal(normalizeCampaignId(repeated), "");
+  assert.equal(normalizeAttributionSource(repeated), "bb-rv-abb-rv-3c9c9bb78c37ff6a".slice(0,40));
+  const repeatedUrl = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: normalizeCampaignId(repeated), source: "youtube" }), "https://blindboxai.com");
+  assert.equal(repeatedUrl.searchParams.has("campaign"), false);
+  const buyPage = readFileSync(new URL("../app/tools/buy-or-pass/[offerId]/page.jsx", import.meta.url), "utf8");
+  assert.ok(buyPage.includes("normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign)"));
+  assert.ok(buyPage.includes("query?.source || query?.utm_source || 'buy_or_pass'"));
+});
+
 test("series outbound links validate and forward UTM campaign alongside explicit source", () => {
   const seriesPage = readFileSync(new URL("../app/series/[slug]/page.jsx", import.meta.url), "utf8");
-  assert.ok(seriesPage.includes("normalizeCampaignId(query?.campaign || query?.utm_campaign)"));
+  assert.ok(seriesPage.includes("normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign)"));
   assert.ok(seriesPage.includes("normalizeSource(query?.source || query?.utm_source)"));
   assert.ok(seriesPage.includes("const attribution = { campaignId, source }"));
   assert.ok(seriesPage.includes("ebayOutboundPath(s.slug, f.name, \"sold\", attribution)"));

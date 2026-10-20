@@ -31,8 +31,8 @@ export default async function BuyOrPassOfferPage({ params, searchParams }) {
   if (!offer) notFound();
 
   const attribution = {
-    campaignId: normalizeCampaignId(query?.campaign),
-    source: normalizeSource(query?.source || 'buy_or_pass'),
+    campaignId: normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign),
+    source: normalizeSource(query?.source || query?.utm_source || 'buy_or_pass'),
   };
 
   return (
