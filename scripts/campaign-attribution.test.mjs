@@ -50,7 +50,7 @@ test("series outbound links validate and forward UTM campaign alongside explicit
   const tagged = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: campaign, source: normalizeSource("youtube") }), "https://blindboxai.com");
   assert.equal(tagged.searchParams.get("campaign"), campaign);
   assert.equal(tagged.searchParams.get("source"), "youtube");
-  assert.match(epnCustomId({ series: "hirono-mist-walker", figure: "The Wingless Follower", kind: "sold", placement: "series_table", campaignId: campaign, source: "youtube" }), /bb-rv-3c9c9bb78c37ff6a/);
+  assert.match(epnCustomId({ seriesSlug: "hirono-mist-walker", figure: "The Wingless Follower", kind: "sold", placement: "series_table", campaignId: campaign, source: "youtube" }), /cebbrv3c9c9bb78c37ff6axyoutube$/);
   for (const input of ["bad id", ""]) {
     const untagged = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: normalizeCampaignId(input), source: "youtube" }), "https://blindboxai.com");
     assert.equal(untagged.searchParams.has("campaign"), false);
