@@ -41,6 +41,11 @@ jobs:
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: '3.12'
+      - name: Set up Node.js 24 for the repository test suite
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
       - name: Read approved issue and verify configuration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,6 +98,8 @@ jobs:
       - name: Run isolated unit and safety tests
         timeout-minutes: 14
         run: npm run qa:unit
+      - name: Check canonical documentation guards
+        run: npm run docs:state-check
       - name: Commit and open DRAFT PR only
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
