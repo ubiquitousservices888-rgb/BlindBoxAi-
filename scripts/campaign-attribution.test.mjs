@@ -153,6 +153,32 @@ test("at signs in first-party query parameters do not block attribution", () => 
   });
 });
 
+test("noncanonical HTTPS authority spellings cannot contribute attribution", () => {
+  const campaign = "bb-rv-3c9c9bb78c37ff6a";
+  for (const referer of [
+    `https:@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https:/@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https:///@blindboxai.com/?campaign=${campaign}&source=youtube`,
+    `https://blindboxai%2Ecom/?campaign=${campaign}&source=youtube`,
+  ]) {
+    assert.deepEqual(resolveRequestAttribution({ source: "page", referer }), {
+      campaignId: "", source: "page", recoveredFrom: "query_source",
+    }, `must reject ${JSON.stringify(referer)}`);
+  }
+});
+
+test("canonical HTTPS authority allows case-insensitive host and no path", () => {
+  const campaign = "bb-rv-3c9c9bb78c37ff6a";
+  for (const referer of [
+    `HTTPS://BLINDBOXAI.COM/?campaign=${campaign}&source=tiktok`,
+    `https://blindboxai.com?campaign=${campaign}&source=tiktok`,
+  ]) {
+    assert.deepEqual(resolveRequestAttribution({ source: "page", referer }), {
+      campaignId: campaign, source: "tiktok", recoveredFrom: "blindbox_referrer",
+    }, `must accept ${JSON.stringify(referer)}`);
+  }
+});
+
 test("valid UTM aliases survive invalid direct referrer campaign and generic source", () => {
   assert.deepEqual(resolveRequestAttribution({
     source: "page",
