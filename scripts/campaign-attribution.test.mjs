@@ -25,10 +25,10 @@ const template = readFileSync(new URL("../app/template.jsx", import.meta.url), "
 
 test("series outbound links validate and forward UTM campaign alongside explicit source", () => {
   const seriesPage = readFileSync(new URL("../app/series/[slug]/page.jsx", import.meta.url), "utf8");
-  assert.match(seriesPage, /normalizeCampaignId\\(query\\?\\.campaign \\|\\| query\\?\\.utm_campaign\\)/);
-  assert.match(seriesPage, /normalizeSource\\(query\\?\\.source \\|\\| query\\?\\.utm_source\\)/);
-  assert.match(seriesPage, /const attribution = \\{ campaignId, source \\}/);
-  assert.match(seriesPage, /ebayOutboundPath\\(s\\.slug, f\\.name, "sold", attribution\\)/);
+  assert.ok(seriesPage.includes("normalizeCampaignId(query?.campaign || query?.utm_campaign)"));
+  assert.ok(seriesPage.includes("normalizeSource(query?.source || query?.utm_source)"));
+  assert.ok(seriesPage.includes("const attribution = { campaignId, source }"));
+  assert.ok(seriesPage.includes("ebayOutboundPath(s.slug, f.name, \"sold\", attribution)"));
   const campaign = normalizeCampaignId("bb-rv-3c9c9bb78c37ff6a");
   const tagged = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: campaign, source: normalizeSource("youtube") }), "https://blindboxai.com");
   assert.equal(tagged.searchParams.get("campaign"), campaign);
