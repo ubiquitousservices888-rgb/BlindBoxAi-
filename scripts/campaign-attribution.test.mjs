@@ -31,7 +31,8 @@ test("invalid direct campaign falls back to valid UTM, repeated keys reject arra
   assert.equal(url.searchParams.get("campaign"), campaignId);
   const repeated = ["bb-rv-a", "bb-rv-3c9c9bb78c37ff6a"];
   assert.equal(normalizeCampaignId(repeated), "");
-  assert.equal(normalizeAttributionSource(repeated), "bb-rv-abb-rv-3c9c9bb78c37ff6a".slice(0,40));
+  assert.equal(normalizeAttributionSource(repeated), "none");
+  assert.equal(normalizeSource(repeated), "page");
   const repeatedUrl = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: normalizeCampaignId(repeated), source: "youtube" }), "https://blindboxai.com");
   assert.equal(repeatedUrl.searchParams.has("campaign"), false);
   const buyPage = readFileSync(new URL("../app/tools/buy-or-pass/[offerId]/page.jsx", import.meta.url), "utf8");
