@@ -51,6 +51,10 @@ For an actual future text classification consumer, require a narrow `EBAY|AMAZON
 - Illustrative **not forecast**: 10 future text requests/day × 30 days × 2,000 input + 500 output tokens = 0.6M input + 0.15M output = **$1.01/month** introductory / **$2.03/month** starting 2027 if all requests are billed; free-tier usage can reduce this and thinking-token output can increase it.
 - **Gate:** no paid requests, test renders, newly scheduled work, enlarged throughput, or silent fallback without the owner's explicit approval of the named action and maximum amount. In particular, the existing workflow currently configures Gemini fallback when credentials are available; review that separately before enabling any billable Gemini account.
 
+## Separate pending OpenHands model configuration (overlap check)
+
+Open PR [#283](https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/pull/283) adds a GitHub Actions OpenHands coding agent configured using distinct `LLM_API_KEY` and `LLM_MODEL` secrets. Its proposed Python allowlist currently names Gemini **2.5 Flash** models, not 3.8 Flash; it is **not yet on main**, so the main-branch application call-site inventory above must not be conflated with it. It does not inherit `GEMINI_API_KEY` from Vercel Production. Review #283 separately before merge and reconcile its provider/model support through a dedicated, documented SDK test, avoiding overlapping edits across PRs.
+
 ## Validation and release blockers
 
 1. **Capability mismatch:** currently no text-generation consumer to migrate. Decide the precise text consumer first and keep Omni video separate.
