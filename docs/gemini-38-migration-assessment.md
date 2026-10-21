@@ -1,8 +1,8 @@
 # Gemini 3.8 Flash migration: capability and spending assessment
 
 **Date:** 2026-10-20  
-**Status:** READ-ONLY INVENTORY + SAFETY TEST; **not a runtime migration**  
-**State:** PROPOSED / unverified until CI. No API request, charge, merge, deployment or live video was authorized or performed by this assessment.
+**Status:** AUDIT + PROPOSED OMNI REST PARSER REPAIR; **not a 3.8 Flash runtime migration**  
+**State:** CODED / COMMITTED on a review branch; CI, merge, deployment and real video behavior must be evidenced separately. Only disposable mocked request/response tests were run; no actual Gemini API request, charge, merge, deployment or live video was authorized or performed.
 
 ## Decision: do not replace Gemini Omni in the MP4 renderer with a text-only model
 
@@ -59,4 +59,27 @@ For an actual future text classification consumer, require a narrow `EBAY|AMAZON
 4. **Disposable pre-change E2E and preview:** no live Gemini request or preview MP4 is claimed in this audit. A model-specific code change must pass these before merge.
 5. **Production proof:** Vercel Ready or CI success cannot be called LIVE VERIFIED; capture model/endpoint usage, bounded request receipt, verified output, and deployment revision without secret values.
 
-This assessment intentionally changes no runtime model, does not add a schedule or key, and does not authorize deployment, video rendering, publishing, or spending. It is meant to prevent an unsafe model swap while preserving the next implementation decision.
+## Scoped remediation included in this PR
+
+The existing raw HTTP Gemini Omni renderer expected `interaction.output_video.data`, which Google's documentation says exists **only in SDK responses**; the raw REST format places MP4 base64 at `steps[].content[]` within a completed `model_output`. A disposable mock of the documented REST response reproduced the prior failure:
+
+```
+BASELINE_EXPECTED_FAIL_TYPE: Error
+BASELINE_EXPECTED_FAIL_MESSAGE: Gemini Omni returned no usable video data
+BASELINE_UPLOAD_CALLS: 0
+```
+
+The proposed repair to `lib/gemini-video-renderer.mjs` parses and validates the raw REST response, requires `completed` status and the exact Omni model, enforces single MP4 output and size bounds, sets a request timeout, and moves the API key to the standard `x-goog-api-key` header instead of a URL query parameter. Existing Gemini video prompt, vendor and rendering approval workflow remain unchanged. There are deliberately no automatic video retries, since 429/5xx retries can create ambiguous billable render attempts without a verified spend ceiling.
+
+Local disposable post-fix mocked evidence:
+
+```
+FIXED_RAW_REST_MOCK: PASS
+FIXED_WRONG_MODEL_OR_INCOMPLETE_OR_TEXT: FAIL_CLOSED
+```
+
+The repository's normal video test suite also adds raw REST success and rejection regression cases. This is **only a code repair proposal**, not evidence that production actually renders or that its key is valid.
+
+**Remaining known risk:** The workflows have an existing Creatomate/Gemini fallback path with no verified per-render dollar ceiling. Do not activate billable credentials or dispatch renders to validate this PR without the owner's separate explicit amount approval. A further narrowly scoped cost enforcement change requires an approved budget definition and its own disposable E2E gate.
+
+This change does **not** add a text Gemini runtime consumer, change the model to 3.8, add schedules or secrets, or authorize deployment, video rendering, publishing, or spending. It preserves the existing capable video model while preventing the confirmed REST decoding mismatch.
