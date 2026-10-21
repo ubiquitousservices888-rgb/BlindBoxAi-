@@ -127,7 +127,7 @@ test("unattributed report never claims BlindBoxAI revenue", () => {
   const report = parseEpnReportCsv(csv);
   assert.equal(report.rowsParsed, 1);
   assert.equal(report.earnings, 0);
-  assert.equal(report.orders, null);
+  assert.equal(report.orders, 0);
   assert.equal(report.networkClicks, 0);
   assert.equal(report.buckets.pending.rows, 1);
 });
