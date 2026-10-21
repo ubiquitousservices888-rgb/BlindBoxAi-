@@ -24,8 +24,8 @@ test("Performance by Custom ID accepts Action Earnings and Click Earnings column
     "Confirmed,bb-ch-second,tx-b,2,$0.00,0,0,$0.75,$0.05",
   ].join("\n");
   const report = parseEpnReportCsv(csv);
-  assert.equal(report.networkClicks, 0);
-  assert.equal(report.orders, 0);
+  assert.equal(report.networkClicks, 5);
+  assert.equal(report.orders, 2);
   assert.equal(report.earnings, 2.15);
   assert.equal(report.epc, 0.43);
   assert.equal(report.status, "Connected from EPN report");
@@ -52,8 +52,8 @@ test("blank Custom ID earnings preserve zero-revenue clicks and dated activity",
     "Confirmed,bb-ch-second,tx-b,2026-10-10,4,0,$0.75,$0.25",
   ].join("\n");
   const report = parseEpnReportCsv(csv);
-  assert.equal(report.networkClicks, 4);
-  assert.equal(report.orders, 0);
+  assert.equal(report.networkClicks, 6);
+  assert.equal(report.orders, 1);
   assert.equal(report.earnings, 1);
   assert.equal(report.acceptedRows, 1);
   assert.deepEqual(report.daily, [{ date: "2026-10-10", clicks: 4, orders: 0, earnings: 1, epc: 0.25 }]);
@@ -66,8 +66,8 @@ test("malformed nonblank component values are not silently imported as zero earn
     "Confirmed,bb-ch-good,,3,0,,",
   ].join("\n");
   const report = parseEpnReportCsv(csv);
-  assert.equal(report.networkClicks, 0);
-  assert.equal(report.acceptedRows, 1);
+  assert.equal(report.networkClicks, 3);
+  assert.equal(report.acceptedRows, 0);
   assert.equal(report.earnings, 0);
 });
 
@@ -110,10 +110,10 @@ test("mixed EPN report isolates matched, foreign, blank, pending and reversed ro
   const report = parseEpnReportCsv(csv);
   assert.equal(report.rowsParsed, 6);
   assert.deepEqual(report.buckets, {
-    matched: { rows: 2, clicks: 8, transactions: 2, commissions: 3.75 },
-    unmatched_confirmed: { rows: 2, clicks: 10, transactions: 2, commissions: 12 },
-    pending: { rows: 1, clicks: 4, transactions: 1, commissions: 4 },
-    reversed: { rows: 1, clicks: 1, transactions: 1, commissions: -2 },
+    matched: { rows: 2, clicks: 8, transactions: 2, networkReportedCommissions: 3.75 },
+    unmatched_confirmed: { rows: 2, clicks: 10, transactions: 2, networkReportedCommissions: 12 },
+    pending: { rows: 1, clicks: 4, transactions: 1, networkReportedCommissions: 4 },
+    reversed: { rows: 1, clicks: 1, transactions: 1, networkReportedCommissions: -2 },
   });
   assert.equal(report.earnings, 3.75);
   assert.equal(report.orders, 2);
@@ -128,8 +128,10 @@ test("unattributed report never claims BlindBoxAI revenue", () => {
   assert.equal(report.rowsParsed, 1);
   assert.equal(report.earnings, 0);
   assert.equal(report.orders, 0);
-  assert.equal(report.networkClicks, 0);
+  assert.equal(report.networkClicks, 5);
   assert.equal(report.buckets.pending.rows, 1);
+  assert.equal(report.reportType, "summary_only");
+  assert.match(report.warning, /Transaction Detail report/);
 });
 
 test("missing earnings column fails closed", () => {
@@ -177,7 +179,7 @@ test("long metadata preambles and ISO currency labels are tolerated", () => {
   ].join("\n");
 
   const report = parseEpnReportCsv(csv);
-  assert.equal(report.orders, 3);
+  assert.equal(report.orders, 2);
   assert.equal(report.earnings, 3);
   assert.equal(report.networkClicks, 15);
   assert.equal(report.epc, 0.2);
@@ -212,6 +214,9 @@ test("confirmed tagged clicks without transaction never count as revenue or orde
   assert.equal(report.earnings, 0);
   assert.equal(report.orders, 0);
   assert.equal(report.matchedClicks, 7);
+  assert.equal(report.networkClicks, 7);
+  assert.equal(report.reportType, "summary_only");
+  assert.match(report.warning, /No transaction IDs present/);
   assert.equal(report.evidence.length, 0);
 });
 
@@ -224,4 +229,19 @@ test("allowlist rejects bb-other-x and normalizes case and whitespace", () => {
   assert.equal(report.orders, 1);
   assert.deepEqual(report.matchedCustomIds, ["bb-rv-123"]);
   assert.equal(report.buckets.unmatched_confirmed.rows, 1);
+});
+
+
+test("five matched clicks with no transaction remain visible without earnings", () => {
+  const report = parseEpnReportCsv([
+    "Status,Custom ID,Clicks,Transactions,Earnings",
+    "Confirmed,bb-rv-abc,5,0,$2.00",
+  ].join("\n"));
+  assert.equal(report.matchedClicks, 5);
+  assert.equal(report.networkClicks, 5);
+  assert.equal(report.earnings, 0);
+  assert.equal(report.orders, 0);
+  assert.equal(report.evidence.length, 0);
+  assert.equal(report.reportType, "summary_only");
+  assert.match(report.warning, /Transaction Detail/);
 });
