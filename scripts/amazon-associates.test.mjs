@@ -324,6 +324,7 @@ describe("Amazon Associates accessory path", () => {
 
     assert.match(home, /import FeaturedAccessoryGrid/);
     assert.match(home, /<FeaturedAccessoryGrid \/>/);
+    assert.match(home, /href="#collector-essentials"/);
     assert.ok(home.indexOf("<FeaturedAccessoryGrid />") < home.indexOf('<section className="bv-videos"'));
     assert.match(grid, /allAmazonAccessoryOffers\(\)/);
     assert.match(grid, /href=\{"\/shop\/accessories\?campaign=home-collector-essentials&source=homepage#" \+ encodeURIComponent\(offer\.id\)\}/);
