@@ -4,7 +4,7 @@ import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import test from "node:test";
 import { isPublicVideo, publicVideoStatusLabel, summarizePublicVideos } from "../lib/public-video-status.mjs";
 
-import { assertVerifiedPublicPost, REVIEW_YOUTUBE_CHANNEL_ID, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
+import { assertVerifiedPublicPost, probePublicPostHttp, REVIEW_YOUTUBE_CHANNEL_ID, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -146,6 +146,52 @@ test("public post verification rejects homepages, text drift, and missing requir
   }), /missing the affiliate disclosure/);
 });
 
+test("public HTTP verification requires the exact public platform URL to return HTML with 200", async () => {
+  const url = "https://www.youtube.com/watch?v=abc123";
+  let requests = 0;
+  const fetchImpl = async (requested, options) => {
+    requests++;
+    assert.equal(requested, url);
+    assert.equal(options.method, "GET");
+    assert.equal(options.redirect, "manual");
+    assert.equal(options.headers.Authorization, undefined);
+    return {
+      status: 200, url, redirected: false,
+      headers: { get: (name) => name === "content-type" ? "text/html; charset=utf-8" : null },
+    };
+  };
+  const result = await probePublicPostHttp({
+    channel: "youtube", externalLink: url, fetchImpl,
+    now: () => new Date("2026-10-22T12:00:00.000Z"),
+  });
+  assert.deepEqual(result, { status: 200, checkedAt: "2026-10-22T12:00:00.000Z" });
+  assert.equal(requests, 1);
+});
+
+test("public HTTP verification fails closed on unsupported hosts, redirects, error pages and transport failure", async () => {
+  const valid = "https://www.youtube.com/shorts/abc123";
+  let requests = 0;
+  const fetchImpl = async () => { requests++; throw new Error("network unavailable"); };
+  await assert.rejects(
+    () => probePublicPostHttp({ channel: "youtube", externalLink: "https://attacker.example/shorts/abc123", fetchImpl }),
+    (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+  );
+  assert.equal(requests, 0, "untrusted URL must not be fetched");
+  const fake = (status, contentType = "text/html") => async () => ({
+    status, redirected: false, headers: { get: () => contentType },
+  });
+  for (const [status, mime] of [[302,"text/html"],[403,"text/html"],[404,"text/html"],[200,"application/json"]]) {
+    await assert.rejects(
+      () => probePublicPostHttp({ channel: "youtube", externalLink: valid, fetchImpl: fake(status,mime) }),
+      (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+    );
+  }
+  await assert.rejects(
+    () => probePublicPostHttp({ channel: "youtube", externalLink: valid, fetchImpl }),
+    (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+  );
+});
+
 test("public verification retries transient Buffer lookup failures and returns verified evidence", async () => {
   const caption = `Research only. https://www.blindboxai.com/?campaign=test\n${DISCLOSURE}`;
   let calls = 0;
@@ -177,6 +223,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     postId: "post-1",
     expectedCaption: caption,
     fetchImpl,
+    httpProbeImpl: async () => ({ status: 200, checkedAt: "2026-10-22T12:00:00.000Z" }),
     attempts: 2,
     delayMs: 0,
   });
@@ -186,6 +233,8 @@ test("public verification retries transient Buffer lookup failures and returns v
     publicUrl: "https://www.youtube.com/watch?v=abc123",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    publicHttpStatus: 200,
+    publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
   });
 });
 
