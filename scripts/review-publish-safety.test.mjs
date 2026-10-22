@@ -610,7 +610,9 @@ test("live publisher fail-closes on missing tracked CTA or unverifiable public U
   assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
   const ctaGuard = source.indexOf("tracked CTA is missing campaign or source");
-  const urlGuard = source.indexOf("publisher returned no verified public URL");
+  const urlGuard = source.indexOf("platform public URL lacks an independent HTTP 200 receipt");
+  assert.match(source, /result\.publicHttpStatus !== 200/);
+  assert.match(source, /REVIEW_QUEUE_PUBLIC_HTTP_PROOF/);
   const publisherCall = source.indexOf("const result = await publisher({");
   const recordCall = source.indexOf('action: "record_channel"');
   assert.ok(ctaGuard >= 0 && ctaGuard < publisherCall);
