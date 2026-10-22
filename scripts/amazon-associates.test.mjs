@@ -317,4 +317,27 @@ describe("Amazon Associates accessory path", () => {
       "cid-1,series-a,Series A,figure-a,listing,hero,youtube,fall,2,2026-09-01T00:00:00.000Z,2026-09-01T01:00:00.000Z",
     );
   });
+  it("keeps the homepage accessory grid text-only and links to the attributed on-site shop", () => {
+    const home = fs.readFileSync(new URL("../app/page.jsx", import.meta.url), "utf8");
+    const grid = fs.readFileSync(new URL("../app/_components/FeaturedAccessoryGrid.jsx", import.meta.url), "utf8");
+    const shop = fs.readFileSync(new URL("../app/shop/accessories/page.jsx", import.meta.url), "utf8");
+
+    assert.match(home, /import FeaturedAccessoryGrid/);
+    assert.match(home, /<FeaturedAccessoryGrid \/>/);
+    assert.match(home, /href="#collector-essentials"/);
+    assert.ok(home.indexOf("<FeaturedAccessoryGrid />") < home.indexOf('<section className="bv-videos"'));
+    assert.match(grid, /allAmazonAccessoryOffers\(\)/);
+    assert.match(grid, /href=\{"\/shop\/accessories\?campaign=home-collector-essentials&source=homepage#" \+ encodeURIComponent\(offer\.id\)\}/);
+    assert.match(shop, /id=\{offer\.id\}/);
+    assert.match(grid, /Featured categories, not a sales ranking/);
+    assert.match(grid, /As an Amazon Associate I earn from qualifying purchases/);
+    assert.doesNotMatch(grid, /<img\b|<Image\b|m\.media-amazon\.com|https:\/\/www\.amazon\.com/);
+    assert.doesNotMatch(grid, /amazonOutboundPath|\/api\/out\/amazon|ebayOutboundPath/);
+    assert.doesNotMatch(grid, /\$\d/);
+    for (const offer of allAmazonAccessoryOffers()) {
+      assert.ok(offer.title && offer.useCase && offer.id);
+      assert.equal(new URL(buildAmazonSearchUrl(offer.id)).searchParams.get("tag"), AMAZON_ASSOCIATE_TAG);
+    }
+  });
+
 });
