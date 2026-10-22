@@ -25,7 +25,6 @@ export default function FeaturedAccessoryGrid() {
             className="bv-featured-card"
             key={offer.id}
             href={"/shop/accessories?campaign=home-collector-essentials&source=homepage#" + encodeURIComponent(offer.id)}
-            aria-label={"Browse " + offer.title + " on BlindBoxAI"}
           >
             <span className="bv-featured-number" aria-hidden="true">COLLECTOR PICK</span>
             <h3>{offer.title}</h3>
