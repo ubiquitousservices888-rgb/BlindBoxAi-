@@ -34,6 +34,7 @@ test("snapshot contains aggregate-only totals and real series", () => {
     counts: {
       rawClicks: 1396,
       qualifiedClicks: 27,
+      unclassifiedClicks: 1369,
       analyticsEvents: 69,
       questions: 404,
       publishedVideos: 10,
@@ -48,6 +49,7 @@ test("snapshot contains aggregate-only totals and real series", () => {
   });
   assert.equal(snapshot.refreshSeconds, 900);
   assert.equal(snapshot.totals.rawClicks, 1396);
+  assert.equal(snapshot.totals.unclassifiedClicks, 1369);
   assert.equal(snapshot.totals.reviewQueue, 3);
   assert.equal(snapshot.totals.publishedVideos, 10);
   assert.equal(snapshot.totals.confirmedConversions, 0);
