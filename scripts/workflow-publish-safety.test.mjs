@@ -13,6 +13,7 @@ const workflowFiles = fs.readdirSync(workflowsDir)
 const scheduledAllowlist = new Set([
   "bounded-operations.yml",
   "daily-research-check.yml",
+  "daily-video-review.yml",
   "evergreen-shopping-stage.yml",
   "know-it-all-public-research.yml",
   "know-it-all-transaction-verification.yml",
@@ -123,4 +124,15 @@ test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed,
   assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
   assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+});
+
+test('daily video schedule keeps publisher owner-gated', () => {
+  const stage = source('daily-video-review.yml');
+  const render = source('autonomous-video.yml');
+  assert.match(stage, /publish_after_approval=false/);
+  assert.match(stage, /DAILY_VIDEO_RENDER_ENABLED/);
+  assert.match(stage, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH/);
+  assert.doesNotMatch(stage, /node scripts\/publish-approved-review-queue\.mjs/);
+  assert.match(render, /github\.event_name == 'workflow_dispatch' && inputs\.publish_after_approval == true/);
+  assert.match(render, /VIDEO_PRODUCT_ID/);
 });

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { AMAZON_VIDEO_CTA, AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
+import { AMAZON_VIDEO_CTA, AUDIENCE_PRICE_DISCLOSURE, AUDIENCE_PRICE_MODE, DISCLOSURE, STATES, approve, assertPublishableState, createBufferPublisher, createRenderRecord, generateVideoScript, markRendered, publishApproved, reject, selectDailyProduct, selectRequestedVideoProduct, validateVerifiedProduct } from "../lib/video-pipeline.mjs";
 
 const now = new Date("2026-08-09T12:00:00.000Z");
 const product = { id: "verified-one", name: "Verified One", productUrl: "https://blindboxai.com/series/verified-one", sources: [{ id: "official", url: "https://brand.example/products/one", checkedAt: "2026-08-08T12:00:00.000Z", status: "verified" }], claims: [{ text: "The official listing names this series Verified One.", sourceId: "official" }] };
@@ -175,4 +175,11 @@ describe("safe publishing", () => {
       /expected exactly one active Buffer channel, found 0/,
     );
   });
+});
+
+it('exact daily-render product choice is validated before provider calls', () => {
+  assert.equal(selectRequestedVideoProduct([product], now, product.id).id, product.id);
+  assert.throws(() => selectRequestedVideoProduct([product], now, 'nonexistent'), /not found/);
+  assert.throws(() => selectRequestedVideoProduct([product], now, 'bad\nid'), /Invalid/);
+  assert.throws(() => selectRequestedVideoProduct([product, product], now, product.id), /exactly once/);
 });

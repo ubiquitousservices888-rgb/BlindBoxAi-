@@ -45,6 +45,10 @@ Current invariants:
 
 This is the canonical publisher for an owner-reviewed queue item. Merged PR #256 implements Blue as owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
 
+### Proposed daily verified video review pipeline (paid rendering off by default)
+
+The new `.github/workflows/daily-video-review.yml` schedules one daily verified product check and creates a script artifact. It checks prior render-attempt artifacts to avoid product reuse for 30 days. A separately owner-authorized opt-in variable and monthly render request cap can dispatch `autonomous-video.yml` with an exact product ID, always with `publish_after_approval=false`. No scheduled workflow may approve or publish a video. Each external post still requires individual Blue owner approval. See `docs/daily-video-review.md`. The current verified pool has only one product, so daily distinct video output cannot be sustained without research expansion. Scheduled runs, paid MP4s, external channel receipts, and commissions remain UNVERIFIED.
+
 ## Other video paths are separate, not replacements
 
 ### Manual reviewed upload
