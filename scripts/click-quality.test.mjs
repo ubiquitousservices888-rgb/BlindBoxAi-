@@ -35,3 +35,12 @@ test("classifier never returns raw headers or user-agent text", () => {
   assert.deepEqual(Object.keys(classified).sort(), ["clientClass", "qualityReason"]);
   assert.doesNotMatch(JSON.stringify(classified), /secretly-unique-UA/);
 });
+
+
+test("spoofed owner/CI headers do not prove human identity; preview clients remain automated", () => {
+  assert.deepEqual(classifyAffiliateRequest(request({ headers: {
+    "user-agent": "Mozilla/5.0 Chrome/140 Safari/537.36", "x-owner": "true", "x-ci": "false",
+  } })), { clientClass: "unclassified", qualityReason: "default_unclassified" });
+  assert.deepEqual(classifyAffiliateRequest(request({ headers: { "user-agent": "MyPreviewBot/1.0" } })),
+    { clientClass: "bot", qualityReason: "bot_signature" });
+});
