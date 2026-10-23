@@ -96,5 +96,5 @@ test("browser-supplied owner_test cannot suppress a stored signup", () => {
   assert.equal(safeWaitlistAttributionSource("owner_test"), "direct");
   assert.equal(safeWaitlistAttributionSource(null), "direct");
   assert.equal(safeWaitlistAttributionSource("youtube"), "youtube");
-  assert.equal((waitlistRoute.match(/safeWaitlistAttributionSource\\(cleanDimension\\(body\\?\\.source\\)\\)/g) || []).length, 2);
+  assert.equal(waitlistRoute.split("safeWaitlistAttributionSource(cleanDimension(body?.source))").length - 1, 2);
 });
