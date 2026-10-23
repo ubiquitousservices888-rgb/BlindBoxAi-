@@ -105,9 +105,9 @@ test("owner snapshot counts durable waitlist storage, not lossy analytics writes
     new URL("../supabase/migrations/20261023170500_count_owned_stored_waitlist_signups.sql", import.meta.url),
     "utf8",
   );
-  assert.match(migration, /from public\\.waitlist_signups s, bounds/);
-  assert.match(migration, /s\\.created_at >= bounds\\.start_at/);
-  assert.match(migration, /coalesce\\(s\\.source, ''\\) <> 'owner_test'/);
-  assert.match(migration, /'confirmedSignups', \\(select total from stored_signups\\)/);
+  assert.ok(migration.includes("from public.waitlist_signups s, bounds"));
+  assert.ok(migration.includes("s.created_at >= bounds.start_at"));
+  assert.ok(migration.includes("coalesce(s.source, '') <> 'owner_test'"));
+  assert.ok(migration.includes("'confirmedSignups', (select total from stored_signups)"));
   assert.doesNotMatch(migration, /select confirmed_signups from analytics/);
 });
