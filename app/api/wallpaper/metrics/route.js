@@ -91,8 +91,8 @@ export async function GET() {
       videoRows,
     ] = await Promise.all([
       countRows(url, key, "affiliate_clicks"),
-      countRows(url, key, "affiliate_clicks_clean", "&clean_class=eq.verified_human"),
-      countRows(url, key, "affiliate_clicks_clean", "&clean_class=eq.unclassified"),
+      Promise.resolve(0), // no verified-human evidence producer exists yet
+      countRows(url, key, "affiliate_clicks_clean", "&or=(clean_class.eq.unclassified,clean_class.is.null)"),
       countRows(url, key, "analytics_events", productionAnalytics),
       countRows(url, key, "mr_know_it_all_questions"),
       countRows(url, key, "review_video_queue", "&status=eq.published"),
@@ -101,7 +101,7 @@ export async function GET() {
       countRows(url, key, "waitlist_signups"),
       countRows(url, key, "provider_conversion_evidence", "&status=in.(provider_confirmed,reconciled)"),
       conversionRevenue(url, key),
-      readAllRows(url, key, "affiliate_clicks_clean", "clicked_at", `&clean_class=eq.verified_human&clicked_at=gte.${since}&order=clicked_at.asc`),
+      Promise.resolve([]), // do not synthesize verified-human click history
       readAllRows(url, key, "analytics_events", "captured_at", `${productionAnalytics}&captured_at=gte.${since}&order=captured_at.asc`),
       readAllRows(url, key, "mr_know_it_all_questions", "created_at", `&created_at=gte.${since}&order=created_at.asc`),
       readAllRows(url, key, "review_video_queue", "published_at", `&status=eq.published&published_at=gte.${since}&order=published_at.asc`),
