@@ -9,8 +9,8 @@ function request({ method = "GET", headers = {} } = {}) {
 
 test("click classifier uses only coarse classes", () => {
   assert.deepEqual(classifyAffiliateRequest(request({ headers: { "user-agent": "Mozilla/5.0 Chrome/140 Safari/537.36" } })), {
-    clientClass: "human_candidate",
-    qualityReason: "default_candidate",
+    clientClass: "unclassified",
+    qualityReason: "default_unclassified",
   });
   assert.deepEqual(classifyAffiliateRequest(request({ method: "HEAD", headers: { "user-agent": "Mozilla/5.0" } })), {
     clientClass: "head",
