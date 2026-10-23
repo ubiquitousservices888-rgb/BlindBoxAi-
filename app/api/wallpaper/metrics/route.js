@@ -76,6 +76,7 @@ export async function GET() {
     const [
       rawClicks,
       qualifiedClicks,
+      unclassifiedClicks,
       analyticsEvents,
       questions,
       publishedVideos,
@@ -90,7 +91,8 @@ export async function GET() {
       videoRows,
     ] = await Promise.all([
       countRows(url, key, "affiliate_clicks"),
-      countRows(url, key, "affiliate_clicks", "&client_class=eq.human_candidate"),
+      countRows(url, key, "affiliate_clicks_clean", "&clean_class=eq.verified_human"),
+      countRows(url, key, "affiliate_clicks_clean", "&clean_class=eq.unclassified"),
       countRows(url, key, "analytics_events", productionAnalytics),
       countRows(url, key, "mr_know_it_all_questions"),
       countRows(url, key, "review_video_queue", "&status=eq.published"),
@@ -99,7 +101,7 @@ export async function GET() {
       countRows(url, key, "waitlist_signups"),
       countRows(url, key, "provider_conversion_evidence", "&status=in.(provider_confirmed,reconciled)"),
       conversionRevenue(url, key),
-      readAllRows(url, key, "affiliate_clicks", "clicked_at", `&client_class=eq.human_candidate&clicked_at=gte.${since}&order=clicked_at.asc`),
+      readAllRows(url, key, "affiliate_clicks_clean", "clicked_at", `&clean_class=eq.verified_human&clicked_at=gte.${since}&order=clicked_at.asc`),
       readAllRows(url, key, "analytics_events", "captured_at", `${productionAnalytics}&captured_at=gte.${since}&order=captured_at.asc`),
       readAllRows(url, key, "mr_know_it_all_questions", "created_at", `&created_at=gte.${since}&order=created_at.asc`),
       readAllRows(url, key, "review_video_queue", "published_at", `&status=eq.published&published_at=gte.${since}&order=published_at.asc`),
@@ -110,6 +112,7 @@ export async function GET() {
       counts: {
         rawClicks,
         qualifiedClicks,
+        unclassifiedClicks,
         analyticsEvents,
         questions,
         publishedVideos,
