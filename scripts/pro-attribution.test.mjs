@@ -84,3 +84,8 @@ test("waitlist demand reporting excludes owner tests", () => {
   assert.match(migration, /coalesce\(source,''\) <> 'owner_test'/);
   assert.match(migration, /metadata->>'ownedStorage'/);
 });
+
+test("public analytics cannot manufacture provider-confirmed waitlist signups", () => {
+  assert.doesNotMatch(analyticsRoute, /body\?\.providerConfirmed|metadata\.providerConfirmed/);
+  assert.match(waitlistRoute, /ownedStorage:\s*true/);
+});
