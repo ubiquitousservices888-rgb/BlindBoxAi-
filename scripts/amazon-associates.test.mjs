@@ -137,7 +137,7 @@ describe("Amazon Associates accessory path", () => {
   it("classifies Amazon beacon traffic with the shared click-quality values", () => {
     assert.deepEqual(
       classifyAmazonBeaconRequest(beaconRequest({ headers: { "user-agent": "Mozilla/5.0 Chrome/140 Safari/537.36" } })),
-      { clientClass: "human_candidate", qualityReason: "default_candidate" },
+      { clientClass: "unclassified", qualityReason: "default_unclassified" },
     );
     assert.deepEqual(
       classifyAmazonBeaconRequest(beaconRequest({ headers: { "user-agent": "Googlebot/2.1" } })),
