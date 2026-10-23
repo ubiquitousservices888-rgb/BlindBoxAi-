@@ -46,7 +46,7 @@ test("oversized or stalled bodies fail closed and userinfo is rejected before fe
     fetchImpl: async () => { calls++; return response(youtube()); } }), pending);
   assert.equal(calls, 0);
   await assert.rejects(() => probePublicPostHttp({ channel: "youtube", externalLink: url,
-    fetchImpl: async () => response("x".repeat(2 * 1024 * 1024 + 1)) }), pending);
+    fetchImpl: async () => response(youtube() + "<!--" + "x".repeat(2 * 1024 * 1024) + "-->") }), pending);
   await assert.rejects(() => probePublicPostHttp({ channel: "youtube", externalLink: url, timeoutMs: 1000,
     fetchImpl: async () => response(new ReadableStream({ start() {} })) }), pending);
 });
