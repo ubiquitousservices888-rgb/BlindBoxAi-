@@ -98,3 +98,16 @@ test("browser-supplied owner_test cannot suppress a stored signup", () => {
   assert.equal(safeWaitlistAttributionSource("youtube"), "youtube");
   assert.equal(waitlistRoute.split("safeWaitlistAttributionSource(cleanDimension(body?.source))").length - 1, 2);
 });
+
+
+test("owner snapshot counts durable waitlist storage, not lossy analytics writes", () => {
+  const migration = fs.readFileSync(
+    new URL("../supabase/migrations/20261023170500_count_owned_stored_waitlist_signups.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /from public\\.waitlist_signups s, bounds/);
+  assert.match(migration, /s\\.created_at >= bounds\\.start_at/);
+  assert.match(migration, /coalesce\\(s\\.source, ''\\) <> 'owner_test'/);
+  assert.match(migration, /'confirmedSignups', \\(select total from stored_signups\\)/);
+  assert.doesNotMatch(migration, /select confirmed_signups from analytics/);
+});
