@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { safeWaitlistAttributionSource } from "../lib/waitlist-attribution.mjs";
 
 const analytics = fs.readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
 const page = fs.readFileSync(new URL("../app/pro/page.jsx", import.meta.url), "utf8");
@@ -88,4 +89,12 @@ test("waitlist demand reporting excludes owner tests", () => {
 test("public analytics cannot manufacture provider-confirmed waitlist signups", () => {
   assert.doesNotMatch(analyticsRoute, /body\?\.providerConfirmed|metadata\.providerConfirmed/);
   assert.match(waitlistRoute, /ownedStorage:\s*true/);
+});
+
+
+test("browser-supplied owner_test cannot suppress a stored signup", () => {
+  assert.equal(safeWaitlistAttributionSource("owner_test"), "direct");
+  assert.equal(safeWaitlistAttributionSource(null), "direct");
+  assert.equal(safeWaitlistAttributionSource("youtube"), "youtube");
+  assert.equal((waitlistRoute.match(/safeWaitlistAttributionSource\\(cleanDimension\\(body\\?\\.source\\)\\)/g) || []).length, 2);
 });
