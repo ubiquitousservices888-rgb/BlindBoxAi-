@@ -94,6 +94,9 @@ const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "you
 if (!configuredChannels.length) {
   throw new Error("VIDEO_CHANNELS must contain at least one service");
 }
+if (configuredChannels.some((channel) => !["youtube", "tiktok"].includes(channel))) {
+  throw new Error("Public video metadata proof only supports YouTube and TikTok; unsupported channel refused before queue claim");
+}
 const publishAllChannels = requestedChannel === "all";
 if (requestedChannel && !publishAllChannels && !configuredChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
