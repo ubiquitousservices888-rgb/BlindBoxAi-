@@ -2,7 +2,9 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-10-13
+**Last reconciled:** 2026-10-23
+
+**Reconciliation note:** the October 13 baseline below is historical for EPN report validation and public platform verification. Current code requires versioned, attributed report evidence and exact public player metadata before recording a new platform URL. Source changes do not establish production deployment, historical URL reconciliation, video byte identity, or affiliate conversions.
 **Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Deployment READY and production smoke were reported in the release checks, but raw Vercel deployment ID, live HTTP status, and full smoke-run output are not retained here; this document marks independent deployment/smoke evidence **UNVERIFIED** until attached. No live platform post or affiliate commission is verified by this fact.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
@@ -39,6 +41,7 @@ Current invariants:
 - owner-approved Buffer `shareNow` publication may use that exact channel while its scheduling queue is paused; locked or disconnected destinations still fail closed;
 - invalid public titles can be deterministically repaired while holding the exact publishing lease; unverified claims, inaccessible MP4, incompatible Shorts, wrong Buffer destinations, duplicate posts and affiliate errors must still block publishing;
 - Buffer credentials are referenced by name only and must never be printed.
+- `probePublicPostHttp` requires an unauthenticated HTTP 200 HTML response plus the exact YouTube/TikTok media ID and available player metadata; private, missing, consent, challenge, redirect, oversized and stalled responses fail closed before `record_channel`. Markup changes require reconciliation, never automatic republishing. This establishes public metadata availability, not byte identity or completed playback.
 
 This is the canonical publisher for an owner-reviewed queue item. Merged PR #256 implements Blue as owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
 

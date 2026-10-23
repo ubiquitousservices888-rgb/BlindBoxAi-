@@ -4,7 +4,7 @@ import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import test from "node:test";
 import { isPublicVideo, publicVideoStatusLabel, summarizePublicVideos } from "../lib/public-video-status.mjs";
 
-import { assertVerifiedPublicPost, REVIEW_YOUTUBE_CHANNEL_ID, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
+import { assertVerifiedPublicPost, probePublicPostHttp, REVIEW_YOUTUBE_CHANNEL_ID, resolveReviewBufferChannel, waitForVerifiedSentPost } from "../lib/buffer-review-publisher.mjs";
 import { assertYoutubeShortsMetadata } from "../lib/review-shorts-eligibility.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -146,6 +146,53 @@ test("public post verification rejects homepages, text drift, and missing requir
   }), /missing the affiliate disclosure/);
 });
 
+test("public HTTP verification requires the exact public platform URL to return HTML with 200", async () => {
+  const url = "https://www.youtube.com/watch?v=abc123";
+  let requests = 0;
+  const fetchImpl = async (requested, options) => {
+    requests++;
+    assert.equal(requested, url);
+    assert.equal(options.method, "GET");
+    assert.equal(options.redirect, "manual");
+    assert.equal(options.headers.Authorization, undefined);
+    return {
+      status: 200, url, redirected: false,
+      headers: { get: (name) => name === "content-type" ? "text/html; charset=utf-8" : null },
+      body: new Response(`<script>var ytInitialPlayerResponse = ${JSON.stringify({ playabilityStatus: { status: "OK" }, videoDetails: { videoId: "abc123", isPrivate: false }, streamingData: { formats: [{ mimeType: "video/mp4", url: "https://media.example/video.mp4" }] } })};</script>`).body,
+    };
+  };
+  const result = await probePublicPostHttp({
+    channel: "youtube", externalLink: url, fetchImpl,
+    now: () => new Date("2026-10-22T12:00:00.000Z"),
+  });
+  assert.deepEqual(result, { status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true, mediaId: "abc123", method: "youtube_player_response" });
+  assert.equal(requests, 1);
+});
+
+test("public HTTP verification fails closed on unsupported hosts, redirects, error pages and transport failure", async () => {
+  const valid = "https://www.youtube.com/shorts/abc123";
+  let requests = 0;
+  const fetchImpl = async () => { requests++; throw new Error("network unavailable"); };
+  await assert.rejects(
+    () => probePublicPostHttp({ channel: "youtube", externalLink: "https://attacker.example/shorts/abc123", fetchImpl }),
+    (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+  );
+  assert.equal(requests, 0, "untrusted URL must not be fetched");
+  const fake = (status, contentType = "text/html") => async () => ({
+    status, redirected: false, headers: { get: () => contentType },
+  });
+  for (const [status, mime] of [[302,"text/html"],[403,"text/html"],[404,"text/html"],[200,"application/json"]]) {
+    await assert.rejects(
+      () => probePublicPostHttp({ channel: "youtube", externalLink: valid, fetchImpl: fake(status,mime) }),
+      (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+    );
+  }
+  await assert.rejects(
+    () => probePublicPostHttp({ channel: "youtube", externalLink: valid, fetchImpl }),
+    (error) => error?.code === "PUBLIC_VERIFICATION_PENDING",
+  );
+});
+
 test("public verification retries transient Buffer lookup failures and returns verified evidence", async () => {
   const caption = `Research only. https://www.blindboxai.com/?campaign=test\n${DISCLOSURE}`;
   let calls = 0;
@@ -177,6 +224,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     postId: "post-1",
     expectedCaption: caption,
     fetchImpl,
+    httpProbeImpl: async () => ({ status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true, mediaId: "abc123" }),
     attempts: 2,
     delayMs: 0,
   });
@@ -186,6 +234,9 @@ test("public verification retries transient Buffer lookup failures and returns v
     publicUrl: "https://www.youtube.com/watch?v=abc123",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    publicHttpStatus: 200,
+    publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
   });
 });
 
@@ -561,7 +612,9 @@ test("live publisher fail-closes on missing tracked CTA or unverifiable public U
   assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
   const ctaGuard = source.indexOf("tracked CTA is missing campaign or source");
-  const urlGuard = source.indexOf("publisher returned no verified public URL");
+  const urlGuard = source.indexOf("platform public URL lacks an independent HTTP 200 receipt");
+  assert.match(source, /result\.publicHttpStatus !== 200/);
+  assert.match(source, /REVIEW_QUEUE_PUBLIC_HTTP_PROOF/);
   const publisherCall = source.indexOf("const result = await publisher({");
   const recordCall = source.indexOf('action: "record_channel"');
   assert.ok(ctaGuard >= 0 && ctaGuard < publisherCall);
@@ -658,4 +711,30 @@ test("public video feed fails closed on unknown statuses and differentiates part
   assert.match(homepage, /publicVideoStatusLabel\(video\.status\)/);
   assert.match(homepage, /Not all channels confirmed/);
   assert.doesNotMatch(homepage, /<h2>Published collectible research\.<\/h2>|\{publishedVideos\.length\} published/);
+});
+
+
+test("public metadata retries after sent receipt but never accepts a mismatched ID", async () => {
+  const caption = `Research only. https://www.blindboxai.com/?campaign=test\n${DISCLOSURE}`;
+  const publicUrl = "https://www.youtube.com/watch?v=abc123";
+  let lookups = 0, probes = 0;
+  const fetchImpl = async () => {
+    lookups++;
+    return { ok: true, status: 200, json: async () => ({ data: { posts: {
+      edges: [{ node: { id: "already-sent", text: caption, status: "sent", channelId: "channel-youtube", externalLink: publicUrl, sentAt: "2026-09-22T13:00:00Z" } }],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    } } }) };
+  };
+  const probe = async () => {
+    probes++;
+    if (probes === 1) throw Object.assign(new Error("video still processing"), { code: "PUBLIC_VERIFICATION_PENDING" });
+    return { status: 200, checkedAt: "2026-10-23T13:00:00Z", mediaId: "abc123", publicMediaAvailable: true };
+  };
+  const opts = { token: "test-token", organizationId: "org-1", channelId: "channel-youtube", channel: "youtube", postId: "already-sent", expectedCaption: caption, fetchImpl, attempts: 2, delayMs: 0 };
+  const receipt = await waitForVerifiedSentPost({ ...opts, httpProbeImpl: probe });
+  assert.equal(receipt.publicMediaAvailable, true);
+  assert.equal(lookups, 2);
+  assert.equal(probes, 2);
+  await assert.rejects(() => waitForVerifiedSentPost({ ...opts, httpProbeImpl: async () => ({ status: 200, checkedAt: "2026-10-23T13:00:00Z", mediaId: "wrong-id", publicMediaAvailable: true }) }),
+    (error) => error?.code === "PUBLIC_VERIFICATION_PENDING");
 });

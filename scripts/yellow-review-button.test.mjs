@@ -212,9 +212,15 @@ test("review publisher sends required YouTube metadata while omitting metadata f
   const publisher = createReviewBufferPublisher({
     token: "test-token", organizationId: "org-1", fetchImpl,
     mediaProbe: async () => ({ durationSeconds: 67, width: 720, height: 1280 }),
+    publicHttpProbe: async ({ channel, externalLink }) => {
+      assert.match(externalLink, channel === "youtube" ? /youtube\.com\/watch/ : /tiktok\.com\/@/);
+      return { status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true,
+        mediaId: channel === "youtube" ? "verified123" : "1234567890" };
+    },
   });
   const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
   await assert.rejects(() => publisher({ channel: "youtube", videoUrl, caption, title: "Missing decision" }), /explicit Made-for-Kids decision/);
+  await assert.rejects(() => publisher({ channel: "twitter", videoUrl, caption, title: "Unsupported" }), /refused before Buffer publish/);
   const youtubeResult = await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>", youtubeMadeForKids: true });
   const tiktokResult = await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
   await publisher({ channel: "youtube", videoUrl, caption, title: "Another Title", youtubeMadeForKids: false });
@@ -225,6 +231,9 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     publicUrl: "https://www.youtube.com/watch?v=verified123",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    publicHttpStatus: 200,
+    publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
     duplicate: false,
   });
   assert.deepEqual(tiktokResult, {
@@ -232,6 +241,9 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     publicUrl: "https://www.tiktok.com/@blindboxai/video/1234567890",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    publicHttpStatus: 200,
+    publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
     duplicate: false,
   });
   assert.deepEqual(createRequests[0].variables.input, {

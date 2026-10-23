@@ -18,6 +18,8 @@ GitHub's scheduled workflow can be delayed; its run history is the authority for
 
 ## Running from Termux
 
+`npm run video:test` also exercises false-200 private/deleted/consent responses, exact public media IDs, TikTok detail metadata, bounded response size/time and a disposable HTTP platform service. A public player metadata response is not proof of matching transcoded bytes or completed viewer playback. Unknown platform markup fails closed and requires reconciliation without republishing.
+
 The fast, local layers need only Node 24 and the locked dependencies:
 
 ```sh

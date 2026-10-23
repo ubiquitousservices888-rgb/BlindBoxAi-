@@ -94,6 +94,9 @@ const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "you
 if (!configuredChannels.length) {
   throw new Error("VIDEO_CHANNELS must contain at least one service");
 }
+if (configuredChannels.some((channel) => !["youtube", "tiktok"].includes(channel))) {
+  throw new Error("Public video metadata proof only supports YouTube and TikTok; unsupported channel refused before queue claim");
+}
 const publishAllChannels = requestedChannel === "all";
 if (requestedChannel && !publishAllChannels && !configuredChannels.includes(requestedChannel)) {
   throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
@@ -237,9 +240,11 @@ try {
       youtubeCategoryId: "17",
       youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
     });
-    if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl)) {
-      throw new Error(`${channel}: publisher returned no verified public URL`);
+    if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl) ||
+        result.publicHttpStatus !== 200 || result.publicMediaAvailable !== true || !Number.isFinite(Date.parse(result.publicHttpCheckedAt))) {
+      throw new Error(`${channel}: platform public URL lacks an independent HTTP 200 receipt`);
     }
+    console.log(`REVIEW_QUEUE_PUBLIC_HTTP_PROOF: ${channel}:200:${result.publicHttpCheckedAt}`);
     results.push({
       channel,
       id: result.id,
