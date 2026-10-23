@@ -214,7 +214,8 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     mediaProbe: async () => ({ durationSeconds: 67, width: 720, height: 1280 }),
     publicHttpProbe: async ({ channel, externalLink }) => {
       assert.match(externalLink, channel === "youtube" ? /youtube\.com\/watch/ : /tiktok\.com\/@/);
-      return { status: 200, checkedAt: "2026-10-22T12:00:00.000Z" };
+      return { status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true,
+        mediaId: channel === "youtube" ? new URL(externalLink).searchParams.get("v") : new URL(externalLink).pathname.split("/").at(-1) };
     },
   });
   const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
@@ -231,6 +232,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     sentAt: "2026-09-22T13:00:00Z",
     publicHttpStatus: 200,
     publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
     duplicate: false,
   });
   assert.deepEqual(tiktokResult, {
@@ -240,6 +242,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     sentAt: "2026-09-22T13:00:00Z",
     publicHttpStatus: 200,
     publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
     duplicate: false,
   });
   assert.deepEqual(createRequests[0].variables.input, {

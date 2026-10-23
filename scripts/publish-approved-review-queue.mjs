@@ -238,7 +238,7 @@ try {
       youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
     });
     if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl) ||
-        result.publicHttpStatus !== 200 || !Number.isFinite(Date.parse(result.publicHttpCheckedAt))) {
+        result.publicHttpStatus !== 200 || result.publicMediaAvailable !== true || !Number.isFinite(Date.parse(result.publicHttpCheckedAt))) {
       throw new Error(`${channel}: platform public URL lacks an independent HTTP 200 receipt`);
     }
     console.log(`REVIEW_QUEUE_PUBLIC_HTTP_PROOF: ${channel}:200:${result.publicHttpCheckedAt}`);

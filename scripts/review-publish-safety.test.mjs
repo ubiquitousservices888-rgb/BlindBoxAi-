@@ -158,13 +158,14 @@ test("public HTTP verification requires the exact public platform URL to return 
     return {
       status: 200, url, redirected: false,
       headers: { get: (name) => name === "content-type" ? "text/html; charset=utf-8" : null },
+      body: new Response(`<script>var ytInitialPlayerResponse = ${JSON.stringify({ playabilityStatus: { status: "OK" }, videoDetails: { videoId: "abc123", isPrivate: false }, streamingData: { formats: [{ mimeType: "video/mp4", url: "https://media.example/video.mp4" }] } })};</script>`).body,
     };
   };
   const result = await probePublicPostHttp({
     channel: "youtube", externalLink: url, fetchImpl,
     now: () => new Date("2026-10-22T12:00:00.000Z"),
   });
-  assert.deepEqual(result, { status: 200, checkedAt: "2026-10-22T12:00:00.000Z" });
+  assert.deepEqual(result, { status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true, mediaId: "abc123", method: "youtube_player_response" });
   assert.equal(requests, 1);
 });
 
@@ -223,7 +224,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     postId: "post-1",
     expectedCaption: caption,
     fetchImpl,
-    httpProbeImpl: async () => ({ status: 200, checkedAt: "2026-10-22T12:00:00.000Z" }),
+    httpProbeImpl: async () => ({ status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true, mediaId: "abc123" }),
     attempts: 2,
     delayMs: 0,
   });
@@ -235,6 +236,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     sentAt: "2026-09-22T13:00:00Z",
     publicHttpStatus: 200,
     publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
   });
 });
 
