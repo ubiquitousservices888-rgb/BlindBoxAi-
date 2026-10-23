@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { safeWaitlistAttributionSource } from "../lib/waitlist-attribution.mjs";
 
 const analytics = fs.readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
 const page = fs.readFileSync(new URL("../app/pro/page.jsx", import.meta.url), "utf8");
@@ -83,4 +84,30 @@ test("waitlist demand reporting excludes owner tests", () => {
   assert.match(migration, /event_name = 'waitlist_signup'/);
   assert.match(migration, /coalesce\(source,''\) <> 'owner_test'/);
   assert.match(migration, /metadata->>'ownedStorage'/);
+});
+
+test("public analytics cannot manufacture provider-confirmed waitlist signups", () => {
+  assert.doesNotMatch(analyticsRoute, /body\?\.providerConfirmed|metadata\.providerConfirmed/);
+  assert.match(waitlistRoute, /ownedStorage:\s*true/);
+});
+
+
+test("browser-supplied owner_test cannot suppress a stored signup", () => {
+  assert.equal(safeWaitlistAttributionSource("owner_test"), "direct");
+  assert.equal(safeWaitlistAttributionSource(null), "direct");
+  assert.equal(safeWaitlistAttributionSource("youtube"), "youtube");
+  assert.equal(waitlistRoute.split("safeWaitlistAttributionSource(cleanDimension(body?.source))").length - 1, 2);
+});
+
+
+test("owner snapshot counts durable waitlist storage, not lossy analytics writes", () => {
+  const migration = fs.readFileSync(
+    new URL("../supabase/migrations/20261023170500_count_owned_stored_waitlist_signups.sql", import.meta.url),
+    "utf8",
+  );
+  assert.ok(migration.includes("from public.waitlist_signups s, bounds"));
+  assert.ok(migration.includes("s.created_at >= bounds.start_at"));
+  assert.ok(migration.includes("coalesce(s.source, '') <> 'owner_test'"));
+  assert.ok(migration.includes("'confirmedSignups', (select total from stored_signups)"));
+  assert.doesNotMatch(migration, /select confirmed_signups from analytics/);
 });

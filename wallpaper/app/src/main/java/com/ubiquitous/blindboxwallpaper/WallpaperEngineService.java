@@ -238,7 +238,7 @@ public final class WallpaperEngineService extends WallpaperService {
             float y2 = y1 + cardH + h * 0.016f;
             float y3 = y2 + cardH + h * 0.016f;
 
-            drawMetricCard(c, margin, y1, cardW, cardH, "QUALIFIED CLICKS", snapshot.qualifiedClicksText, 0xff00e5ff, snapshot.clickSeries, t, 0f);
+            drawMetricCard(c, margin, y1, cardW, cardH, "UNCLASSIFIED", snapshot.unclassifiedClicksText, 0xff00e5ff, null, t, 0f);
             drawMetricCard(c, margin + cardW + gap, y1, cardW, cardH, "VIDEOS LIVE", snapshot.publishedVideosText, 0xffff49d8, snapshot.videoSeries, t, 1.2f);
             drawMetricCard(c, margin, y2, cardW, cardH, "QUESTIONS", snapshot.questionsText, 0xffb072ff, snapshot.questionSeries, t, 2.4f);
             drawMetricCard(c, margin + cardW + gap, y2, cardW, cardH, "ANALYTICS", snapshot.analyticsEventsText, 0xff4d8bff, snapshot.analyticsSeries, t, 3.6f);
@@ -546,6 +546,7 @@ public final class WallpaperEngineService extends WallpaperService {
         final long generatedAtMs;
         final long rawClicks;
         final long qualifiedClicks;
+        final long unclassifiedClicks;
         final long analyticsEvents;
         final long questions;
         final long publishedVideos;
@@ -559,6 +560,7 @@ public final class WallpaperEngineService extends WallpaperService {
         final int[] questionSeries;
         final int[] videoSeries;
         final String qualifiedClicksText;
+        final String unclassifiedClicksText;
         final String publishedVideosText;
         final String questionsText;
         final String analyticsEventsText;
@@ -568,7 +570,7 @@ public final class WallpaperEngineService extends WallpaperService {
         final String revenueLine;
         final String latestClickLabel;
 
-        Snapshot(boolean available, long generatedAtMs, long rawClicks, long qualifiedClicks, long analyticsEvents, long questions,
+        Snapshot(boolean available, long generatedAtMs, long rawClicks, long qualifiedClicks, long unclassifiedClicks, long analyticsEvents, long questions,
                  long publishedVideos, long reviewQueue, long priceObservations, long waitlistSignups,
                  long confirmedConversions, double confirmedRevenueUsd,
                  int[] clickSeries, int[] analyticsSeries, int[] questionSeries, int[] videoSeries) {
@@ -576,6 +578,7 @@ public final class WallpaperEngineService extends WallpaperService {
             this.generatedAtMs = generatedAtMs;
             this.rawClicks = rawClicks;
             this.qualifiedClicks = qualifiedClicks;
+            this.unclassifiedClicks = unclassifiedClicks;
             this.analyticsEvents = analyticsEvents;
             this.questions = questions;
             this.publishedVideos = publishedVideos;
@@ -589,6 +592,7 @@ public final class WallpaperEngineService extends WallpaperService {
             this.questionSeries = questionSeries;
             this.videoSeries = videoSeries;
             this.qualifiedClicksText = formatCount(qualifiedClicks);
+            this.unclassifiedClicksText = formatCount(unclassifiedClicks);
             this.publishedVideosText = formatCount(publishedVideos);
             this.questionsText = formatCount(questions);
             this.analyticsEventsText = formatCount(analyticsEvents);
@@ -605,7 +609,7 @@ public final class WallpaperEngineService extends WallpaperService {
         }
 
         static Snapshot empty() {
-            return new Snapshot(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0d,
+            return new Snapshot(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0d,
                     new int[24], new int[24], new int[24], new int[24]);
         }
 
@@ -623,6 +627,7 @@ public final class WallpaperEngineService extends WallpaperService {
                         generated,
                         totals.optLong("rawClicks", 0),
                         totals.optLong("qualifiedClicks", 0),
+                        totals.optLong("unclassifiedClicks", 0),
                         totals.optLong("analyticsEvents", 0),
                         totals.optLong("questions", 0),
                         totals.optLong("publishedVideos", 0),
@@ -644,7 +649,7 @@ public final class WallpaperEngineService extends WallpaperService {
         private static boolean hasRequiredPayload(JSONObject totals, JSONObject last24h) {
             if (totals == null || last24h == null) return false;
             String[] totalKeys = {
-                    "rawClicks", "qualifiedClicks", "analyticsEvents", "questions",
+                    "rawClicks", "qualifiedClicks", "unclassifiedClicks", "analyticsEvents", "questions",
                     "publishedVideos", "reviewQueue", "priceObservations", "waitlistSignups",
                     "confirmedConversions", "confirmedRevenueUsd"
             };

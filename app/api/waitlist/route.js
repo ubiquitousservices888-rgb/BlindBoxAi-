@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertBlindBoxSupabaseOrigin } from "../../../lib/blindbox-supabase-boundary.mjs";
 import { recordAnalyticsEvent } from "../../../lib/supabase-telemetry.mjs";
+import { safeWaitlistAttributionSource } from "../../../lib/waitlist-attribution.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ function eventFrom(body, event, metadata = undefined) {
     capturedAt: now,
     occurredAt: now,
     path: cleanDimension(body?.path, 140) || "/pro",
-    source: cleanDimension(body?.source) || "direct",
+    source: safeWaitlistAttributionSource(cleanDimension(body?.source)),
     campaign,
     contentId: campaign,
     metadata,
@@ -109,7 +110,7 @@ export async function POST(request) {
 
   const row = {
     email,
-    source: cleanDimension(body?.source) || "direct",
+    source: safeWaitlistAttributionSource(cleanDimension(body?.source)),
     campaign: cleanDimension(body?.campaign),
     utm_source: cleanDimension(body?.utmSource),
     utm_medium: cleanDimension(body?.utmMedium),

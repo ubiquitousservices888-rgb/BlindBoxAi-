@@ -6,9 +6,11 @@ const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const db = createClient(supabaseUrl, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
-const CLIENT_CLASSES = new Set(["human_candidate", "bot", "prefetch", "head"]);
+const CLIENT_CLASSES = new Set(["human_candidate", "unclassified", "bot", "prefetch", "head"]);
 const QUALITY_REASONS = new Set([
   "default_candidate",
+  "default_unclassified",
+  "classifier_error",
   "method_head",
   "prefetch_header",
   "missing_user_agent",
