@@ -122,7 +122,8 @@ export default function RevenueSummaryClient() {
       const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${code}` }, body: form, cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `Unable to import ${label} report.`);
-      setMessage(`${label} report connected: ${numberOrStatus(data.orders)} orders, ${money(data.earnings)} confirmed earnings.`);
+      const description = label === "eBay EPN" ? "confirmed BlindBoxAI transactions" : "reported orders";
+      setMessage(`${label} report imported: ${numberOrStatus(data.orders)} ${description}, ${money(data.earnings)} ${label === "eBay EPN" ? "eligible commissions" : "reported commissions"}.${data.warning ? ` ${data.warning}` : ""}`);
       await load(code);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `Unable to import ${label} report.`);
@@ -175,6 +176,9 @@ export default function RevenueSummaryClient() {
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h3 style={{ marginTop: 0 }}>Network status & payout timing</h3>
       <p><strong>eBay:</strong> {epn.status || "Not connected"}</p>
+      {epn.warning ? <p role="status"><strong>Report warning:</strong> {epn.warning}</p> : null}
+      {epn.matchedClicks != null ? <p>BlindBoxAI-tagged EPN clicks (not revenue): {numberOrStatus(epn.matchedClicks)}</p> : null}
+      {epn.buckets ? <p>Network-reported commissions by classification (diagnostic only): {Object.entries(epn.buckets).map(([name, value]) => `${name}: ${money(value.networkReportedCommissions)}`).join(" | ")}</p> : null}
       <p style={{ opacity: 0.8 }}>{epn.payoutTiming}</p>
       <p><strong>Amazon:</strong> {amazon.status || "Not connected"}</p>
       <p style={{ opacity: 0.8 }}>{amazon.payoutTiming}</p>
