@@ -123,7 +123,7 @@ export default function RevenueSummaryClient() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `Unable to import ${label} report.`);
       const description = label === "eBay EPN" ? "confirmed BlindBoxAI transactions" : "reported orders";
-      setMessage(`${label} report imported: ${numberOrStatus(data.orders)} ${description}, ${money(data.earnings)} eligible commissions.${data.warning ? ` ${data.warning}` : ""}`);
+      setMessage(`${label} report imported: ${numberOrStatus(data.orders)} ${description}, ${money(data.earnings)} ${label === "eBay EPN" ? "eligible commissions" : "reported commissions"}.${data.warning ? ` ${data.warning}` : ""}`);
       await load(code);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `Unable to import ${label} report.`);

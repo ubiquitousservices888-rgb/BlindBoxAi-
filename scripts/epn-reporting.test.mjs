@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseEpnReportCsv } from "../lib/epn-reporting.mjs";
 import { reportingStatus } from "../lib/owner-dashboard.js";
+import { epnCustomId } from "../lib/data.js";
+import { buildCustomId } from "../lib/attribution.mjs";
 
 test("Performance by Day report produces orders earnings and EPC", () => {
   const csv = [
@@ -56,7 +58,7 @@ test("blank Custom ID earnings preserve zero-revenue clicks and dated activity",
   assert.equal(report.orders, 1);
   assert.equal(report.earnings, 1);
   assert.equal(report.acceptedRows, 1);
-  assert.deepEqual(report.daily, [{ date: "2026-10-10", clicks: 4, orders: 0, earnings: 1, epc: 0.25 }]);
+  assert.deepEqual(report.daily, [{ date: "2026-10-10", clicks: 6, orders: 1, earnings: 1, epc: 0.1667 }]);
 });
 
 test("malformed nonblank component values are not silently imported as zero earnings", () => {
@@ -155,6 +157,7 @@ test("dashboard exposes only summarized imported EPN metrics", () => {
     networkClicks: 50,
     importedAt: "2026-09-04T12:00:00.000Z",
     source: "ebay_partner_network_csv",
+    verificationVersion: 1,
   });
   assert.deepEqual(revenue.epn, {
     status: "Connected from EPN report",
@@ -164,6 +167,7 @@ test("dashboard exposes only summarized imported EPN metrics", () => {
     networkClicks: 50,
     importedAt: "2026-09-04T12:00:00.000Z",
     source: "ebay_partner_network_csv",
+    verificationVersion: 1,
     payoutTiming: "eBay pays monthly, generally on or around the 10th business day, subject to the account minimum and payment setup.",
   });
 });
@@ -279,4 +283,50 @@ test("five matched clicks with no transaction remain visible without earnings", 
   assert.equal(report.evidence.length, 0);
   assert.equal(report.reportType, "summary_only");
   assert.match(report.warning, /Transaction Detail/);
+});
+
+test("real outbound generators round-trip into the importer, including long and legacy IDs", () => {
+  const ids = [
+    epnCustomId({ seriesSlug: "labubu-have-a-seat", figure: "Baba", kind: "active", placement: "series_table", campaignId: "bb-rv-0123456789abcdef", source: "youtube" }),
+    epnCustomId({ seriesSlug: "s".repeat(100), figure: "f".repeat(200), kind: "active", placement: "series_table", campaignId: "bb-rv-0123456789abcdef", source: "youtube" }),
+    buildCustomId({ vertical: "bb", source: "bb_yt_001", itemSlug: "labubu-baba" }),
+    buildCustomId({ vertical: "sc", source: "none", itemSlug: "a-card" }),
+  ];
+  const report = parseEpnReportCsv(["Status,Custom ID,Transaction ID,Earnings", ...ids.map((id, index) => `Approved,${id},tx-${index},$1`)].join("\n"));
+  assert.equal(report.earnings, 4);
+  assert.equal(report.orders, 4);
+  assert.deepEqual(report.matchedCustomIds, [...ids].sort());
+});
+
+test("legacy dashboard reports are unavailable until reimported through the attribution gate", () => {
+  const { epn } = reportingStatus({ orders: 10, earnings: 99, epc: 1, networkClicks: 99 });
+  assert.equal(epn.earnings, null);
+  assert.equal(epn.orders, null);
+  assert.equal(epn.epc, null);
+  assert.equal(epn.networkClicks, null);
+  assert.match(epn.warning, /Reimport/);
+});
+
+test("malformed sibling commission cells withhold the complete transaction", () => {
+  for (const amount of ["invalid", "€3", "EUR 3"]) {
+    const report = parseEpnReportCsv(`Status,Custom ID,Transaction ID,Earnings\nApproved,bb-rv-a,tx-a,$2\nApproved,bb-rv-a,tx-a,${amount}`);
+    assert.equal(report.earnings, 0);
+    assert.equal(report.reconciliationRequired, true);
+    assert.deepEqual(report.evidence, []);
+  }
+});
+
+test("missing order columns stay unavailable and status-less clicks remain diagnostic", () => {
+  const report = parseEpnReportCsv("Custom ID,Clicks,Earnings\nbb-rv-a,10,$5");
+  assert.equal(report.orders, null);
+  assert.equal(report.networkClicks, 0);
+  assert.equal(report.matchedClicks, 0);
+  assert.equal(report.buckets.pending.clicks, 10);
+});
+
+test("data freshness comes from dated provider activity rather than import time", () => {
+  const report = parseEpnReportCsv("Status,Custom ID,Transaction ID,Day,Clicks,Earnings\nApproved,bb-rv-a,tx-a,2026-09-20,2,$1",
+    { now: new Date("2026-10-23T13:00:00Z") });
+  assert.equal(report.dataThrough, "2026-09-20");
+  assert.equal(report.importedAt, "2026-10-23T13:00:00.000Z");
 });
