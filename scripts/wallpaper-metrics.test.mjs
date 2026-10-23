@@ -59,3 +59,12 @@ test("snapshot contains aggregate-only totals and real series", () => {
   assert.equal(snapshot.last24h.qualifiedClicks.at(-1).count, 1);
   assert.equal(Object.prototype.hasOwnProperty.call(snapshot, "recentClicks"), false);
 });
+
+
+test("Android wallpaper displays unclassified traffic rather than labeling it human", async () => {
+  const fs = await import("node:fs");
+  const java = fs.readFileSync(new URL("../wallpaper/app/src/main/java/com/ubiquitous/blindboxwallpaper/WallpaperEngineService.java", import.meta.url), "utf8");
+  assert.match(java, /"UNCLASSIFIED", snapshot\.unclassifiedClicksText/);
+  assert.match(java, /totals\.optLong\("unclassifiedClicks", 0\)/);
+  assert.match(java, /this\.unclassifiedClicks = unclassifiedClicks/);
+});
