@@ -42,6 +42,7 @@ export async function GET(request) {
         amazonAssociates: Number(byProvider.amazon_associates || 0),
         allAffiliate: Number(telemetry?.clicksLoaded || 0),
         qualifiedHuman: Number(telemetry?.funnel?.qualifiedAffiliateClicks || 0),
+        unclassified: Number(telemetry?.funnel?.unclassifiedClicks || 0),
       },
       recent: recent.map((item) => ({
         id: item.id || item.customId || null,
