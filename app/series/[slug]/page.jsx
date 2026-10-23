@@ -56,7 +56,7 @@ export async function generateMetadata({ params }) {
 export default async function SeriesPage({ params, searchParams }) {
   const { slug } = await params;
   const query = await searchParams;
-  const campaignId = normalizeCampaignId(query?.campaign);
+  const campaignId = normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign);
   const source = normalizeSource(query?.source || query?.utm_source);
   const attribution = { campaignId, source };
   const s = getSeries(slug);
