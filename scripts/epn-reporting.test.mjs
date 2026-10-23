@@ -128,7 +128,7 @@ test("unattributed report never claims BlindBoxAI revenue", () => {
   assert.equal(report.rowsParsed, 1);
   assert.equal(report.earnings, 0);
   assert.equal(report.orders, 0);
-  assert.equal(report.networkClicks, 5);
+  assert.equal(report.networkClicks, 0);
   assert.equal(report.buckets.pending.rows, 1);
   assert.equal(report.reportType, "summary_only");
   assert.match(report.warning, /Transaction Detail report/);
@@ -169,7 +169,7 @@ test("dashboard exposes only summarized imported EPN metrics", () => {
 });
 
 
-test("long metadata preambles and ISO currency labels are tolerated", () => {
+test("metadata and USD labels are tolerated while negative commissions require reconciliation", () => {
   const metadata = Array.from({ length: 15 }, (_, index) => `Report metadata ${index + 1}`);
   const csv = [
     ...metadata,
@@ -179,10 +179,45 @@ test("long metadata preambles and ISO currency labels are tolerated", () => {
   ].join("\n");
 
   const report = parseEpnReportCsv(csv);
-  assert.equal(report.orders, 2);
-  assert.equal(report.earnings, 3);
+  assert.equal(report.orders, 1);
+  assert.equal(report.earnings, 4.5);
+  assert.equal(report.reconciliationRequired, true);
   assert.equal(report.networkClicks, 15);
-  assert.equal(report.epc, 0.2);
+  assert.equal(report.epc, 0.3);
+});
+
+test("repeated exported lines cannot inflate commission or evidence", () => {
+  const report = parseEpnReportCsv([
+    "Status,Custom ID,Transaction ID,Earnings",
+    "Approved,bb-rv-a,tx-a,$2.00",
+    "Approved,bb-rv-a,tx-a,$2.00",
+  ].join("\n"));
+  assert.equal(report.earnings, 2);
+  assert.equal(report.orders, 1);
+  assert.equal(report.evidence[0].confirmedRevenueUSD, 2);
+});
+
+test("conflicting or reversed versions of a transaction never emit confirmed evidence", () => {
+  for (const conflicting of ["Approved,foreign,tx-a,$2.00", "Reversed,bb-rv-a,tx-a,-$2.00", "Approved,bb-rv-a,tx-a,-$1.00"]) {
+    const report = parseEpnReportCsv([
+      "Status,Custom ID,Transaction ID,Earnings",
+      "Approved,bb-rv-a,tx-a,$2.00", conflicting,
+    ].join("\n"));
+    assert.equal(report.earnings, 0);
+    assert.equal(report.orders, 0);
+    assert.deepEqual(report.evidence, []);
+    assert.equal(report.reconciliationRequired, true);
+  }
+});
+
+test("malformed attribution and non-USD reports cannot become confirmed dollars", () => {
+  const malformed = parseEpnReportCsv("Status,Custom ID,Transaction ID,Earnings\nApproved,bb-rv-<invalid>,tx-a,$5");
+  assert.equal(malformed.earnings, 0);
+  for (const csv of [
+    "Status,Custom ID,Transaction ID,Earnings (EUR)\nApproved,bb-rv-a,tx-a,5",
+    "Status,Custom ID,Transaction ID,Earnings,Currency\nApproved,bb-rv-a,tx-a,5,EUR",
+    "Status,Custom ID,Transaction ID,Earnings\nApproved,bb-rv-a,tx-a,€5",
+  ]) assert.throws(() => parseEpnReportCsv(csv), /USD/);
 });
 
 
