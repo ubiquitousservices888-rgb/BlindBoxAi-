@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { normalizeCampaignId, normalizeSource } from '../../../../lib/campaign-attribution.mjs';
+import { normalizeCampaignId, resolveLandingSource } from '../../../../lib/campaign-attribution.mjs';
 import {
   allRevenueOffers,
   getRevenueOffer,
@@ -32,7 +32,7 @@ export default async function BuyOrPassOfferPage({ params, searchParams }) {
 
   const attribution = {
     campaignId: normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign),
-    source: normalizeSource(query?.source || query?.utm_source || 'buy_or_pass'),
+    source: resolveLandingSource(query?.source, query?.utm_source, 'buy_or_pass'),
   };
 
   return (
