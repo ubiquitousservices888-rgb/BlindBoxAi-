@@ -10,9 +10,11 @@ import {
   normalizeSource,
   preserveInternalCampaignLink,
   resolveRequestAttribution,
+  resolveLandingSource,
 } from "../lib/campaign-attribution.mjs";
 
 import { epnCustomId, ebayOutboundPath } from "../lib/data.js";
+import { allRevenueOffers, revenueOutboundPath } from "../lib/revenue-offers.js";
 
 const attributionBridge = readFileSync(new URL("../app/_components/CampaignAttributionBridge.jsx", import.meta.url), "utf8");
 const coreAnalytics = readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
@@ -37,15 +39,18 @@ test("invalid direct campaign falls back to valid UTM, repeated keys reject arra
   assert.equal(repeatedUrl.searchParams.has("campaign"), false);
   const buyPage = readFileSync(new URL("../app/tools/buy-or-pass/[offerId]/page.jsx", import.meta.url), "utf8");
   assert.ok(buyPage.includes("normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign)"));
-  assert.ok(buyPage.includes("query?.source || query?.utm_source || 'buy_or_pass'"));
+  assert.ok(buyPage.includes("resolveLandingSource(query?.source, query?.utm_source, 'buy_or_pass')"));
+  assert.match(buyPage, /activePath=\{revenueOutboundPath\(offer\.id, 'active', attribution\)\}/);
+  assert.match(buyPage, /soldPath=\{revenueOutboundPath\(offer\.id, 'sold', attribution\)\}/);
 });
 
 test("series outbound links validate and forward UTM campaign alongside explicit source", () => {
   const seriesPage = readFileSync(new URL("../app/series/[slug]/page.jsx", import.meta.url), "utf8");
   assert.ok(seriesPage.includes("normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign)"));
-  assert.ok(seriesPage.includes("normalizeSource(query?.source || query?.utm_source)"));
+  assert.ok(seriesPage.includes("resolveLandingSource(query?.source, query?.utm_source)"));
   assert.ok(seriesPage.includes("const attribution = { campaignId, source }"));
   assert.ok(seriesPage.includes("ebayOutboundPath(s.slug, f.name, \"sold\", attribution)"));
+  assert.ok(seriesPage.includes("ebayOutboundPath(s.slug, f.name, \"active\", attribution)"));
   const campaign = normalizeCampaignId("bb-rv-3c9c9bb78c37ff6a");
   const tagged = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", "sold", { campaignId: campaign, source: normalizeSource("youtube") }), "https://blindboxai.com");
   assert.equal(tagged.searchParams.get("campaign"), campaign);
@@ -58,6 +63,48 @@ test("series outbound links validate and forward UTM campaign alongside explicit
     const untaggedCustomId = epnCustomId({ seriesSlug: "hirono-mist-walker", figure: "The Wingless Follower", kind: "sold", placement: "series_table", campaignId: normalizeCampaignId(input), source: "youtube" });
     assert.equal(untaggedCustomId.includes("cebbrv3c9c9bb78c37ff6axyoutube"), false);
     assert.equal(untaggedCustomId.includes("cebbrv3c9c9bb78c37ff6a"), false);
+  }
+});
+
+test("both buy-or-pass destinations preserve validated UTM attribution and reject duplicates", () => {
+  const offer = allRevenueOffers()[0];
+  assert.ok(offer?.id, "must have a reviewed offer for route tests");
+  const campaign = "bb-rv-3c9c9bb78c37ff6a";
+  const cases = [
+    { query: { campaign: "invalid id", utm_campaign: campaign, source: "page", utm_source: "tiktok" }, expectedCampaign: campaign, expectedSource: "tiktok" },
+    { query: { campaign: [campaign, "other"], utm_campaign: "", source: ["page", "site"], utm_source: "youtube" }, expectedCampaign: "", expectedSource: "youtube" },
+    { query: { source: "youtube", utm_source: "tiktok" }, expectedCampaign: "", expectedSource: "youtube" },
+    { query: { source: "%%%", utm_source: ["tiktok", "youtube"] }, expectedCampaign: "", expectedSource: "buy_or_pass" },
+  ];
+  for (const { query, expectedCampaign, expectedSource } of cases) {
+    const attribution = {
+      campaignId: normalizeCampaignId(query.campaign) || normalizeCampaignId(query.utm_campaign),
+      source: resolveLandingSource(query.source, query.utm_source, "buy_or_pass"),
+    };
+    assert.equal(attribution.campaignId, expectedCampaign);
+    assert.equal(attribution.source, expectedSource);
+    for (const kind of ["active", "sold"]) {
+      const path = new URL(revenueOutboundPath(offer.id, kind, attribution), "https://blindboxai.com");
+      assert.equal(path.pathname, "/api/out/offer");
+      assert.equal(path.searchParams.get("campaign") || "", expectedCampaign);
+      assert.equal(path.searchParams.get("source"), expectedSource);
+      assert.equal(path.searchParams.get("kind"), kind);
+    }
+  }
+});
+
+test("series active and sold URLs preserve the same validated attribution", () => {
+  const campaignId = "bb-rv-3c9c9bb78c37ff6a";
+  const source = resolveLandingSource("site", "tiktok");
+  assert.equal(source, "tiktok");
+  for (const kind of ["active", "sold"]) {
+    const path = new URL(ebayOutboundPath("hirono-mist-walker", "The Wingless Follower", kind, { campaignId, source }), "https://blindboxai.com");
+    assert.equal(path.searchParams.get("campaign"), campaignId);
+    assert.equal(path.searchParams.get("source"), "tiktok");
+    assert.match(epnCustomId({
+      seriesSlug: "hirono-mist-walker", figure: "The Wingless Follower", kind,
+      placement: "series_table", campaignId, source,
+    }), /cebbrv3c9c9bb78c37ff6axtiktok$/);
   }
 });
 
