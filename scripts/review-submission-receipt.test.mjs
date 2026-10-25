@@ -12,7 +12,7 @@ const make = new Function("db", "githubAuthorized", "clean", "leaseTokenFrom", "
 const lease = "2026-10-25T20:00:00.000Z";
 const input = { researchRunId: "rv-0123456789abcdef", channel: "youtube", externalId: "exact-post", leaseToken: lease };
 
-function setup({ authorized = true, ids = {}, status = "publishing", storedLease = lease, loseLease = false } = {}) {
+function setup({ authorized = true, ids = {}, status = "publishing", storedLease = lease, loseLease = false, receiptRace = false } = {}) {
   const row = { research_run_id: input.researchRunId, status, publishing_at: storedLease,
     buffer_post_ids: structuredClone(ids), public_urls: {}, published_channels: [] };
   const writes = [];
@@ -27,6 +27,7 @@ function setup({ authorized = true, ids = {}, status = "publishing", storedLease
       async maybeSingle() {
         calls++;
         if (patch && loseLease) row.publishing_at = "2026-10-25T20:01:00.000Z";
+        if (patch && receiptRace) row.buffer_post_ids = { tiktok: "concurrent-tiktok" };
         const matches = filters.every(([key, value]) => key === "buffer_post_ids"
           ? JSON.stringify(row[key]) === value : row[key] === value);
         if (!matches) return { data: null, error: null };
@@ -57,6 +58,7 @@ test("unauthorized, lost-lease, invalid-channel and conflicting IDs cannot overw
     [{ authorized: false }, input, 403],
     [{ storedLease: "2026-10-25T19:00:00.000Z" }, input, 409],
     [{ loseLease: true }, input, 409],
+    [{ receiptRace: true }, input, 409],
     [{ ids: { youtube: "prior-post" } }, input, 409],
     [{}, { ...input, channel: "twitter" }, 400],
     [{}, { ...input, leaseToken: "" }, 400],

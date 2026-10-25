@@ -185,6 +185,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
         text: body.variables.input.text,
         status: "sending",
         channelId,
+        assets: body.variables.input.assets.map(asset => ({ source: asset.video.url })),
       };
       createdPostsByChannel.set(channelId, post);
       return jsonResponse({ data: { createPost: { post } } });

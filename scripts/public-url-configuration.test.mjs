@@ -6,9 +6,10 @@ import { createReviewBufferPublisher, probePublicPostHttp, waitForVerifiedSentPo
 
 const caption = `Collector research https://blindboxai.com/?campaign=bb-rv-0123456789abcdef\n${DISCLOSURE}`;
 const publicUrl = "https://www.youtube.com/watch?v=AbCdEf12345";
-const post = { id: "exact-post", channelId: "exact-channel", text: caption, status: "sent", externalLink: publicUrl };
+const videoUrl = "https://media.example/video.mp4";
+const post = { id: "exact-post", channelId: "exact-channel", text: caption, status: "sent", externalLink: publicUrl, assets: [{ source: videoUrl }] };
 const proof = { status: 200, checkedAt: "2026-10-25T20:00:00Z", publicMediaAvailable: true, mediaId: "AbCdEf12345" };
-const options = { token: "disposable-token", organizationId: "disposable-org", channelId: "exact-channel", channel: "youtube", postId: "exact-post", expectedCaption: caption, attempts: 2, delayMs: 0 };
+const options = { token: "disposable-token", organizationId: "disposable-org", channelId: "exact-channel", channel: "youtube", postId: "exact-post", expectedCaption: caption, expectedVideoUrl: videoUrl, attempts: 2, delayMs: 0 };
 
 test("disposable Buffer HTTP service retries sent-before-URL without creating another post", async () => {
   const operations = [];
@@ -50,7 +51,7 @@ test("YouTube permalink variants use one credentialless canonical watch request"
       assert.equal(url, publicUrl);
       assert.equal(init.redirect, "manual");
       assert.equal(init.credentials, "omit");
-      assert.equal(init.headers.Authorization, undefined);
+      assert.equal(new Headers(init.headers).get("authorization"), null);
       return new Response(html, { headers: { "content-type": "text/html" } });
     } });
     assert.equal(result.mediaId, "AbCdEf12345");
@@ -94,4 +95,20 @@ test("processing has a bounded deadline and delayed empty URLs report reconcilia
     fetchImpl: async () => { reads++; return new Response(JSON.stringify({ data: { post: { ...post, externalLink: null } } })); },
   }), error => error.code === "PUBLIC_VERIFICATION_PENDING" && error.reason === "BUFFER_PUBLIC_URL_PENDING" && error.postId === post.id);
   assert.equal(reads, 1);
+});
+
+test("a matching caption and channel cannot validate a different or missing source asset", async () => {
+  for (const assets of [undefined, [], [{ source: "https://media.example/wrong.mp4" }], [{ source: videoUrl }, { source: "https://media.example/wrong.mp4" }]]) {
+    let probes = 0;
+    await assert.rejects(() => waitForVerifiedSentPost({ ...options,
+      fetchImpl: async () => new Response(JSON.stringify({ data: { post: { ...post, assets } } })),
+      httpProbeImpl: async () => { probes++; return proof; },
+    }), /exact approved video asset/);
+    assert.equal(probes, 0);
+  }
+});
+
+test("unsupported public proof channels use the same pending error contract", async () => {
+  await assert.rejects(() => probePublicPostHttp({ channel: "twitter", externalLink: "https://x.com/blindboxai/status/1234567890" }),
+    error => error.code === "PUBLIC_VERIFICATION_PENDING");
 });

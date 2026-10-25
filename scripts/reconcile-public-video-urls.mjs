@@ -19,12 +19,14 @@ function hasTrackedCta(text, runId, channel) {
 // Exact known post IDs only. No mutations, captions in output, fuzzy search,
 // uploads, DB writes, or attempts to manufacture missing historical evidence.
 export async function reconcilePublicVideoUrls({ inventory, token, organizationId, fetchImpl = fetch, probeImpl = probePublicPostHttp }) {
+  if (!String(token ?? "").trim() || !String(organizationId ?? "").trim()) throw new Error("Buffer configuration unavailable");
   if (!Array.isArray(inventory) || inventory.length > 100) throw new Error("Invalid public URL inventory");
   const seen = new Set();
   for (const row of inventory) {
     if (!/^rv-[a-f0-9]{16}$/.test(row.research_run_id)) throw new Error("Invalid inventory run ID");
     assertApprovedReviewVideoUrl(row.video_url);
     for (const [channel, id] of Object.entries(row.buffer_post_ids || {})) {
+      if (id == null) continue;
       if (!["youtube", "tiktok"].includes(channel) || !/^[A-Za-z0-9_-]{1,200}$/.test(String(id)) || seen.has(String(id))) {
         throw new Error("Invalid or duplicate inventory post identity");
       }

@@ -207,6 +207,7 @@ test("public verification retries transient Buffer lookup failures and returns v
           text: caption,
           status: "sent",
           channelId: "channel-youtube",
+          assets: [{ source: "https://media.example/approved.mp4" }],
           externalLink: "https://www.youtube.com/watch?v=abc123",
           sentAt: "2026-09-22T13:00:00Z",
         } } }),
@@ -220,6 +221,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     channel: "youtube",
     postId: "post-1",
     expectedCaption: caption,
+    expectedVideoUrl: "https://media.example/approved.mp4",
     fetchImpl,
     httpProbeImpl: async () => ({ status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true, mediaId: "abc123" }),
     attempts: 2,
@@ -254,6 +256,7 @@ test("public verification emits PUBLIC_VERIFICATION_PENDING after its bounded wi
       channelId: "channel-youtube",
       channel: "youtube",
       postId: "missing-post",
+      expectedVideoUrl: "https://media.example/approved.mp4",
       expectedCaption: `Research only. https://blindboxai.com\n${DISCLOSURE}`,
       fetchImpl,
       attempts: 2,
@@ -719,7 +722,7 @@ test("public metadata retries after sent receipt but never accepts a mismatched 
   const fetchImpl = async () => {
     lookups++;
     return { ok: true, status: 200, json: async () => ({ data: { post:
-      { id: "already-sent", text: caption, status: "sent", channelId: "channel-youtube", externalLink: publicUrl, sentAt: "2026-09-22T13:00:00Z" },
+      { id: "already-sent", text: caption, status: "sent", channelId: "channel-youtube", externalLink: publicUrl, sentAt: "2026-09-22T13:00:00Z", assets: [{ source: "https://media.example/approved.mp4" }] },
     } }) };
   };
   const probe = async () => {
@@ -727,7 +730,7 @@ test("public metadata retries after sent receipt but never accepts a mismatched 
     if (probes === 1) throw Object.assign(new Error("video still processing"), { code: "PUBLIC_VERIFICATION_PENDING" });
     return { status: 200, checkedAt: "2026-10-23T13:00:00Z", mediaId: "abc123", publicMediaAvailable: true };
   };
-  const opts = { token: "test-token", organizationId: "org-1", channelId: "channel-youtube", channel: "youtube", postId: "already-sent", expectedCaption: caption, fetchImpl, attempts: 2, delayMs: 0 };
+  const opts = { token: "test-token", organizationId: "org-1", channelId: "channel-youtube", channel: "youtube", postId: "already-sent", expectedCaption: caption, expectedVideoUrl: "https://media.example/approved.mp4", fetchImpl, attempts: 2, delayMs: 0 };
   const receipt = await waitForVerifiedSentPost({ ...opts, httpProbeImpl: probe });
   assert.equal(receipt.publicMediaAvailable, true);
   assert.equal(lookups, 2);

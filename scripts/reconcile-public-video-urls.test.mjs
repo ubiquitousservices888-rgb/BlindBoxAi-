@@ -19,7 +19,8 @@ function options(overrides = {}) {
       operations.push(body);
       const data = body.query.includes("query Organizations") ? { account: { organizations: [{ id: "disposable-org" }] } }
         : body.query.includes("query Channels") ? { channels: [{ id: "yt-channel", service: "youtube", serviceId: REVIEW_YOUTUBE_CHANNEL_ID }] }
-        : { post: { ...post, ...overrides } };
+        : body.query.includes("query VerifySentPost") ? { post: { ...post, ...overrides } }
+        : (() => { throw new Error("Unexpected GraphQL operation"); })();
       return new Response(JSON.stringify({ data }));
     },
     probeImpl: async () => ({ status: 200, publicMediaAvailable: true, mediaId: "AbCdEf12345", checkedAt: "2026-10-25T20:00:00Z" }),
@@ -32,7 +33,13 @@ test("historical receipt reconciliation reads only exact IDs and returns separat
   assert.equal(results[0].status, "VERIFIED");
   assert.equal(results[0].publicUrl, "https://www.youtube.com/watch?v=AbCdEf12345");
   assert.equal(results[1].reason, "MISSING_PROVIDER_POST_ID");
-  assert.deepEqual(s.operations.at(-1).variables, { postId: "known-post" });
+  const reads = s.operations.filter(op => !/query (?:Organizations|Channels)\b/.test(op.query));
+  assert.equal(reads.length, 1);
+  for (const operation of reads) {
+    assert.match(operation.query, /query VerifySentPost\(\$postId: PostId!\)/);
+    assert.match(operation.query, /post\(input: \{ id: \$postId \}\)/);
+    assert.deepEqual(operation.variables, { postId: "known-post" });
+  }
 });
 
 test("receipt, source-media, campaign and private-page failures never produce a verified URL", async () => {
@@ -58,4 +65,20 @@ test("duplicate provider IDs are rejected before any network request", async () 
   s.input.inventory = [row, { ...row, research_run_id: "rv-1111111111111111" }];
   await assert.rejects(() => reconcilePublicVideoUrls(s.input), /duplicate inventory/);
   assert.equal(s.operations.length, 0);
+});
+
+test("multiple missing provider IDs remain separate unverified rows", async () => {
+  const s = options();
+  s.input.inventory = [row, { ...row, research_run_id: "rv-1111111111111111", buffer_post_ids: { youtube: null, tiktok: null } },
+    { ...row, research_run_id: "rv-2222222222222222", buffer_post_ids: { youtube: null, tiktok: null } }];
+  const receipts = await reconcilePublicVideoUrls(s.input);
+  assert.equal(receipts.filter(r => r.reason === "MISSING_PROVIDER_POST_ID").length, 5);
+});
+
+test("missing Buffer configuration fails before account reads", async () => {
+  for (const change of [{ token: "" }, { organizationId: "" }]) {
+    const s = options();
+    await assert.rejects(() => reconcilePublicVideoUrls({ ...s.input, ...change }), /configuration unavailable/);
+    assert.equal(s.operations.length, 0);
+  }
 });
