@@ -239,6 +239,17 @@ try {
       title: publicTitle,
       youtubeCategoryId: "17",
       youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
+      acceptedPostId: item.buffer_post_ids?.[channel],
+      onAccepted: async ({ postId }) => {
+        console.log(`REVIEW_QUEUE_BUFFER_POST_ACCEPTED: ${channel}:${postId}`);
+        await postJson(REVIEW_QUEUE_URL, reviewToken, {
+          action: "record_submission",
+          researchRunId: item.research_run_id,
+          leaseToken,
+          channel,
+          externalId: postId,
+        });
+      },
     });
     if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl) ||
         result.publicHttpStatus !== 200 || result.publicMediaAvailable !== true || !Number.isFinite(Date.parse(result.publicHttpCheckedAt))) {

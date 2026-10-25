@@ -347,6 +347,43 @@ function leaseTokenFrom(body: any) {
   const token = clean(body?.leaseToken, 40);
   return token && !Number.isNaN(Date.parse(token)) ? token : "";
 }
+async function recordSubmission(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40);
+  const channel = clean(body?.channel, 32).toLowerCase();
+  const externalId = clean(body?.externalId, 200);
+  const leaseToken = leaseTokenFrom(body);
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId) || !["youtube", "tiktok"].includes(channel) ||
+      !/^[A-Za-z0-9_-]{1,200}$/.test(externalId) || !leaseToken) {
+    return json({ error: "Invalid submission receipt" }, 400);
+  }
+  const { data: current, error: readError } = await db.from("review_video_queue")
+    .select("buffer_post_ids")
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .maybeSingle();
+  if (readError) return json({ error: "Queue submission lookup failed" }, 500);
+  if (!current) return json({ error: "Queue submission lost its publishing lease" }, 409);
+  const prior = current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {};
+  if (prior[channel]) {
+    if (prior[channel] !== externalId) return json({ error: "Conflicting Buffer submission receipt" }, 409);
+    return json({ ok: true, idempotent: true });
+  }
+  // CAS the whole receipt map as well as the lease so concurrent checkpoints
+  // cannot lose another channel's ID. This never marks a channel published.
+  const { data, error } = await db.from("review_video_queue")
+    .update({ buffer_post_ids: { ...prior, [channel]: externalId }, updated_at: new Date().toISOString() })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .eq("buffer_post_ids", JSON.stringify(prior))
+    .select("research_run_id")
+    .maybeSingle();
+  if (error) return json({ error: "Queue submission checkpoint failed" }, 500);
+  if (!data) return json({ error: "Queue submission lost its publishing lease or receipt changed" }, 409);
+  return json({ ok: true, idempotent: false });
+}
 async function recordChannel(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   const researchRunId = clean(body?.researchRunId, 40);
@@ -370,6 +407,9 @@ async function recordChannel(req: Request, body: any) {
     .maybeSingle();
   if (readError) return json({ error: "Queue lookup failed" }, 500);
   if (!current) return json({ error: "Queue item is not currently publishing" }, 409);
+  if (current.buffer_post_ids?.[channel] && current.buffer_post_ids[channel] !== externalId) {
+    return json({ error: "Verified channel conflicts with its submission receipt" }, 409);
+  }
 
   const publishedChannels = [...new Set([...(Array.isArray(current.published_channels) ? current.published_channels : []), channel])];
   const bufferPostIds = { ...(current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {}), [channel]: externalId };
@@ -451,6 +491,7 @@ Deno.serve(async (req: Request) => {
   if (action === "peek") return peek(req, body);
   if (action === "claim") return claim(req, body);
   if (action === "repair_title") return repairTitle(req, body);
+  if (action === "record_submission") return recordSubmission(req, body);
   if (action === "record_channel") return recordChannel(req, body);
   if (action === "release") return release(req, body);
   if (action === "complete") return complete(req, body);

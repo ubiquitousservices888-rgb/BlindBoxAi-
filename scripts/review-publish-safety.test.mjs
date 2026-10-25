@@ -202,17 +202,14 @@ test("public verification retries transient Buffer lookup failures and returns v
     return {
       ok: true,
       status: 200,
-      json: async () => ({ data: { posts: {
-        edges: [{ node: {
+      json: async () => ({ data: { post: {
           id: "post-1",
           text: caption,
           status: "sent",
           channelId: "channel-youtube",
           externalLink: "https://www.youtube.com/watch?v=abc123",
           sentAt: "2026-09-22T13:00:00Z",
-        } }],
-        pageInfo: { hasNextPage: false, endCursor: null },
-      } } }),
+        } } }),
     };
   };
 
@@ -266,9 +263,10 @@ test("public verification emits PUBLIC_VERIFICATION_PENDING after its bounded wi
   );
 });
 
-test("verification searches the same 45-day window as duplicate detection", () => {
+test("verification reads the exact Buffer post without a date-window filter", () => {
   const source = fs.readFileSync(new URL("../lib/buffer-review-publisher.mjs", import.meta.url), "utf8");
-  assert.match(source, /45 \* 86400000/);
+  assert.match(source, /post\(input: \{ id: \$postId \}\)/);
+  assert.doesNotMatch(source, /45 \* 86400000/);
 });
 
 test("caps one reviewed execution to the two canonical video channels", () => {
@@ -720,10 +718,9 @@ test("public metadata retries after sent receipt but never accepts a mismatched 
   let lookups = 0, probes = 0;
   const fetchImpl = async () => {
     lookups++;
-    return { ok: true, status: 200, json: async () => ({ data: { posts: {
-      edges: [{ node: { id: "already-sent", text: caption, status: "sent", channelId: "channel-youtube", externalLink: publicUrl, sentAt: "2026-09-22T13:00:00Z" } }],
-      pageInfo: { hasNextPage: false, endCursor: null },
-    } } }) };
+    return { ok: true, status: 200, json: async () => ({ data: { post:
+      { id: "already-sent", text: caption, status: "sent", channelId: "channel-youtube", externalLink: publicUrl, sentAt: "2026-09-22T13:00:00Z" },
+    } }) };
   };
   const probe = async () => {
     probes++;
