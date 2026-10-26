@@ -8,8 +8,7 @@ on:
     paths:
       - .github/workflows/buffer-organization-diagnostic.yml
       - scripts/reconcile-public-video-urls.mjs
-      - lib/buffer-review-publisher.mjs
-      - lib/public-platform-proof.mjs
+      - lib/**
       - data/public-video-receipt-inventory.json
 
 permissions:

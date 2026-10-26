@@ -74,6 +74,7 @@ test("failed public checks distinguish status, redirect and missing metadata wit
   for (const [result, reason, status] of [
     [new Response("untrusted response", { status: 403 }), "PUBLIC_HTTP_STATUS", 403],
     [new Response("untrusted response", { status: 302 }), "PUBLIC_HTTP_STATUS", 302],
+    [Object.defineProperty(response("<html>untrusted redirect</html>"), "redirected", { value: true }), "PUBLIC_REDIRECT", 200],
     [response("<html>untrusted private page</html>"), "PUBLIC_PLAYER_METADATA_MISSING", 200],
   ]) {
     await assert.rejects(() => probePublicPostHttp({ channel: "youtube", externalLink: url, fetchImpl: async () => result }), error => {
@@ -83,4 +84,10 @@ test("failed public checks distinguish status, redirect and missing metadata wit
       return error.code === "PUBLIC_VERIFICATION_PENDING";
     });
   }
+});
+
+test("a stalled response retains its observed HTTP status in the timeout diagnostic", async () => {
+  await assert.rejects(() => probePublicPostHttp({ channel: "youtube", externalLink: url, timeoutMs: 1000,
+    fetchImpl: async () => response(new ReadableStream({ start() {} })),
+  }), error => error.code === "PUBLIC_VERIFICATION_PENDING" && error.reason === "PUBLIC_REQUEST_TIMEOUT" && error.httpStatus === 200);
 });

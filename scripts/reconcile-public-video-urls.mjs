@@ -72,7 +72,7 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
       const observed = { ...base, ...(candidatePublicUrl ? { candidatePublicUrl } : {}) };
       if (!Array.isArray(post.assets) || post.assets.length !== 1 || post.assets[0]?.source !== row.video_url) {
         receipts.push({ ...observed, reason: "APPROVED_MEDIA_IDENTITY_UNVERIFIED", sourceAssetCount: Array.isArray(post.assets) ? post.assets.length : 0,
-          sourceMatchTypes: Array.isArray(post.assets) ? post.assets.slice(0, 4).map(asset => sourceMatchType(asset.source, row.video_url)) : [] }); continue;
+          sourceMatchTypes: Array.isArray(post.assets) ? post.assets.slice(0, 4).map(asset => sourceMatchType(asset?.source, row.video_url)) : [] }); continue;
       }
       if (!String(post.text).includes(DISCLOSURE) || !hasTrackedCta(post.text, row.research_run_id, channel)) {
         receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue;

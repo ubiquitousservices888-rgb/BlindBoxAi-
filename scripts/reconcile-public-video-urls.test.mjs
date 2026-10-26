@@ -104,4 +104,8 @@ test("failed checks retain a labelled permalink candidate and fixed non-secret d
   assert.equal(mismatch.sourceAssetCount, 1);
   assert.equal(mismatch.status, "UNVERIFIED");
   assert.doesNotMatch(JSON.stringify(mismatch), /unapproved|never-print|token=/);
+  const malformed = options({ assets: [null] });
+  const [invalidAsset] = await reconcilePublicVideoUrls(malformed.input);
+  assert.equal(invalidAsset.status, "UNVERIFIED");
+  assert.deepEqual(invalidAsset.sourceMatchTypes, ["SOURCE_NOT_A_URL"]);
 });
