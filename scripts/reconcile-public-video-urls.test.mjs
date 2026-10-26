@@ -88,3 +88,20 @@ test("missing Buffer configuration fails before account reads", async () => {
     assert.equal(s.operations.length, 0);
   }
 });
+
+test("failed checks retain a labelled permalink candidate and fixed non-secret diagnostics", async () => {
+  const s = options();
+  s.input.probeImpl = async () => { throw Object.assign(new Error("untrusted raw response"), { reason: "PUBLIC_HTTP_STATUS", httpStatus: 403 }); };
+  const [receipt] = await reconcilePublicVideoUrls(s.input);
+  assert.equal(receipt.status, "UNVERIFIED");
+  assert.equal(receipt.candidatePublicUrl, "https://www.youtube.com/watch?v=AbCdEf12345");
+  assert.equal(receipt.publicCheckReason, "PUBLIC_HTTP_STATUS");
+  assert.equal(receipt.publicHttpStatus, 403);
+  assert.doesNotMatch(JSON.stringify(receipt), /untrusted raw/);
+  const media = options({ assets: [{ source: "https://unapproved.example/private-source.mp4?token=never-print" }] });
+  const [mismatch] = await reconcilePublicVideoUrls(media.input);
+  assert.deepEqual(mismatch.sourceMatchTypes, ["OTHER_HTTPS_SOURCE"]);
+  assert.equal(mismatch.sourceAssetCount, 1);
+  assert.equal(mismatch.status, "UNVERIFIED");
+  assert.doesNotMatch(JSON.stringify(mismatch), /unapproved|never-print|token=/);
+});
