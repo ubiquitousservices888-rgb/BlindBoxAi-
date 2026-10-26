@@ -51,6 +51,14 @@ test("unapproved, credentialed and nonstandard-port sources are rejected before 
     assert.equal((await verifier({ approvedUrl, sourceUrl: source })).reason, "SOURCE_URL_UNAPPROVED");
   }
   assert.equal((await verifier({ approvedUrl: backfillUrl, sourceUrl: backfillUrl })).reason, "SOURCE_URL_UNAPPROVED");
+  for (const source of [
+    "https://buffer-updates-media-backfill-bucket.s3.amazonaws.com/",
+    backfillUrl.replace("https://", "https://secret@"),
+    backfillUrl.replace(".amazonaws.com/", ".amazonaws.com:8443/"),
+    backfillUrl + "#fragment",
+  ]) {
+    assert.equal((await verifier({ approvedUrl, sourceUrl: source })).reason, "SOURCE_URL_UNAPPROVED");
+  }
 });
 
 test("source size limits, redirects, MIME, raw errors and stalled bodies fail closed", async () => {
