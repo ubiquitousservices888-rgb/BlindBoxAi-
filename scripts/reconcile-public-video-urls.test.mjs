@@ -103,9 +103,24 @@ test("failed checks retain a labelled permalink candidate and fixed non-secret d
   assert.deepEqual(mismatch.sourceMatchTypes, ["OTHER_HTTPS_SOURCE"]);
   assert.equal(mismatch.sourceAssetCount, 1);
   assert.equal(mismatch.status, "UNVERIFIED");
-  assert.doesNotMatch(JSON.stringify(mismatch), /unapproved|never-print|token=/);
+  assert.equal(mismatch.sourceProof.sourceHost, "unapproved.example");
+  assert.doesNotMatch(JSON.stringify(mismatch), /private-source|never-print|token=/);
   const malformed = options({ assets: [null] });
   const [invalidAsset] = await reconcilePublicVideoUrls(malformed.input);
   assert.equal(invalidAsset.status, "UNVERIFIED");
   assert.deepEqual(invalidAsset.sourceMatchTypes, ["SOURCE_NOT_A_URL"]);
+});
+
+test("a byte-proven approved-host mirror can reconcile, while a hash mismatch cannot reach public verification", async () => {
+  for (const matched of [true, false]) {
+    const s = options({ assets: [{ source: "https://disposable.public.blob.vercel-storage.com/media/review/mirror.mp4" }] });
+    let probes = 0;
+    s.input.sourceProbeImpl = async () => ({ matched, method: "SHA256", ...(matched ? {} : { reason: "SOURCE_BYTES_DIFFER" }) });
+    s.input.probeImpl = async () => { probes++; return { status: 200, publicMediaAvailable: true, mediaId: "AbCdEf12345", checkedAt: "2026-10-26T12:00:00Z" }; };
+    const [receipt] = await reconcilePublicVideoUrls(s.input);
+    assert.equal(receipt.status, matched ? "VERIFIED" : "UNVERIFIED");
+    assert.equal(receipt.providerIdentityVerified, true);
+    assert.equal(receipt.attributionVerified, true);
+    assert.equal(probes, matched ? 1 : 0);
+  }
 });

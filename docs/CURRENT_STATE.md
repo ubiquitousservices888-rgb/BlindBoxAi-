@@ -2,7 +2,7 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-10-25
+**Last reconciled:** 2026-10-26
 
 **Reconciliation note:** the October 13 baseline below is historical for EPN report validation and public platform verification. Current code requires versioned, attributed report evidence and exact public player metadata before recording a new platform URL. Source changes do not establish production deployment, historical URL reconciliation, video byte identity, or affiliate conversions.
 **Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Deployment READY and production smoke were reported in the release checks, but raw Vercel deployment ID, live HTTP status, and full smoke-run output are not retained here; this document marks independent deployment/smoke evidence **UNVERIFIED** until attached. No live platform post or affiliate commission is verified by this fact.
@@ -48,6 +48,8 @@ Current invariants:
 This is the canonical publisher for an owner-reviewed queue item. Merged PR #256 implements Blue as owner-authenticated approval plus exact-run dispatch for YouTube and TikTok. The existing `social-production` environment gate remains, with automatic approval scoped to the run initiated by that Blue action. Buffer identity, exact content, the owner's audience decision, affiliate attribution and public provider URLs must still be verified. **No public video publication or affiliate revenue is established by this code merge.** The longer-term immutable manifest and daily publication cap are not implemented.
 
 `docs/public-video-url-receipts.md` describes the read-only historical reconciliation diagnostic. Its exact-ID snapshot does not establish publication: the October 25 database audit found ten historical rows labelled published with empty `public_urls`, including three without provider post IDs. The diagnostic cannot publish, backfill a database, or guess a URL. Historical availability and attribution remain **UNVERIFIED** until actual provider and public metadata evidence passes. The September planning attachment is historical; it does not replace the current Blue per-video model or establish an implemented daily cap.
+
+The October 26 inventory recovered the six missing provider IDs from `published_collectible_videos` using exact research-run and approved-source equality. The diagnostic rechecks those receipts and can compare full bounded SHA-256 for an alternate review-storage URL. It uses the existing review-storage policy: the exact project Supabase host/prefix or any `*.public.blob.vercel-storage.com` host under `/media/review/`, with an MP4 path. Unequal bytes remain unverified; a provider candidate or similar transcode is insufficient. Production ID/URL backfills still require separately retained before/after evidence and guarded idempotent writes.
 
 ## Other video paths are separate, not replacements
 
