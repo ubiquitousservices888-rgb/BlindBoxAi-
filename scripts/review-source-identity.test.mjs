@@ -54,10 +54,12 @@ test("source size limits, redirects, MIME, raw errors and stalled bodies fail cl
     [{ status: 200, redirected: true, body: new Response("x").body }, "SOURCE_REDIRECT"],
   ]) {
     const verify = createReviewSourceVerifier({ fetchImpl: async () => response instanceof Response ? response.clone() : { ...response, body: new Response("x").body } });
-    assert.equal((await verify({ approvedUrl, sourceUrl })).reason, reason);
+    const proof = await verify({ approvedUrl, sourceUrl });
+    assert.equal(proof.reason, reason);
+    assert.equal(proof.sourceHost, "disposable.public.blob.vercel-storage.com");
   }
   const stalled = createReviewSourceVerifier({ timeoutMs: 15, fetchImpl: async () => new Response(new ReadableStream({ start() {} }), { headers: { "content-type": "video/mp4" } }) });
   assert.equal((await stalled({ approvedUrl, sourceUrl })).reason, "SOURCE_TIMEOUT");
-  const unsafeError = createReviewSourceVerifier({ fetchImpl: async () => { throw new Error("private token=never-log"); } });
+  const unsafeError = createReviewSourceVerifier({ fetchImpl: async () => { throw Object.assign(new Error("private token=never-log"), { sourceProofReason: "private token=never-log" }); } });
   assert.doesNotMatch(JSON.stringify(await unsafeError({ approvedUrl, sourceUrl })), /private|never-log|token=/);
 });
