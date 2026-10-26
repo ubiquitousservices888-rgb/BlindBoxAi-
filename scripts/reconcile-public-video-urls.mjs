@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import { assertApprovedReviewVideoUrl } from "../lib/review-publish-safety.mjs";
+import { createReviewSourceVerifier } from "../lib/review-source-identity.mjs";
 import { assertPublicPostProof, canonicalPublicPostUrl, probePublicPostHttp, publicProofDiagnostics, readReviewBufferPost, resolveReviewBufferChannel } from "../lib/buffer-review-publisher.mjs";
 
 function sourceMatchType(value, expected) {
@@ -28,7 +29,7 @@ function hasTrackedCta(text, runId, channel) {
 
 // Exact known post IDs only. No mutations, captions in output, fuzzy search,
 // uploads, DB writes, or attempts to manufacture missing historical evidence.
-export async function reconcilePublicVideoUrls({ inventory, token, organizationId, fetchImpl = fetch, probeImpl = probePublicPostHttp }) {
+export async function reconcilePublicVideoUrls({ inventory, token, organizationId, fetchImpl = fetch, probeImpl = probePublicPostHttp, sourceProbeImpl }) {
   if (!String(token ?? "").trim() || !String(organizationId ?? "").trim()) throw new Error("Buffer configuration unavailable");
   if (!Array.isArray(inventory) || inventory.length > 100) throw new Error("Invalid public URL inventory");
   const seen = new Set();
@@ -48,6 +49,7 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
     return fetchImpl(url, { ...init, redirect: "error", signal: AbortSignal.timeout(12000) });
   };
   const targets = new Map();
+  const verifySource = sourceProbeImpl || createReviewSourceVerifier({ fetchImpl });
   const receipts = [];
   for (const row of inventory) {
     for (const channel of ["youtube", "tiktok"]) {
@@ -69,19 +71,24 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
       if (post.status !== "sent") { receipts.push({ ...base, reason: "PROVIDER_NOT_SENT" }); continue; }
       let candidatePublicUrl;
       try { candidatePublicUrl = canonicalPublicPostUrl(channel, post.externalLink); } catch {}
-      const observed = { ...base, ...(candidatePublicUrl ? { candidatePublicUrl } : {}) };
-      if (!Array.isArray(post.assets) || post.assets.length !== 1 || post.assets[0]?.source !== row.video_url) {
-        receipts.push({ ...observed, reason: "APPROVED_MEDIA_IDENTITY_UNVERIFIED", sourceAssetCount: Array.isArray(post.assets) ? post.assets.length : 0,
-          sourceMatchTypes: Array.isArray(post.assets) ? post.assets.slice(0, 4).map(asset => sourceMatchType(asset?.source, row.video_url)) : [] }); continue;
-      }
+      const observed = { ...base, ...(candidatePublicUrl ? { candidatePublicUrl } : {}), providerIdentityVerified: true };
       if (!String(post.text).includes(DISCLOSURE) || !hasTrackedCta(post.text, row.research_run_id, channel)) {
         receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue;
       }
+      observed.attributionVerified = true;
+      const sourceProof = Array.isArray(post.assets) && post.assets.length === 1
+        ? await verifySource({ approvedUrl: row.video_url, sourceUrl: post.assets[0]?.source, expectedSizeBytes: row.size_bytes }) : null;
+      if (!sourceProof?.matched) {
+        receipts.push({ ...observed, reason: "APPROVED_MEDIA_IDENTITY_UNVERIFIED", sourceAssetCount: Array.isArray(post.assets) ? post.assets.length : 0,
+          sourceMatchTypes: Array.isArray(post.assets) ? post.assets.slice(0, 4).map(asset => sourceMatchType(asset?.source, row.video_url)) : [],
+          ...(sourceProof ? { sourceProof } : {}) }); continue;
+      }
+      observed.sourceProof = sourceProof;
       try {
         const publicUrl = canonicalPublicPostUrl(channel, post.externalLink);
         const proof = await probeImpl({ channel, externalLink: publicUrl });
         const mediaId = assertPublicPostProof({ channel, publicUrl, proof });
-        receipts.push({ ...base, status: "VERIFIED", publicUrl, mediaId, checkedAt: proof.checkedAt });
+        receipts.push({ ...observed, status: "VERIFIED", publicUrl, mediaId, checkedAt: proof.checkedAt });
       } catch (error) { receipts.push({ ...observed, reason: "PUBLIC_MEDIA_UNVERIFIED", ...publicProofDiagnostics(error) }); }
     }
   }

@@ -49,6 +49,8 @@ This is the canonical publisher for an owner-reviewed queue item. Merged PR #256
 
 `docs/public-video-url-receipts.md` describes the read-only historical reconciliation diagnostic. Its exact-ID snapshot does not establish publication: the October 25 database audit found ten historical rows labelled published with empty `public_urls`, including three without provider post IDs. The diagnostic cannot publish, backfill a database, or guess a URL. Historical availability and attribution remain **UNVERIFIED** until actual provider and public metadata evidence passes. The September planning attachment is historical; it does not replace the current Blue per-video model or establish an implemented daily cap.
 
+The October 26 inventory recovered the six missing provider IDs from `published_collectible_videos` using exact research-run and approved-source equality. The diagnostic rechecks those receipts and can compare full bounded SHA-256 for an alternate approved review-storage URL. It rejects unknown media hosts and unequal bytes, retains safe provenance diagnostics, and cannot promote a provider candidate or a transcode by similarity. Production ID/URL backfills still require separately retained before/after evidence and guarded idempotent writes.
+
 ## Other video paths are separate, not replacements
 
 ### Manual reviewed upload

@@ -1,6 +1,6 @@
 {
   "schema": "blindboxai.public-url-inventory/v1",
-  "source": "Read-only review_video_queue snapshot, 2026-10-25; exact stored IDs only.",
+  "source": "Read-only joined review_video_queue + published_collectible_videos snapshot, 2026-10-26; exact research_run_id and approved video_url equality; no title matching.",
   "rows": [
     {
       "research_run_id": "rv-04690175ee0d9a6c",
@@ -8,12 +8,19 @@
       "buffer_post_ids": {
         "tiktok": "6ab1dae474424003bca4f541",
         "youtube": "6ab1dbcbffe5c8afb1274015"
-      }
+      },
+      "size_bytes": 8582361,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     },
     {
       "research_run_id": "rv-1a2d4d9dfaa33aaa",
       "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1789482873422-3063.mp4",
-      "buffer_post_ids": {}
+      "buffer_post_ids": {
+        "tiktok": "6aa9d7aadfcd8cd99b7e4ce8",
+        "youtube": "6aa9d7a8c9dce8b45312e116"
+      },
+      "size_bytes": 10188057,
+      "provider_id_provenance": "published_collectible_videos exact research_run_id + video_url"
     },
     {
       "research_run_id": "rv-269d9d951653bf12",
@@ -21,7 +28,9 @@
       "buffer_post_ids": {
         "tiktok": "6ab1db35c8163cbd583ece6d",
         "youtube": "6ab1dc066ed20e9354f400ab"
-      }
+      },
+      "size_bytes": 6927000,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     },
     {
       "research_run_id": "rv-4c38ccd1e71fe43a",
@@ -29,17 +38,29 @@
       "buffer_post_ids": {
         "tiktok": "6ab1da986ed20e9354f3e1bb",
         "youtube": "6ab1db874d199840baf8072b"
-      }
+      },
+      "size_bytes": 8582361,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     },
     {
       "research_run_id": "rv-59f8cf5ce7d30f4c",
       "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1789482783855-3062.mp4",
-      "buffer_post_ids": {}
+      "buffer_post_ids": {
+        "tiktok": "6aa9b99cc0e2827a4f4c0369",
+        "youtube": "6aa9b99ad94bc931c6b02da6"
+      },
+      "size_bytes": 7382613,
+      "provider_id_provenance": "published_collectible_videos exact research_run_id + video_url"
     },
     {
       "research_run_id": "rv-c362a07a2c9b39ef",
       "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1789482708321-3061.mp4",
-      "buffer_post_ids": {}
+      "buffer_post_ids": {
+        "tiktok": "6aa98ce86d0d65964b022e1e",
+        "youtube": "6aa98ce76d0d65964b022df4"
+      },
+      "size_bytes": 9722393,
+      "provider_id_provenance": "published_collectible_videos exact research_run_id + video_url"
     },
     {
       "research_run_id": "rv-c7f19e34a2b9c124",
@@ -47,7 +68,9 @@
       "buffer_post_ids": {
         "tiktok": "6ab1dac06ed20e9354f3e407",
         "youtube": "6ab1dba674424003bca509d0"
-      }
+      },
+      "size_bytes": 5901370,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     },
     {
       "research_run_id": "rv-e862ea53acc2bca0",
@@ -55,7 +78,9 @@
       "buffer_post_ids": {
         "tiktok": "6ab1db0dffe5c8afb12724d0",
         "youtube": "6ab1dbecc8163cbd583ee80b"
-      }
+      },
+      "size_bytes": 5901370,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     },
     {
       "research_run_id": "rv-ebe5f0b667c90107",
@@ -63,7 +88,9 @@
       "buffer_post_ids": {
         "tiktok": "6ab1da4725dc7f133e1db8e3",
         "youtube": "6ab1bba7c55232304bd55fee"
-      }
+      },
+      "size_bytes": 8452343,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     },
     {
       "research_run_id": "rv-ff1c1f421bbd6a3b",
@@ -71,7 +98,9 @@
       "buffer_post_ids": {
         "tiktok": "6ab1da6c4d199840baf7e564",
         "youtube": "6ab1db606ed20e9354f3f191"
-      }
+      },
+      "size_bytes": 9358265,
+      "provider_id_provenance": "review_video_queue + published_collectible_videos"
     }
   ]
 }

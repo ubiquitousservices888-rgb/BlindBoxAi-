@@ -24,7 +24,11 @@ The existing Buffer organization diagnostic now runs `scripts/reconcile-public-v
 
 The script only reads Buffer GraphQL queries and public platform HTML. It requires the currently approved exact destination, the known post ID, matching source MP4, disclosure, per-video campaign/source and public metadata before returning a verified receipt. It outputs fixed reason codes and approved receipt fields, never provider captions, token values or raw errors. Missing IDs and unmatched evidence remain unverified, with exit code 2. No title search, upload, provider mutation, affiliate outbound click, database write or automatic repost exists in this diagnostic.
 
-Failed public checks retain fixed reasons for HTTP status, redirect, body limits, missing/unplayable/private metadata or a media-ID mismatch. Source failures retain only a count and match classifications, never raw source URLs or signed query strings. These diagnostics do not relax any publication gate.
+Failed public checks retain fixed reasons for HTTP status, redirect, body limits, missing/unplayable/private metadata or a media-ID mismatch. Source failures retain only a count, match classifications and hostname, never source paths, signed query strings or raw errors. These diagnostics do not relax any publication gate.
+
+The October 26 inventory also joins `published_collectible_videos` by exact `research_run_id` and identical approved `video_url`. That ledger recovered six provider IDs omitted from three review-queue rows. Its provenance is retained in the inventory; this does not itself update production or establish public availability. Each ID is still checked against Buffer's exact destination and campaign/disclosure.
+
+Historical source reconciliation accepts either the exact approved URL or complete equal SHA-256 and byte length from two approved review-storage URLs. Mirror reads omit credentials, reject redirects and nonstandard ports, enforce MP4 MIME, a 32 MiB limit and a 20-second request/body deadline, and never fetch an unknown host. The report retains digests and lengths without source URLs. Unequal bytes, including an unproven transcode, remain unverified. The live publisher's exact-source contract is unchanged.
 
 An actual backfill requires separately retained before/after snapshots and an idempotent owner-authorized write for only the exact evidence-proven row/channel. Do not fill a missing URL by guessing or by sending the video again. A public metadata receipt cannot prove matching transcoded bytes, completed playback or affiliate commissions.
 
