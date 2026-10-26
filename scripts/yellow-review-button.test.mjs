@@ -185,26 +185,24 @@ test("review publisher sends required YouTube metadata while omitting metadata f
         text: body.variables.input.text,
         status: "sending",
         channelId,
+        assets: body.variables.input.assets.map(asset => ({ source: asset.video.url })),
       };
       createdPostsByChannel.set(channelId, post);
       return jsonResponse({ data: { createPost: { post } } });
     }
     if (query.includes("query VerifySentPost")) {
-      const channelId = body.variables.channelIds[0];
+      const channelId = [...createdPostsByChannel.keys()].find(id => createdPostsByChannel.get(id).id === body.variables.postId);
       const created = createdPostsByChannel.get(channelId);
       if (!created) throw new Error(`no created post for ${channelId}`);
       const isYoutube = channelId === "channel-youtube";
-      return jsonResponse({ data: { posts: {
-        edges: [{ node: {
+      return jsonResponse({ data: { post: {
           ...created,
           status: "sent",
           externalLink: isYoutube
             ? "https://www.youtube.com/watch?v=verified123"
             : "https://www.tiktok.com/@blindboxai/video/1234567890",
           sentAt: "2026-09-22T13:00:00Z",
-        } }],
-        pageInfo: { hasNextPage: false, endCursor: null },
-      } } });
+        } } });
     }
     throw new Error("unexpected Buffer query");
   };
@@ -252,7 +250,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     schedulingType: "automatic",
     mode: "shareNow",
     assets: [{ video: { url: videoUrl } }],
-    metadata: { youtube: { title: "YouTube Title", categoryId: "17", madeForKids: true } },
+    metadata: { youtube: { title: "YouTube Title", categoryId: "17", madeForKids: true, privacy: "public" } },
   });
   assert.deepEqual(createRequests[1].variables.input, {
     text: caption,
@@ -262,7 +260,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     assets: [{ video: { url: videoUrl } }],
   });
   assert.deepEqual(createRequests[2].variables.input.metadata.youtube, {
-    title: "Another Title", categoryId: "17", madeForKids: false,
+    title: "Another Title", categoryId: "17", madeForKids: false, privacy: "public",
   });
   assert.match(createRequests[0].query, /CreateReviewVideo\(\$input: CreatePostInput!\)/);
   assert.match(createRequests[0].query, /createPost\(input: \$input\)/);
