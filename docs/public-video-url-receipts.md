@@ -20,9 +20,11 @@ Deploy the updated `review-video-queue` function before exercising a live publis
 
 ## Historical URL reconciliation
 
-The existing Buffer organization diagnostic now runs `scripts/reconcile-public-video-urls.mjs` against `data/public-video-receipt-inventory.json`. It runs manually or once when its own workflow changes on reviewed main; there is no new schedule. The checked-in inventory is a dated allowlist of exact stored provider IDs and approved source MP4 URLs. The diagnostic derives a canonical platform URL only after verifying its Buffer receipt. The inventory is not a credential or publication instruction.
+The existing Buffer organization diagnostic now runs `scripts/reconcile-public-video-urls.mjs` against `data/public-video-receipt-inventory.json`. It runs manually or when the diagnostic, runtime libraries, inventory or its workflow changes on reviewed main; there is no new schedule. The checked-in inventory is a dated allowlist of exact stored provider IDs and approved source MP4 URLs. The diagnostic derives a canonical platform URL from the exact Buffer receipt. A `candidatePublicUrl` on an UNVERIFIED record is only a provider-reported location; it is not a verified media receipt. The inventory is not a credential or publication instruction.
 
 The script only reads Buffer GraphQL queries and public platform HTML. It requires the currently approved exact destination, the known post ID, matching source MP4, disclosure, per-video campaign/source and public metadata before returning a verified receipt. It outputs fixed reason codes and approved receipt fields, never provider captions, token values or raw errors. Missing IDs and unmatched evidence remain unverified, with exit code 2. No title search, upload, provider mutation, affiliate outbound click, database write or automatic repost exists in this diagnostic.
+
+Failed public checks retain fixed reasons for HTTP status, redirect, body limits, missing/unplayable/private metadata or a media-ID mismatch. Source failures retain only a count and match classifications, never raw source URLs or signed query strings. These diagnostics do not relax any publication gate.
 
 An actual backfill requires separately retained before/after snapshots and an idempotent owner-authorized write for only the exact evidence-proven row/channel. Do not fill a missing URL by guessing or by sending the video again. A public metadata receipt cannot prove matching transcoded bytes, completed playback or affiliate commissions.
 

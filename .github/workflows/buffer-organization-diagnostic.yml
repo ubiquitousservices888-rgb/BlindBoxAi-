@@ -7,6 +7,9 @@ on:
       - main
     paths:
       - .github/workflows/buffer-organization-diagnostic.yml
+      - scripts/reconcile-public-video-urls.mjs
+      - lib/**
+      - data/public-video-receipt-inventory.json
 
 permissions:
   contents: read
