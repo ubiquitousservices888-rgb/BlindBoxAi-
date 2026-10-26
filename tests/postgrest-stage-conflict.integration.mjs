@@ -114,3 +114,15 @@ test("PostgREST CAS refuses both a changed receipt map and a replaced publishing
     assert.deepEqual(stored.public_urls, {});
   }
 });
+
+test("disposable schema rejects the same invalid public receipt fields as production", async t => {
+  const id = fixtureId();
+  cleanupAfter(t, id);
+  await request("POST", "/review_video_queue", [{ research_run_id: id, status: "publishing", title: "Disposable constraints", video_url: "https://example.test/review.mp4" }], "return=minimal");
+  for (const patch of [{ public_urls: [] }, { published_channels: Array.from({ length: 17 }, (_, i) => `channel-${i}`) }]) {
+    await assert.rejects(() => request("PATCH", `/review_video_queue?research_run_id=eq.${id}`, patch, "return=representation"), /PostgREST status 400/);
+  }
+  const [stored] = await request("GET", `/review_video_queue?research_run_id=eq.${id}`);
+  assert.deepEqual(stored.public_urls, {});
+  assert.deepEqual(stored.published_channels, []);
+});

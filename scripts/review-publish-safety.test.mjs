@@ -196,8 +196,11 @@ test("public HTTP verification fails closed on unsupported hosts, redirects, err
 test("public verification retries transient Buffer lookup failures and returns verified evidence", async () => {
   const caption = `Research only. https://www.blindboxai.com/?campaign=test\n${DISCLOSURE}`;
   let calls = 0;
-  const fetchImpl = async () => {
+  const fetchImpl = async (_url, init) => {
     calls += 1;
+    const request = JSON.parse(init.body);
+    assert.match(request.query, /post\(input: \{ id: \$postId \}\)/);
+    assert.deepEqual(request.variables, { postId: "post-1" });
     if (calls === 1) throw new Error("temporary Buffer outage");
     return {
       ok: true,

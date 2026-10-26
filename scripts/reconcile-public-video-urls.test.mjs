@@ -72,7 +72,13 @@ test("multiple missing provider IDs remain separate unverified rows", async () =
   s.input.inventory = [row, { ...row, research_run_id: "rv-1111111111111111", buffer_post_ids: { youtube: null, tiktok: null } },
     { ...row, research_run_id: "rv-2222222222222222", buffer_post_ids: { youtube: null, tiktok: null } }];
   const receipts = await reconcilePublicVideoUrls(s.input);
-  assert.equal(receipts.filter(r => r.reason === "MISSING_PROVIDER_POST_ID").length, 5);
+  assert.deepEqual(receipts.filter(r => r.reason === "MISSING_PROVIDER_POST_ID").map(({ researchRunId, channel }) => [researchRunId, channel]), [
+    ["rv-0123456789abcdef", "tiktok"],
+    ["rv-1111111111111111", "youtube"],
+    ["rv-1111111111111111", "tiktok"],
+    ["rv-2222222222222222", "youtube"],
+    ["rv-2222222222222222", "tiktok"],
+  ]);
 });
 
 test("missing Buffer configuration fails before account reads", async () => {

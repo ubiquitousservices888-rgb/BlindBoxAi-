@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import { assertApprovedReviewVideoUrl } from "../lib/review-publish-safety.mjs";
-import { canonicalPublicPostUrl, probePublicPostHttp, readReviewBufferPost, resolveReviewBufferChannel } from "../lib/buffer-review-publisher.mjs";
-import { publicPostMediaId } from "../lib/public-platform-proof.mjs";
+import { assertPublicPostProof, canonicalPublicPostUrl, probePublicPostHttp, readReviewBufferPost, resolveReviewBufferChannel } from "../lib/buffer-review-publisher.mjs";
 
 function hasTrackedCta(text, runId, channel) {
   return [...String(text).matchAll(/https:\/\/[^\s<>"']+/g)].some(([value]) => {
@@ -57,7 +56,7 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
         receipts.push({ ...base, reason: "PROVIDER_IDENTITY_MISMATCH" }); continue;
       }
       if (post.status !== "sent") { receipts.push({ ...base, reason: "PROVIDER_NOT_SENT" }); continue; }
-      if (!post.assets?.some(asset => asset.source === row.video_url)) {
+      if (!Array.isArray(post.assets) || post.assets.length !== 1 || post.assets[0]?.source !== row.video_url) {
         receipts.push({ ...base, reason: "APPROVED_MEDIA_IDENTITY_UNVERIFIED" }); continue;
       }
       if (!String(post.text).includes(DISCLOSURE) || !hasTrackedCta(post.text, row.research_run_id, channel)) {
@@ -66,10 +65,7 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
       try {
         const publicUrl = canonicalPublicPostUrl(channel, post.externalLink);
         const proof = await probeImpl({ channel, externalLink: publicUrl });
-        const mediaId = publicPostMediaId(channel, publicUrl);
-        if (proof.status !== 200 || proof.publicMediaAvailable !== true || proof.mediaId !== mediaId || !Number.isFinite(Date.parse(proof.checkedAt))) {
-          throw new Error("Incomplete public proof");
-        }
+        const mediaId = assertPublicPostProof({ channel, publicUrl, proof });
         receipts.push({ ...base, status: "VERIFIED", publicUrl, mediaId, checkedAt: proof.checkedAt });
       } catch { receipts.push({ ...base, reason: "PUBLIC_MEDIA_UNVERIFIED" }); }
     }
