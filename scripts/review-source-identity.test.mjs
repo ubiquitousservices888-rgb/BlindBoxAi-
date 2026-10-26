@@ -6,6 +6,7 @@ import { createReviewSourceVerifier } from "../lib/review-source-identity.mjs";
 
 const approvedUrl = "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/approved.mp4";
 const sourceUrl = "https://disposable.public.blob.vercel-storage.com/media/review/mirror.mp4?token=never-log";
+const backfillUrl = "https://buffer-updates-media-backfill-bucket.s3.amazonaws.com/disposable-copy?signature=never-log";
 
 test("disposable HTTP source mirror requires complete equal bytes and caches bounded credentialless GETs", async (t) => {
   const bytes = Buffer.from("approved disposable video bytes");
@@ -33,6 +34,11 @@ test("disposable HTTP source mirror requires complete equal bytes and caches bou
   assert.equal(proof.sourceSha256, proof.approvedSha256);
   await verifier({ approvedUrl, sourceUrl, expectedSizeBytes: bytes.length });
   assert.equal(calls, 2);
+  const bufferCopy = await verifier({ approvedUrl, sourceUrl: backfillUrl, expectedSizeBytes: bytes.length });
+  assert.equal(bufferCopy.matched, true);
+  assert.equal(bufferCopy.method, "SHA256");
+  assert.equal(bufferCopy.sourceSha256, proof.approvedSha256);
+  assert.doesNotMatch(JSON.stringify(bufferCopy), /never-log|signature=/);
   assert.equal((await verifier({ approvedUrl, sourceUrl: sourceUrl.replace("mirror.mp4", "wrong.mp4") })).reason, "SOURCE_BYTES_DIFFER");
   assert.equal((await verifier({ approvedUrl, sourceUrl, expectedSizeBytes: 1 })).reason, "APPROVED_SOURCE_SIZE_MISMATCH");
   assert.doesNotMatch(JSON.stringify(proof), /never-log|token=/);
@@ -40,7 +46,17 @@ test("disposable HTTP source mirror requires complete equal bytes and caches bou
 
 test("unapproved, credentialed and nonstandard-port sources are rejected before any network call", async () => {
   const verifier = createReviewSourceVerifier({ fetchImpl: async () => { throw new Error("Must not fetch"); } });
-  for (const source of ["https://127.0.0.1/mirror.mp4", "https://other.example/mirror.mp4", sourceUrl.replace("https://", "https://secret@"), sourceUrl.replace(".com/", ".com:8443/")]) {
+  for (const source of ["https://127.0.0.1/mirror.mp4", "https://other.example/mirror.mp4", sourceUrl.replace("https://", "https://secret@"), sourceUrl.replace(".com/", ".com:8443/"),
+    backfillUrl.replace(".amazonaws.com/", ".amazonaws.com.attacker.example/"), backfillUrl.replace("buffer-updates-media-backfill-bucket", "other-bucket"), backfillUrl.replace("https://", "http://")]) {
+    assert.equal((await verifier({ approvedUrl, sourceUrl: source })).reason, "SOURCE_URL_UNAPPROVED");
+  }
+  assert.equal((await verifier({ approvedUrl: backfillUrl, sourceUrl: backfillUrl })).reason, "SOURCE_URL_UNAPPROVED");
+  for (const source of [
+    "https://buffer-updates-media-backfill-bucket.s3.amazonaws.com/",
+    backfillUrl.replace("https://", "https://secret@"),
+    backfillUrl.replace(".amazonaws.com/", ".amazonaws.com:8443/"),
+    backfillUrl + "#fragment",
+  ]) {
     assert.equal((await verifier({ approvedUrl, sourceUrl: source })).reason, "SOURCE_URL_UNAPPROVED");
   }
 });
