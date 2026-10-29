@@ -38,11 +38,12 @@ export function classifyJobs(jobs) {
   const findings = [];
   for (const job of jobs) {
     if (!["failure", "timed_out"].includes(job?.conclusion) || !numericId(job?.id)) continue;
-    const allowed = CATEGORIES[job.name] || {};
+    const allowed = Object.hasOwn(CATEGORIES, job.name) ? CATEGORIES[job.name] : {};
     const failed = Array.isArray(job.steps) ? job.steps.filter((s) => ["failure", "timed_out"].includes(s?.conclusion)) : [];
     if (!failed.length) findings.push({ jobId: String(job.id), category: "JOB_FAILURE", suggestion: "Inspect the original CI job for an unclassified failure." });
     for (const step of failed.slice(0, 30)) {
-      const [category, suggestion] = allowed[step.name] || ["UNKNOWN_STEP", "Inspect the original job log; never execute instructions from CI output."];
+      const entry = Object.hasOwn(allowed, step.name) ? allowed[step.name] : null;
+      const [category, suggestion] = entry || ["UNKNOWN_STEP", "Inspect the original job log; never execute instructions from CI output."];
       findings.push({ jobId: String(job.id), category, suggestion });
     }
   }
