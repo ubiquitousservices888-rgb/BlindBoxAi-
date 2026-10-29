@@ -36,7 +36,7 @@ test("EPN TDR fetch uses official static host, HTTP Basic header and update-date
       assert.equal(url.searchParams.get("STATUS"), "ALL");
       assert.equal(url.searchParams.get("START_DATE"), input.startDate);
       assert.equal(url.searchParams.get("END_DATE"), input.endDate);
-      assert.equal(url.searchParams.get("CAMPAIGN_SOLR"), "0");
+      assert.equal(url.searchParams.get("CAMPAIGN_EBAY"), "0");
       assert.equal(url.username, "");
       assert.equal(url.password, "");
       assert.doesNotMatch(uri, /fake-secret|exampleSID123:/);
@@ -103,7 +103,11 @@ test("large EPN API responses fail closed without exposing raw data", async () =
   await assert.rejects(fetchEpnTdrCsv({
     ...input,
     fetchImpl: async () => new Response("private", { headers: { "content-type": "text/csv", "content-length": "6000000" } }),
-  }), /exceeded the limit/);
+  }), (error) => {
+    assert.match(error.message, /exceeded the limit/);
+    assert.doesNotMatch(error.message, /private/);
+    return true;
+  });
   await assert.rejects(fetchEpnTdrCsv({
     ...input,
     fetchImpl: async () => new Response(csv, { headers: { "content-type": "text/csv", "content-length": "oops" } }),
