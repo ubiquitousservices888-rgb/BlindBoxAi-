@@ -73,7 +73,7 @@ test("read-only EPN API diagnostic computes qualifying totals without persisting
   assert.equal(summary.persisted, false);
   assert.equal(summary.verifiedProviderPayout, false);
   assert.equal(summary.pendingRows, 1);
-  assert.equal(summary.reconciliationRequired, false);
+  assert.equal(summary.reconciliationRequired, true); // pending identified transactions require lifecycle review
 });
 
 test("reversal to an approved transaction blocks it rather than double counting", async () => {
