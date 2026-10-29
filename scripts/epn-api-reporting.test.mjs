@@ -96,7 +96,7 @@ test("missing credentials, HTML, HTTP errors and redirect responses never import
   await assert.rejects(fetchEpnTdrCsv({ ...input, authToken: "" }), /credentials/);
   await assert.rejects(fetchEpnTdrCsv({ ...input, fetchImpl: async () => new Response("<html>login</html>", { headers: { "content-type": "text/html" } }) }), /CSV/);
   await assert.rejects(fetchEpnTdrCsv({ ...input, fetchImpl: async () => new Response("unauthorized sensitive info", { status: 401, headers: { "content-type": "text/csv" } }) }), /not a direct successful/);
-  await assert.rejects(fetchEpnTdrCsv({ ...input, fetchImpl: async () => Object.assign(new Response(csv, { headers: { "content-type": "text/csv" } }), { redirected: true }) }), /not a direct successful/);
+  await assert.rejects(fetchEpnTdrCsv({ ...input, fetchImpl: async () => ({ status: 200, redirected: true, headers: new Headers({ "content-type": "text/csv" }) }) }), /not a direct successful/);
 });
 
 test("large EPN API responses fail closed without exposing raw data", async () => {
@@ -108,4 +108,16 @@ test("large EPN API responses fail closed without exposing raw data", async () =
     ...input,
     fetchImpl: async () => new Response(csv, { headers: { "content-type": "text/csv", "content-length": "oops" } }),
   }), /exceeded the limit/);
+});
+
+
+test("owner TDR endpoint is owner-authenticated, server-only and non-mutating", async () => {
+  const { readFileSync } = await import("node:fs");
+  const route = readFileSync(new URL("../app/api/owner/epn-tdr/route.js", import.meta.url), "utf8");
+  assert.match(route, /assertOwnerCode\(ownerCode\)/);
+  assert.match(route, /EPN_REPORTING_CURRENCY/);
+  assert.match(route, /Cache-Control/);
+  assert.match(route, /private, no-store/);
+  assert.match(route, /export async function GET/);
+  assert.doesNotMatch(route, /export async function POST|recordProviderEvidence|\bput\(/);
 });
