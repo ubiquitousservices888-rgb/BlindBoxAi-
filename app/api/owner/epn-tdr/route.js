@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { assertOwnerCode } from "../../../../../lib/evidence";
-import { inspectEpnTdr } from "../../../../../lib/epn-tdr-api.mjs";
+import { assertOwnerCode } from "../../../../lib/evidence";
+import { inspectEpnTdr } from "../../../../lib/epn-tdr-api.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
