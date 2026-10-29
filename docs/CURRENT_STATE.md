@@ -190,3 +190,7 @@ npm run docs:state-check
 The negative tests prove the guard rejects channel drift, extra workflow triggers, duplicated canonical vocabulary, and missing required documentation files. The state check is deterministic and local; neither command uses credentials or makes network calls.
 
 Routine research freshness: supported official retail facts refresh automatically in the existing twice-daily public research workflow, without owner prompts. Exact POP MART product 7890 is extracted from its official US collection; retrieval time never substitutes for a sale date. Failed or ambiguous retrievals retain prior stored dated evidence. This changes no publishing or spending gate.
+
+## Read-only release-gate failure triage (proposal)
+
+The proposed `.github/workflows/ci-failure-investigation.yml` and `scripts/ci-failure-investigator.mjs` provide automatic read-only classification of failed release-gate job and step metadata. It runs trusted `main` with read-only GitHub Actions/contents permissions, produces only a bounded Actions Step Summary and never calls a model, changes production, writes repo content, or publishes media. Its separate `.github/workflows/ci-failure-doctor.md` agentic source is intentionally uncompiled and inactive pending explicit inference-spend authorization. Even if CI passes, do not promote this feature to LIVE VERIFIED before merge and a real failure-run observation. Full safety and testing contract: `docs/qa-protocol.md`.
