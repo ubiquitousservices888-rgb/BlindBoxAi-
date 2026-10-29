@@ -35,3 +35,13 @@ Once Amazon reporting access is approved, ingest only authenticated network-repo
 - Preserve the existing owner-authentication gate.
 - Preserve the existing owner approval gate for publishing.
 - Public social/video CTA remains BlindBoxAI.com.
+
+## Official EPN Transaction Detail API (owner-only, read-only)
+
+The official documented report resource is `https://api.partner.ebay.com/Mediapartners/{Account_SID}/Reports/ebay_partner_transaction_detail.csv`. The Account SID and EPN Auth Token are distinct from the eBay Developer Program OAuth client credentials. The API fetcher `lib/epn-tdr-api.mjs` uses HTTPS and HTTP Basic authentication **in an Authorization header only**; credentials never appear in a URL or log. It requests `DATE_TYPE=update_date`, `STATUS=ALL` and a bounded 35-day UTC lookback so pending, approved and reversed transactions can be evaluated together. EPN documentation describes adjustments occurring within 30 days; this window is not proof against all historical corrections.
+
+Only an owner-authorized live read `GET /api/owner/epn-tdr` may return report aggregates. It requires the existing Bearer owner control code and the server-only `EPN_ACCOUNT_SID`, `EPN_REPORTING_ACCESS_TOKEN`, and `EPN_REPORTING_CURRENCY=USD` settings. A successful response reports `persisted:false` and `verifiedProviderPayout:false`; it does **not** write conversion evidence, private Vercel Blob reports, or a website revenue total. The existing owner-authenticated CSV import remains the independent, write-capable path; it is not called by the TDR reader. A report containing reversals is flagged for manual historical reconciliation before any new persistence or financial optimization.
+
+The main-only `.github/workflows/epn-tdr-readonly.yml` is a **manual read-only diagnostic**, with the same credentials configured as GitHub repository secrets plus `EPN_REPORTING_CURRENCY=USD` as a repository variable. Because GitHub Actions logs for this public repository may be visible to anyone, it logs only pass/fail and report type, never private transaction identifiers, financial figures, raw CSV, credentials, or URLs containing credentials. No scheduled import, paid integration, affiliate outbound click, auto-post, database mutation, or revenue confirmation is introduced. Code, tests, and a successful build do not establish live EPN account credentials or report access.
+
+Official provider references: [EPN Transaction Detail Report API specification](https://ir.ebaystatic.com/cr/v/c1/EPN/Transaction%20Detail%20Report%20%28TDR%29%20API%20Doc%20July%202020.pdf) and [EPN transaction report explanation](https://partnernetwork.ebay.com/solutions/understanding-the-transaction-detail-report-tdr).
