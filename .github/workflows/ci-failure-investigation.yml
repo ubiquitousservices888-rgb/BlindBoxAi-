@@ -1,0 +1,41 @@
+name: Read-only CI failure investigation
+
+on:
+  workflow_run:
+    workflows: ["BlindBoxAI release gate"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Numeric ID of a completed BlindBoxAI release-gate run"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ci-investigation-${{ github.event.workflow_run.id || inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  investigate:
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout trusted main only
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Use Node.js without installing project dependencies
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Classify failed steps from GitHub read-only status metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.run_id }}
+        run: node scripts/ci-failure-investigator.mjs
