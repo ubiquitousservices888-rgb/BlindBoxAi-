@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import AskVisualListings from "../_components/AskVisualListings";
+import { capturePostHogEvent, isAnalyticsConsentGranted } from "../../lib/posthog-client.mjs";
 
 const SUGGESTIONS = [
   "Pokemon 30th Celebration Charizard",
@@ -30,6 +31,12 @@ function freshnessLabel(match) {
   return "freshness unknown";
 }
 
+function trackWithConsent(event, properties) {
+  if (!isAnalyticsConsentGranted()) return;
+  track(event, properties);
+  capturePostHogEvent(event, properties);
+}
+
 export default function AskPage() {
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState(null);
@@ -48,6 +55,7 @@ export default function AskPage() {
     setError("");
     setResult(null);
     setResearchStatus("");
+    trackWithConsent("agent_question_started", { mode: "deterministic", path: "/ask" });
     try {
       const response = await fetch("/api/mr-know-it-all", {
         method: "POST",
@@ -55,13 +63,28 @@ export default function AskPage() {
         body: JSON.stringify({ question: clean }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body?.error || "The lookup could not be completed.");
+      if (!response.ok) {
+        const error = new Error(body?.error || "The lookup could not be completed.");
+        error.analyticsFailureType = response.status >= 500 ? "service_unavailable" : "request_rejected";
+        throw error;
+      }
       setResult(body);
-      track("agent_question", {
+      const matches = Array.isArray(body?.matches) ? body.matches : [];
+      const analyticsResult = {
         mode: "deterministic",
-        result_count: Array.isArray(body?.matches) ? body.matches.length : 0,
-      });
+        result_count: matches.length,
+        verified_match_count: matches.length,
+        fresh_match_count: matches.filter((match) => match?.freshnessStatus === "fresh").length,
+        dated_match_count: matches.filter((match) => match?.freshnessStatus === "dated").length,
+        unknown_freshness_count: matches.filter((match) => !["fresh", "dated"].includes(match?.freshnessStatus)).length,
+        completed_sale_count: matches.reduce((sum, match) => sum + (Number(match?.completedSaleCount) || 0), 0),
+      };
+      trackWithConsent("agent_question", analyticsResult);
     } catch (requestError) {
+      trackWithConsent("agent_question_failed", {
+        mode: "deterministic",
+        failure_type: requestError?.analyticsFailureType || "network_error",
+      });
       setError(requestError.message || "Verified comp lookup is temporarily unavailable.");
     } finally {
       setLoading(false);
@@ -97,7 +120,7 @@ export default function AskPage() {
     setResearchStatus("Saved as audience research only — not sold-price evidence.");
     setRawOffer("");
     setGradedOffer("");
-    track("audience_value_research", { has_raw: Boolean(rawOffer), has_graded: Boolean(gradedOffer) });
+    trackWithConsent("audience_value_research", { has_raw: Boolean(rawOffer), has_graded: Boolean(gradedOffer) });
   }
 
   return (

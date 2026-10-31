@@ -7,6 +7,7 @@ import {
   normalizeCampaignId,
   normalizeSource,
 } from "../../lib/campaign-attribution.mjs";
+import { capturePostHogEvent, isAnalyticsConsentGranted } from "../../lib/posthog-client.mjs";
 
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
@@ -82,7 +83,10 @@ export default function Waitlist() {
       if (res.ok && body?.duplicate === true) {
         setStatus("duplicate");
       } else if (res.ok) {
-        track("waitlist_signup", attribution);
+        if (isAnalyticsConsentGranted()) {
+          track("waitlist_signup", attribution);
+          capturePostHogEvent("waitlist_signup", attribution);
+        }
         setStatus("done");
       } else {
         setStatus("error");

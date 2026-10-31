@@ -16,12 +16,12 @@ test('root layout does not mount Vercel Analytics directly', () => {
 test('consent control provides accept and reject choices', () => {
   assert.match(consent, /Accept optional analytics/);
   assert.match(consent, /Reject optional analytics/);
-  assert.match(consent, /blindboxai_consent_v1/);
+  assert.match(consent, /blindboxai_consent_v2/);
   assert.match(consent, /analytics:\s*analytics\s*===\s*true/);
 });
 
 test('custom analytics fails closed without explicit consent', () => {
-  assert.match(analytics, /blindboxai_consent_v1/);
+  assert.match(analytics, /blindboxai_consent_v2/);
   assert.match(analytics, /parsed\?\.analytics\s*===\s*true/);
   assert.match(analytics, /if\s*\(!allowed/);
 });

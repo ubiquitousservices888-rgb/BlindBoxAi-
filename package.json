@@ -78,6 +78,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "2.6.1",
     "next": "16.4.2",
+    "posthog-js": "^1.444.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "0.35.5",

@@ -27,7 +27,10 @@ export default function CookieNoticePage() {
       <section className="block">
         <h2>Optional analytics</h2>
         <p>
-          Optional analytics are intended to measure aggregate site usage, such as which pages receive visits. The consent control is designed to keep this optional analytics component off unless you allow it.
+          Optional Vercel Analytics and PostHog are loaded only after you accept optional analytics. They measure page visits, normalized traffic and campaign labels, appraisal lookup starts and outcomes (counts and evidence freshness), audience research participation (whether raw or graded amounts were entered), marketplace-intent clicks, and successful new waitlist signups. These events do not include your appraisal question, submitted waitlist email, offer amounts, or photos.
+        </p>
+        <p>
+          PostHog uses random browser and session identifiers to connect consented visits and events. Its current project setting does not anonymize IP addresses, so PostHog may process your IP address and browser or connection metadata when analytics are enabled. Query strings and referrer paths are removed from PostHog analytics URLs before events are sent. Rejecting analytics prevents these optional browser analytics from starting; you can change your choice from Privacy settings at any time.
         </p>
       </section>
 

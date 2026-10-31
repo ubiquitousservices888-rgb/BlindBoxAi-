@@ -10,8 +10,13 @@ import {
   normalizeCampaignId,
   normalizeSource,
 } from "../../lib/campaign-attribution.mjs";
+import {
+  capturePostHogEvent,
+  capturePostHogPageView,
+  isAnalyticsConsentGranted,
+} from "../../lib/posthog-client.mjs";
 
-const CONSENT_STORAGE_KEY = "blindboxai_consent_v1";
+const CONSENT_STORAGE_KEY = "blindboxai_consent_v2";
 const ATTRIBUTION_STORAGE_KEY = "bbai_src";
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
@@ -214,6 +219,7 @@ export default function CoreAnalytics() {
       utmContent: campaign.utmContent,
     };
     track("page_view", payload);
+    capturePostHogPageView(path, payload);
     captureFirstParty("page_view", payload);
   }, [allowed, pathname]);
 
@@ -235,10 +241,12 @@ export default function CoreAnalytics() {
     try {
       if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
       track("landing_session_source", payload);
+      capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
       sessionStorage.setItem("bbai_landing_source_recorded", "1");
     } catch {
       track("landing_session_source", payload);
+      capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
     }
   }, [allowed]);
@@ -257,15 +265,20 @@ export default function CoreAnalytics() {
         (attribution.source !== "none" ? attribution.source : attribution.landingSource);
       const effectiveSource = outboundSource !== "none" ? outboundSource : "none";
 
-      if (allowed) {
+      if (allowed && isAnalyticsConsentGranted()) {
         const payload = {
           destination,
           path: window.location.pathname.slice(0, 120),
           vertical: attribution.vertical,
           source: effectiveSource,
           campaign: attribution.campaignId || "none",
+          utmSource: attribution.utmSource,
+          utmMedium: attribution.utmMedium,
+          utmCampaign: attribution.utmCampaign,
+          utmContent: attribution.utmContent,
         };
         track("commerce_intent_click", payload);
+        capturePostHogEvent("commerce_intent_click", payload);
         captureFirstParty("commerce_intent_click", payload);
       }
 

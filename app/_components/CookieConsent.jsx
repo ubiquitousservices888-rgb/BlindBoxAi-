@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/next';
+import { isAnalyticsConsentGranted, setPostHogConsent } from '../../lib/posthog-client.mjs';
 
-const STORAGE_KEY = 'blindboxai_consent_v1';
+const STORAGE_KEY = 'blindboxai_consent_v2';
 
 function readConsent() {
   if (typeof window === 'undefined') return null;
@@ -37,7 +38,12 @@ function saveConsent(analytics) {
   }
 
   window.dispatchEvent(new CustomEvent('blindboxai:consent', { detail: value }));
+  setPostHogConsent(value.analytics);
   return value;
+}
+
+function respectAnalyticsConsent(event) {
+  return isAnalyticsConsentGranted() ? event : null;
 }
 
 export default function CookieConsent() {
@@ -105,7 +111,7 @@ export default function CookieConsent() {
 
   return (
     <>
-      {consent?.analytics ? <Analytics /> : null}
+      {consent?.analytics ? <Analytics beforeSend={respectAnalyticsConsent} /> : null}
 
       {dialogOpen && (
         <div className="consent-backdrop" role="presentation">
@@ -121,7 +127,7 @@ export default function CookieConsent() {
             <p className="consent-kicker">Privacy controls</p>
             <h2 id="consent-title">Your choice comes first.</h2>
             <p id="consent-copy">
-              BlindBoxAI uses essential browser storage to remember your privacy choice. Optional analytics stay off unless you allow them.
+              Optional Vercel and PostHog analytics stay off unless you allow them. If enabled, they measure page visits, referral labels, appraisal result counts, marketplace clicks, and completed waitlist signups. PostHog may process your IP address and browser metadata. We do not send your search text, submitted email, offer amounts, or photos in PostHog events.
             </p>
 
             <div className="consent-actions">
