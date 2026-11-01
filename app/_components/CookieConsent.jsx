@@ -43,8 +43,8 @@ function saveConsent(analytics) {
     // is unavailable.
   }
 
-  window.dispatchEvent(new CustomEvent('blindboxai:consent', { detail: value }));
   setPostHogConsent(value.analytics, { persistenceUnavailable });
+  window.dispatchEvent(new CustomEvent('blindboxai:consent', { detail: value }));
   return value;
 }
 

@@ -29,6 +29,7 @@ test("pro waitlist posts only to the first-party API route", () => {
 
 test("first-party waitlist preserves attribution without putting email into analytics", () => {
   assert.match(waitlist, /body:\s*JSON\.stringify\(\{ email, companyWebsite, \.\.\.attribution \}\)/);
+  assert.match(waitlist, /res\.status === 202 && body\?\.ok === true/);
   assert.match(waitlist, /else if \(res\.ok && body\?\.duplicate === false\)/);
   assert.match(waitlistRoute, /waitlist_submit_attempt/);
   assert.match(waitlistRoute, /waitlist_submit_failed/);
@@ -72,6 +73,8 @@ test("waitlist hardening rejects duplicate inserts, traps bots, and uses friendl
   assert.match(waitlistRoute, /resolution=ignore-duplicates,return=representation/);
   assert.match(waitlistRoute, /waitlist_submit_duplicate/);
   assert.match(waitlistRoute, /companyWebsite/);
+  assert.match(waitlist, /name="optional_reference"/);
+  assert.match(waitlist, /autoComplete="new-password"/);
   assert.match(waitlistRoute, /bot_honeypot/);
   assert.match(waitlist, /You're already on the list/);
   assert.match(waitlist, /You're on the list — we'll email you when reseller tools launch/);

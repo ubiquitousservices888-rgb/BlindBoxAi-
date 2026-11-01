@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import AskVisualListings from "../_components/AskVisualListings";
+import { parseLookupResponse } from "../../lib/ask-response.mjs";
 import { capturePostHogEvent, isAnalyticsConsentGranted } from "../../lib/posthog-client.mjs";
 
 const SUGGESTIONS = [
@@ -62,12 +63,7 @@ export default function AskPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: clean }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const error = new Error(body?.error || "The lookup could not be completed.");
-        error.analyticsFailureType = response.status >= 500 ? "service_unavailable" : "request_rejected";
-        throw error;
-      }
+      const body = await parseLookupResponse(response);
       setResult(body);
       const matches = Array.isArray(body?.matches) ? body.matches : [];
       const analyticsResult = {

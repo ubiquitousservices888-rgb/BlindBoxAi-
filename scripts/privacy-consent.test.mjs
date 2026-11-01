@@ -23,6 +23,8 @@ test('consent control provides accept and reject choices', () => {
   assert.match(consent, /analytics:\s*analytics\s*===\s*true/);
   assert.match(consent, /addEventListener\('storage', onStorage\)/);
   assert.match(analytics, /addEventListener\("storage", onStorage\)/);
+  const saveConsent = consent.slice(consent.indexOf('function saveConsent'), consent.indexOf('function respectAnalyticsConsent'));
+  assert.ok(saveConsent.indexOf('setPostHogConsent') < saveConsent.indexOf('window.dispatchEvent'));
 });
 
 test('custom analytics fails closed without explicit consent', () => {
@@ -38,7 +40,7 @@ test('privacy notice and settings link are present', () => {
   assert.match(notice, /Affiliate links/);
 });
 
-test('stored consent overrides a stale runtime choice and missing storage fails closed', async (t) => {
+test('runtime choice wins when persistence fails; stored consent wins across tabs otherwise', async (t) => {
   const originalWindow = globalThis.window;
   const originalToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
   const originalHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
@@ -59,14 +61,15 @@ test('stored consent overrides a stale runtime choice and missing storage fails 
     else process.env.NEXT_PUBLIC_POSTHOG_HOST = originalHost;
   });
 
+  stored = JSON.stringify({ analytics: false });
   await setPostHogConsent(true, { persistenceUnavailable: true });
   assert.equal(isAnalyticsConsentGranted(), true);
 
-  stored = JSON.stringify({ analytics: false });
+  stored = JSON.stringify({ analytics: true });
+  await setPostHogConsent(false, { persistenceUnavailable: true });
   assert.equal(isAnalyticsConsentGranted(), false);
 
   await setPostHogConsent(false);
-  stored = JSON.stringify({ analytics: true });
   assert.equal(isAnalyticsConsentGranted(), true);
 
   stored = null;
