@@ -29,6 +29,7 @@ test("pro waitlist posts only to the first-party API route", () => {
 
 test("first-party waitlist preserves attribution without putting email into analytics", () => {
   assert.match(waitlist, /body:\s*JSON\.stringify\(\{ email, companyWebsite, \.\.\.attribution \}\)/);
+  assert.match(waitlist, /else if \(res\.ok && body\?\.duplicate === false\)/);
   assert.match(waitlistRoute, /waitlist_submit_attempt/);
   assert.match(waitlistRoute, /waitlist_submit_failed/);
   assert.match(waitlistRoute, /waitlist_signup/);

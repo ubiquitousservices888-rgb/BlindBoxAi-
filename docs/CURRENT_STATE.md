@@ -100,12 +100,12 @@ A subsystem document is authoritative only for that subsystem.
 
 ## Consent-gated traffic and appraisal analytics
 
-`lib/posthog-client.mjs` is the proposed PostHog browser integration for product analytics. It initializes only after a visitor accepts optional analytics, persists the consent state, and opts out and resets the anonymous identifier when consent is revoked. `autocapture`, pageleave capture, session recording, surveys, and person profiles are disabled. A before-send filter removes URL query strings, referrer paths, raw search terms, and unreviewed UTM values before PostHog events leave the browser.
+`lib/posthog-client.mjs` is the proposed PostHog browser integration for product analytics. It initializes only after a visitor accepts optional analytics, persists the consent state, and opts out and resets the anonymous identifier when consent is revoked. If PostHog has not initialized in the current page, revocation clears its known persisted identity locally without loading the SDK. `autocapture`, pageleave capture, session recording, surveys, and person profiles are disabled. A before-send filter removes URL query strings, referrer paths, raw search terms, and UTM term/initial/entry values; retained source, medium, campaign, and content labels are normalized before PostHog events leave the browser.
 
 The event path is:
 
 - `CoreAnalytics`: `$pageview`, `landing_session_source`, and `commerce_intent_click` with normalized campaign and source labels;
-- `/ask`: `agent_question_started`, `agent_question`, and `agent_question_failed` with counts and freshness only, never question text or price values;
+- `/ask`: `agent_question_started` and `agent_question_failed` carry only the lookup mode and failure class; successful `agent_question` events carry result counts and evidence freshness, never question text or price values;
 - audience research: `audience_value_research` with booleans for raw/graded fields, never entered amounts;
 - `/pro`: `waitlist_signup` only after a successful, nonduplicate signup, without the submitted email.
 

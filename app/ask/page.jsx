@@ -62,7 +62,7 @@ export default function AskPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: clean }),
       });
-      const body = await response.json();
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         const error = new Error(body?.error || "The lookup could not be completed.");
         error.analyticsFailureType = response.status >= 500 ? "service_unavailable" : "request_rejected";

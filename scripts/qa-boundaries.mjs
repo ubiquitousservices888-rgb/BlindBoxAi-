@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 const RUNTIME_DIRS = ["app", "lib", "scripts", "supabase/functions"];
 const SOURCE_EXTENSIONS = [".js", ".jsx", ".mjs", ".ts", ".tsx"];
 const OTHER_APP_REFERENCES = /agentaiio\.com|getfintechai\.com|gpt5(?:io|zone|base)\.com|saas-acquisition-showroom/i;
-const PUBLIC_SECRET_NAME = /NEXT_PUBLIC_[A-Z0-9_]*(?:SECRET|TOKEN|SERVICE_ROLE|PRIVATE_KEY|API_KEY)/g;
+const PUBLIC_IDENTIFIER = /\bNEXT_PUBLIC_[A-Z0-9_]+\b/g;
+const PUBLIC_SECRET_MARKER = /(?:SECRET|TOKEN|SERVICE_ROLE|PRIVATE_KEY|API_KEY)/;
 const ALLOWED_PUBLIC_ANALYTICS_TOKEN = "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN";
 const SERVER_ONLY_NAME = /\b(?:SUPABASE_SERVICE_ROLE_KEY|EVIDENCE_UPLOAD_CODE|OWNER_CONTROL_CODE|BUFFER_API_TOKEN|EBAY_CLIENT_SECRET|OWNER_INTEGRATION_ENCRYPTION_KEY|AI_FAMILY_CORE_TOKEN)\b/;
 
@@ -45,7 +46,8 @@ export function auditBoundaries(root) {
     const relative = path.relative(absoluteRoot, file);
     const source = fs.readFileSync(file, "utf8");
     if (OTHER_APP_REFERENCES.test(source)) failures.push(`${relative}: references another app's domain or repository`);
-    const publicCredentialNames = source.match(PUBLIC_SECRET_NAME) || [];
+    const publicCredentialNames = (source.match(PUBLIC_IDENTIFIER) || [])
+      .filter((name) => PUBLIC_SECRET_MARKER.test(name));
     if (publicCredentialNames.some((name) => name !== ALLOWED_PUBLIC_ANALYTICS_TOKEN)) {
       failures.push(`${relative}: exposes a server credential through NEXT_PUBLIC_`);
     }

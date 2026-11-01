@@ -82,7 +82,7 @@ export default function Waitlist() {
       const body = await res.json().catch(() => ({}));
       if (res.ok && body?.duplicate === true) {
         setStatus("duplicate");
-      } else if (res.ok) {
+      } else if (res.ok && body?.duplicate === false) {
         if (isAnalyticsConsentGranted()) {
           track("waitlist_signup", attribution);
           capturePostHogEvent("waitlist_signup", attribution);

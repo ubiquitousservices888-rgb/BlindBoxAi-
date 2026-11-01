@@ -14,9 +14,9 @@ import {
   capturePostHogEvent,
   capturePostHogPageView,
   isAnalyticsConsentGranted,
+  POSTHOG_CONSENT_STORAGE_KEY,
 } from "../../lib/posthog-client.mjs";
 
-const CONSENT_STORAGE_KEY = "blindboxai_consent_v2";
 const ATTRIBUTION_STORAGE_KEY = "bbai_src";
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
@@ -27,14 +27,7 @@ const UTM_CONTENT_STORAGE_KEY = "bbai_utm_content";
 const LANDING_SOURCE_STORAGE_KEY = "bbai_landing_source_v1";
 
 function analyticsAllowed() {
-  try {
-    const raw = window.localStorage.getItem(CONSENT_STORAGE_KEY);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    return parsed?.analytics === true;
-  } catch {
-    return false;
-  }
+  return isAnalyticsConsentGranted();
 }
 
 function safeLandingSource() {
@@ -196,12 +189,18 @@ export default function CoreAnalytics() {
     captureLandingAttributionSource();
     setAllowed(analyticsAllowed());
 
-    const onConsent = (event) => {
-      setAllowed(event?.detail?.analytics === true);
+    const onConsent = () => setAllowed(analyticsAllowed());
+    const onStorage = (event) => {
+      if (event.key !== POSTHOG_CONSENT_STORAGE_KEY && event.key !== null) return;
+      setAllowed(analyticsAllowed());
     };
 
     window.addEventListener("blindboxai:consent", onConsent);
-    return () => window.removeEventListener("blindboxai:consent", onConsent);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("blindboxai:consent", onConsent);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   useEffect(() => {

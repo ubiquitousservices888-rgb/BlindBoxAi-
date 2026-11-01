@@ -57,6 +57,14 @@ test("PostHog's public ingestion token is allowed in client code", (t) => {
   assert.doesNotMatch(auditBoundaries(root).join("\n"), /exposes a server credential through NEXT_PUBLIC_/);
 });
 
+test("PostHog token lookalikes are not covered by the exact public-token allowlist", (t) => {
+  const root = fixture({
+    "app/widget.jsx": '"use client";\nexport const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN_EXTRA;',
+  });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  assert.match(auditBoundaries(root).join("\n"), /exposes a server credential through NEXT_PUBLIC_/);
+});
+
 test("Node built-ins cannot cross a client import graph", (t) => {
   const root = fixture({
     "app/widget.jsx": '"use client";\nimport { value } from "../lib/bridge.mjs";',
