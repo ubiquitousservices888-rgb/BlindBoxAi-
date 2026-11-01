@@ -2,8 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Analytics } from '@vercel/analytics/next';
+import {
+  isAnalyticsConsentGranted,
+  POSTHOG_CONSENT_STORAGE_KEY,
+  setPostHogConsent,
+} from '../../lib/posthog-client.mjs';
 
-const STORAGE_KEY = 'blindboxai_consent_v1';
+const STORAGE_KEY = POSTHOG_CONSENT_STORAGE_KEY;
 
 function readConsent() {
   if (typeof window === 'undefined') return null;
@@ -28,16 +33,23 @@ function saveConsent(analytics) {
     updatedAt: new Date().toISOString(),
   };
 
+  let persistenceUnavailable = false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   } catch {
+    persistenceUnavailable = true;
     // Storage can be unavailable in hardened/private browser contexts. The
     // runtime choice still applies for this page session even if persistence
     // is unavailable.
   }
 
+  setPostHogConsent(value.analytics, { persistenceUnavailable });
   window.dispatchEvent(new CustomEvent('blindboxai:consent', { detail: value }));
   return value;
+}
+
+function respectAnalyticsConsent(event) {
+  return isAnalyticsConsentGranted() ? event : null;
 }
 
 export default function CookieConsent() {
@@ -50,8 +62,18 @@ export default function CookieConsent() {
     setConsent(readConsent());
 
     const openSettings = () => setShowSettings(true);
+    const onStorage = (event) => {
+      if (event.key !== STORAGE_KEY && event.key !== null) return;
+      const next = readConsent();
+      setConsent(next);
+      setPostHogConsent(next?.analytics === true);
+    };
     window.addEventListener('blindboxai:open-consent', openSettings);
-    return () => window.removeEventListener('blindboxai:open-consent', openSettings);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('blindboxai:open-consent', openSettings);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   useEffect(() => {
@@ -105,7 +127,7 @@ export default function CookieConsent() {
 
   return (
     <>
-      {consent?.analytics ? <Analytics /> : null}
+      {consent?.analytics ? <Analytics beforeSend={respectAnalyticsConsent} /> : null}
 
       {dialogOpen && (
         <div className="consent-backdrop" role="presentation">
@@ -121,7 +143,7 @@ export default function CookieConsent() {
             <p className="consent-kicker">Privacy controls</p>
             <h2 id="consent-title">Your choice comes first.</h2>
             <p id="consent-copy">
-              BlindBoxAI uses essential browser storage to remember your privacy choice. Optional analytics stay off unless you allow them.
+              Optional Vercel and PostHog analytics stay off unless you allow them. If enabled, they measure page visits and referral labels, appraisal result counts and evidence freshness, audience research participation, marketplace clicks, and confirmed new waitlist signups. Production PostHog analytics are sent to its US service, which may process your IP address and browser metadata. We do not send your search text, submitted email, offer amounts, or photos in PostHog events.
             </p>
 
             <div className="consent-actions">

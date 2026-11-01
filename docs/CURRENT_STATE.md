@@ -2,10 +2,10 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-10-26
+**Last reconciled:** 2026-10-31
 
 **Reconciliation note:** the October 13 baseline below is historical for EPN report validation and public platform verification. Current code requires versioned, attributed report evidence and exact public player metadata before recording a new platform URL. Source changes do not establish production deployment, historical URL reconciliation, video byte identity, or affiliate conversions.
-**Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Deployment READY and production smoke were reported in the release checks, but raw Vercel deployment ID, live HTTP status, and full smoke-run output are not retained here; this document marks independent deployment/smoke evidence **UNVERIFIED** until attached. No live platform post or affiliate commission is verified by this fact.
+**Functional baseline inspected:** `main` at `561d260089b5b3aa63f11f22d1634c135ac053ed`, after merged PR #297. This baseline has consent-gated Vercel event tracking and first-party aggregate telemetry; the PostHog appraisal funnel below is the proposed addition in this change. Production deployment and real PostHog traffic remain **UNVERIFIED** until the change is reviewed, deployed with its production settings, and receives real consented visits. No live platform post or affiliate commission is verified by this fact.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -97,6 +97,21 @@ A subsystem document is authoritative only for that subsystem.
 - **Owner Blue review surface:** after owner authentication, `/owner-dashboard` uses owner-only `/api/owner/review-queue` to paginate the current `ready_for_review` rows and render the returned review list with each exact MP4 plus Blue approval and Delete controls. The endpoint fails closed rather than returning a silently truncated list. After the owner has watched the exact video and selected its YouTube audience, `BLUE APPROVE + LAUNCH` calls `/api/owner/approve-review` and requests the exact-run governed publisher; network/provider verification remains mandatory.
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
+
+## Consent-gated traffic and appraisal analytics
+
+`lib/posthog-client.mjs` is the proposed PostHog browser integration for product analytics. It initializes only after a visitor accepts optional analytics, persists the consent state, and opts out and resets the anonymous identifier when consent is revoked. If PostHog has not initialized in the current page, revocation clears its known persisted identity locally without loading the SDK. `autocapture`, pageleave capture, session recording, surveys, and person profiles are disabled. A before-send filter removes URL query strings, referrer paths, raw search terms, and UTM term/initial/entry values; retained source, medium, campaign, and content labels are normalized before PostHog events leave the browser.
+
+The event path is:
+
+- `CoreAnalytics`: `$pageview`, `landing_session_source`, and `commerce_intent_click` with normalized campaign and source labels;
+- `/ask`: `agent_question_started` and `agent_question_failed` carry only the lookup mode and failure class; successful `agent_question` events carry result counts and evidence freshness, never question text or price values;
+- audience research: `audience_value_research` with booleans for raw/graded fields, never entered amounts;
+- `/pro`: `waitlist_signup` only after a successful, nonduplicate signup, without the submitted email.
+
+Production configuration uses `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` on the Vercel `blindboxai` project. With no consent or no valid project configuration, PostHog capture stays off. The current PostHog project setting does not anonymize IP addresses, so the privacy notice discloses that connection and browser metadata may be processed after consent. This integration does not backfill past visits, create synthetic traffic, or treat marketplace intent clicks as revenue. Real appraisal demand, acquisition sources, and revenue attribution can only be read after the reviewed production deployment receives actual visits and provider-confirmed conversion data is joined separately.
+
+`docs/qa-protocol.md` remains the authority for the isolated unit, service-integration, browser, and production-smoke checks. PR CI must pass before this proposed event path is treated as production code.
 
 ## Collector research and daily checks
 
