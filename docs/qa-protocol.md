@@ -34,3 +34,15 @@ The browser layer runs in GitHub Actions on Linux, with its headless browser ins
 ## Publication boundary
 
 The QA schedule has no Buffer, owner, Supabase service-role, or Vercel deployment secrets. The existing validation job reads the EPN campaign secret for link construction; the browser job uses only a fake campaign fixture. Tests set their own loopback or fake service responses. The canonical `.github/workflows/publish-approved-reviews.yml` direct-dispatch path can publish an exact reviewed queue item; `.github/workflows/autonomous-video.yml` can also publish its exact approved queue row behind its existing `social-production` gate. The canonical workflow remains `workflow_dispatch` only. The owner-authenticated Blue action dispatches one exact serialized YouTube + TikTok run and approves only that run's `social-production` gate, while direct owner dispatch remains available for recovery and dry-run diagnostics. This QA protocol itself does not approve, claim, or publish an item.
+
+## Release-gate failure investigation (no new AI charges)
+
+The workflow `.github/workflows/ci-failure-investigation.yml` is a separate **read-only** GitHub Actions diagnostic, automatically triggered by a failed or timed-out `BlindBoxAI release gate`. An owner can also dispatch it against an exact numeric failed release-gate run ID from `main`.
+
+It checks out trusted `main` with `persist-credentials: false`, and uses only `contents: read` and `actions: read`. It fetches authenticated GitHub run and job/step status metadata, validates the source repository and workflow, and writes fixed-category investigation suggestions to its own Actions Step Summary. It does not download raw logs, execute PR code, install npm dependencies, create PRs or comments, publish, deploy, call AI models, or touch Vercel, Supabase, Buffer, eBay, YouTube or TikTok.
+
+The test suite `scripts/ci-failure-investigator.test.mjs` uses synthetic GitHub API fixtures and hostile metadata. It runs under `npm run release:test`. Triage suggestions are hypotheses, not verified root causes. The linked original job logs and exact SHA remain the evidence.
+
+The separate `.github/workflows/ci-failure-doctor.md` is a **dormant GitHub Agentic Workflows blueprint**. No compiled `.lock.yml`, model inference permission, or billing path is enabled. Activating AI requires owner approval of a specific inference provider and spending, a reviewed and compiled gh-aw lock file, and a new reviewed PR. This draft does not run.
+
+GitHub currently provides standard GitHub-hosted runner time free in public repositories. This is not authorization for charged model inference or larger runners.
