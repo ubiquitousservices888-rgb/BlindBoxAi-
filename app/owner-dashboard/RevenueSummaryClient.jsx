@@ -206,8 +206,9 @@ export default function RevenueSummaryClient() {
         {epnLiveError ? <p role="alert">{epnLiveError}</p> : null}
         {epnLive ? <div role="status" style={{ border: "1px solid currentColor", padding: 12, borderRadius: 8 }}>
           <p><strong>Authenticated provider report received.</strong> No report or commission record has been saved by this check.</p>
-          <p>Approved BlindBoxAI transaction IDs: {numberOrStatus(epnLive.matchedApprovedTransactions)}</p>
-          <p>Eligible commissions in this report window: {money(epnLive.matchedApprovedEarningsUSD)}</p>
+          <p>Provider report type: {epnLive.reportType === "transaction_detail" ? "Transaction detail" : "Unverified report type"}</p>
+          <p>Approved BlindBoxAI transaction count: {numberOrStatus(epnLive.matchedApprovedTransactions)}</p>
+          <p>Eligible commissions in this report window: {epnLive.reconciliationRequired ? "Withheld pending historical reconciliation" : money(epnLive.matchedApprovedEarningsUSD, UNAVAILABLE_IN_REPORT)}</p>
           <p>Pending rows: {numberOrStatus(epnLive.pendingRows)}. Reversed rows: {numberOrStatus(epnLive.reversedRows)}.</p>
           <p>Historical reconciliation: {epnLive.reconciliationRequired ? "Required before financial totals are used" : "Not triggered by this report; older periods remain unchecked"}.</p>
           <p style={{ opacity: 0.75 }}>Data window: {epnLive.startDate} through {epnLive.endDate}. This does not prove a payout or all-time earnings.</p>
