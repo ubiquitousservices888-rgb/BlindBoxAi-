@@ -77,6 +77,9 @@ export default function RevenueSummaryClient() {
   const [epnFile, setEpnFile] = useState(null);
   const [amazonFile, setAmazonFile] = useState(null);
   const [message, setMessage] = useState("");
+  const [epnLive, setEpnLive] = useState(null);
+  const [epnLiveError, setEpnLiveError] = useState("");
+  const [epnLiveChecking, setEpnLiveChecking] = useState(false);
 
   async function load(token) {
     if (!token) {
@@ -132,6 +135,27 @@ export default function RevenueSummaryClient() {
     }
   }
 
+  async function verifyEpnLive() {
+    if (!code || epnLiveChecking) return;
+    setEpnLiveChecking(true);
+    setEpnLive(null);
+    setEpnLiveError("");
+    try {
+      const response = await fetch("/api/owner/epn-tdr", {
+        headers: { Authorization: `Bearer ${code}` }, cache: "no-store",
+      });
+      const report = await response.json().catch(() => ({}));
+      if (!response.ok || report.source !== "epn_authenticated_tdr_api" || report.persisted !== false) {
+        throw new Error("Live eBay reporting could not be verified. Check the owner settings or provider access.");
+      }
+      setEpnLive(report);
+    } catch {
+      setEpnLiveError("Live eBay reporting is not verified. No commission data was saved.");
+    } finally {
+      setEpnLiveChecking(false);
+    }
+  }
+
   if (!snapshot) {
     return <form onSubmit={unlock} style={{ display: "grid", gap: 12, maxWidth: 420 }}>
       <label style={{ display: "grid", gap: 6 }}><strong>Owner access code</strong><input type="password" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="off" required style={{ padding: 12, fontSize: 16 }} /></label>
@@ -175,6 +199,20 @@ export default function RevenueSummaryClient() {
 
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h3 style={{ marginTop: 0 }}>Network status & payout timing</h3>
+      <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
+        <button type="button" disabled={busy || epnLiveChecking} onClick={verifyEpnLive} style={{ padding: 12, fontWeight: 700 }}>
+          {epnLiveChecking ? "Checking eBay reporting..." : "Verify live eBay report (read-only)"}
+        </button>
+        {epnLiveError ? <p role="alert">{epnLiveError}</p> : null}
+        {epnLive ? <div role="status" style={{ border: "1px solid currentColor", padding: 12, borderRadius: 8 }}>
+          <p><strong>Authenticated provider report received.</strong> No report or commission record has been saved by this check.</p>
+          <p>Approved BlindBoxAI transaction IDs: {numberOrStatus(epnLive.matchedApprovedTransactions)}</p>
+          <p>Eligible commissions in this report window: {money(epnLive.matchedApprovedEarningsUSD)}</p>
+          <p>Pending rows: {numberOrStatus(epnLive.pendingRows)}. Reversed rows: {numberOrStatus(epnLive.reversedRows)}.</p>
+          <p>Historical reconciliation: {epnLive.reconciliationRequired ? "Required before financial totals are used" : "Not triggered by this report; older periods remain unchecked"}.</p>
+          <p style={{ opacity: 0.75 }}>Data window: {epnLive.startDate} through {epnLive.endDate}. This does not prove a payout or all-time earnings.</p>
+        </div> : null}
+      </div>
       <p><strong>eBay:</strong> {epn.status || "Not connected"}</p>
       {epn.warning ? <p role="status"><strong>Report warning:</strong> {epn.warning}</p> : null}
       {epn.matchedClicks != null ? <p>BlindBoxAI-tagged EPN clicks (not revenue): {numberOrStatus(epn.matchedClicks)}</p> : null}
