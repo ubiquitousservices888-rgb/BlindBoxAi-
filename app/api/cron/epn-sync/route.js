@@ -13,8 +13,10 @@ function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "");
   const authorization = String(request.headers.get("authorization") || "");
   const expected = `Bearer ${secret}`;
-  if (secret.length < 16 || authorization.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(authorization), Buffer.from(expected));
+  const got = Buffer.from(authorization, "utf8");
+  const want = Buffer.from(expected, "utf8");
+  if (secret.length < 16 || got.length !== want.length) return false;
+  return crypto.timingSafeEqual(got, want);
 }
 
 export async function GET(request) {
@@ -25,8 +27,9 @@ export async function GET(request) {
   }
   try {
     return reply(await syncEpnLiveSnapshot(), 200);
-  } catch {
-    // Fail closed. A failed fetch never overwrites the last valid snapshot.
+  } catch (error) {
+    // Log only error category, never provider details, raw data, or secrets.
+    console.error("epn_live_sync_failed", { name: String(error?.name || "Error").slice(0, 60) });
     return reply({ error: "EPN live sync failed; totals were not updated" }, 502);
   }
 }
