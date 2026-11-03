@@ -1,6 +1,6 @@
 # EPN live verification and daily reconciliation (separate from PR #299)
 
-Status: **REVIEW ONLY / AUTOMATION DISABLED** until the owner independently
+**Documentation status: ACTIVE SPECIALIST** — implementation in review; scheduled sync remains disabled.\n\nStatus: **REVIEW ONLY / AUTOMATION DISABLED** until the owner independently
 verifies a live EPN report and reviews the reporting account's USD currency.
 
 ## Step 1 — Verify live EPN provider evidence on a phone
@@ -46,7 +46,7 @@ making any external EPN request or writing any report.
   **prior amounts are never incremented**.
 - Conflicting statuses, negative adjustments or reversals withhold all financial
   totals until historical reconciliation, rather than continuing to show an
-  older optimistic amount. Empty or malformed provider responses do not save.
+  older optimistic amount. Empty, malformed, partially parsed, or missing-transaction-ID provider responses do not save. An empty report is not treated as a verified zero without independent provider proof.
 - Dashboard totals become unavailable when a live snapshot is over 48 hours old.
   A live snapshot takes precedence over earlier CSV imports, including if stale
   or blocked. There is never a fallback that revives older totals.
