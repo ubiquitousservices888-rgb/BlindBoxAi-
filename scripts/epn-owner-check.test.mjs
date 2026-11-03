@@ -39,6 +39,6 @@ test("owner-facing errors distinguish auth, missing config, provider and network
   assert.match(client, /eBay reporting configuration is incomplete/);
   assert.match(client, /live eBay report could not be verified/);
   assert.match(client, /could not reach the server/);
-  assert.match(client, /report\.reconciliationRequired/);
+  assert.match(client, /reconciliationRequired === true/);
   assert.match(client, /Withheld pending historical reconciliation/);
 });
