@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { buildEpnLiveSnapshot, epnLiveSnapshotIsFresh, redactStaleEpnSnapshot, selectEpnDashboardReport, EPN_LIVE_SNAPSHOT_PATH } from "../lib/epn-live-snapshot.mjs";
 import { syncEpnLiveSnapshot } from "../lib/epn-live-sync.mjs";
+import { getOwnerDashboardSnapshot } from "../lib/owner-dashboard.js";
 
 const now = new Date("2026-11-03T16:00:00.000Z");
 const startDate = "2026-09-29", endDate = "2026-11-03";
@@ -118,6 +119,39 @@ test("missing transaction IDs or partially malformed financial rows fail closed"
   ].join("\n");
   assert.throws(() => create(partiallyMalformed), /malformed financial rows/);
 });
+test("owner dashboard behavior: live, stale, blocked, unreadable, and missing blobs", async () => {
+  const live = create();
+  const manual = { verificationVersion: 1, source: "ebay_partner_network_csv", status: "Connected from EPN report", earnings: 999, orders: 77, daily: [] };
+  const revenueFor = async (liveState, at = now) => {
+    // The production dashboard uses current time. Give the synthetic live
+    // report a matching timestamp to exercise current and stale age behavior.
+    const state = liveState?.kind === "present"
+      ? { ...liveState, report: { ...liveState.report, importedAt: new Date(Date.now()).toISOString() } }
+      : liveState;
+    const response = await getOwnerDashboardSnapshot({
+      ownerCode: "synthetic-owner",
+      readLiveState: async () => state,
+      readReport: async path => path.includes("/epn-report/") ? manual : null,
+      readTelemetry: async () => ({ recentClicks:[], clicksLoaded:0, clicksLast24h:0, analyticsLoaded:0, analyticsLast24h:0 }),
+    });
+    return response.snapshot.revenue.epn;
+  };
+  const fresh = await revenueFor({kind:"present",report:live});
+  assert.equal(fresh.earnings,4);
+  assert.equal((await revenueFor({kind:"missing"})).earnings,999);
+  assert.equal((await revenueFor({kind:"failed"})).earnings,null);
+  assert.equal((await revenueFor({kind:"present",report:{...live,reconciliationRequired:true}})).earnings,null);
+  assert.equal((await revenueFor({kind:"present",report:{...live,source:"tampered"}})).earnings,null);
+  const expired = { ...live, importedAt: "2026-01-01T00:00:00.000Z" };
+  const staleResponse = await getOwnerDashboardSnapshot({
+    ownerCode: "synthetic-owner",
+    readLiveState: async () => ({kind:"present",report:expired}),
+    readReport: async path => path.includes("/epn-report/") ? manual : null,
+    readTelemetry: async () => ({recentClicks:[],clicksLoaded:0,clicksLast24h:0,analyticsLoaded:0,analyticsLast24h:0}),
+  });
+  assert.equal(staleResponse.snapshot.revenue.epn.earnings,null);
+});
+
 test("cron endpoint rejects non-ASCII or missing secrets and refuses disabled sync", async () => {
   const originalSecret = process.env.CRON_SECRET;
   const originalEnabled = process.env.EPN_AUTO_SYNC_ENABLED;
