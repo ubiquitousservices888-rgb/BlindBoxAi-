@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import { epnCronAccessDecision } from "../../../../lib/epn-cron-access.mjs";
 import { NextResponse } from "next/server";
 import { syncEpnLiveSnapshot } from "../../../../lib/epn-live-sync.mjs";
 
@@ -9,20 +9,14 @@ const PRIVATE_HEADERS = { "Cache-Control": "private, no-store, max-age=0", Vary:
 function reply(value, status) {
   return NextResponse.json(value, { status, headers: PRIVATE_HEADERS });
 }
-function authorized(request) {
-  const secret = String(process.env.CRON_SECRET || "");
-  const authorization = String(request.headers.get("authorization") || "");
-  const expected = `Bearer ${secret}`;
-  const got = Buffer.from(authorization, "utf8");
-  const want = Buffer.from(expected, "utf8");
-  if (secret.length < 16 || got.length !== want.length) return false;
-  return crypto.timingSafeEqual(got, want);
-}
-
 export async function GET(request) {
-  if (!authorized(request)) return reply({ error: "Unauthorized" }, 401);
-  // Explicit off-by-default gate; never infer activation from credential presence.
-  if (process.env.EPN_AUTO_SYNC_ENABLED !== "true") {
+  const decision = epnCronAccessDecision({
+    authorization: request.headers.get("authorization"),
+    secret: process.env.CRON_SECRET,
+    enabled: process.env.EPN_AUTO_SYNC_ENABLED,
+  });
+  if (decision === "unauthorized") return reply({ error: "Unauthorized" }, 401);
+  if (decision === "disabled") {
     return reply({ error: "EPN auto-sync is disabled pending owner validation" }, 503);
   }
   try {
