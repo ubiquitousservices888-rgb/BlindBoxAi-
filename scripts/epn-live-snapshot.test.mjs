@@ -87,6 +87,30 @@ test("two successful syncs overwrite one private path, never add revenue", async
   assert.equal(writes[1].options.allowOverwrite,true);
   assert.doesNotMatch(JSON.stringify(writes), /synthetic-test-value|tx-1/);
 });
+test("sync result returns accurate non-financial status without leaking provider identities", async () => {
+  const writes = [];
+  const result = await syncEpnLiveSnapshot({
+    now,
+    env: { EPN_ACCOUNT_SID:"exampleSid123", EPN_REPORTING_ACCESS_TOKEN:"synthetic-test-value", EPN_REPORTING_CURRENCY:"USD" },
+    fetchImpl: async () => new Response(approved, { headers: { "content-type":"text/csv" } }),
+    putImpl: async (path, data, options) => { writes.push({path, data:JSON.parse(data), options}); },
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    persisted: true,
+    retrievedAt: now.toISOString(),
+    reportingWindowStart: "2026-09-29",
+    reportingWindowEnd: "2026-11-03",
+    providerTransactionsParsed: 2,
+    eligibleTransactions: 1,
+    reconciliationRequired: false,
+    historicalLedgerReconciled: false,
+    payoutVerified: false,
+  });
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].path, EPN_LIVE_SNAPSHOT_PATH);
+  assert.doesNotMatch(JSON.stringify(result), /tx-1|tx-2|synthetic-test-value|exampleSid123/);
+});
 test("failed provider read cannot overwrite previous snapshot", async () => {
   let writes = 0;
   await assert.rejects(syncEpnLiveSnapshot({
