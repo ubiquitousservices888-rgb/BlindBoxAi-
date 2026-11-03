@@ -26,7 +26,7 @@ export default function EpnLiveCheck() {
         redirect: "error",
       });
       if (response.status === 401) {
-        setError("Owner code rejected. Use the private OWNER_CONTROL_CODE configured in Vercel. Do not share it.");
+        setError("Owner code rejected. Enter your private owner access code exactly as configured in your site settings. Do not share it.");
         return;
       }
       if (response.status === 503) {
