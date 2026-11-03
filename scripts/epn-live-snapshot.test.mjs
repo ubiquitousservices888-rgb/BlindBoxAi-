@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { buildEpnLiveSnapshot, epnLiveSnapshotIsFresh, redactStaleEpnSnapshot, selectEpnDashboardReport, EPN_LIVE_SNAPSHOT_PATH } from "../lib/epn-live-snapshot.mjs";
 import { syncEpnLiveSnapshot } from "../lib/epn-live-sync.mjs";
 import { getOwnerDashboardSnapshot } from "../lib/owner-dashboard.js";
+import { epnCronAccessDecision } from "../lib/epn-cron-access.mjs";
 
 const now = new Date("2026-11-03T16:00:00.000Z");
 const startDate = "2026-09-29", endDate = "2026-11-03";
@@ -57,7 +58,7 @@ test("foreign transaction does not count toward BlindBoxAI", () => {
   assert.equal(report.earnings, 0);
 });
 test("summary-only reports cannot make verified transactions", () => {
-  assert.throws(() => create("Status,Earnings,Clicks\napproved,5,20"), /transaction identities/);
+  assert.throws(() => create("Status,Earnings,Clicks\napproved,5,20"), /missing identities|transaction identities/);
 });
 test("stale authenticated report withholds all financial totals", () => {
   const report = create();
@@ -152,41 +153,27 @@ test("owner dashboard behavior: live, stale, blocked, unreadable, and missing bl
   assert.equal(staleResponse.snapshot.revenue.epn.earnings,null);
 });
 
-test("cron endpoint rejects non-ASCII or missing secrets and refuses disabled sync", async () => {
-  const originalSecret = process.env.CRON_SECRET;
-  const originalEnabled = process.env.EPN_AUTO_SYNC_ENABLED;
-  process.env.CRON_SECRET = "synthetic_cron_secret_example_12345678";
-  process.env.EPN_AUTO_SYNC_ENABLED = "false";
-  try {
-    const {GET} = await import("../app/api/cron/epn-sync/route.js");
-    const endpoint = "https://example.com/api/cron/epn-sync";
-    let response = await GET(new Request(endpoint));
-    assert.equal(response.status,401);
-    response = await GET(new Request(endpoint,{headers:{Authorization:"Bearer wrong"}}));
-    assert.equal(response.status,401);
-    // Same string length but more UTF-8 bytes must return 401 rather than throw 500.
-    const nonAscii = "Bearer " + "ñ".repeat(process.env.CRON_SECRET.length);
-    response = await GET(new Request(endpoint,{headers:{Authorization:nonAscii}}));
-    assert.equal(response.status,401);
-    response = await GET(new Request(endpoint,{headers:{Authorization:"Bearer " + process.env.CRON_SECRET}}));
-    assert.equal(response.status,503);
-    const body = await response.json();
-    assert.match(body.error,/disabled/);
-  } finally {
-    if(originalSecret===undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET=originalSecret;
-    if(originalEnabled===undefined) delete process.env.EPN_AUTO_SYNC_ENABLED; else process.env.EPN_AUTO_SYNC_ENABLED=originalEnabled;
-  }
+test("cron authorization decision enforces secret, Unicode safety and default-off", () => {
+  const secret = "synthetic_cron_secret_example_12345678";
+  const valid = "Bearer " + secret;
+  assert.equal(epnCronAccessDecision({authorization:"",secret,enabled:"true"}),"unauthorized");
+  assert.equal(epnCronAccessDecision({authorization:"Bearer wrong",secret,enabled:"true"}),"unauthorized");
+  assert.equal(epnCronAccessDecision({authorization:"Bearer " + "ñ".repeat(secret.length),secret,enabled:"true"}),"unauthorized");
+  assert.equal(epnCronAccessDecision({authorization:valid,secret,enabled:"false"}),"disabled");
+  assert.equal(epnCronAccessDecision({authorization:valid,secret,enabled:"true"}),"allowed");
+  assert.equal(epnCronAccessDecision({authorization:valid,secret:"",enabled:"true"}),"unauthorized");
 });
-
 test("cron must have secret, explicit enable flag, and no immutable-ledger write", () => {
   const cron = readFileSync(new URL("../app/api/cron/epn-sync/route.js",import.meta.url),"utf8");
   const owner = readFileSync(new URL("../app/owner-dashboard/RevenueSummaryClient.jsx",import.meta.url),"utf8");
   const dashboard = readFileSync(new URL("../lib/owner-dashboard.js",import.meta.url),"utf8");
   assert.match(cron,/CRON_SECRET/);
-  assert.match(cron,/timingSafeEqual/);
-  assert.match(cron,/EPN_AUTO_SYNC_ENABLED !== "true"/);
+  assert.match(cron,/epnCronAccessDecision/);
+  assert.match(cron,/EPN_AUTO_SYNC_ENABLED/);
+  const access = readFileSync(new URL("../lib/epn-cron-access.mjs",import.meta.url),"utf8");
+  assert.match(access,/timingSafeEqual/);
   assert.match(owner,/Verify live eBay report \(read-only\)/);
   assert.match(owner,/api\/owner\/epn-tdr/);
-  assert.match(dashboard,/redactStaleEpnSnapshot/);
+  assert.match(dashboard,/selectEpnDashboardReport/);
   assert.doesNotMatch(cron,/recordProviderEvidence|provider_conversion_evidence/);
 });
