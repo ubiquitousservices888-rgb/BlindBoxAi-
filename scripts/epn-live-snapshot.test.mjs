@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { buildEpnLiveSnapshot, epnLiveSnapshotIsFresh, redactStaleEpnSnapshot, EPN_LIVE_SNAPSHOT_PATH } from "../lib/epn-live-snapshot.mjs";
+import { buildEpnLiveSnapshot, epnLiveSnapshotIsFresh, redactStaleEpnSnapshot, selectEpnDashboardReport, EPN_LIVE_SNAPSHOT_PATH } from "../lib/epn-live-snapshot.mjs";
 import { syncEpnLiveSnapshot } from "../lib/epn-live-sync.mjs";
 
 const now = new Date("2026-11-03T16:00:00.000Z");
@@ -19,7 +19,8 @@ test("one transaction across two item rows counts once", () => {
   const report = create();
   assert.equal(report.orders, 1);
   assert.equal(report.earnings, 4);
-  assert.equal(report.providerTransactionsChecked, 1);
+  assert.equal(report.providerTransactionsParsed, 2);
+  assert.equal(report.eligibleTransactions, 1);
   assert.equal(report.rollingWindowOnly, true);
   assert.equal(report.providerPayoutVerified, false);
   assert.equal(report.historicalLedgerReconciled, false);
@@ -94,6 +95,55 @@ test("failed provider read cannot overwrite previous snapshot", async () => {
   }));
   assert.equal(writes,0);
 });
+test("live reads never revive an older manual report after a failure", () => {
+  const live = create();
+  const manual = {source:"ebay_partner_network_csv", earnings:999, orders:77};
+  const value = state => selectEpnDashboardReport({ liveState:state, manualReport:manual, now });
+  assert.equal(value({kind:"missing"}), manual);
+  assert.equal(value({kind:"present",report:live}).earnings, 4);
+  assert.equal(value({kind:"failed"}).earnings, null);
+  assert.equal(value({kind:"present",report:{source:"untrusted",earnings:999}}).earnings, null);
+  assert.equal(value({kind:"present",report:{...live,reportType:"summary_only"}}).earnings, null);
+  assert.equal(value({kind:"present",report:{...live,reconciliationRequired:true}}).earnings, null);
+  const after = selectEpnDashboardReport({ liveState:{kind:"present",report:live}, manualReport:manual, now:new Date("2026-11-08T16:00:00Z") });
+  assert.equal(after.earnings, null);
+  assert.equal(after.orders, null);
+});
+test("missing transaction IDs or partially malformed financial rows fail closed", () => {
+  const missing = [h,"2026-11-02,2026-11-02,bb-rv-0123456789abcdef,1.5,,approved,USD,item-a"].join("\n");
+  assert.throws(() => create(missing), /missing identities/);
+  const partiallyMalformed = [h,
+    "2026-11-02,2026-11-02,bb-rv-0123456789abcdef,1.5,tx-a,approved,USD,item-a",
+    "2026-11-03,2026-11-03,bb-rv-0123456789abcdef,INVALID,tx-b,approved,USD,item-b",
+  ].join("\n");
+  assert.throws(() => create(partiallyMalformed), /malformed financial rows/);
+});
+test("cron endpoint rejects non-ASCII or missing secrets and refuses disabled sync", async () => {
+  const originalSecret = process.env.CRON_SECRET;
+  const originalEnabled = process.env.EPN_AUTO_SYNC_ENABLED;
+  process.env.CRON_SECRET = "synthetic_cron_secret_example_12345678";
+  process.env.EPN_AUTO_SYNC_ENABLED = "false";
+  try {
+    const {GET} = await import("../app/api/cron/epn-sync/route.js");
+    const endpoint = "https://example.com/api/cron/epn-sync";
+    let response = await GET(new Request(endpoint));
+    assert.equal(response.status,401);
+    response = await GET(new Request(endpoint,{headers:{Authorization:"Bearer wrong"}}));
+    assert.equal(response.status,401);
+    // Same string length but more UTF-8 bytes must return 401 rather than throw 500.
+    const nonAscii = "Bearer " + "ñ".repeat(process.env.CRON_SECRET.length);
+    response = await GET(new Request(endpoint,{headers:{Authorization:nonAscii}}));
+    assert.equal(response.status,401);
+    response = await GET(new Request(endpoint,{headers:{Authorization:"Bearer " + process.env.CRON_SECRET}}));
+    assert.equal(response.status,503);
+    const body = await response.json();
+    assert.match(body.error,/disabled/);
+  } finally {
+    if(originalSecret===undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET=originalSecret;
+    if(originalEnabled===undefined) delete process.env.EPN_AUTO_SYNC_ENABLED; else process.env.EPN_AUTO_SYNC_ENABLED=originalEnabled;
+  }
+});
+
 test("cron must have secret, explicit enable flag, and no immutable-ledger write", () => {
   const cron = readFileSync(new URL("../app/api/cron/epn-sync/route.js",import.meta.url),"utf8");
   const owner = readFileSync(new URL("../app/owner-dashboard/RevenueSummaryClient.jsx",import.meta.url),"utf8");
