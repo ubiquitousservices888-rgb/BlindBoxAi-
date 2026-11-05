@@ -48,4 +48,9 @@ test("owner-facing errors distinguish auth, missing config, provider and network
   assert.match(client, /clearTimeout\(timeout\)/);
   assert.match(client, /response.json\(\)\.catch\(\(\) => null\)/);
 });
-\ntest("private reporting page does not enter optional analytics pipeline", () => {\n  const analytics = read("app/_components/CoreAnalytics.jsx");\n  assert.match(analytics, /privateReportingPath\(pathname\)/);\n  assert.match(analytics, /startsWith\("\/owner-dashboard\/epn-check"\)/);\n});\n
+
+test("private reporting page does not enter optional analytics pipeline", () => {
+  const analytics = read("app/_components/CoreAnalytics.jsx");
+  assert.match(analytics, /privateReportingPath\(pathname\)/);
+  assert.match(analytics, /startsWith\("\/owner-dashboard\/epn-check"\)/);
+});
