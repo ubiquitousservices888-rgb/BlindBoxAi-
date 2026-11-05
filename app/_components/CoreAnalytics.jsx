@@ -26,6 +26,8 @@ const UTM_CAMPAIGN_STORAGE_KEY = "bbai_utm_campaign";
 const UTM_CONTENT_STORAGE_KEY = "bbai_utm_content";
 const LANDING_SOURCE_STORAGE_KEY = "bbai_landing_source_v1";
 
+const privateReportingPath = path => String(path || "").startsWith("/owner-dashboard/epn-check");
+
 function analyticsAllowed() {
   return isAnalyticsConsentGranted();
 }
@@ -186,6 +188,7 @@ export default function CoreAnalytics() {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
+    if (privateReportingPath(pathname)) return;
     captureLandingAttributionSource();
     setAllowed(analyticsAllowed());
 
@@ -201,10 +204,10 @@ export default function CoreAnalytics() {
       window.removeEventListener("blindboxai:consent", onConsent);
       window.removeEventListener("storage", onStorage);
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
-    if (!allowed || !pathname) return;
+    if (!allowed || !pathname || privateReportingPath(pathname)) return;
     const path = pathname.slice(0, 120);
     const campaign = captureCampaignAttribution();
     const landingSource = captureLandingAttributionSource();
@@ -223,7 +226,7 @@ export default function CoreAnalytics() {
   }, [allowed, pathname]);
 
   useEffect(() => {
-    if (!allowed) return;
+    if (!allowed || privateReportingPath(pathname)) return;
     const campaign = captureCampaignAttribution();
     const landingSource = captureLandingAttributionSource();
     const source = campaign.campaignSource || (landingSource !== "none" ? landingSource : safeLandingSource());
@@ -248,9 +251,10 @@ export default function CoreAnalytics() {
       capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
     }
-  }, [allowed]);
+  }, [allowed, pathname]);
 
   useEffect(() => {
+    if (privateReportingPath(pathname)) return;
     const onClick = (event) => {
       const anchor = event.target?.closest?.("a[href]");
       if (!anchor) return;
@@ -316,7 +320,7 @@ export default function CoreAnalytics() {
 
     document.addEventListener("click", onClick, { capture: true });
     return () => document.removeEventListener("click", onClick, { capture: true });
-  }, [allowed]);
+  }, [allowed, pathname]);
 
   return null;
 }
