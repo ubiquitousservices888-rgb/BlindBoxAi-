@@ -49,7 +49,14 @@ function saveConsent(analytics) {
 }
 
 function respectAnalyticsConsent(event) {
-  return isAnalyticsConsentGranted() ? event : null;
+  if (!isAnalyticsConsentGranted()) return null;
+  try {
+    const path = new URL(String(event?.url || ''), window.location.href).pathname;
+    if (path.startsWith('/owner-dashboard/epn-check')) return null;
+  } catch {
+    return null;
+  }
+  return event;
 }
 
 export default function CookieConsent() {
