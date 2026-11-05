@@ -13,7 +13,7 @@ test("owner can launch EPN check without waiting for Supabase dashboard", () => 
   assert.doesNotMatch(page, /RevenueSummaryClient|DashboardClient/);
   assert.match(home, /\/owner-dashboard\/epn-check/);
   assert.match(revenue, /\/owner-dashboard\/epn-check/);
-  assert.match(client, /\/api\/owner\/epn-tdr/);
+  assert.match(client, /fetch\("\/api\/owner\/epn-tdr",\s*\{/);
   assert.doesNotMatch(client, /\/api\/owner\/dashboard|localStorage|sessionStorage|document\.cookie/);
 });
 
@@ -26,6 +26,8 @@ test("provider verification uses private owner Bearer header, never URL or brows
   assert.match(client, /persisted !== false/);
   assert.match(client, /verifiedProviderPayout !== false/);
   assert.match(client, /reportType !== "transaction_detail"/);
+  assert.match(client, /typeof data\?\.reconciliationRequired !== "boolean"/);
+  assert.match(client, /report\?\.reconciliationRequired === false/);
   assert.doesNotMatch(client, /fetch\("\/api\/owner\/epn-report"/);
   assert.doesNotMatch(client, /sendBeacon|createElement\("script"|window\.location/);
 });
@@ -41,4 +43,9 @@ test("owner-facing errors distinguish auth, missing config, provider and network
   assert.match(client, /could not reach the server/);
   assert.match(client, /reconciliationRequired === true/);
   assert.match(client, /Withheld pending historical reconciliation/);
+  assert.match(client, /new AbortController\(\)/);
+  assert.match(client, /signal: controller.signal/);
+  assert.match(client, /clearTimeout\(timeout\)/);
+  assert.match(client, /response.json\(\)\.catch\(\(\) => null\)/);
 });
+\ntest("private reporting page does not enter optional analytics pipeline", () => {\n  const analytics = read("app/_components/CoreAnalytics.jsx");\n  assert.match(analytics, /privateReportingPath\(pathname\)/);\n  assert.match(analytics, /startsWith\("\/owner-dashboard\/epn-check"\)/);\n});\n
