@@ -52,5 +52,9 @@ test("owner-facing errors distinguish auth, missing config, provider and network
 test("private reporting page does not enter optional analytics pipeline", () => {
   const analytics = read("app/_components/CoreAnalytics.jsx");
   assert.match(analytics, /privateReportingPath\(pathname\)/);
+  assert.match(analytics, /landingOnce\.current/);
+  const consent = read("app/_components/CookieConsent.jsx");
+  assert.match(consent, /path\.startsWith/);
+  assert.match(consent, /owner-dashboard\/epn-check/);
   assert.match(analytics, /startsWith\("\/owner-dashboard\/epn-check"\)/);
 });
