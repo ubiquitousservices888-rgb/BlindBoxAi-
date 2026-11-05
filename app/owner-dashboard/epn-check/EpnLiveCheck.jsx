@@ -18,12 +18,15 @@ export default function EpnLiveCheck() {
     setChecking(true);
     setReport(null);
     setError("");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const response = await fetch("/api/owner/epn-tdr", {
         method: "GET",
         headers: { Authorization: `Bearer ${code}` },
         cache: "no-store",
         redirect: "error",
+        signal: controller.signal,
       });
       if (response.status === 401) {
         setError("Owner code rejected. Enter your private owner access code exactly as configured in your site settings. Do not share it.");
@@ -41,11 +44,12 @@ export default function EpnLiveCheck() {
         setError("The eBay reporting check could not complete. The server returned an unexpected response.");
         return;
       }
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
       if (data?.source !== "epn_authenticated_tdr_api" ||
           data?.reportType !== "transaction_detail" ||
           data?.persisted !== false ||
-          data?.verifiedProviderPayout !== false) {
+          data?.verifiedProviderPayout !== false ||
+          typeof data?.reconciliationRequired !== "boolean") {
         setError("The server returned an unexpected report format. No commission is verified.");
         return;
       }
@@ -53,12 +57,13 @@ export default function EpnLiveCheck() {
     } catch {
       setError("The reporting check could not reach the server. Please reload this page and retry.");
     } finally {
+      clearTimeout(timeout);
       setChecking(false);
     }
   }
 
   const blocked = report?.reconciliationRequired === true;
-  const verifiedWindow = report && !blocked;
+  const verifiedWindow = report?.reconciliationRequired === false;
   const money = value => typeof value === "number" && Number.isFinite(value)
     ? value.toLocaleString("en-US", { style: "currency", currency: "USD" })
     : "Unavailable";
