@@ -2,7 +2,7 @@
 
 import { track } from "@vercel/analytics";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { isValidSource, verticalFromSource } from "../../lib/attribution.mjs";
 import {
@@ -186,6 +186,7 @@ function isAffiliateDestination(destination) {
 export default function CoreAnalytics() {
   const pathname = usePathname();
   const [allowed, setAllowed] = useState(false);
+  const landingOnce = useRef(false);
 
   useEffect(() => {
     if (privateReportingPath(pathname)) return;
@@ -226,7 +227,7 @@ export default function CoreAnalytics() {
   }, [allowed, pathname]);
 
   useEffect(() => {
-    if (!allowed || privateReportingPath(pathname)) return;
+    if (!allowed || privateReportingPath(pathname) || landingOnce.current) return;
     const campaign = captureCampaignAttribution();
     const landingSource = captureLandingAttributionSource();
     const source = campaign.campaignSource || (landingSource !== "none" ? landingSource : safeLandingSource());
@@ -241,12 +242,15 @@ export default function CoreAnalytics() {
       utmContent: campaign.utmContent,
     };
     try {
-      if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
+      if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") { landingOnce.current = true; return; }
+      landingOnce.current = true;
       track("landing_session_source", payload);
       capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
       sessionStorage.setItem("bbai_landing_source_recorded", "1");
     } catch {
+      if (landingOnce.current) return;
+      landingOnce.current = true;
       track("landing_session_source", payload);
       capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
