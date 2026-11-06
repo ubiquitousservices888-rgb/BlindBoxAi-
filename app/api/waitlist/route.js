@@ -32,9 +32,23 @@ function required(name) {
   return value;
 }
 
+function utmMetadata(body) {
+  const utm = {};
+  const utmSource = cleanDimension(body?.utmSource);
+  const utmMedium = cleanDimension(body?.utmMedium);
+  const utmCampaign = cleanDimension(body?.utmCampaign);
+  const utmContent = cleanDimension(body?.utmContent);
+  if (utmSource) utm.utmSource = utmSource;
+  if (utmMedium) utm.utmMedium = utmMedium;
+  if (utmCampaign) utm.utmCampaign = utmCampaign;
+  if (utmContent) utm.utmContent = utmContent;
+  return utm;
+}
+
 function eventFrom(body, event, metadata = undefined) {
   const now = new Date().toISOString();
   const campaign = cleanDimension(body?.campaign);
+  const combined = { ...utmMetadata(body), ...(metadata || {}) };
   return {
     schemaVersion: 1,
     namespace: "production",
@@ -47,7 +61,7 @@ function eventFrom(body, event, metadata = undefined) {
     source: safeWaitlistAttributionSource(cleanDimension(body?.source)),
     campaign,
     contentId: campaign,
-    metadata,
+    metadata: Object.keys(combined).length ? combined : undefined,
     piiStored: false,
   };
 }
