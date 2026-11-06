@@ -66,3 +66,21 @@ Do not defend a position. Run the command that settles it and paste the output. 
 ## Roles
 
 Write access belongs to whichever agent the owner has authorised. The reviewing agent reads raw evidence and separates verified findings from hypotheses. Neither agent is a source of truth. The repository and observable production behaviour are.
+
+## Mandatory pre-push code quality gate (all AI coding work)
+
+This rule applies to every code change, including fixes suggested by another AI. A second AI review is not a substitute for verification.
+
+1. **Lock the scope.** Record the repository, exact PR/branch, current head SHA, permitted files, and approval limits. Recheck the head before writing. If it moved unexpectedly, stop instead of overwriting another change.
+2. **Read the complete target.** Inspect the actual file, its callers, relevant tests and the CI job that will exercise it. Do not patch from partial screenshots or assumptions.
+3. **Prepare a minimal, exact edit.** Use an exact patch or carefully checked full-file replacement. Preserve all unrelated lines. When editing through code generation, guard against string interpolation, quoting, backslashes, regular expressions and replacement characters such as $ and &. Never trust a generated patch without inspecting its final text.
+4. **Check before pushing.** On the *final edited bytes*, run the language's syntax/compile check and targeted tests when applicable (for JavaScript, use Node's syntax check where supported). Run negative/positive regression cases for guards and approval boundaries: prove a forbidden change fails and an allowed change passes. Check whitespace and inspect the full diff and changed-file list.
+5. **Fail closed on missing evidence.** If the environment cannot execute a required check, label that check UNVERIFIED and arrange a check before claiming readiness. Do not describe a readback, a review, or a previous commit's green checks as a test of the new code. Do not silently push unverified code as though it passed.
+6. **Push safely and read back.** Verify only permitted files changed, confirm the exact commit and branch after pushing, and re-read the modified file to catch formatting or escaping damage. Never force-push or merge merely to finish the task.
+7. **Wait for the matching release gate.** Report the results for the **new head SHA**, not an earlier SHA: Preflight, Test, Build, Audit, and any conditional production smoke. Diagnose a failure from job logs, fix the root cause, and repeat checks before calling the PR ready. A passing PR check does not prove deployment or revenue.
+8. **Respect owner control.** Merge, deploy, live publish, external-account writes, payment changes, and anything affecting Blue owner approval remain subject to their separate authorization and existing gates.
+
+Every PR handoff should include: exact changed paths, commit SHA, raw verification commands/results or an explicit UNVERIFIED label, known remaining risks, CI run URL, and a precise statement of whether it was merged or deployed.
+
+**Stop condition:** Never mark a coding task COMPLETE if final-source verification or required CI failed, is running, or was skipped without a stated reason.
+
