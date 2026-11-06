@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertBlindBoxSupabaseOrigin } from "../../../lib/blindbox-supabase-boundary.mjs";
 import { recordAnalyticsEvent } from "../../../lib/supabase-telemetry.mjs";
-import { safeWaitlistAttributionSource } from "../../../lib/waitlist-attribution.mjs";
+import { safeWaitlistAttributionSource, waitlistEventMetadata } from "../../../lib/waitlist-attribution.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,23 +32,9 @@ function required(name) {
   return value;
 }
 
-function utmMetadata(body) {
-  const utm = {};
-  const utmSource = cleanDimension(body?.utmSource);
-  const utmMedium = cleanDimension(body?.utmMedium);
-  const utmCampaign = cleanDimension(body?.utmCampaign);
-  const utmContent = cleanDimension(body?.utmContent);
-  if (utmSource) utm.utmSource = utmSource;
-  if (utmMedium) utm.utmMedium = utmMedium;
-  if (utmCampaign) utm.utmCampaign = utmCampaign;
-  if (utmContent) utm.utmContent = utmContent;
-  return utm;
-}
-
 function eventFrom(body, event, metadata = undefined) {
   const now = new Date().toISOString();
   const campaign = cleanDimension(body?.campaign);
-  const combined = { ...utmMetadata(body), ...(metadata || {}) };
   return {
     schemaVersion: 1,
     namespace: "production",
@@ -61,7 +47,7 @@ function eventFrom(body, event, metadata = undefined) {
     source: safeWaitlistAttributionSource(cleanDimension(body?.source)),
     campaign,
     contentId: campaign,
-    metadata: Object.keys(combined).length ? combined : undefined,
+    metadata: waitlistEventMetadata(body, metadata, cleanDimension),
     piiStored: false,
   };
 }

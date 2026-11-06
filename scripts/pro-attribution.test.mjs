@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { safeWaitlistAttributionSource } from "../lib/waitlist-attribution.mjs";
+import { safeWaitlistAttributionSource, waitlistEventMetadata } from "../lib/waitlist-attribution.mjs";
 
 const analytics = fs.readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
 const page = fs.readFileSync(new URL("../app/pro/page.jsx", import.meta.url), "utf8");
@@ -42,13 +42,31 @@ test("first-party waitlist preserves attribution without putting email into anal
 });
 
 test("waitlist events carry UTM dimensions from the submitted attribution", () => {
-  const utmBuilder = waitlistRoute.match(/function utmMetadata[\s\S]*?\n\}/);
-  assert.ok(utmBuilder);
-  for (const key of ["utmSource", "utmMedium", "utmCampaign", "utmContent"]) {
-    assert.match(utmBuilder[0], new RegExp(`cleanDimension\\(body\\?\\.${key}\\)`));
-  }
-  assert.doesNotMatch(utmBuilder[0], /email/);
-  assert.match(waitlistRoute, /\.\.\.utmMetadata\(body\)/);
+  const clean = (value) => {
+    const cleaned = String(value ?? "").trim().slice(0, 80);
+    return cleaned && cleaned !== "none" ? cleaned : null;
+  };
+  const body = {
+    email: "owner@example.com",
+    utmSource: "  youtube ",
+    utmMedium: "shorts",
+    utmCampaign: "pro_verify_20261106",
+    utmContent: "none",
+    source: "youtube",
+  };
+  assert.deepEqual(waitlistEventMetadata(body, { ownedStorage: true }, clean), {
+    utmSource: "youtube",
+    utmMedium: "shorts",
+    utmCampaign: "pro_verify_20261106",
+    ownedStorage: true,
+  });
+  assert.equal(waitlistEventMetadata({ email: "owner@example.com" }, undefined, clean), undefined);
+  assert.deepEqual(waitlistEventMetadata({ utmSource: "x" }, { utmSource: "route" }, clean), { utmSource: "route" });
+  assert.doesNotMatch(JSON.stringify(waitlistEventMetadata(body, {}, clean)), /@/);
+
+  const eventBuilder = waitlistRoute.match(/function eventFrom[\s\S]*?\n\}/);
+  assert.ok(eventBuilder);
+  assert.match(eventBuilder[0], /metadata: waitlistEventMetadata\(body, metadata, cleanDimension\)/);
 });
 
 test("waitlist shows collection purpose and unsubscribe disclosure", () => {
