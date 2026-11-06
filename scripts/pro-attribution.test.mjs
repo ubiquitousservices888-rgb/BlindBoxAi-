@@ -45,7 +45,7 @@ test("waitlist events carry UTM dimensions from the submitted attribution", () =
   const utmBuilder = waitlistRoute.match(/function utmMetadata[\s\S]*?\n\}/);
   assert.ok(utmBuilder);
   for (const key of ["utmSource", "utmMedium", "utmCampaign", "utmContent"]) {
-    assert.match(utmBuilder[0], new RegExp(\`cleanDimension\\\\(body\\\\?\\\\.\${key}\\\\)\`));
+    assert.match(utmBuilder[0], new RegExp(`cleanDimension\\(body\\?\\.${key}\\)`));
   }
   assert.doesNotMatch(utmBuilder[0], /email/);
   assert.match(waitlistRoute, /\.\.\.utmMetadata\(body\)/);
