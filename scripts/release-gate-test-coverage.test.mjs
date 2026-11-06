@@ -33,7 +33,7 @@ test("release gate Test job runs every test file under scripts/", () => {
   assert.ok(testJob, "release gate must define a jobs.test job");
   const runLines = testJob.split("\n").filter((line) => /^\s+(?:- )?run:/.test(line)).join("\n");
   for (const root of ROOTS) {
-    assert.match(runLines, new RegExp(`npm run ${root.replace(/[.:]/g, "\\  for (const root of ROOTS) assert.match(workflow, new RegExp(`npm run ${root.replace(/[.:]/g, "\\$&")}\\b`), `release gate must run npm run ${root}`);")}\\b`), `release gate Test job must run npm run ${root}`);
+    assert.match(runLines, new RegExp(`npm run ${root.replace(/[.:]/g, "\\$&")}\\b`), `release gate Test job must run npm run ${root}`);
   }
   const reachable = reachableScriptText(scripts);
   const orphans = testFiles("scripts").filter((file) => !reachable.includes(file));
