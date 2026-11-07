@@ -1,9 +1,10 @@
 {
-  "_comment": "Owner-chosen landing page per approved review video. Each entry is bound to the exact video_url, so replaced media loses its landing and is blocked again. Only paths listed in lib/review-landing.mjs QUALIFYING_GUIDES or an existing data/series page are accepted.",
+  "_comment": "Owner-chosen landing page per approved review video. Each entry is bound to the exact video_url, so replaced media loses its landing and is blocked again. path must be a /series/<slug> page or a guide in lib/review-landing.mjs QUALIFYING_GUIDES. vertical states the video's topic (pokemon_tcg or pop_mart) and is only used when the stored row is other_collectible; it must agree with any specific stored topic.",
   "landings": {
     "rv-9c5d343830fb30a8": {
       "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1790216466129-3143.mp4",
-      "path": "/guides/mew-ex-152-vs-158"
+      "path": "/guides/mew-ex-152-vs-158",
+      "vertical": "pokemon_tcg"
     }
   }
 }

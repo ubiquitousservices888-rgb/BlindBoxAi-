@@ -31,7 +31,11 @@ function dateLabel(value) {
 
 export default async function MewComparisonPage({ searchParams }) {
   const query = await searchParams;
-  const attribution = { campaignId: query?.campaign, source: query?.source };
+  // Repeated ?campaign= or ?source= arrive as arrays; only a single value counts.
+  const attribution = {
+    campaignId: typeof query?.campaign === "string" ? query.campaign : undefined,
+    source: typeof query?.source === "string" ? query.source : undefined,
+  };
   return (
     <main style={{ width: "min(900px,calc(100% - 32px))", margin: "36px auto 80px" }}>
       <p style={{ fontFamily: "monospace", opacity: .72 }}>MISLABEL WATCH · POKÉMON 30TH CELEBRATION</p>

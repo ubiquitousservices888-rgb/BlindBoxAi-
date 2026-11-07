@@ -108,7 +108,7 @@ export default function DashboardClient() {
     reviewQueueRequestInFlight.current = true;
     setReviewQueueError("");
     try {
-      const response = await fetch("/api/owner/review-queue", {
+      const response = await fetch("/api/owner/review-queue?include=approved", {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
@@ -216,6 +216,7 @@ export default function DashboardClient() {
     }
     setApprovingReviewUrl(item.mediaUrl);
     setError("");
+    setReviewMessage("");
     try {
       const response = await fetch("/api/owner/approve-review", {
         method: "POST",

@@ -45,7 +45,10 @@ export async function POST(request) {
   }
 
   const videoUrl = String(body?.videoUrl ?? "").trim();
-  const reviewedTitle = typeof body?.reviewedTitle === "string" ? body.reviewedTitle : null;
+  const reviewedTitle = typeof body?.reviewedTitle === "string" ? body.reviewedTitle : "";
+  if (!reviewedTitle) {
+    return NextResponse.json({ error: "This approval is missing the title you reviewed. Refresh and review it again." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
 
   // Server-side gate: re-read the exact row and rebuild its caption here, so
   // approval cannot rely on the browser's copy of the preview.
@@ -70,7 +73,7 @@ export async function POST(request) {
   if (!row) {
     return NextResponse.json({ error: "This video is no longer waiting for approval or publishing. Refresh the dashboard." }, { status: 409, headers: PRIVATE_HEADERS });
   }
-  if (reviewedTitle !== null && reviewedTitle !== String(row.title ?? "")) {
+  if (reviewedTitle !== String(row.title ?? "")) {
     return NextResponse.json({ error: "This video changed after you reviewed it. Refresh and review it again." }, { status: 409, headers: PRIVATE_HEADERS });
   }
   const preview = reviewCaptionPreview(row);

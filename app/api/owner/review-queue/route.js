@@ -58,7 +58,10 @@ export async function GET(request) {
   if (!ownerCode) return unauthorized();
 
   try {
-    const { response, result } = await callReviewQueue(ownerCode, { action: "list", includeApproved: true });
+    // Ready rows only by default (owner live-verify needs an empty baseline);
+    // the dashboard asks for approved-but-unpublished rows explicitly.
+    const includeApproved = new URL(request.url).searchParams.get("include") === "approved";
+    const { response, result } = await callReviewQueue(ownerCode, { action: "list", ...(includeApproved ? { includeApproved: true } : {}) });
     if (!response.ok) {
       return NextResponse.json(
         { error: result?.error || "Unable to load review queue." },

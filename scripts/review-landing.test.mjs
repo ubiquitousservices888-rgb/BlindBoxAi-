@@ -48,11 +48,30 @@ test("landing follows the chosen page only for the exact media and a matching to
   assert.equal(chosen.url, "https://www.blindboxai.com/guides/mew-ex-152-vs-158");
   assert.equal(reviewVideoLanding({ ...pokemon, video_url: `${pokemon.video_url}?v=2` }).qualifies, false);
   assert.equal(reviewVideoLanding({ ...pokemon, vertical: "pop_mart" }).qualifies, false);
+  // The queue's generic fallback takes its topic from the owner's choice only.
+  assert.equal(reviewVideoLanding({ ...pokemon, vertical: "other_collectible" }).qualifies, true);
+  assert.equal(reviewVideoLanding({ ...pokemon, vertical: "" }).qualifies, true);
+  // Specific topics with no matching page, or unknown topics, never qualify.
+  for (const vertical of ["sports_cards", "magic_the_gathering", "blind_box", "unknown"]) {
+    assert.equal(reviewVideoLanding({ ...pokemon, vertical }).qualifies, false, vertical);
+  }
   assert.equal(reviewVideoLanding({ ...pokemon, research_run_id: "rv-0000000000000000" }).qualifies, false);
   assert.equal(reviewVideoLanding({}).qualifies, false);
   const hairSalon = reviewVideoLanding({ title: HAIR_SALON_TITLE, video_url: HAIR_SALON_MEDIA_URL });
   assert.equal(hairSalon.qualifies, true);
   assert.equal(hairSalon.url, "https://www.blindboxai.com/series/labubu-the-monsters-hair-salon");
+});
+
+test("an owner choice without a matching stated topic never qualifies a generic row", async () => {
+  const { videoTopicForTest } = await import("../lib/review-landing.mjs");
+  assert.equal(videoTopicForTest("other_collectible", undefined), "");
+  assert.equal(videoTopicForTest("other_collectible", "sports_cards"), "");
+  assert.equal(videoTopicForTest("other_collectible", "pokemon_tcg"), "pokemon");
+  assert.equal(videoTopicForTest("pokemon_tcg", "pop_mart"), "");
+  assert.equal(videoTopicForTest("pop_mart", "pop_mart"), "pop_mart");
+  for (const choice of Object.values(landingDocument.landings)) {
+    assert.ok(["pokemon_tcg", "pop_mart"].includes(choice.vertical), "every choice states its topic");
+  }
 });
 
 test("Mew guide links keep a video's campaign tag and otherwise credit the guide", () => {
@@ -73,6 +92,8 @@ test("Mew guide links keep a video's campaign tag and otherwise credit the guide
   assert.match(mewPage, /export const dynamic = "force-dynamic";/);
   assert.match(mewPage, /const query = await searchParams;/);
   assert.match(mewPage, /mew30thOutboundPath\(card, attribution\)/);
+  assert.match(mewPage, /typeof query\?\.campaign === "string" \? query\.campaign : undefined/);
+  assert.match(mewPage, /typeof query\?\.source === "string" \? query\.source : undefined/);
 });
 
 test("approval re-checks the exact row and its caption on the server before approving", () => {
@@ -82,9 +103,14 @@ test("approval re-checks the exact row and its caption on the server before appr
   assert.ok(listAt > 0 && previewAt > listAt && approveAt > previewAt);
   assert.match(approveRoute, /item\?\.research_run_id === researchRunId && item\?\.video_url === videoUrl/);
   assert.match(approveRoute, /reviewedTitle !== String\(row\.title \?\? ""\)/);
+  assert.match(approveRoute, /if \(!reviewedTitle\) \{/);
+  assert.ok(approveRoute.indexOf("if (!reviewedTitle) {") < listAt, "reviewed title is required before any lookup");
   assert.match(approveRoute, /status: 422/);
   assert.match(approveRoute, /blocked_caption/);
-  assert.match(queueRoute, /action: "list", includeApproved: true/);
+  // Default stays ready-only so owner live-verify keeps an empty baseline.
+  assert.match(queueRoute, /searchParams\.get\("include"\) === "approved"/);
+  assert.match(queueRoute, /\.\.\.\(includeApproved \? \{ includeApproved: true \} : \{\}\)/);
+  assert.doesNotMatch(queueRoute, /\{ action: "list", includeApproved: true \}/);
 });
 
 test("dashboard lists approved-but-unpublished videos with a guarded Publish now", () => {
@@ -95,4 +121,15 @@ test("dashboard lists approved-but-unpublished videos with a guarded Publish now
   assert.match(dashboard, /reviewedTitle: item\.title/);
   assert.match(dashboard, /approveReviewVideo\(item\.mediaUrl, item\.researchRunId, item\.title\)/);
   assert.match(dashboard, /Affiliate page: \{entry\.landing\}/);
+  assert.match(dashboard, /fetch\("\/api\/owner\/review-queue\?include=approved"/);
+  const publishFn = dashboard.slice(dashboard.indexOf("async function publishApprovedVideo"), dashboard.indexOf("async function deleteReviewVideo"));
+  assert.ok(publishFn.indexOf('setReviewMessage("")') > 0 && publishFn.indexOf('setReviewMessage("")') < publishFn.indexOf("await fetch"));
+});
+
+test("every approval caller sends the title it reviewed", () => {
+  const upload = read("../app/media-upload/MediaUploadForm.jsx");
+  assert.match(upload, /JSON\.stringify\(\{ videoUrl, researchRunId, reviewedTitle, youtubeAudience:/);
+  assert.match(upload, /reviewedTitle: stageResult\?\.title/);
+  assert.equal((dashboard.match(/fetch\("\/api\/owner\/approve-review"/g) || []).length, 2);
+  assert.equal((dashboard.match(/reviewedTitle/g) || []).length >= 3, true);
 });
