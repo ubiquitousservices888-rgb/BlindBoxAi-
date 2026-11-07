@@ -140,16 +140,19 @@ async function stage(req: Request, body: any) {
   if (canonical.video_url !== videoUrl || !canonical.title) return json({ error: "Canonical review identity mismatch" }, 409);
   return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, duplicate: true, videoUrl: canonical.video_url, title: canonical.title, researchRunId, campaignId: `bb-${researchRunId}` });
 }
-async function listReady(req: Request) {
+async function listReady(req: Request, body: any) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  // Owner dashboard may also ask for approved-but-unpublished rows so it can
+  // show them and re-launch publishing. Default stays ready_for_review only.
+  const statuses = body?.includeApproved === true ? ["ready_for_review", "approved"] : ["ready_for_review"];
   try {
     const items = await collectPaginatedRows({
       pageSize: OWNER_REVIEW_PAGE_SIZE,
       maxPages: OWNER_REVIEW_MAX_PAGES,
       fetchPage: async (from, to) => {
         const { data, error } = await db.from("review_video_queue")
-          .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
-          .eq("status", "ready_for_review")
+          .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at,last_error")
+          .in("status", statuses)
           .order("created_at", { ascending: false })
           .range(from, to);
         if (error) throw new Error("Queue lookup failed");
@@ -484,7 +487,7 @@ Deno.serve(async (req: Request) => {
   let body: any; try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const action = clean(body?.action, 30);
   if (action === "stage") return stage(req, body);
-  if (action === "list") return listReady(req);
+  if (action === "list") return listReady(req, body);
   if (action === "approve") return approve(req, body);
   if (action === "reject") return reject(req, body);
   if (action === "delete") return deleteReview(req, body);
