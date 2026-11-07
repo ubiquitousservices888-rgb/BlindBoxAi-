@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode } from "../../../../lib/evidence";
+import { reviewCaptionPreview } from "../../../../lib/review-caption.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,13 @@ const PRIVATE_HEADERS = {
 };
 
 const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
+
+// Owner preview of the exact per-channel caption (tracked BlindBoxAI link +
+// affiliate disclosure) the publisher will post, built by the same function.
+function withCaptionPreview(item) {
+  if (!item || !["ready_for_review", "approved"].includes(item.status)) return item;
+  return { ...item, caption_preview: reviewCaptionPreview(item) };
+}
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_HEADERS });
@@ -58,7 +66,7 @@ export async function GET(request) {
       );
     }
     return NextResponse.json(
-      { items: Array.isArray(result?.items) ? result.items : [] },
+      { items: Array.isArray(result?.items) ? result.items.map(withCaptionPreview) : [] },
       { headers: PRIVATE_HEADERS },
     );
   } catch (error) {

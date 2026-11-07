@@ -1,17 +1,12 @@
 import fs from "node:fs";
 
 import {
-  DISCLOSURE,
-  videoCaptionForService,
-} from "../lib/video-pipeline.mjs";
-import {
   createReviewBufferPublisher,
   isVerifiedPublicPostUrl,
   resolveReviewBufferChannel,
 } from "../lib/buffer-review-publisher.mjs";
-import { buildTrackedSocialCta } from "../lib/social-attribution.mjs";
-import { reviewVideoLandingUrl } from "../lib/review-landing-url.mjs";
-import { isPublicVideoTitle, resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
+import { buildReviewCaption, reviewPublicTitle } from "../lib/review-caption.mjs";
+import { isPublicVideoTitle } from "../lib/public-video-title.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -131,11 +126,7 @@ if (!item) {
 const leaseToken = dryRun ? "" : String(item.publishing_at ?? "").trim();
 try {
   const titleNeedsRepair = !isPublicVideoTitle(item.title);
-  const publicTitle = resolvePublicVideoTitle(item.title, {
-    vertical: item.vertical,
-    researchRunId: item.research_run_id,
-    maxLength: 100,
-  });
+  const publicTitle = reviewPublicTitle(item);
   const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
   if (!dryRun) required(leaseToken, "queue lease token");
   if (titleNeedsRepair) {
@@ -213,25 +204,7 @@ try {
 
   const results = [];
   for (const channel of channels) {
-    const trackedCta = buildTrackedSocialCta(reviewVideoLandingUrl(item), {
-      runId: item.research_run_id,
-      service: channel,
-    });
-    const trackedUrl = new URL(trackedCta);
-    const campaignId = trackedUrl.searchParams.get("campaign");
-    const source = trackedUrl.searchParams.get("source");
-    if (!campaignId || !source) {
-      throw new Error(`${channel}: tracked CTA is missing campaign or source`);
-    }
-    const script = {
-      title: publicTitle,
-      facts: [item.vertical === "pokemon_tcg" ? "Pokémon collectible research." : "Owner-reviewed BlindBoxAI collectible research."],
-      productUrl: trackedCta,
-    };
-    const caption = videoCaptionForService(script, channel);
-    if (!caption.includes(trackedCta) || !caption.includes(DISCLOSURE)) {
-      throw new Error(`${channel}: tracked CTA and affiliate disclosure are required`);
-    }
+    const { campaignId, source, caption } = buildReviewCaption(item, channel, publicTitle);
     const result = await publisher({
       channel,
       videoUrl: safeVideoUrl,

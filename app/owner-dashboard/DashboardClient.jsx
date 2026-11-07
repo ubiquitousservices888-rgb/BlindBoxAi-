@@ -294,6 +294,7 @@ export default function DashboardClient() {
       vertical: item.vertical,
       durationSeconds: Number(item.duration_seconds || 0),
       sizeBytes: Number(item.size_bytes || 0),
+      captionPreview: Array.isArray(item.caption_preview) ? item.caption_preview : [],
     }));
 
   return <div style={{ display: "grid", gap: 24 }}>
@@ -314,6 +315,7 @@ export default function DashboardClient() {
           const watching = watchingReviewUrl === item.mediaUrl;
           const playbackPassed = reviewPlayback.videoUrl === item.mediaUrl && reviewPlayback.status === "watched";
           const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
+          const captionReady = item.captionPreview.length > 0 && item.captionPreview.every((preview) => preview?.ok === true);
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
@@ -324,7 +326,7 @@ export default function DashboardClient() {
                 <button type="button" onClick={() => openReviewVideo(item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
-                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId)} disabled={!playbackPassed || !validAudience || approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId)} disabled={!playbackPassed || !validAudience || !captionReady || approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
                   {approved ? "LAUNCH DISPATCHED" : approvingReviewUrl === item.mediaUrl ? "APPROVING + LAUNCHING…" : "BLUE APPROVE + LAUNCH"}
                 </button>
                 <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
@@ -336,6 +338,20 @@ export default function DashboardClient() {
                 <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "not_made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "not_made_for_kids" }))} /> Not made for kids</label>
                 <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "made_for_kids" }))} /> Made for kids</label>
               </div>
+              <details open style={{ marginTop: 10 }}>
+                <summary style={{ fontWeight: 700 }}>What will post (read-only)</summary>
+                {item.captionPreview.length ? item.captionPreview.map((preview) => (
+                  <div key={preview.channel} style={{ marginTop: 8 }}>
+                    <strong>{preview.channel === "youtube" ? "YouTube" : preview.channel === "tiktok" ? "TikTok" : preview.channel}</strong>
+                    {preview.ok ? (
+                      <>
+                        <div style={{ fontSize: 13, marginTop: 4, wordBreak: "break-all" }}>Link: {preview.link}</div>
+                        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13, margin: "4px 0 0", padding: 8, border: "1px solid currentColor", borderRadius: 8 }}>{preview.caption}</pre>
+                      </>
+                    ) : <p role="alert" style={{ color: "crimson", margin: "4px 0 0" }}>{preview.error}</p>}
+                  </div>
+                )) : <p role="alert" style={{ color: "crimson", margin: "4px 0 0" }}>Caption preview is missing, so approval is blocked. Refresh and try again.</p>}
+              </details>
               {watching ? (
                 <>
                   <video
@@ -353,7 +369,7 @@ export default function DashboardClient() {
                   <p role="status" style={{ fontWeight: 700 }}>{reviewPlayback.videoUrl === item.mediaUrl ? (reviewPlayback.status === "watched" ? "Playback finished — owner may approve after reviewing the content." : reviewPlayback.message || "Playback: " + reviewPlayback.status) : "Open the video to verify playback."}</p>
                 </>
               ) : null}
-              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved and its publishing workflow dispatched; live links still require verification." : "The Blue button unlocks only after this video plays through and you select the correct YouTube audience. Content, product facts and affiliate-link verification must also pass the production evidence gate. Delete removes a rejected review file."}</p>
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved and its publishing workflow dispatched; live links still require verification." : "The Blue button unlocks only after this video plays through, you select the correct YouTube audience, and the caption above was built with its tracked link and disclosure. Content, product facts and affiliate-link verification must also pass the production evidence gate. Delete removes a rejected review file."}</p>
             </article>
           );
         }) : <p>No videos are currently staged for review in the dashboard window.</p>}
