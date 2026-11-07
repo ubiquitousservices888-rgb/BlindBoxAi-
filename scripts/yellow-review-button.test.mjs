@@ -142,7 +142,8 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
   assert.match(queuedPublisher, /action:\s*dryRun\s*\?\s*"peek"\s*:\s*"claim"/);
   assert.match(queuedPublisher, /createReviewBufferPublisher/);
-  assert.match(queuedPublisher, /DISCLOSURE/);
+  assert.match(queuedPublisher, /buildReviewCaption\(item, channel, publicTitle\)/);
+  assert.match(fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8"), /caption\.includes\(DISCLOSURE\)/);
   assert.match(queuedPublisher, /blindboxai-review-publisher/);
 });
 

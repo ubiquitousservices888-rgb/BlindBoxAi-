@@ -448,7 +448,9 @@ test("channel selector supports one channel or serialized all while preserving t
 test("legacy queue titles are repaired only while holding the exact publishing lease", () => {
   const publisher = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
-  assert.match(publisher, /resolvePublicVideoTitle/);
+  const reviewCaption = fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8");
+  assert.match(publisher, /const publicTitle = reviewPublicTitle\(item\)/);
+  assert.match(reviewCaption, /resolvePublicVideoTitle\(item\?\.title/);
   assert.match(publisher, /action: "repair_title"/);
   const repairStart = queue.indexOf("async function repairTitle(");
   const repairEnd = queue.indexOf("async function recordChannel(", repairStart);
@@ -613,9 +615,12 @@ test("published feed preserves previously verified channels across exact-channel
 
 test("live publisher fail-closes on missing tracked CTA or unverifiable public URL", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
+  const reviewCaption = fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8");
+  assert.match(reviewCaption, /const trackedUrl = new URL\(trackedCta\)/);
+  assert.match(reviewCaption, /tracked CTA is missing campaign or source/);
+  assert.match(reviewCaption, /tracked CTA and affiliate disclosure are required/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
-  const ctaGuard = source.indexOf("tracked CTA is missing campaign or source");
+  const ctaGuard = source.indexOf("buildReviewCaption(item, channel, publicTitle)");
   const urlGuard = source.indexOf("platform public URL lacks an independent HTTP 200 receipt");
   assert.match(source, /result\.publicHttpStatus !== 200/);
   assert.match(source, /REVIEW_QUEUE_PUBLIC_HTTP_PROOF/);
