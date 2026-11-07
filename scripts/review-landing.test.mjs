@@ -74,6 +74,15 @@ test("an owner choice without a matching stated topic never qualifies a generic 
   }
 });
 
+test("the Mew #158 'Common or rare' video lands on the Mew guide", () => {
+  const choice = landingDocument.landings["rv-3658d7e94a70b562"];
+  const item = { research_run_id: "rv-3658d7e94a70b562", video_url: choice.video_url, vertical: "other_collectible", title: "Common or rare" };
+  const landing = reviewVideoLanding(item);
+  assert.equal(landing.qualifies, true);
+  assert.equal(landing.path, "/guides/mew-ex-152-vs-158");
+  assert.equal(reviewVideoLanding({ ...item, video_url: item.video_url.replace("4639", "4640") }).qualifies, false);
+});
+
 test("Mew guide links keep a video's campaign tag and otherwise credit the guide", () => {
   assert.ok(QUALIFYING_GUIDES["/guides/mew-ex-152-vs-158"]);
   for (const card of MEW_30TH_CARDS) {
