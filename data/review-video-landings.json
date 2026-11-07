@@ -1,0 +1,9 @@
+{
+  "_comment": "Owner-chosen landing page per approved review video. Each entry is bound to the exact video_url, so replaced media loses its landing and is blocked again. Only paths listed in lib/review-landing.mjs QUALIFYING_GUIDES or an existing data/series page are accepted.",
+  "landings": {
+    "rv-9c5d343830fb30a8": {
+      "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1790216466129-3143.mp4",
+      "path": "/guides/mew-ex-152-vs-158"
+    }
+  }
+}

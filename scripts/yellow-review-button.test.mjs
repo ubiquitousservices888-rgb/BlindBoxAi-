@@ -122,7 +122,7 @@ test("public video titles auto-repair launch-blocking names without inventing pr
 
 test("Blue approval binds launch to the exact queue row and permits blank title repair", () => {
   assert.match(dashboard, /researchRunId/);
-  assert.match(dashboard, /JSON\.stringify\(\{ videoUrl, researchRunId, youtubeAudience:/);
+  assert.match(dashboard, /JSON\.stringify\(\{ videoUrl, researchRunId, reviewedTitle, youtubeAudience:/);
   assert.match(uploadPage, /researchRunId: stageResult\?\.researchRunId/);
   assert.doesNotMatch(uploadPage, /maxLength=\{100\} required/);
   assert.match(approvalRoute, /\^rv-\[a-f0-9\]\{16\}\$/);

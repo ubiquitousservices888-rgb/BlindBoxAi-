@@ -58,7 +58,7 @@ export async function GET(request) {
   if (!ownerCode) return unauthorized();
 
   try {
-    const { response, result } = await callReviewQueue(ownerCode, { action: "list" });
+    const { response, result } = await callReviewQueue(ownerCode, { action: "list", includeApproved: true });
     if (!response.ok) {
       return NextResponse.json(
         { error: result?.error || "Unable to load review queue." },

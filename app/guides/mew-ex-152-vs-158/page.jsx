@@ -7,7 +7,9 @@ import {
   mew30thSummary,
 } from "../../../lib/mew-30th-comparison.mjs";
 
-export const revalidate = 86400;
+// Reads ?campaign/&source so a tagged video visitor keeps its attribution on
+// every outbound link; the page is therefore rendered per request.
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Mew ex #152 vs #158 — identify the card before you buy | BlindBoxAI",
@@ -27,7 +29,9 @@ function dateLabel(value) {
   });
 }
 
-export default function MewComparisonPage() {
+export default async function MewComparisonPage({ searchParams }) {
+  const query = await searchParams;
+  const attribution = { campaignId: query?.campaign, source: query?.source };
   return (
     <main style={{ width: "min(900px,calc(100% - 32px))", margin: "36px auto 80px" }}>
       <p style={{ fontFamily: "monospace", opacity: .72 }}>MISLABEL WATCH · POKÉMON 30TH CELEBRATION</p>
@@ -68,7 +72,7 @@ export default function MewComparisonPage() {
               </details>
               <p>
                 <a
-                  href={mew30thOutboundPath(card)}
+                  href={mew30thOutboundPath(card, attribution)}
                   target="_blank"
                   rel="sponsored nofollow noopener"
                 >
