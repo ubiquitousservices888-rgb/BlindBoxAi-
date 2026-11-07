@@ -73,7 +73,9 @@ test("owner queue list uses the tested ready-only pagination helper", () => {
   assert.match(listBody, /collectPaginatedRows\(\{/);
   assert.match(listBody, /pageSize: OWNER_REVIEW_PAGE_SIZE/);
   assert.match(listBody, /maxPages: OWNER_REVIEW_MAX_PAGES/);
-  assert.match(listBody, /\.eq\("status", "ready_for_review"\)/);
+  // Ready rows only by default; approved rows only when the owner dashboard asks.
+  assert.match(listBody, /const statuses = body\?\.includeApproved === true \? \["ready_for_review", "approved"\] : \["ready_for_review"\];/);
+  assert.match(listBody, /\.in\("status", statuses\)/);
   assert.match(listBody, /\.range\(from, to\)/);
   assert.match(listBody, /message === REVIEW_QUEUE_OVERFLOW_ERROR/);
   assert.doesNotMatch(listBody, /\.limit\(20\)/);
