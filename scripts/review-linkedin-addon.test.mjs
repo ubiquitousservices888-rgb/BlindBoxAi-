@@ -231,6 +231,8 @@ test("homepage ledger accepts only a grown channel list or a partial row becomin
   assert.deepEqual(feedChannelGrowthPatch(existing, grown),
     { channels: grown.channels, buffer_post_ids: grown.buffer_post_ids, status: "published" });
   assert.equal(feedChannelGrowthPatch(existing, existing), null);
+  // A Buffer ID for a channel that is not verified live never extends the row.
+  assert.equal(feedChannelGrowthPatch(existing, { ...existing, buffer_post_ids: { youtube: "yt-post", tiktok: "tt-post" } }), null);
   assert.equal(feedChannelGrowthPatch(existing, { ...grown, buffer_post_ids: { youtube: "changed", linkedin: "li-post" } }), null);
   assert.equal(feedChannelGrowthPatch(existing, { ...grown, channels: ["linkedin"] }), null);
   assert.equal(feedChannelGrowthPatch(existing, { ...grown, title: "Other" }), null);
