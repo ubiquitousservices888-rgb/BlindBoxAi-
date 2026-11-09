@@ -5,7 +5,7 @@ import test from "node:test";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import { requirePublicVideoTitle, resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
-import { dispatchApprovedReviewPublication } from "../lib/owner-review-launch.mjs";
+import { dispatchApprovedReviewPublication, ReviewLaunchError } from "../lib/owner-review-launch.mjs";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
@@ -314,6 +314,88 @@ test("Blue approval dispatches one serialized YouTube + TikTok production run", 
   assert.equal(approvalRequests.length, 1);
   assert.equal(JSON.parse(approvalRequests[0].options.body).state, "approved");
   assert.deepEqual(JSON.parse(approvalRequests[0].options.body).environment_ids, [1101]);
+});
+
+function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = true, gateAppears = true, cancelStatus = 202 } = {}) {
+  const requests = [];
+  const fetchImpl = async (url, options = {}) => {
+    const request = { url: String(url), options };
+    requests.push(request);
+    const method = options.method || "GET";
+    if (method === "POST" && request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")) {
+      return jsonResponse({ workflow_run_id: 202, html_url: "https://github.com/example/actions/runs/202" });
+    }
+    if (method === "GET" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
+      return jsonResponse(gateAppears ? [{ environment: { id: 1101, name: "social-production" }, current_user_can_approve: canApprove }] : []);
+    }
+    if (method === "POST" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
+      return approveStatus === 204 ? { ok: true, status: 204, json: async () => ({}) } : jsonResponse({ message: approveMessage }, approveStatus);
+    }
+    if (method === "POST" && request.url.endsWith("/actions/runs/202/cancel")) {
+      return { ok: cancelStatus < 300, status: cancelStatus, json: async () => ({}) };
+    }
+    throw new Error(`unexpected GitHub request: ${method} ${request.url}`);
+  };
+  return { requests, fetchImpl };
+}
+
+async function launchError(options) {
+  const { requests, fetchImpl } = launchFetch(options);
+  try {
+    await dispatchApprovedReviewPublication({
+      token: "masked-test-token",
+      researchRunId: "rv-0123456789abcdef",
+      youtubeAudience: "not_made_for_kids",
+      fetchImpl,
+      delayImpl: async () => {},
+    });
+  } catch (error) {
+    return { error, requests };
+  }
+  throw new Error("expected the launch to fail");
+}
+
+test("Blue launch cancels its run and names the reason when GitHub refuses the approval", async () => {
+  const { error, requests } = await launchError({ approveStatus: 403, approveMessage: "Resource not accessible by personal access token" });
+  assert.ok(error instanceof ReviewLaunchError);
+  assert.equal(error.code, "approval_not_permitted");
+  assert.equal(error.runCancelled, true);
+  assert.equal(error.runId, 202);
+  assert.match(error.ownerMessage, /Deployments, read and write/);
+  assert.match(error.message, /Resource not accessible by personal access token/);
+  assert.doesNotMatch(error.message, /masked-test-token/);
+  assert.equal(requests.filter((request) => request.url.endsWith("/dispatches")).length, 1);
+  assert.equal(requests.filter((request) => request.url.endsWith("/actions/runs/202/cancel")).length, 1);
+});
+
+test("Blue launch cancels its run when the approver is not allowed or the gate never appears", async () => {
+  const notAllowed = await launchError({ canApprove: false });
+  assert.equal(notAllowed.error.code, "approver_not_allowed");
+  assert.equal(notAllowed.error.runCancelled, true);
+  assert.equal(notAllowed.requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments")).length, 0);
+
+  const noGate = await launchError({ gateAppears: false });
+  assert.equal(noGate.error.code, "gate_not_reached");
+  assert.equal(noGate.error.runCancelled, true);
+  assert.equal(noGate.requests.filter((request) => request.url.endsWith("/pending_deployments") && (request.options.method || "GET") === "GET").length, 20);
+});
+
+test("Blue launch reports a failed cancel instead of claiming a clean retry", async () => {
+  const { error } = await launchError({ approveStatus: 403, cancelStatus: 409 });
+  assert.equal(error.runCancelled, false);
+});
+
+test("approval route tells the owner why publishing did not start and that nothing was posted", () => {
+  assert.match(approvalRoute, /nothing was posted/);
+  assert.match(approvalRoute, /launchError\?\.ownerMessage/);
+  assert.match(approvalRoute, /runCancelled/);
+});
+
+test("disabled Blue and Publish buttons look disabled and say why", () => {
+  assert.match(dashboard, /background: blueDisabled \? "#64748b" : "#2563eb"/);
+  assert.match(dashboard, /background: publishDisabled \? "#64748b" : "#2563eb"/);
+  assert.match(dashboard, /blueBlockedReason/);
+  assert.match(dashboard, /publishBlockedReason/);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {

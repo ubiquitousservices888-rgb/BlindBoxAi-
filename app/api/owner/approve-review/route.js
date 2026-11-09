@@ -129,12 +129,20 @@ export async function POST(request) {
       console.error("owner_review_launch_dispatch_failed", {
         message: launchError instanceof Error ? launchError.message : "Unknown launch dispatch error",
         status: Number.isInteger(launchError?.status) ? launchError.status : undefined,
+        code: typeof launchError?.code === "string" ? launchError.code : undefined,
+        runCancelled: launchError?.runCancelled === true,
       });
+      const reason = typeof launchError?.ownerMessage === "string" ? launchError.ownerMessage : "";
+      const cancelled = launchError?.runCancelled === true;
       return NextResponse.json(
         {
           ...result,
-          error: "Video approved, but automatic publishing dispatch failed. Press Blue again to retry safely.",
-          launch: { status: "dispatch_failed" },
+          error: `Video approved, but publishing did not start, so nothing was posted.${reason ? ` ${reason}` : ""}${cancelled ? " The unapproved run was cancelled, so pressing again starts clean." : ""}`,
+          launch: {
+            status: "dispatch_failed",
+            reason: typeof launchError?.code === "string" ? launchError.code : "unknown",
+            runCancelled: cancelled,
+          },
         },
         { status: 502, headers: PRIVATE_HEADERS },
       );

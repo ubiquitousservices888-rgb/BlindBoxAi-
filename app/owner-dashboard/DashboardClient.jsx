@@ -353,6 +353,8 @@ export default function DashboardClient() {
           const playbackPassed = reviewPlayback.videoUrl === item.mediaUrl && reviewPlayback.status === "watched";
           const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
           const captionReady = isCaptionReady(item);
+          const blueDisabled = !playbackPassed || !validAudience || !captionReady || approved || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy;
+          const blueBlockedReason = approved || approvingReviewUrl ? "" : !captionReady ? "Blue is off: this video has no matching affiliate page yet (see the caption check above)." : !playbackPassed ? "Blue is off until you watch this video to the end." : !validAudience ? "Blue is off until you pick the YouTube audience." : "";
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
@@ -363,13 +365,14 @@ export default function DashboardClient() {
                 <button type="button" onClick={() => openReviewVideo(item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
-                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId, item.title)} disabled={!playbackPassed || !validAudience || !captionReady || approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId, item.title)} disabled={blueDisabled} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: blueDisabled ? "#64748b" : "#2563eb", color: "white", fontWeight: 800, cursor: blueDisabled ? "not-allowed" : "pointer", opacity: blueDisabled && !approved ? 0.6 : 1 }}>
                   {approved ? "LAUNCH DISPATCHED" : approvingReviewUrl === item.mediaUrl ? "APPROVING + LAUNCHING…" : "BLUE APPROVE + LAUNCH"}
                 </button>
                 <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
                   {deletingReviewId === item.researchRunId ? "DELETING…" : "DELETE"}
                 </button>
               </div>
+              {blueBlockedReason ? <p role="note" style={{ margin: "8px 0 0", fontWeight: 700 }}>{blueBlockedReason}</p> : null}
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 <strong>YouTube audience (required for this exact video)</strong>
                 <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "not_made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "not_made_for_kids" }))} /> Not made for kids</label>
@@ -407,6 +410,8 @@ export default function DashboardClient() {
           const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
           const dispatched = approvedReviewUrls.has(item.mediaUrl);
           const publishing = approvingReviewUrl === item.mediaUrl;
+          const publishDisabled = !captionReady || !validAudience || dispatched || publishing || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy;
+          const publishBlockedReason = dispatched || approvingReviewUrl ? "" : !captionReady ? "Publish is off: this video has no matching affiliate page yet." : !validAudience ? "Publish is off until you pick the YouTube audience." : "";
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || "BlindBoxAI review video"}</strong>
@@ -419,7 +424,8 @@ export default function DashboardClient() {
                 <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "made_for_kids" }))} /> Made for kids</label>
               </div>
               <CaptionPreview preview={item.captionPreview} />
-              <button type="button" onClick={() => publishApprovedVideo(item)} disabled={!captionReady || !validAudience || dispatched || publishing || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ marginTop: 10, padding: "11px 15px", border: 0, borderRadius: 9, background: dispatched || publishing ? "#64748b" : "#2563eb", color: "white", fontWeight: 800 }}>
+              {publishBlockedReason ? <p role="note" style={{ margin: "8px 0 0", fontWeight: 700 }}>{publishBlockedReason}</p> : null}
+              <button type="button" onClick={() => publishApprovedVideo(item)} disabled={publishDisabled} style={{ marginTop: 10, padding: "11px 15px", border: 0, borderRadius: 9, background: publishDisabled ? "#64748b" : "#2563eb", color: "white", fontWeight: 800, cursor: publishDisabled ? "not-allowed" : "pointer", opacity: publishDisabled && !dispatched ? 0.6 : 1 }}>
                 {dispatched ? "PUBLISHING DISPATCHED" : publishing ? "PUBLISHING…" : "PUBLISH NOW"}
               </button>
             </article>
