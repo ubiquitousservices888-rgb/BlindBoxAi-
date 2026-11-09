@@ -316,7 +316,7 @@ test("Blue approval dispatches one serialized YouTube + TikTok production run", 
   assert.deepEqual(JSON.parse(approvalRequests[0].options.body).environment_ids, [1101]);
 });
 
-function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = true, gateAppears = true, cancelStatus = 202 } = {}) {
+function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = true, gateAppears = true, cancelStatus = 202, pollStatus = 200 } = {}) {
   const requests = [];
   const fetchImpl = async (url, options = {}) => {
     const request = { url: String(url), options };
@@ -326,6 +326,7 @@ function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = tr
       return jsonResponse({ workflow_run_id: 202, html_url: "https://github.com/example/actions/runs/202" });
     }
     if (method === "GET" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
+      if (pollStatus !== 200) return jsonResponse({ message: "Server Error" }, pollStatus);
       return jsonResponse(gateAppears ? [{ environment: { id: 1101, name: "social-production" }, current_user_can_approve: canApprove }] : []);
     }
     if (method === "POST" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
@@ -389,10 +390,22 @@ test("Blue launch reports a failed cancel instead of claiming a clean retry", as
 });
 
 test("an unexpected GitHub failure on the approval leaves the outcome uncertain", async () => {
-  const { error } = await launchError({ approveStatus: 502, approveMessage: "Server Error" });
+  const { error, requests } = await launchError({ approveStatus: 502, approveMessage: "Server Error" });
   assert.equal(error.code, "approval_failed");
   assert.equal(error.approvalCertainlyNotGiven, false);
   assert.equal(error.htmlUrl, "https://github.com/example/actions/runs/202");
+  // The run may already be publishing, so it is left alone, not cancelled.
+  assert.equal(error.runCancelled, false);
+  assert.equal(requests.filter((request) => request.url.endsWith("/actions/runs/202/cancel")).length, 0);
+});
+
+test("a failed status check is not reported as a refused approval", async () => {
+  const { error, requests } = await launchError({ pollStatus: 500 });
+  assert.equal(error.code, "status_check_failed");
+  assert.equal(error.approvalCertainlyNotGiven, true);
+  assert.doesNotMatch(error.ownerMessage, /refused/);
+  assert.equal(requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments")).length, 0);
+  assert.equal(error.runCancelled, true);
 });
 
 test("approval route tells the owner why publishing did not start and that nothing was posted", () => {
@@ -400,6 +413,7 @@ test("approval route tells the owner why publishing did not start and that nothi
   assert.match(approvalRoute, /could not confirm whether publishing started/);
   assert.match(approvalRoute, /approvalCertainlyNotGiven === true/);
   assert.match(approvalRoute, /runUrl/);
+  assert.match(approvalRoute, /left alone so a publish that already started is not cut off/);
   assert.match(approvalRoute, /launchError\?\.ownerMessage/);
   assert.match(approvalRoute, /runCancelled/);
 });

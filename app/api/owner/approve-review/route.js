@@ -140,9 +140,11 @@ export async function POST(request) {
       const outcome = certain
         ? "Video approved, but publishing did not start, so nothing was posted."
         : "Video approved, but the dashboard could not confirm whether publishing started. Check the GitHub run before pressing again.";
-      const followUp = cancelled
-        ? " The run was asked to cancel, so pressing again starts clean once GitHub shows it cancelled."
-        : " The run could not be cancelled and is still on GitHub; it would post only if someone approves it there.";
+      const followUp = !certain
+        ? " The run was left alone so a publish that already started is not cut off half-way."
+        : cancelled
+          ? " The run was asked to cancel, so pressing again starts clean once GitHub shows it cancelled."
+          : " The run could not be cancelled and is still on GitHub; it would post only if someone approves it there.";
       return NextResponse.json(
         {
           ...result,
