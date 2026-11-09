@@ -316,8 +316,9 @@ test("Blue approval dispatches one serialized YouTube + TikTok production run", 
   assert.deepEqual(JSON.parse(approvalRequests[0].options.body).environment_ids, [1101]);
 });
 
-function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = true, gateAppears = true, cancelStatus = 202, pollStatus = 200 } = {}) {
+function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = true, gateAppears = true, cancelStatus = 202, pollStatus = 200, pollFailures = Infinity } = {}) {
   const requests = [];
+  let pollCount = 0;
   const fetchImpl = async (url, options = {}) => {
     const request = { url: String(url), options };
     requests.push(request);
@@ -326,7 +327,8 @@ function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = tr
       return jsonResponse({ workflow_run_id: 202, html_url: "https://github.com/example/actions/runs/202" });
     }
     if (method === "GET" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
-      if (pollStatus !== 200) return jsonResponse({ message: "Server Error" }, pollStatus);
+      pollCount += 1;
+      if (pollStatus !== 200 && pollCount <= pollFailures) return jsonResponse({ message: "Server Error" }, pollStatus);
       return jsonResponse(gateAppears ? [{ environment: { id: 1101, name: "social-production" }, current_user_can_approve: canApprove }] : []);
     }
     if (method === "POST" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
@@ -399,8 +401,29 @@ test("an unexpected GitHub failure on the approval leaves the outcome uncertain"
   assert.equal(requests.filter((request) => request.url.endsWith("/actions/runs/202/cancel")).length, 0);
 });
 
+test("a short GitHub hiccup while checking the run is retried, not treated as a failure", async () => {
+  const { fetchImpl, requests } = launchFetch({ pollStatus: 502, pollFailures: 2 });
+  const result = await dispatchApprovedReviewPublication({
+    token: "masked-test-token",
+    researchRunId: "rv-0123456789abcdef",
+    youtubeAudience: "not_made_for_kids",
+    fetchImpl,
+    delayImpl: async () => {},
+  });
+  assert.equal(result.status, "dispatched_and_environment_approved");
+  assert.equal(requests.filter((request) => (request.options.method || "GET") === "GET" && request.url.endsWith("/pending_deployments")).length, 3);
+  assert.equal(requests.filter((request) => request.url.endsWith("/cancel")).length, 0);
+});
+
+test("a permission error while checking the run stops at once", async () => {
+  const { error, requests } = await launchError({ pollStatus: 403 });
+  assert.equal(error.code, "status_check_failed");
+  assert.equal(requests.filter((request) => (request.options.method || "GET") === "GET" && request.url.endsWith("/pending_deployments")).length, 1);
+});
+
 test("a failed status check is not reported as a refused approval", async () => {
   const { error, requests } = await launchError({ pollStatus: 500 });
+  assert.equal(requests.filter((request) => (request.options.method || "GET") === "GET" && request.url.endsWith("/pending_deployments")).length, 20);
   assert.equal(error.code, "status_check_failed");
   assert.equal(error.approvalCertainlyNotGiven, true);
   assert.doesNotMatch(error.ownerMessage, /refused/);
