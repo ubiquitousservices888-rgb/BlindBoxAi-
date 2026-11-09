@@ -117,7 +117,8 @@ test("dashboard lists approved-but-unpublished videos with a guarded Publish now
   assert.match(dashboard, /Approved, not published yet/);
   assert.match(dashboard, /item\?\.status === "approved"/);
   assert.match(dashboard, /PUBLISH NOW/);
-  assert.match(dashboard, /disabled=\{!captionReady \|\| !validAudience/);
+  assert.match(dashboard, /const publishDisabled = !captionReady \|\| !validAudience/);
+  assert.match(dashboard, /disabled=\{publishDisabled\}/);
   assert.match(dashboard, /reviewedTitle: item\.title/);
   assert.match(dashboard, /approveReviewVideo\(item\.mediaUrl, item\.researchRunId, item\.title\)/);
   assert.match(dashboard, /Affiliate page: \{entry\.landing\}/);
