@@ -29,7 +29,7 @@ Current invariants:
 
 - trigger: `workflow_dispatch` only;
 - default mode: `dry_run: true`;
-- production video channels are pinned exactly to `youtube,tiktok`;
+- production video channels are pinned exactly to `youtube,tiktok`; LinkedIn is a separate add-on in `ADDON_VIDEO_CHANNELS`, sent only by an exact `publish_channel: linkedin` dispatch, and never part of the pinned primary set;
 - X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
 - a run requires an explicit `publish_channel`; owner recovery can target one exact channel, while Blue launch uses `all` to serialize YouTube and TikTok;
 - a run can target one exact approved row with `research_run_id`; every live run requires this exact selector;

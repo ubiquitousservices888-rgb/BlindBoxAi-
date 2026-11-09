@@ -292,6 +292,9 @@ function claimableStatusFilter(channel = "") {
 }
 
 async function nextApprovedForChannel(channel: string, researchRunId = "") {
+  // Add-on posts are sent only for one exact, owner-named row, so they never
+  // scan the queue (and never miss a row beyond the scan window).
+  if (isAddOnChannel(channel) && !researchRunId) return null;
   let query = db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
     .or(claimableStatusFilter(channel))

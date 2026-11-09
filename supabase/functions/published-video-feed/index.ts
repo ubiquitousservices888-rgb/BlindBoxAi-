@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
+import { feedChannelGrowthPatch } from "../_shared/published-feed-growth.mjs";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -152,22 +153,33 @@ async function handlePublish(req: Request) {
     if (sameJson(existingCanonical, canonical)) {
       return json({ ok: true, researchRunId, idempotent: true, publishedAt: existing.published_at });
     }
-    // A channel added later (for example LinkedIn after YouTube) may only grow
-    // the channel list. Every other field and every earlier post ID must match.
-    const grown =
-      sameJson({ ...existingCanonical, channels: [], buffer_post_ids: {} }, { ...canonical, channels: [], buffer_post_ids: {} }) &&
-      existingCanonical.channels.every((channel) => canonical.channels.includes(channel)) &&
-      canonical.channels.length > existingCanonical.channels.length &&
-      Object.entries(existingCanonical.buffer_post_ids).every(([channel, id]) => canonical.buffer_post_ids[channel] === id);
-    if (!grown) return json({ error: "Published video conflict" }, 409);
+    const growth = feedChannelGrowthPatch(existingCanonical, canonical);
+    if (!growth) return json({ error: "Published video conflict" }, 409);
     const { data: updated, error: growError } = await db.from("published_collectible_videos")
-      .update({ channels: canonical.channels, buffer_post_ids: canonical.buffer_post_ids, updated_at: new Date().toISOString() })
+      .update({ ...growth, updated_at: new Date().toISOString() })
       .eq("research_run_id", researchRunId)
+      .eq("status", existing.status)
       .eq("channels", JSON.stringify(Array.isArray(existing.channels) ? existing.channels : []))
       .select("research_run_id")
       .maybeSingle();
     if (growError) return json({ error: "Published video channel update failed" }, 500);
-    if (!updated) return json({ error: "Published video changed during channel update" }, 409);
+    if (!updated) {
+      // Another request may have stored this same canonical copy first.
+      const { data: latest, error: latestError } = await db.from("published_collectible_videos")
+        .select("research_run_id,title,vertical,video_url,channels,buffer_post_ids,campaign_id,status,published_at")
+        .eq("research_run_id", researchRunId)
+        .maybeSingle();
+      if (latestError) return json({ error: "Published video lookup failed" }, 500);
+      const latestCanonical = latest && {
+        research_run_id: latest.research_run_id, title: latest.title, vertical: latest.vertical, video_url: latest.video_url,
+        channels: normalizedChannelList(latest.channels), buffer_post_ids: normalizedObject(latest.buffer_post_ids),
+        campaign_id: latest.campaign_id, status: latest.status,
+      };
+      if (latestCanonical && sameJson(latestCanonical, canonical)) {
+        return json({ ok: true, researchRunId, idempotent: true, publishedAt: latest.published_at });
+      }
+      return json({ error: "Published video changed during channel update" }, 409);
+    }
     return json({ ok: true, researchRunId, idempotent: false, channelsAdded: true, publishedAt: existing.published_at });
   }
 

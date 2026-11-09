@@ -57,7 +57,7 @@ requireMatch("docs/CURRENT_STATE.md", /youtube,tiktok/, "must record the canonic
 requireMatch("docs/CURRENT_STATE.md", /merged PR #227/, "must record the merged YouTube\/TikTok target decision");
 requireMatch("docs/CURRENT_STATE.md", /X\/Twitter is parked/, "must record the parked X\/Twitter decision");
 requireMatch("docs/CURRENT_STATE.md", /LinkedIn \(daily-product pipeline\).*not an active production target/i, "must record the inactive daily-product LinkedIn decision");
-requireMatch("docs/CURRENT_STATE.md", /LinkedIn \(review-queue add-on only\).*Buffer's own sent receipt/i, "must record the review-queue LinkedIn add-on and its proof rule");
+requireMatch("docs/CURRENT_STATE.md", /LinkedIn \(review-queue add-on only\).*verified live on YouTube or TikTok.*Buffer's own sent receipt/i, "must record the review-queue LinkedIn add-on, its live YouTube/TikTok gate, and its proof rule");
 requireMatch("docs/CURRENT_STATE.md", /\/media-upload/, "must document the canonical phone upload path");
 requireMatch("docs/CURRENT_STATE.md", /\/api\/media\/review-upload/, "must distinguish the legacy review-upload path");
 requireMatch("docs/CURRENT_STATE.md", /merged PR #168/i, "must record the owner eBay OAuth merge");
