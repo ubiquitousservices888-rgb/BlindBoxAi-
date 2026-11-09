@@ -91,6 +91,8 @@ test("publisher refuses destinations without a proof rule before touching Buffer
   let calls = 0;
   const publisher = createReviewBufferPublisher({ token: "t", organizationId: "org-1", fetchImpl: async () => { calls++; return new Response("{}"); } });
   await assert.rejects(() => publisher({ channel: "twitter", videoUrl, caption }), /no verified public media proof/);
+  // LinkedIn is refused unless the caller explicitly allows the add-on.
+  await assert.rejects(() => publisher({ channel: "linkedin", videoUrl, caption }), /no verified public media proof/);
   assert.equal(calls, 0);
 });
 
@@ -101,6 +103,13 @@ test("runner sends LinkedIn only as an exact add-on after a primary channel is l
   assert.match(source, /REVIEW_QUEUE_BUFFER_RECEIPT_PROOF/);
   assert.match(source, /result\.proofKind !== "public_player"/);
   assert.match(source, /REVIEW_QUEUE_FEED_DEFERRED/);
+  const deferred = source.indexOf("if (!rowComplete) {");
+  const released = source.indexOf('action: "release"', deferred);
+  assert.ok(deferred > 0 && released > deferred && released < source.indexOf("REVIEW_QUEUE_FEED_DEFERRED"),
+    "a partial row must give its lease back before the run ends");
+  assert.match(source, /createReviewBufferPublisher\(\{[^}]*addOnChannels,/);
+  const otherCaller = fs.readFileSync(new URL("./publish-reviewed-upload.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(otherCaller, /addOnChannels/);
   const workflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
   assert.match(workflow, /^\s*ADDON_VIDEO_CHANNELS:\s*linkedin\s*$/m);
   assert.match(workflow, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m);
@@ -254,7 +263,7 @@ test("LinkedIn post is created once on the single LinkedIn channel with no YouTu
     throw new Error("unexpected Buffer query");
   };
   let probes = 0;
-  const publisher = createReviewBufferPublisher({ token: "t", organizationId: "org-1", fetchImpl,
+  const publisher = createReviewBufferPublisher({ token: "t", organizationId: "org-1", fetchImpl, addOnChannels: ["linkedin"],
     mediaProbe: async () => { throw new Error("YouTube-only media probe must not run for LinkedIn"); },
     publicHttpProbe: async () => { probes++; throw new Error("no public probe for LinkedIn"); } });
   const accepted = [];

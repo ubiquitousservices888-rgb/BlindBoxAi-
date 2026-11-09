@@ -214,6 +214,7 @@ try {
   const publisher = createReviewBufferPublisher({
     token: process.env.BUFFER_API_TOKEN,
     organizationId: process.env.BUFFER_ORGANIZATION_ID,
+    addOnChannels,
   });
 
   const results = [];
@@ -290,8 +291,18 @@ try {
   }
 
   // The homepage feed accepts only rows the queue has marked published. A
-  // partial row keeps its verified channels and waits for the next channel.
+  // partial row keeps its verified channels, gives its lease back right away
+  // (so the next channel or a LinkedIn add-on need not wait for it to go
+  // stale), and waits for the next channel.
   if (!rowComplete) {
+    const pending = targetChannels.filter((value) => !results.some((entry) => entry.channel === value) && !completedChannels.has(value));
+    await postJson(REVIEW_QUEUE_URL, reviewToken, {
+      action: "release",
+      researchRunId: item.research_run_id,
+      leaseToken,
+      error: `Waiting for remaining channels: ${pending.join(",") || "none"}`,
+    });
+    console.log(`REVIEW_QUEUE_LEASE_RELEASED: ${item.research_run_id}`);
     console.log(`REVIEW_QUEUE_FEED_DEFERRED: ${item.research_run_id}`);
     process.exit(0);
   }

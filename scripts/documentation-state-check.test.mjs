@@ -132,6 +132,28 @@ test("missing files are collected into one consolidated failure report", (t) => 
 });
 
 
+test("missing daily-product LinkedIn decision fails", (t) => {
+  const root = fixture(t);
+  const file = path.join(root, "docs/CURRENT_STATE.md");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("LinkedIn (daily-product pipeline): not an active production target.\n", ""));
+  const result = run(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /inactive daily-product LinkedIn decision/);
+});
+
+test("LinkedIn add-on without its live-first gate or Buffer receipt proof fails", (t) => {
+  for (const removed of ["only after it is verified live on YouTube or TikTok; ", "; proven by Buffer's own sent receipt"]) {
+    const root = fixture(t);
+    const file = path.join(root, "docs/CURRENT_STATE.md");
+    const before = fs.readFileSync(file, "utf8");
+    assert.ok(before.includes(removed));
+    fs.writeFileSync(file, before.replace(removed, ""));
+    const result = run(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /review-queue LinkedIn add-on/);
+  }
+});
+
 test("missing owner eBay OAuth state fails", (t) => {
   const root = fixture(t);
   const file = path.join(root, "docs/CURRENT_STATE.md");
