@@ -333,6 +333,10 @@ export default function DashboardClient() {
     .filter((item) => item?.status === "approved" && item?.video_url)
     .map(toReviewCard);
   const isCaptionReady = (item) => item.captionPreview.length > 0 && item.captionPreview.every((preview) => preview?.ok === true);
+  const captionBlockedReason = (item) => {
+    const failing = item.captionPreview.find((preview) => preview?.ok !== true);
+    return typeof failing?.error === "string" && failing.error ? failing.error : "its caption could not be checked yet.";
+  };
 
   return <div style={{ display: "grid", gap: 24 }}>
     <ControlPanel activeCode={activeCode} />
@@ -354,7 +358,7 @@ export default function DashboardClient() {
           const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
           const captionReady = isCaptionReady(item);
           const blueDisabled = !playbackPassed || !validAudience || !captionReady || approved || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy;
-          const blueBlockedReason = approved || approvingReviewUrl ? "" : !captionReady ? "Blue is off: this video has no matching affiliate page yet (see the caption check above)." : !playbackPassed ? "Blue is off until you watch this video to the end." : !validAudience ? "Blue is off until you pick the YouTube audience." : "";
+          const blueBlockedReason = approved || approvingReviewUrl === item.mediaUrl ? "" : approvingReviewUrl ? "Blue is off while another video is being approved." : deletingReviewId ? "Blue is off while a video is being deleted." : !captionReady ? `Blue is off: ${captionBlockedReason(item)}` : !playbackPassed ? "Blue is off until you watch this video to the end." : !validAudience ? "Blue is off until you pick the YouTube audience." : busy ? "Blue is off while the dashboard refreshes." : "";
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
@@ -411,7 +415,7 @@ export default function DashboardClient() {
           const dispatched = approvedReviewUrls.has(item.mediaUrl);
           const publishing = approvingReviewUrl === item.mediaUrl;
           const publishDisabled = !captionReady || !validAudience || dispatched || publishing || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy;
-          const publishBlockedReason = dispatched || approvingReviewUrl ? "" : !captionReady ? "Publish is off: this video has no matching affiliate page yet." : !validAudience ? "Publish is off until you pick the YouTube audience." : "";
+          const publishBlockedReason = dispatched || publishing ? "" : approvingReviewUrl ? "Publish is off while another video is being published." : deletingReviewId ? "Publish is off while a video is being deleted." : !captionReady ? `Publish is off: ${captionBlockedReason(item)}` : !validAudience ? "Publish is off until you pick the YouTube audience." : busy ? "Publish is off while the dashboard refreshes." : "";
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || "BlindBoxAI review video"}</strong>

@@ -363,6 +363,8 @@ test("Blue launch cancels its run and names the reason when GitHub refuses the a
   assert.equal(error.runId, 202);
   assert.match(error.ownerMessage, /Deployments, read and write/);
   assert.match(error.message, /Resource not accessible by personal access token/);
+  assert.match(error.ownerMessage, /\(GitHub: Resource not accessible by personal access token\)/);
+  assert.equal(error.approvalCertainlyNotGiven, true);
   assert.doesNotMatch(error.message, /masked-test-token/);
   assert.equal(requests.filter((request) => request.url.endsWith("/dispatches")).length, 1);
   assert.equal(requests.filter((request) => request.url.endsWith("/actions/runs/202/cancel")).length, 1);
@@ -383,19 +385,32 @@ test("Blue launch cancels its run when the approver is not allowed or the gate n
 test("Blue launch reports a failed cancel instead of claiming a clean retry", async () => {
   const { error } = await launchError({ approveStatus: 403, cancelStatus: 409 });
   assert.equal(error.runCancelled, false);
+  assert.equal(error.cancelStatus, 409);
+});
+
+test("an unexpected GitHub failure on the approval leaves the outcome uncertain", async () => {
+  const { error } = await launchError({ approveStatus: 502, approveMessage: "Server Error" });
+  assert.equal(error.code, "approval_failed");
+  assert.equal(error.approvalCertainlyNotGiven, false);
+  assert.equal(error.htmlUrl, "https://github.com/example/actions/runs/202");
 });
 
 test("approval route tells the owner why publishing did not start and that nothing was posted", () => {
   assert.match(approvalRoute, /nothing was posted/);
+  assert.match(approvalRoute, /could not confirm whether publishing started/);
+  assert.match(approvalRoute, /approvalCertainlyNotGiven === true/);
+  assert.match(approvalRoute, /runUrl/);
   assert.match(approvalRoute, /launchError\?\.ownerMessage/);
   assert.match(approvalRoute, /runCancelled/);
 });
 
-test("disabled Blue and Publish buttons look disabled and say why", () => {
-  assert.match(dashboard, /background: blueDisabled \? "#64748b" : "#2563eb"/);
-  assert.match(dashboard, /background: publishDisabled \? "#64748b" : "#2563eb"/);
-  assert.match(dashboard, /blueBlockedReason/);
-  assert.match(dashboard, /publishBlockedReason/);
+test("dashboard source: disabled Blue and Publish buttons are grey and render their reason beside the button", () => {
+  assert.match(dashboard, /onClick=\{\(\) => approveReviewVideo\([^)]*\)\} disabled=\{blueDisabled\} style=\{\{[^}]*background: blueDisabled \? "#64748b" : "#2563eb"/);
+  assert.match(dashboard, /onClick=\{\(\) => publishApprovedVideo\(item\)\} disabled=\{publishDisabled\} style=\{\{[^}]*background: publishDisabled \? "#64748b" : "#2563eb"/);
+  assert.match(dashboard, /\{blueBlockedReason \? <p role="note"[^>]*>\{blueBlockedReason\}<\/p> : null\}/);
+  assert.match(dashboard, /\{publishBlockedReason \? <p role="note"[^>]*>\{publishBlockedReason\}<\/p> : null\}\s*<button type="button" onClick=\{\(\) => publishApprovedVideo/);
+  assert.match(dashboard, /captionBlockedReason\(item\)/);
+  assert.match(dashboard, /another video is being approved/);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {

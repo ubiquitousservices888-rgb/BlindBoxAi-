@@ -131,17 +131,29 @@ export async function POST(request) {
         status: Number.isInteger(launchError?.status) ? launchError.status : undefined,
         code: typeof launchError?.code === "string" ? launchError.code : undefined,
         runCancelled: launchError?.runCancelled === true,
+        cancelStatus: Number.isInteger(launchError?.cancelStatus) ? launchError.cancelStatus : undefined,
       });
       const reason = typeof launchError?.ownerMessage === "string" ? launchError.ownerMessage : "";
       const cancelled = launchError?.runCancelled === true;
+      const certain = launchError?.approvalCertainlyNotGiven === true;
+      const runUrl = typeof launchError?.htmlUrl === "string" && launchError.htmlUrl.startsWith("https://github.com/") ? launchError.htmlUrl : null;
+      const outcome = certain
+        ? "Video approved, but publishing did not start, so nothing was posted."
+        : "Video approved, but the dashboard could not confirm whether publishing started. Check the GitHub run before pressing again.";
+      const followUp = cancelled
+        ? " The run was asked to cancel, so pressing again starts clean once GitHub shows it cancelled."
+        : " The run could not be cancelled and is still on GitHub; it would post only if someone approves it there.";
       return NextResponse.json(
         {
           ...result,
-          error: `Video approved, but publishing did not start, so nothing was posted.${reason ? ` ${reason}` : ""}${cancelled ? " The unapproved run was cancelled, so pressing again starts clean." : ""}`,
+          error: `${outcome}${reason ? ` ${reason}` : ""}${followUp}`,
           launch: {
             status: "dispatch_failed",
             reason: typeof launchError?.code === "string" ? launchError.code : "unknown",
+            outcome: certain ? "not_posted" : "uncertain",
             runCancelled: cancelled,
+            runId: Number.isSafeInteger(launchError?.runId) ? launchError.runId : null,
+            runUrl,
           },
         },
         { status: 502, headers: PRIVATE_HEADERS },
