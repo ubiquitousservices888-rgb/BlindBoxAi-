@@ -87,8 +87,9 @@ A subsystem document is authoritative only for that subsystem.
 
 ### Current social-channel decisions
 
-- **Review-queue video:** YouTube + TikTok only. X/Twitter is parked by merged PR #227.
-- **LinkedIn:** not an active production target. LinkedIn-capable daily-product code remains in the repository, but the daily workflow is validation-only with publishing paused.
+- **Review-queue video:** YouTube + TikTok are the primary channels that decide when a row is published. X/Twitter is parked by merged PR #227.
+- **LinkedIn (review-queue add-on only):** an owner can send an approved review video to LinkedIn with an exact `publish_channel: linkedin` dispatch, only after the same video is verified live on YouTube or TikTok. LinkedIn post pages cannot be read without a signed-in session, so a LinkedIn post is proven by Buffer's own sent receipt for the exact caption, the exact video and a LinkedIn post permalink, not by a public page check. LinkedIn never decides whether a row counts as published.
+- **LinkedIn (daily-product pipeline):** not an active production target. LinkedIn-capable daily-product code remains in the repository, but the daily workflow is validation-only with publishing paused.
 - Other specialist pipelines may contain additional service support. That capability must not be read as an active production target unless the owning workflow is enabled and its current configuration proves it.
 
 ## Review-video upload paths

@@ -27,7 +27,7 @@ test("claim surfaces database errors instead of reporting an empty queue", () =>
 });
 
 test("stale publishing leases are reclaimable", () => {
-  assert.match(claimBody, /\.or\(claimableStatusFilter\(\)\)/);
+  assert.match(claimBody, /\.or\(claimableStatusFilter\(channel\)\)/);
   assert.doesNotMatch(claimBody, /\.eq\("status", "approved"\)/);
 });
 

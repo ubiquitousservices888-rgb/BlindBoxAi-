@@ -149,10 +149,26 @@ async function handlePublish(req: Request) {
       campaign_id: existing.campaign_id,
       status: existing.status,
     };
-    if (!sameJson(existingCanonical, canonical)) {
-      return json({ error: "Published video conflict" }, 409);
+    if (sameJson(existingCanonical, canonical)) {
+      return json({ ok: true, researchRunId, idempotent: true, publishedAt: existing.published_at });
     }
-    return json({ ok: true, researchRunId, idempotent: true, publishedAt: existing.published_at });
+    // A channel added later (for example LinkedIn after YouTube) may only grow
+    // the channel list. Every other field and every earlier post ID must match.
+    const grown =
+      sameJson({ ...existingCanonical, channels: [], buffer_post_ids: {} }, { ...canonical, channels: [], buffer_post_ids: {} }) &&
+      existingCanonical.channels.every((channel) => canonical.channels.includes(channel)) &&
+      canonical.channels.length > existingCanonical.channels.length &&
+      Object.entries(existingCanonical.buffer_post_ids).every(([channel, id]) => canonical.buffer_post_ids[channel] === id);
+    if (!grown) return json({ error: "Published video conflict" }, 409);
+    const { data: updated, error: growError } = await db.from("published_collectible_videos")
+      .update({ channels: canonical.channels, buffer_post_ids: canonical.buffer_post_ids, updated_at: new Date().toISOString() })
+      .eq("research_run_id", researchRunId)
+      .eq("channels", JSON.stringify(Array.isArray(existing.channels) ? existing.channels : []))
+      .select("research_run_id")
+      .maybeSingle();
+    if (growError) return json({ error: "Published video channel update failed" }, 500);
+    if (!updated) return json({ error: "Published video changed during channel update" }, 409);
+    return json({ ok: true, researchRunId, idempotent: false, channelsAdded: true, publishedAt: existing.published_at });
   }
 
   const now = queueRow.published_at || new Date().toISOString();
