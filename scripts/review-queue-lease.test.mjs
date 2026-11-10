@@ -27,7 +27,7 @@ test("claim surfaces database errors instead of reporting an empty queue", () =>
 });
 
 test("stale publishing leases are reclaimable", () => {
-  assert.match(claimBody, /\.or\(claimableStatusFilter\(\)\)/);
+  assert.match(claimBody, /\.or\(claimableStatusFilter\(channel\)\)/);
   assert.doesNotMatch(claimBody, /\.eq\("status", "approved"\)/);
 });
 
@@ -59,7 +59,8 @@ test("every lease-holder write is fenced by the lease token", () => {
 test("runner sends the lease token on repair, record, release, and complete", () => {
   assert.match(runner, /const leaseToken = dryRun \? "" : String\(item\.publishing_at \?\? ""\)\.trim\(\)/);
   assert.match(runner, /if \(!dryRun\) required\(leaseToken, "queue lease token"\)/);
-  assert.equal(count(runner, /^\s+leaseToken,$/gm), 6);
+  // 7: repair, record_submission, record_channel, the no-remaining release, the partial-row release, and the two error paths.
+  assert.equal(count(runner, /^\s+leaseToken,$/gm), 7);
   assert.match(runner, /action: "record_submission",\s*researchRunId: item\.research_run_id,\s*leaseToken,\s*channel,\s*externalId: postId,/);
   assert.match(runner, /acceptedPostId: item\.buffer_post_ids\?\.\[channel\]/);
 });
