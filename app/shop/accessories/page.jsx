@@ -6,6 +6,7 @@ import {
 } from "../../../lib/amazon-associates.mjs";
 import { resolveAmazonAccessoryAttribution } from "../../../lib/amazon-shop-attribution.mjs";
 import AmazonAffiliateLink from "./AmazonAffiliateLink";
+import ImageSlot from "../../_components/ImageSlot";
 
 export const metadata = {
   title: "Collector Display & Storage Accessories | BlindBoxAI",
@@ -35,6 +36,7 @@ export default async function AccessoriesShopPage({ searchParams }) {
         </p>
       </section>
 
+      <style>{ACC_CSS}</style>
       <section
         aria-label="Collector accessory categories"
         style={{ display: "grid", gap: 14 }}
@@ -48,10 +50,11 @@ export default async function AccessoriesShopPage({ searchParams }) {
               border: "1px solid rgba(255,255,255,0.16)",
               borderRadius: 16,
               padding: 18,
-              display: "grid",
-              gap: 10,
             }}
+            className="acc-row"
           >
+            <ImageSlot slot={"accessory/" + offer.id} kind="case" alt="" className="acc-thumb" />
+            <div className="acc-body">
             <div>
               <h2 style={{ margin: 0, fontSize: "1.15rem" }}>{offer.title}</h2>
               <p style={{ margin: "8px 0 0" }}>{offer.useCase}</p>
@@ -68,6 +71,7 @@ export default async function AccessoriesShopPage({ searchParams }) {
                 View on Amazon → <span style={{ fontSize: "0.78rem", opacity: 0.78 }}>(paid link)</span>
               </AmazonAffiliateLink>
             </div>
+            </div>
           </article>
         ))}
       </section>
@@ -81,3 +85,12 @@ export default async function AccessoriesShopPage({ searchParams }) {
     </main>
   );
 }
+
+// Pictures are BlindBoxAI's own drawings of each accessory type. Amazon listing
+// photos are never downloaded or re-hosted here.
+const ACC_CSS = `
+.acc-row{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px;align-items:center;background:#fff;border-color:#DCE5E3!important}
+.acc-thumb{aspect-ratio:1/1;border-radius:12px}
+.acc-body{display:grid;gap:10px}
+@media(max-width:520px){.acc-row{grid-template-columns:104px minmax(0,1fr);gap:12px}}
+`;
