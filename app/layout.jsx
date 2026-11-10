@@ -217,6 +217,8 @@ main{max-width:760px;margin:0 auto;padding:28px 0 72px}
 /* image slots */
 .ui-slot{position:relative;overflow:hidden;border-radius:12px;aspect-ratio:4/3;background:#E7F4F1}
 .ui-slot img,.ui-slot .ui-art{display:block;width:100%;height:100%;object-fit:cover}
+.ui-slot-has-image img{object-fit:contain;padding:7% 10% 4%}
+.ui-slot-dark.ui-slot-has-image{background:radial-gradient(circle at 50% 38%,#F4FBF9 0,#DDEFEB 55%,#C9E4DE 100%)}
 .ui-art-glow{fill:#CDEBE4}.ui-art-glow-2{fill:#D9EFEA}
 .ui-art-ink{fill:none;stroke:#0E2F2D;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
 .ui-art-fill{fill:#FFFFFF}.ui-art-fill-2{fill:#9FDCD2}

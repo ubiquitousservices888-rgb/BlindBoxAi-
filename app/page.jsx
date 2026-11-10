@@ -188,7 +188,7 @@ export default async function Home() {
             return (
               <article className="hx-product" key={s.slug}>
                 <Link href={`/series/${s.slug}`} tabIndex={-1} aria-hidden="true">
-                  <ImageSlot slot={`series/${s.slug}`} kind="box" alt="" />
+                  <ImageSlot slot={`series/${s.slug}`} fallbackSlot={/plush/i.test(s.name) ? "series-default-plush" : "series-default-figure"} kind="box" alt="" />
                 </Link>
                 <div className="hx-product-body">
                   <span className="hx-product-brand">{s.brand}</span>

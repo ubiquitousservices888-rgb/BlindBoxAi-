@@ -3,10 +3,10 @@ import { siteImage } from "../../lib/site-images.mjs";
 // One frame for every picture on the public site. If the slot has a file in
 // lib/site-images.mjs it shows that image; otherwise it draws BlindBoxAI's own
 // placeholder art for the kind of item, so the layout never shows a gap.
-export default function ImageSlot({ slot, kind = "box", alt = "", tone = "teal", className = "", priority = false }) {
-  const src = slot ? siteImage(slot) : null;
+export default function ImageSlot({ slot, fallbackSlot, kind = "box", alt = "", tone = "teal", className = "", priority = false }) {
+  const src = slot ? siteImage(slot, fallbackSlot) : null;
   return (
-    <div className={`ui-slot ui-slot-${tone} ${className}`} data-image-slot={slot || undefined}>
+    <div className={`ui-slot ui-slot-${tone}${src ? " ui-slot-has-image" : ""} ${className}`} data-image-slot={slot || undefined}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={alt} loading={priority ? "eager" : "lazy"} decoding="async" />
