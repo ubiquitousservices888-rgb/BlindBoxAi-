@@ -34,9 +34,16 @@ export default async function MewComparisonPage({ searchParams }) {
   const query = await searchParams;
   // Repeated ?campaign= or ?source= arrive as arrays; only a single value counts.
   const attribution = {
-    campaignId: typeof query?.campaign === "string" ? query.campaign : (typeof query?.utm_campaign === "string" ? query.utm_campaign : undefined),
-    source: typeof query?.source === "string" ? query.source : (typeof query?.utm_source === "string" ? query.utm_source : undefined),
+    campaignId: typeof query?.campaign === "string" ? query.campaign : undefined,
+    source: typeof query?.source === "string" ? query.source : undefined,
   };
+  // Support standard UTM-tagged videos without changing explicit campaign precedence.
+  if (!attribution.campaignId && typeof query?.utm_campaign === "string") {
+    attribution.campaignId = query.utm_campaign;
+  }
+  if (!attribution.source && typeof query?.utm_source === "string") {
+    attribution.source = query.utm_source;
+  }
   return (
     <main style={{ width: "min(900px,calc(100% - 32px))", margin: "36px auto 80px" }}>
       <p style={{ fontFamily: "monospace", opacity: .72 }}>MISLABEL WATCH · POKÉMON 30TH CELEBRATION</p>
