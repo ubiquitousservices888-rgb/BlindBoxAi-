@@ -13,7 +13,7 @@ Exactly **two** notes are in this group; the owner confirmed there are no additi
 | --- | --- | --- |
 | Denomination/type | US $2 Federal Reserve note | US $2 Federal Reserve note |
 | Series printed | 1976 | 1976 |
-| Serial visible on face | K03123742A | K03123743A |
+| Serial visible on face | K…42A (redacted) | K…43A (redacted) |
 | District shown | K / 11 (Dallas) | K / 11 (Dallas) |
 | Stamp | Appears to be 13-cent US flag postage stamp | Appears to be 13-cent US flag postage stamp |
 | Postal cancellation | Appears to read APR 13 1976 | Appears to read APR 13 1976 |
@@ -21,7 +21,7 @@ Exactly **two** notes are in this group; the owner confirmed there are no additi
 | Condition visible | Wrinkling, apparent fold/handling; no grade assigned | Wrinkling/handling; no grade assigned |
 | Authentication | Not performed | Not performed |
 
-**Relationship:** Printed serials differ by 1 and are therefore a consecutive-number pair **as read from these photographs**. The photographed fronts are not enough to authenticate the notes or confirm postmark origin. Combined legal face value = $4. No starred replacement serials visible.
+**Relationship:** Printed serials differ by 1 and are therefore a consecutive-number pair **as read from these photographs**. The photographed fronts are not enough to authenticate the notes or confirm postmark origin. Combined legal face value = $4. No star symbol appears in the photographed serials. The complete serials are retained only in the owner's original chat photos; the repository is public and must not reproduce them.
 
 ## Context from independent sources
 
