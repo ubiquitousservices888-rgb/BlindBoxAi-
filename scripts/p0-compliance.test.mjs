@@ -79,7 +79,7 @@ test("series page requires explicit data-quality verification for retail and odd
   const page = read("app/series/[slug]/page.jsx");
   assert.match(page, /retailUSD\?\.status === "verified"/);
   assert.match(page, /pullOdds\?\.status === "verified"/);
-  assert.match(page, /needs research/);
+  assert.match(page, /research in progress/);
   assert.match(page, /Evidence note/);
 });
 

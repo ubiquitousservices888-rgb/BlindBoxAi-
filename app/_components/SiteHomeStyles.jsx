@@ -26,12 +26,6 @@ const CSS = `
 .hx-hero-badge-1{left:-18px;bottom:28px}
 .hx-hero-badge-2{right:-12px;top:26px}
 
-/* stats */
-.hx-stats{max-width:1180px;margin:-34px auto 0;position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border:1px solid #DCE5E3;border-radius:18px;box-shadow:0 18px 40px rgba(12,26,25,.08);overflow:hidden}
-.hx-stats div{padding:20px 22px;border-left:1px solid #E5ECEA;display:flex;flex-direction:column}
-.hx-stats div:first-child{border-left:0}
-.hx-stats strong{font-size:1.7rem;letter-spacing:-.03em;color:#0C1A19}
-.hx-stats span{font-size:.74rem;color:#5D6A68;text-transform:uppercase;letter-spacing:.08em}
 
 /* jump bar */
 .hx-jump{max-width:1180px;margin:26px auto 0;padding:0 18px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
@@ -45,7 +39,7 @@ const CSS = `
 .bv-home section{scroll-margin-top:80px}
 
 /* categories */
-.hx-cat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.hx-cat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .hx-cat{display:flex;flex-direction:column;background:#fff;border:1px solid #DCE5E3;border-radius:18px;padding:12px;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s,box-shadow .15s}
 a.hx-cat:hover{transform:translateY(-3px);border-color:#0B9794;box-shadow:0 16px 34px rgba(12,26,25,.08)}
 .hx-cat-copy{padding:16px 8px 8px;display:flex;flex-direction:column;flex:1}
@@ -101,17 +95,12 @@ a.hx-cat:hover{transform:translateY(-3px);border-color:#0B9794;box-shadow:0 16px
 @media(max-width:980px){
   .hx-hero-in{grid-template-columns:1fr;gap:40px;padding:48px 18px 74px}
   .hx-hero-badge-1{left:10px}.hx-hero-badge-2{right:10px}
-  .hx-stats{grid-template-columns:repeat(2,1fr);margin:-34px 18px 0}
-  .hx-stats div:nth-child(3){border-left:0}
-  .hx-stats div:nth-child(n+3){border-top:1px solid #E5ECEA}
-  .hx-product-grid,.hx-cat-grid,.hx-guide-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hx-product-grid,.hx-guide-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hx-trust-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .hx-guide-feature{grid-template-columns:1fr}
 }
 @media(max-width:640px){
   .hx-hero h1{font-size:2.6rem}
-  .hx-stats strong{font-size:1.35rem}
-  .hx-stats div{padding:14px 16px}
   .hx-section{padding:52px 18px}
   .hx-product-grid,.hx-cat-grid,.hx-guide-grid,.hx-trust-grid{grid-template-columns:1fr}
   .hx-ask-in{flex-direction:column;align-items:flex-start;padding:46px 18px}

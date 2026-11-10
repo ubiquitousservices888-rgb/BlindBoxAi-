@@ -66,9 +66,10 @@ function marketSummary(series, now) {
   const completedSales = records.reduce((total, record) => total + (Number(record.completedSaleCount) || 0), 0);
   const latestText = displayDate(latestSaleAt);
   return {
-    text: `${dated ? "Historical evidence" : "Recent evidence"} · ${rangeText}`,
+    text: `${dated ? "Sold range" : "Recent sold range"} · ${rangeText}`,
     freshnessStatus: dated ? "dated" : "fresh",
-    freshnessLabel: `${completedSales} documented sales · ${latestText ? `latest ${latestText}` : "sale date unavailable"}${dated ? " · includes dated evidence" : ` · within ${PUBLIC_PRICE_FRESHNESS_DAYS} days`}`,
+    // Keeps the sale date visible so visitors can judge how recent a price is.
+    freshnessLabel: `Based on ${completedSales} completed sales${latestText ? ` · latest ${latestText}` : dated ? " · earlier sales" : ""}`,
   };
 }
 
@@ -85,9 +86,6 @@ export default async function Home() {
   const latestCollectibles = series
     .filter((item) => evaluateAffiliateEligibility(item, { now }).verifiedMarketRecordCount > 0)
     .slice(0, 6);
-  const documentedSales = series.reduce((total, item) => total + evaluateAffiliateEligibility(item, { now }).verifiedMarketRecords
-    .reduce((sum, record) => sum + (Number(record.completedSaleCount) || 0), 0), 0);
-  const verifiedPrices = series.reduce((total, item) => total + seriesPriceVerification(item).verifiedCount, 0);
 
   return (
     <main className="bv-home">
@@ -118,13 +116,6 @@ export default async function Home() {
             <div className="hx-hero-badge hx-hero-badge-2"><span>Rule</span><strong>2+ sales to verify</strong></div>
           </div>
         </div>
-      </section>
-
-      <section className="hx-stats" aria-label="What BlindBoxAI covers">
-        <div><strong>{series.length}</strong><span>series indexed</span></div>
-        <div><strong>{verifiedPrices}</strong><span>verified prices</span></div>
-        <div><strong>{documentedSales}</strong><span>documented completed sales</span></div>
-        <div><strong>{PUBLIC_PRICE_FRESHNESS_DAYS} days</strong><span>freshness window</span></div>
       </section>
 
       <nav className="hx-jump" aria-label="On this page">
@@ -160,14 +151,6 @@ export default async function Home() {
               <span>Start with Mew ex #152 vs #158 →</span>
             </div>
           </Link>
-          <div className="hx-cat hx-cat-soon" aria-label="Coins, coming soon">
-            <ImageSlot slot="category-coins" kind="coin" tone="amber" alt="Coins illustration" />
-            <div className="hx-cat-copy">
-              <h3>Coins <em>Coming soon</em></h3>
-              <p>Coin research will follow the same rule: completed sales first, nothing guessed.</p>
-              <span>In research</span>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -177,7 +160,6 @@ export default async function Home() {
             <p className="bv-kicker">Verified sale evidence</p>
             <h2>Items with at least two documented completed sales.</h2>
           </div>
-          <span>{latestCollectibles.length} featured</span>
         </div>
 
         <div className="hx-product-grid">
@@ -195,10 +177,10 @@ export default async function Home() {
                   <Link className="bv-card-title" href={`/series/${s.slug}`}>{s.name}</Link>
                   {summary?.text && <b className="hx-product-price">{summary.text}</b>}
                   <div className="bv-series-meta">
-                    <span className={verification.needsResearchCount ? "bv-status bv-status-pending" : "bv-status"}>
+                    <span className="bv-status">
                       {verification.verifiedCount} verified price{verification.verifiedCount === 1 ? "" : "s"}
                     </span>
-                    {summary?.freshnessLabel && <span className={summary.freshnessStatus === "fresh" ? "bv-status" : "bv-status bv-status-pending"}>{summary.freshnessLabel}</span>}
+                    {summary?.freshnessLabel && <span className="bv-status">{summary.freshnessLabel}</span>}
                   </div>
                   <div className="bv-card-links">
                     <Link href={`/series/${s.slug}`}>Open knowledge →</Link>
@@ -322,13 +304,12 @@ export default async function Home() {
                 </div>
                 <div className="bv-series-meta">
                   {secret && <span className="bv-chip">SECRET {secret}</span>}
-                  <span className={verification.needsResearchCount ? "bv-status bv-status-pending" : "bv-status"}>
+                  <span className="bv-status">
                     {verification.verifiedCount
                       ? `${verification.verifiedCount} verified price${verification.verifiedCount === 1 ? "" : "s"}`
-                      : "No verified prices yet"}
-                    {verification.needsResearchCount > 0 && ` · ${verification.needsResearchCount} need research`}
+                      : "Price research in progress"}
                   </span>
-                  {summary?.freshnessLabel && <span className={summary.freshnessStatus === "fresh" ? "bv-status" : "bv-status bv-status-pending"}>{summary.freshnessLabel}</span>}
+                  {summary?.freshnessLabel && <span className="bv-status">{summary.freshnessLabel}</span>}
                 </div>
               </Link>
             );

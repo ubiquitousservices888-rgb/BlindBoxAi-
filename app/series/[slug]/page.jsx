@@ -69,7 +69,7 @@ export default async function SeriesPage({ params, searchParams }) {
   const verifiedByFigure = new Map(eligibility.verifiedMarketRecords.map((record) => [record.figure, record]));
   const checkedAt = latestEvidenceDate(s);
   const ageDays = checkedAt ? Math.floor((now.getTime() - checkedAt.getTime()) / 86400000) : null;
-  const stale = ageDays != null && ageDays > PUBLIC_PRICE_FRESHNESS_DAYS;
+  // Price age is shown as a date beside each price instead of a warning banner.
   const checklist = Array.isArray(s.checklist) ? s.checklist.filter(Boolean) : [];
 
   return (
@@ -79,18 +79,18 @@ export default async function SeriesPage({ params, searchParams }) {
       <div className="sub">
         {retailVerified && s.retailUSD != null
           ? <span className="mono">Verified retail ${s.retailUSD}</span>
-          : <span className="nodata">Retail price needs verification</span>}
+          : null}
         {oddsVerified && s.pullOdds?.secret
           ? <span className="chip secret">VERIFIED SECRET ODDS {s.pullOdds.secret} · {s.pullOdds.source}</span>
-          : <span className="nodata">Pull odds not verified</span>}
+          : null}
       </div>
 
       <section className="block">
         <h2>Resale prices <span className="k">US-SOLD</span></h2>
-        <p style={{ margin: "10px 0", fontSize: "0.78rem", color: stale ? "var(--fake)" : "var(--muted)" }}>
+        <p style={{ margin: "10px 0", fontSize: "0.78rem", color: "var(--muted)" }}>
           {checkedAt
-            ? `Prices last checked: ${checkedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}${stale ? ` · dated — older than ${PUBLIC_PRICE_FRESHNESS_DAYS} days` : ""}`
-            : "Price-check date unavailable — treat values as needing freshness review."}
+            ? `Prices last checked: ${checkedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`
+            : "Each price shows the date of its latest documented sale."}
         </p>
         <p style={{ margin: "12px 0", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.82 }}>
           Verified evidence means at least two documented completed sales. Fresh pricing means the latest documented sale is within {PUBLIC_PRICE_FRESHNESS_DAYS} days.
@@ -105,21 +105,21 @@ export default async function SeriesPage({ params, searchParams }) {
               const marketRecord = verifiedByFigure.get(f.name);
               const verified = Boolean(marketRecord);
               const freshnessText = marketRecord?.freshnessStatus === "fresh"
-                ? `fresh · latest ${displaySaleDate(marketRecord.latestSaleAt)}`
+                ? `recent · latest ${displaySaleDate(marketRecord.latestSaleAt)}`
                 : marketRecord?.freshnessStatus === "dated"
-                  ? `dated · latest ${displaySaleDate(marketRecord.latestSaleAt)}`
+                  ? `latest ${displaySaleDate(marketRecord.latestSaleAt)}`
                   : verified
-                    ? "freshness unknown · sale date unavailable"
-                    : "unverified";
+                    ? "earlier sales"
+                    : "research in progress";
               return <tr key={f.name}>
                 <td>{f.name}</td>
                 <td><span className={`rar ${String(f.rarity).toLowerCase().includes("secret") ? "secret" : ""}`}>{f.rarity}</span></td>
                 <td className="rng">
                   {verified
                     ? (f.resaleLow === f.resaleHigh ? `$${f.resaleLow}` : `$${f.resaleLow}–$${f.resaleHigh}`)
-                    : <span className="nodata">needs research</span>}
-                  <div className={`verify ${verified ? "" : "pending"}`} style={{ marginTop: 6, color: marketRecord?.freshnessStatus === "dated" ? "#8a5100" : undefined }}>
-                    <span className="dot"></span>{verified ? `${marketRecord.completedSaleCount} completed sales · ${freshnessText}` : "unverified"}
+                    : <span className="nodata">research in progress</span>}
+                  <div className={`verify ${verified ? "" : "pending"}`} style={{ marginTop: 6 }}>
+                    <span className="dot"></span>{verified ? `${marketRecord.completedSaleCount} completed sales · ${freshnessText}` : "price shown once sales are verified"}
                   </div>
                   {f.evidence && (
                     <details style={{ marginTop: 6, maxWidth: 360 }}>

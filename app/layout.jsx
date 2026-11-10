@@ -124,8 +124,8 @@ main{max-width:760px;margin:0 auto;padding:28px 0 72px}
 .verify{display:inline-flex;align-items:center;gap:5px;font-family:"Spline Sans Mono",monospace;
   font-size:.68rem;letter-spacing:.04em;color:var(--verify-ink)}
 .verify .dot{width:8px;height:8px;border-radius:50%;background:var(--verify)}
-.verify.pending{color:var(--fake)}
-.verify.pending .dot{background:var(--fake)}
+.verify.pending{color:var(--muted)}
+.verify.pending .dot{background:#B8C4C1}
 
 /* series page */
 .crumb{font-family:"Spline Sans Mono",monospace;font-size:.75rem;color:var(--muted);
@@ -151,7 +151,7 @@ main{max-width:760px;margin:0 auto;padding:28px 0 72px}
 .rar{font-family:"Spline Sans Mono",monospace;font-size:.66rem;padding:2px 7px;border-radius:5px;
   border:1.3px solid var(--line-strong)}
 .rar.secret{border-color:var(--rare);color:var(--rare)}
-.nodata{color:var(--fake);font-family:"Spline Sans Mono",monospace;font-size:.78rem}
+.nodata{color:var(--muted);font-family:"Spline Sans Mono",monospace;font-size:.78rem}
 .ebay{display:inline-flex;align-items:center;gap:4px;font-family:"Spline Sans Mono",monospace;
   font-size:.74rem;font-weight:600;text-decoration:none;color:var(--verify-ink);
   border:1.4px solid var(--verify);border-radius:6px;padding:4px 9px}
