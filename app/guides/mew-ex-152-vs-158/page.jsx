@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import FakeCheckGuideBox from "../../_components/FakeCheckGuideBox";
 import {
   MEW_30TH_CARDS,
   MEW_30TH_CHECKED_AT,
@@ -107,6 +108,8 @@ export default async function MewComparisonPage({ searchParams }) {
           Verify the card number in the photos, ask for clear front and back images if needed, and compare against recent completed sales rather than asking prices.
         </p>
       </section>
+
+      <FakeCheckGuideBox attribution={attribution} from="mew_guide" />
 
       <section style={{ marginTop: 30 }}>
         <h2>What this page does not claim</h2>
