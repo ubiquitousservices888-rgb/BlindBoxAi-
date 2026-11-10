@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import FakeCheckGuideBox from "../../_components/FakeCheckGuideBox";
 import {
   MEW_30TH_CARDS,
   MEW_30TH_CHECKED_AT,
@@ -33,8 +34,8 @@ export default async function MewComparisonPage({ searchParams }) {
   const query = await searchParams;
   // Repeated ?campaign= or ?source= arrive as arrays; only a single value counts.
   const attribution = {
-    campaignId: typeof query?.campaign === "string" ? query.campaign : undefined,
-    source: typeof query?.source === "string" ? query.source : undefined,
+    campaignId: typeof query?.campaign === "string" ? query.campaign : (typeof query?.utm_campaign === "string" ? query.utm_campaign : undefined),
+    source: typeof query?.source === "string" ? query.source : (typeof query?.utm_source === "string" ? query.utm_source : undefined),
   };
   return (
     <main style={{ width: "min(900px,calc(100% - 32px))", margin: "36px auto 80px" }}>
@@ -107,6 +108,8 @@ export default async function MewComparisonPage({ searchParams }) {
           Verify the card number in the photos, ask for clear front and back images if needed, and compare against recent completed sales rather than asking prices.
         </p>
       </section>
+
+      <FakeCheckGuideBox attribution={attribution} from="mew_guide" />
 
       <section style={{ marginTop: 30 }}>
         <h2>What this page does not claim</h2>

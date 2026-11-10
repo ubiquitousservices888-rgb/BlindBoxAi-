@@ -3,6 +3,7 @@ import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
 import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../../../lib/market-eligibility.mjs";
 import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
+import FakeCheckGuideBox from "../../_components/FakeCheckGuideBox";
 import LiveEbayListings from "../../_components/LiveEbayListings";
 
 export const revalidate = 86400;
@@ -56,7 +57,7 @@ export async function generateMetadata({ params }) {
 export default async function SeriesPage({ params, searchParams }) {
   const { slug } = await params;
   const query = await searchParams;
-  const campaignId = normalizeCampaignId(query?.campaign);
+  const campaignId = normalizeCampaignId(query?.campaign || query?.utm_campaign);
   const source = normalizeSource(query?.source || query?.utm_source);
   const attribution = { campaignId, source };
   const s = getSeries(slug);
@@ -150,6 +151,7 @@ export default async function SeriesPage({ params, searchParams }) {
         <section className="block">
           <h2>Fake check <span className="k">INSPECT</span></h2>
           <FakeCheck checklist={checklist} />
+          <FakeCheckGuideBox attribution={attribution} from="series_fake_check" />
         </section>
       )}
 
