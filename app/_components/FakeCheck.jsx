@@ -1,3 +1,5 @@
+import { FAKE_CHECK_GUIDE } from "../../lib/site-links.mjs";
+
 // Generic blind-box figure silhouette (owned artwork, no third-party photos).
 // Left = genuine (clean). Right = suspect (numbered problem pins matching tells).
 function Figure({ suspect = false, pins = [] }) {
@@ -64,6 +66,13 @@ export default function FakeCheck({ checklist = [] }) {
         ))}
       </ol>
       <p className="fc-note">Diagrams are illustrative reference art, not photos of specific listings. Always compare against the maker's official images before buying.</p>
+      <div className="fc-guide">
+        <div>
+          <strong>Want the full checklist?</strong>
+          <p>{FAKE_CHECK_GUIDE.name}: box, code, UV-stamp and card checks with 11 side-by-side drawings and a printable one-page checklist. {FAKE_CHECK_GUIDE.format}.</p>
+        </div>
+        <a href={FAKE_CHECK_GUIDE.url} target="_blank" rel="noopener">Get the guide · {FAKE_CHECK_GUIDE.price} ↗</a>
+      </div>
     </div>
   );
 }

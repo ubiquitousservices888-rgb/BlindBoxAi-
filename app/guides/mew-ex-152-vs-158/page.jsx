@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FAKE_CHECK_GUIDE } from "../../../lib/site-links.mjs";
 
 import {
   MEW_30TH_CARDS,
@@ -114,6 +115,25 @@ export default async function MewComparisonPage({ searchParams }) {
           This is not a complete census of every sale and it does not combine graded cards with raw cards. Prices can move quickly after a new set releases.
           BlindBoxAI keeps the observation dates visible so an old snapshot is not presented as a current guarantee.
         </p>
+      </section>
+
+      <section style={{ marginTop: 30, padding: "18px 20px", borderRadius: 14, background: "#0C1A19", color: "#C4D9D6" }}>
+        <h2 style={{ color: "#fff", marginBottom: 8 }}>Is the card itself real?</h2>
+        <p style={{ margin: 0 }}>
+          {FAKE_CHECK_GUIDE.name} covers Pokémon card checks (collector number, print and text, back, holo, weight) plus Pop Mart and Labubu checks. {FAKE_CHECK_GUIDE.format}.
+        </p>
+        <p style={{ margin: "12px 0 0" }}>
+          <a href={FAKE_CHECK_GUIDE.url} target="_blank" rel="noopener" style={{ color: "#5FD7CE", fontWeight: 700 }}>Get the guide · {FAKE_CHECK_GUIDE.price} ↗</a>
+        </p>
+      </section>
+
+      <section style={{ marginTop: 30 }}>
+        <h2>Keep researching</h2>
+        <ul style={{ lineHeight: 1.8 }}>
+          <li><Link href="/tools/buy-or-pass">Buy or pass: compare an asking price with reviewed ranges</Link></li>
+          <li><Link href="/ask">Ask Mr. Know It All about a specific card or figure</Link></li>
+          <li><Link href="/#knowledge">Browse blind box price guides</Link></li>
+        </ul>
       </section>
 
       <p style={{ marginTop: 30, fontSize: 13, opacity: .78 }}>

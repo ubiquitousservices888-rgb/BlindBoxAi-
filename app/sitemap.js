@@ -30,6 +30,7 @@ export default async function sitemap() {
     { url: `${SITE}/ask`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE}/ai-family`, changeFrequency: "weekly", priority: 0.75 },
     { url: `${SITE}/guides/mew-ex-152-vs-158`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${SITE}/shop/accessories`, changeFrequency: "weekly", priority: 0.8 },
   ];
 
   const offerPages = allRevenueOffers().map((offer) => ({
