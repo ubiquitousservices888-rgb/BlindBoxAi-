@@ -1,4 +1,4 @@
-# Owner-provided 1976 Bicentennial $2 first-day postmark pair — research intake
+# Owner-provided 1976 Bicentennial $2 pair — apparent April 13, 1976 postmarks
 
 **Recorded:** 2026-11-09  
 **Status:** RESEARCH ONLY — ungraded and unauthenticated; no published appraisal, offer, affiliate recommendation, or automated valuation.  
@@ -21,7 +21,7 @@ Exactly **two** notes are in this group; the owner confirmed there are no additi
 | Condition visible | Wrinkling, apparent fold/handling; no grade assigned | Wrinkling/handling; no grade assigned |
 | Authentication | Not performed | Not performed |
 
-**Relationship:** Printed serials differ by 1 and are therefore a consecutive-number pair **as read from these photographs**. The photographed fronts are not enough to authenticate the notes or confirm postmark origin. Combined legal face value = $4. No star symbol appears in the photographed serials. The complete serials are retained only in the owner's original chat photos; the repository is public and must not reproduce them.
+**Relationship:** Printed serials differ by 1 and are therefore a consecutive-number pair **as read from these photographs**. The photographed fronts are not enough to authenticate the notes or confirm postmark origin. The stated denominations total $4, subject to authenticity. No star symbol appears in the photographed serials. The complete serials are retained only in the owner's original chat photos; the repository is public and must not reproduce them.
 
 ## Context from independent sources
 
@@ -32,7 +32,7 @@ Exactly **two** notes are in this group; the owner confirmed there are no additi
 
 ## Price and resale evidence gate
 
-- **VERIFIED:** Two photographed 1976 notes with consecutive serial numbers, apparently stamped and postmarked; owner reports only two.
+- **PHOTO-OBSERVED / OWNER-REPORTED:** Two photographed 1976 notes with consecutive serial numbers, apparently stamped and postmarked; owner reports only two. These observations do not authenticate the notes or marks.
 - **UNVERIFIED:** The post office name, genuine first-day cancellation, physical authenticity, physical grade, any stamp variety, and actual realizable market value.
 - **NO CURRENT PRICE CLAIM:** No fresh, attributable *completed* sales for a matching consecutive postmarked pair, with comparable grade and cancellation, have been independently assembled for this record. Earlier conversational estimates or unsupported comparable references must **not** be promoted to a verified sold-price figure.
 - Compare sold items only after matching denomination, series, first-day date/cancellation, consecutiveness, actual condition, and the quantity in the lot. Record source URL, sale date, completed sale amount, shipping, and exclusions separately; filter out asking prices and undated screenshots.
