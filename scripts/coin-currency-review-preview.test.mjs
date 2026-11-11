@@ -36,7 +36,7 @@ test("coin and currency previews remain review-only and never advertise a price 
   assert.match(html, /1976 Bicentennial \$2 pair/);
   assert.match(html, /No value estimate/);
   assert.match(html, /Matching completed-sale evidence: pending/);
-  assert.doesNotMatch(html, /K03123742A|K03123743A/);
+  assert.doesNotMatch(html, /\b[A-L]\d{8}[A-Z]\b/);
   assert.doesNotMatch(html, /<img\b|<form\b|<iframe\b|fetch\(|XMLHttpRequest|sendBeacon|localStorage|sessionStorage|<script\s+src=/i);
   assert.doesNotMatch(html, /\/api\/out\/ebay|affiliate commission earned|guaranteed resale/i);
 });
