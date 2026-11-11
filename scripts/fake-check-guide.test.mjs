@@ -5,6 +5,7 @@ import test from "node:test";
 
 import {
   FAKE_CHECK_GUIDE,
+  FAKE_CHECK_GUIDE_PLACEMENTS,
   fakeCheckGuideOutboundPath,
   fakeCheckGuidePagePath,
   normalizeGuidePlacement,
@@ -37,6 +38,10 @@ test("placements are an allow-list", () => {
   assert.equal(normalizeGuidePlacement("guide_page"), "guide_page");
   assert.equal(normalizeGuidePlacement("homepage"), "unknown");
   assert.equal(normalizeGuidePlacement(undefined), "unknown");
+  assert.ok(Object.isFrozen(FAKE_CHECK_GUIDE_PLACEMENTS));
+  assert.throws(() => FAKE_CHECK_GUIDE_PLACEMENTS.add("homepage"), TypeError);
+  assert.throws(() => FAKE_CHECK_GUIDE_PLACEMENTS.push("homepage"), TypeError);
+  assert.equal(normalizeGuidePlacement("homepage"), "unknown");
 });
 
 test("links to the sales page name their origin and carry a tagged visit", () => {
