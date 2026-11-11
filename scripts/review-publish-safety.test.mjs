@@ -236,6 +236,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     publicUrl: "https://www.youtube.com/watch?v=abc123",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    proofKind: "public_player",
     publicHttpStatus: 200,
     publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
     publicMediaAvailable: true,
@@ -486,7 +487,7 @@ test("queue peek is read-only and separately authorized", () => {
   const peek = source.slice(start, end);
   assert.match(peek, /githubAuthorized/);
   assert.match(source, /nextApprovedForChannel/);
-  assert.match(source, /claimableStatusFilter\(\)/);
+  assert.match(source, /claimableStatusFilter\(channel\)/);
   assert.doesNotMatch(peek, /\.update\(/);
 });
 
@@ -505,7 +506,7 @@ test("workflow requires explicit channel and exact review row inputs", () => {
   const optionsBlock = channelBlock.slice(channelBlock.indexOf("options:"));
   assert.deepEqual(
     [...optionsBlock.matchAll(/^[ \t]+- ([a-z0-9_-]+)$/gm)].map((match) => match[1]),
-    ["youtube", "tiktok", "all"],
+    ["youtube", "tiktok", "linkedin", "all"],
   );
 
   const runBlock = source.slice(runStart, audienceStart);

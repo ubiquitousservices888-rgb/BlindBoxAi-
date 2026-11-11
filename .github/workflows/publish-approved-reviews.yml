@@ -15,6 +15,7 @@ on:
         options:
           - youtube
           - tiktok
+          - linkedin
           - all
       research_run_id:
         description: "Exact approved row (rv- followed by 16 hex characters)"
@@ -47,6 +48,7 @@ jobs:
     env:
       DRY_RUN: ${{ inputs.dry_run }}
       VIDEO_CHANNELS: youtube,tiktok
+      ADDON_VIDEO_CHANNELS: linkedin
       PUBLISH_CHANNEL: ${{ inputs.publish_channel }}
       PUBLISH_RESEARCH_RUN_ID: ${{ inputs.research_run_id }}
       YOUTUBE_AUDIENCE: ${{ inputs.youtube_audience }}

@@ -1,6 +1,8 @@
 import fs from "node:fs";
 
 import {
+  REVIEW_PUBLIC_PLAYER_CHANNELS,
+  REVIEW_RECEIPT_PROOF_CHANNELS,
   createReviewBufferPublisher,
   isVerifiedPublicPostUrl,
   resolveReviewBufferChannel,
@@ -89,12 +91,21 @@ const configuredChannels = [...new Set(String(process.env.VIDEO_CHANNELS ?? "you
 if (!configuredChannels.length) {
   throw new Error("VIDEO_CHANNELS must contain at least one service");
 }
-if (configuredChannels.some((channel) => !["youtube", "tiktok"].includes(channel))) {
+if (configuredChannels.some((channel) => !REVIEW_PUBLIC_PLAYER_CHANNELS.includes(channel))) {
   throw new Error("Public video metadata proof only supports YouTube and TikTok; unsupported channel refused before queue claim");
 }
+// Add-on destinations (LinkedIn) are posted only by an exact dispatch, after
+// the video is already live on a primary channel. They never decide whether a
+// row counts as fully published.
+const addOnChannels = [...new Set(String(process.env.ADDON_VIDEO_CHANNELS ?? "")
+  .split(",").map((value) => value.trim().toLowerCase()).filter(Boolean))];
+if (addOnChannels.some((channel) => !REVIEW_RECEIPT_PROOF_CHANNELS.includes(channel) || configuredChannels.includes(channel))) {
+  throw new Error("ADDON_VIDEO_CHANNELS only supports LinkedIn; unsupported add-on channel refused before queue claim");
+}
 const publishAllChannels = requestedChannel === "all";
-if (requestedChannel && !publishAllChannels && !configuredChannels.includes(requestedChannel)) {
-  throw new Error(`Requested channel is not in VIDEO_CHANNELS: ${requestedChannel}`);
+const requestedAddOn = addOnChannels.includes(requestedChannel);
+if (requestedChannel && !publishAllChannels && !requestedAddOn && !configuredChannels.includes(requestedChannel)) {
+  throw new Error(`Requested channel is not in VIDEO_CHANNELS or ADDON_VIDEO_CHANNELS: ${requestedChannel}`);
 }
 if ((!requestedChannel || requestedChannel === "youtube" || publishAllChannels) && configuredChannels.includes("youtube") &&
     !["made_for_kids", "not_made_for_kids"].includes(youtubeAudience)) {
@@ -160,6 +171,9 @@ try {
     (Array.isArray(item.published_channels) ? item.published_channels : [])
       .filter((channel) => isVerifiedPublicPostUrl(channel, recordedPublicUrls[channel])),
   );
+  if (requestedAddOn && !targetChannels.some((channel) => completedChannels.has(channel))) {
+    throw new Error(`${requestedChannel}: add-on post refused until this video is verified live on ${targetChannels.join(" or ")}`);
+  }
   const remainingChannels = eligibleChannels.filter((channel) => !completedChannels.has(channel));
   if (!remainingChannels.length) {
     if (!dryRun) {
@@ -200,9 +214,11 @@ try {
   const publisher = createReviewBufferPublisher({
     token: process.env.BUFFER_API_TOKEN,
     organizationId: process.env.BUFFER_ORGANIZATION_ID,
+    addOnChannels,
   });
 
   const results = [];
+  let rowComplete = false;
   for (const channel of channels) {
     const { campaignId, source, caption } = buildReviewCaption(item, channel, publicTitle);
     const result = await publisher({
@@ -224,11 +240,21 @@ try {
         });
       },
     });
-    if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl) ||
-        result.publicHttpStatus !== 200 || result.publicMediaAvailable !== true || !Number.isFinite(Date.parse(result.publicHttpCheckedAt))) {
-      throw new Error(`${channel}: platform public URL lacks an independent HTTP 200 receipt`);
+    if (!result.publicUrl || !isVerifiedPublicPostUrl(channel, result.publicUrl)) {
+      throw new Error(`${channel}: platform public URL is missing or invalid`);
     }
-    console.log(`REVIEW_QUEUE_PUBLIC_HTTP_PROOF: ${channel}:200:${result.publicHttpCheckedAt}`);
+    if (REVIEW_RECEIPT_PROOF_CHANNELS.includes(channel)) {
+      if (result.proofKind !== "buffer_receipt" || result.status !== "sent" || !Number.isFinite(Date.parse(result.receiptCheckedAt))) {
+        throw new Error(`${channel}: Buffer sent receipt for the exact caption and video is missing`);
+      }
+      console.log(`REVIEW_QUEUE_BUFFER_RECEIPT_PROOF: ${channel}:sent:${result.receiptCheckedAt}`);
+    } else {
+      if (result.proofKind !== "public_player" || result.publicHttpStatus !== 200 || result.publicMediaAvailable !== true ||
+          !Number.isFinite(Date.parse(result.publicHttpCheckedAt))) {
+        throw new Error(`${channel}: platform public URL lacks an independent HTTP 200 receipt`);
+      }
+      console.log(`REVIEW_QUEUE_PUBLIC_HTTP_PROOF: ${channel}:200:${result.publicHttpCheckedAt}`);
+    }
     results.push({
       channel,
       id: result.id,
@@ -249,6 +275,7 @@ try {
       targetChannels,
     });
     console.log(`REVIEW_QUEUE_CHANNEL_RECORDED: ${channel}`);
+    rowComplete = recorded?.complete === true;
     if (!recorded?.complete) {
       const partialChannels = Array.isArray(recorded?.item?.published_channels)
         ? recorded.item.published_channels
@@ -263,6 +290,22 @@ try {
     }
   }
 
+  // The homepage feed accepts only rows the queue has marked published. A
+  // partial row keeps its verified channels, gives its lease back right away
+  // (so the next channel or a LinkedIn add-on need not wait for it to go
+  // stale), and waits for the next channel.
+  if (!rowComplete) {
+    const pending = targetChannels.filter((value) => !results.some((entry) => entry.channel === value) && !completedChannels.has(value));
+    await postJson(REVIEW_QUEUE_URL, reviewToken, {
+      action: "release",
+      researchRunId: item.research_run_id,
+      leaseToken,
+      error: `Waiting for remaining channels: ${pending.join(",") || "none"}`,
+    });
+    console.log(`REVIEW_QUEUE_LEASE_RELEASED: ${item.research_run_id}`);
+    console.log(`REVIEW_QUEUE_FEED_DEFERRED: ${item.research_run_id}`);
+    process.exit(0);
+  }
   const feedToken = await getGithubOidcToken(FEED_OIDC_AUDIENCE);
   const mergedBufferPostIds = {
     ...(item.buffer_post_ids || {}),
