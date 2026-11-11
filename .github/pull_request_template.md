@@ -10,16 +10,18 @@ Describe the problem, requested behavior, exact files changed, and any protected
 - [ ] Checked syntax/compilation of changed code before push, or explicitly marked UNVERIFIED
 - [ ] Ran the relevant tests, including positive/negative regression cases for safety guards, or explicitly marked UNVERIFIED
 - [ ] Checked that owner approval, publish/payment/authentication, and secret-handling gates remain intact
-- [ ] Recorded exact commands and complete unedited output (or linked retained run artifacts)
+- [ ] Recorded exact commands and complete output with secret values redacted (or linked retained run artifacts)
 
 ## Post-push verification
 
-- [ ] Re-read pushed file and confirmed the exact new head commit
-- [ ] Verified the required release-gate jobs for that **same head SHA**
+- [ ] Re-read every pushed file in the final changed-file list and confirmed the exact new head commit
+- [ ] Verified the required release-gate jobs for that **same head SHA**, recording both the PR head SHA and the merge SHA the pull_request run tested
 - [ ] Addressed review comments with evidence; no open safety blockers
 - [ ] Reported remaining risks, UNVERIFIED checks, and whether merged/deployed
 
-**Commit SHA:** `<sha>`
+**PR head SHA:** `<sha>`
+
+**Tested merge SHA (pull_request run):** `<sha>`
 
 **CI run link:** `<url>`
 
@@ -27,6 +29,8 @@ Describe the problem, requested behavior, exact files changed, and any protected
 
 **Remaining risks / unverified:** `<details or none>`
 
-**Merge/deploy authorization:** `<approved / not approved>`
+**Merge authorization:** `<not approved / approved by owner + link to the approval>`
+
+**Deploy authorization:** `<not approved / approved by owner + link to the approval>`
 
 Note: checkboxes are a review prompt; they do not replace executable CI or separate owner authorization.
