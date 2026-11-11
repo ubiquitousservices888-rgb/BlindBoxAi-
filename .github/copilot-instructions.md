@@ -19,10 +19,10 @@ This file is a short entry point, **not** a replacement for [AGENTS.md](../AGENT
 ## Money and evidence first
 
 - The business goal is verified collector intent and **provider-confirmed affiliate conversions**, not click counts, mock transactions, guesses, or inflated traffic.
-- Never execute or fetch a live affiliate redirect as a test (`/api/out/ebay` or outbound affiliate targets). Inspect routes read-only, use local test fixtures, and verify against official EPN receipts when authorized.
+- Never use `GET` to test a live affiliate redirect (`/api/out/ebay`) or fetch outbound affiliate targets. For read-only QA, use `HEAD /api/out/ebay` with redirects disabled, inspect routes read-only, use local test fixtures, and verify against official EPN receipts when authorized.
 - Only label an actual provider transaction/commission as verified revenue. A click count, successful deploy, Buffer ID, or HTTP 200 is not a conversion or proof a YouTube video played.
 - For coins and paper money, preserve uncertain date/mint marks, grade, authenticity, postmark, and photo pairing as unresolved. Do not invent sold prices or fabricate precise grades. For current valuations require dated, exact-match completed-sale evidence and disclose fees and uncertainty.
-- For reseller content, optimize for a useful page and qualifying intent, but keep a credible traffic and monetization path; no speculative sales claims.
+- For reseller content, optimize for a useful page and qualifying intent, but keep a credible traffic and monetization path. Never fabricate comparisons, comparable sales, statistics, quotes, or sales claims; label missing evidence UNVERIFIED.
 
 ## Specific active work
 
