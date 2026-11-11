@@ -467,3 +467,12 @@ test("UTM campaigns are inherited only when destination has no conflicting marke
   assert.equal(sameCampaign.searchParams.has("utm_source"), false);
   assert.equal(sameCampaign.searchParams.get("campaign"), "bb-rv-3c9c9bb78c37ff6a");
 });
+
+test("separator-only direct sources never mask utm_source or reach attribution", () => {
+  assert.equal(resolveLandingSource("---", "tiktok"), "tiktok");
+  assert.equal(resolveLandingSource("_", "youtube", "buy_or_pass"), "youtube");
+  assert.equal(resolveLandingSource("---", "", "buy_or_pass"), "buy_or_pass");
+  assert.equal(resolveLandingSource("---", "---"), "page");
+  assert.equal(resolveLandingSource("youtube", "tiktok"), "youtube");
+  assert.equal(resolveLandingSource("site", "---"), "site");
+});
