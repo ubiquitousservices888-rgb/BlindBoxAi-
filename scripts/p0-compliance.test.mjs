@@ -103,7 +103,7 @@ test("click quality gate stores no raw fingerprint material", () => {
   const recordClickStart = edge.indexOf("async function recordClick");
   const recordClickEnd = edge.indexOf("async function recordEvent", recordClickStart);
   const recordClickBlock = edge.slice(recordClickStart, recordClickEnd);
-  assert.match(classifier, /human_candidate/);
+  assert.match(classifier, /clientClass: "unclassified"/);
   assert.match(recordClickBlock, /client_class/);
   assert.match(recordClickBlock, /quality_reason/);
   assert.match(migration, /legacy_unclassified/);

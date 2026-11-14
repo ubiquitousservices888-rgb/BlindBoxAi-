@@ -4,6 +4,8 @@
 **Status:** AUDIT + PROPOSED OMNI REST PARSER REPAIR; **not a 3.8 Flash runtime migration**  
 **State:** CODED / COMMITTED on a review branch; CI, merge, deployment and real video behavior must be evidenced separately. Only disposable mocked request/response tests were run; no actual Gemini API request, charge, merge, deployment or live video was authorized or performed.
 
+**Contract rechecked 2026-11-14:** Google's current Omni guide redirects to https://aistudio.google.com/docs/omni and now illustrates `gemini-omni-1.2-flash`. Its REST response schema still places completed MP4 output under `steps[].content[]`; `output_video` remains an SDK convenience. This repair preserves the existing `gemini-omni-1.1-flash` configuration and does not establish that model's current account availability or approve a model upgrade. No live render or provider charge was performed. Credentialed requests now reject redirects, with a negative no-upload test. The older inventory and pricing below are dated assessment context, not a current availability or billing guarantee.
+
 ## Decision: do not replace Gemini Omni in the MP4 renderer with a text-only model
 
 Google documents `gemini-3.8-flash` as accepting video inputs but producing **text output**. Google's separate `gemini-omni-1.1-flash` produces **video output**. Therefore changing `lib/gemini-video-renderer.mjs`'s model to 3.8 Flash would make the existing video decoder fail closed (or break video rendering). Keep video generation on its own model/cost gate. Do not pretend that a new environment variable turns 3.8 Flash into a renderer.

@@ -28,6 +28,7 @@ test("Gemini renderer requests vertical video and uploads returned MP4 bytes", a
     fetchImpl: async (url, options) => {
       assert.equal(url, "https://generativelanguage.googleapis.com/v1beta/interactions");
       assert.equal(options.headers["x-goog-api-key"], "test-key");
+      assert.equal(options.redirect, "error");
       assert.ok(options.signal, "Network timeout must be provided");
       requestBody = JSON.parse(options.body);
       return {
@@ -120,4 +121,18 @@ test("Gemini rate limit fails closed without retrying potentially billable rende
     uploadVideo: async () => { throw new Error("must not upload"); },
   }), /failed: 429/);
   assert.equal(apiCalls, 1);
+});
+
+test("redirected provider responses never reach storage", async () => {
+  let uploads = 0;
+  await assert.rejects(() => renderGeminiOmni({
+    apiKey: "fixture-only",
+    record,
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.redirect, "error");
+      return { ok: true, status: 200, redirected: true };
+    },
+    uploadVideo: async () => { uploads++; throw new Error("must not upload"); },
+  }), /render request failed/);
+  assert.equal(uploads, 0);
 });

@@ -11,8 +11,8 @@
     "qa:e2e": "playwright test",
     "qa:smoke": "node scripts/qa-production-smoke.mjs",
     "affiliate:report": "node --env-file=.env.local scripts/affiliate-click-report.mjs",
-    "ebay:test": "node --experimental-test-module-mocks --test scripts/ebay-production-api.test.mjs scripts/owner-ebay-oauth.test.mjs scripts/ebay-click-quality.test.mjs scripts/ebay-route-fail-open.test.mjs",
-    "epn-reporting:test": "node --test scripts/epn-reporting.test.mjs scripts/epn-api-reporting.test.mjs",
+    "ebay:test": "node --experimental-test-module-mocks --test scripts/ebay-production-api.test.mjs scripts/owner-ebay-oauth.test.mjs scripts/ebay-click-quality.test.mjs scripts/click-quality.test.mjs scripts/ebay-route-fail-open.test.mjs",
+    "epn-reporting:test": "node --test scripts/epn-reporting.test.mjs scripts/epn-api-reporting.test.mjs scripts/epn-live-snapshot.test.mjs scripts/epn-owner-check.test.mjs",
     "amazon:test": "node --test scripts/amazon-associates.test.mjs scripts/amazon-reporting.test.mjs",
     "labubu:generate": "node scripts/labubu-post-generator.mjs",
     "labubu:validate": "node scripts/labubu-validate.mjs",
@@ -23,17 +23,17 @@
     "video:reject": "node scripts/video-pipeline.mjs reject",
     "video:publish": "node scripts/video-pipeline.mjs publish",
     "video:zapier": "node scripts/zapier-video-payload.mjs",
-    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/gemini-video-renderer.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs scripts/yellow-review-button.test.mjs scripts/review-publish-safety.test.mjs scripts/owner-auth-boundaries.test.mjs scripts/review-queue-lease.test.mjs",
+    "video:test": "node --test scripts/video-pipeline.test.mjs scripts/gemini-video-renderer.test.mjs scripts/buffer-media-safety.test.mjs scripts/media-upload-config.test.mjs scripts/video-handoff-config.test.mjs scripts/epn-genai-safety.test.mjs scripts/yellow-review-button.test.mjs scripts/review-publish-safety.test.mjs scripts/owner-auth-boundaries.test.mjs scripts/review-queue-lease.test.mjs scripts/public-platform-proof.test.mjs scripts/public-url-configuration.test.mjs scripts/review-submission-receipt.test.mjs scripts/reconcile-public-video-urls.test.mjs scripts/review-source-identity.test.mjs scripts/review-linkedin-addon.test.mjs",
     "shopping:stage": "node scripts/evergreen-shopping-stage.mjs",
     "shopping:test": "node --test scripts/evergreen-shopping.test.mjs",
     "narrative:stage": "node scripts/narrative-flywheel-stage.mjs",
     "narrative:test": "node --test scripts/narrative-flywheel.test.mjs",
     "automation:test": "node --test scripts/autonomous-priority.test.mjs scripts/twinkle-market-data.test.mjs",
-    "owner:test": "node --test scripts/owner-dashboard.test.mjs scripts/owner-revenue-status.test.mjs scripts/owner-batch-approval.test.mjs scripts/owner-review-staging.test.mjs scripts/owner-blue-live-verify.test.mjs scripts/owner-control-panel.test.mjs scripts/supabase-telemetry.test.mjs",
+    "owner:test": "node --test scripts/owner-dashboard.test.mjs scripts/owner-revenue-status.test.mjs scripts/owner-batch-approval.test.mjs scripts/owner-review-staging.test.mjs scripts/owner-blue-live-verify.test.mjs scripts/owner-control-panel.test.mjs scripts/supabase-telemetry.test.mjs scripts/review-caption.test.mjs scripts/review-landing.test.mjs",
     "ai-family:test": "node --test scripts/ai-family-public.test.mjs scripts/generational-compounding.test.mjs scripts/family-core-client.test.mjs",
     "funnel:test": "node --test scripts/funnel-events.test.mjs",
     "campaign:test": "node --test scripts/campaign-attribution.test.mjs scripts/review-landing-url.test.mjs scripts/read-only-url-fetch.test.mjs scripts/pro-attribution.test.mjs",
-    "attribution:test": "node --test scripts/vertical-attribution.test.mjs",
+    "attribution:test": "node --test scripts/vertical-attribution.test.mjs scripts/server-rendered-utm-source.test.mjs",
     "opportunity:test": "node --test scripts/opportunity-gate.test.mjs scripts/collectible-opportunity-score.test.mjs",
     "visual:discover": "node scripts/verified-visual-discovery.mjs",
     "visual:test": "node --test scripts/verified-visual-asset.test.mjs scripts/verified-visual-discovery.test.mjs",
@@ -41,7 +41,7 @@
     "mr:research": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs research",
     "mr:decrypt": "node --env-file-if-exists=.env.local scripts/mr-know-it-all-research.mjs decrypt",
     "mr:validate": "node scripts/mr-know-it-all-research.mjs validate",
-    "mr:test": "node --test scripts/persist-public-research.test.mjs scripts/mr-know-it-all.test.mjs scripts/deterministic-demand-research.test.mjs scripts/mr-know-it-all-tool-bot.test.mjs scripts/private-question-supabase.test.mjs scripts/public-research-search.test.mjs scripts/question-research.test.mjs scripts/official-product-research.test.mjs",
+    "mr:test": "node --test scripts/ask-response.test.mjs scripts/persist-public-research.test.mjs scripts/mr-know-it-all.test.mjs scripts/deterministic-demand-research.test.mjs scripts/mr-know-it-all-tool-bot.test.mjs scripts/private-question-supabase.test.mjs scripts/public-research-search.test.mjs scripts/question-research.test.mjs scripts/official-product-research.test.mjs",
     "comp:test": "node --test scripts/deterministic-comp-lookup.test.mjs",
     "p0:test": "node --test scripts/p0-compliance.test.mjs",
     "daily:stage": "node scripts/daily-product-pipeline.mjs stage",
@@ -51,7 +51,7 @@
     "daily:publish": "node scripts/daily-product-pipeline.mjs publish",
     "daily:validate": "node scripts/daily-product-pipeline.mjs validate",
     "daily:test": "node --test scripts/daily-product-pipeline.test.mjs scripts/daily-product-publish-safety.test.mjs scripts/social-card.test.mjs scripts/social-attribution.test.mjs scripts/market-eligibility-regression.test.mjs",
-    "release:test": "node --test scripts/release-gate.test.mjs scripts/workflow-publish-safety.test.mjs",
+    "release:test": "node --test scripts/release-gate.test.mjs scripts/workflow-publish-safety.test.mjs scripts/release-gate-test-coverage.test.mjs scripts/ci-failure-investigator.test.mjs",
     "privacy:test": "node --test scripts/privacy-consent.test.mjs",
     "intent:test": "node --test scripts/buy-or-pass-core.test.mjs",
     "predeploy": "bash scripts/predeploy.sh .",
@@ -59,7 +59,7 @@
     "release:check": "npm run predeploy && npm run audit:epn && npm test && npm run validate && npm run build && npm audit --audit-level=high",
     "test": "npm run p0:test && npm run comp:test && npm run ebay:test && npm run epn-reporting:test && npm run amazon:test && npm run labubu:test && npm run video:test && npm run shopping:test && npm run narrative:test && npm run automation:test && npm run daily:test && npm run mr:test && npm run release:test && npm run owner:test && npm run ai-family:test && npm run funnel:test && npm run campaign:test && npm run attribution:test && npm run opportunity:test && npm run visual:test && npm run privacy:test && npm run intent:test && npm run alpha:test && npm run product-classifier:test && npm run price:test && npm run card-api:test && npm run wallpaper:test && npm run browser:audit:test",
     "validate": "npm run labubu:validate -- --skip-url-check && node scripts/video-pipeline.mjs validate && npm run daily:validate && npm run mr:validate && npm run docs:state-test && npm run docs:state-check",
-    "price:test": "node --test scripts/collectible-price-verification.test.mjs scripts/price-page.test.mjs scripts/gap-badge.test.mjs scripts/mew-30th-guide.test.mjs",
+    "price:test": "node --test scripts/collectible-price-verification.test.mjs scripts/price-page.test.mjs scripts/gap-badge.test.mjs scripts/mew-30th-guide.test.mjs scripts/coin-currency-review-preview.test.mjs",
     "card-api:test": "node --test scripts/the-card-api.test.mjs scripts/owner-card-epn.test.mjs",
     "product-classifier:test": "node --test scripts/product-classifier.test.mjs",
     "docs:state-check": "node scripts/documentation-state-check.mjs",
@@ -77,11 +77,12 @@
     "@openai/agents": "0.16.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "2.6.1",
-    "next": "16.3.8",
+    "next": "16.4.2",
+    "posthog-js": "^1.444.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "0.35.5",
-    "zod": "4.2.0"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"
@@ -90,8 +91,9 @@
     "node": ">=24.0.0"
   },
   "overrides": {
-    "undici": "6.29.0",
+    "undici": "6.29.1",
     "@modelcontextprotocol/client": "2.3.1",
-    "@modelcontextprotocol/core": "2.3.1"
+    "@modelcontextprotocol/core": "2.3.1",
+    "zod": "$zod"
   }
 }

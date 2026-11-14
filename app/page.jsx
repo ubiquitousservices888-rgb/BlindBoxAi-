@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BlindVaultHomeStyles from "./_components/BlindVaultHomeStyles";
 import PublishedVideoStyles from "./_components/PublishedVideoStyles";
+import FeaturedAccessoryGrid from "./_components/FeaturedAccessoryGrid";
 import { allSeries, ebayOutboundPath, seriesPriceVerification } from "../lib/data";
 import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../lib/market-eligibility.mjs";
 import { isPublicVideo, publicVideoStatusLabel, summarizePublicVideos } from "../lib/public-video-status.mjs";
@@ -92,6 +93,7 @@ export default async function Home() {
         <Link className="bv-brand" href="/">BlindBoxAI</Link>
         <nav aria-label="Primary navigation">
           {publishedVideos.length > 0 && <a href="#videos">Latest videos</a>}
+          <a href="#collector-essentials">Shop accessories</a>
           <a href="#collectibles">Collectibles</a>
           <Link href="/ask">Mr. Know It All</Link>
           <a href="#knowledge">Knowledge base</a>
@@ -131,6 +133,8 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      <FeaturedAccessoryGrid />
 
       {publishedVideos.length > 0 && (
         <section className="bv-videos" id="videos">
