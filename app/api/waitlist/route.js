@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertBlindBoxSupabaseOrigin } from "../../../lib/blindbox-supabase-boundary.mjs";
 import { recordAnalyticsEvent } from "../../../lib/supabase-telemetry.mjs";
-import { safeWaitlistAttributionSource } from "../../../lib/waitlist-attribution.mjs";
+import { safeWaitlistAttributionSource, waitlistEventMetadata } from "../../../lib/waitlist-attribution.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ function eventFrom(body, event, metadata = undefined) {
     source: safeWaitlistAttributionSource(cleanDimension(body?.source)),
     campaign,
     contentId: campaign,
-    metadata,
+    metadata: waitlistEventMetadata(body, metadata, cleanDimension),
     piiStored: false,
   };
 }

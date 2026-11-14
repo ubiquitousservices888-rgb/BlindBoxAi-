@@ -2,7 +2,7 @@
 
 import { track } from "@vercel/analytics";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { isValidSource, verticalFromSource } from "../../lib/attribution.mjs";
 import {
@@ -10,8 +10,13 @@ import {
   normalizeCampaignId,
   normalizeSource,
 } from "../../lib/campaign-attribution.mjs";
+import {
+  capturePostHogEvent,
+  capturePostHogPageView,
+  isAnalyticsConsentGranted,
+  POSTHOG_CONSENT_STORAGE_KEY,
+} from "../../lib/posthog-client.mjs";
 
-const CONSENT_STORAGE_KEY = "blindboxai_consent_v1";
 const ATTRIBUTION_STORAGE_KEY = "bbai_src";
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
@@ -21,15 +26,10 @@ const UTM_CAMPAIGN_STORAGE_KEY = "bbai_utm_campaign";
 const UTM_CONTENT_STORAGE_KEY = "bbai_utm_content";
 const LANDING_SOURCE_STORAGE_KEY = "bbai_landing_source_v1";
 
+const privateReportingPath = path => String(path || "").startsWith("/owner-dashboard/epn-check");
+
 function analyticsAllowed() {
-  try {
-    const raw = window.localStorage.getItem(CONSENT_STORAGE_KEY);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    return parsed?.analytics === true;
-  } catch {
-    return false;
-  }
+  return isAnalyticsConsentGranted();
 }
 
 function safeLandingSource() {
@@ -186,21 +186,29 @@ function isAffiliateDestination(destination) {
 export default function CoreAnalytics() {
   const pathname = usePathname();
   const [allowed, setAllowed] = useState(false);
+  const landingOnce = useRef(false);
 
   useEffect(() => {
+    if (privateReportingPath(pathname)) return;
     captureLandingAttributionSource();
     setAllowed(analyticsAllowed());
 
-    const onConsent = (event) => {
-      setAllowed(event?.detail?.analytics === true);
+    const onConsent = () => setAllowed(analyticsAllowed());
+    const onStorage = (event) => {
+      if (event.key !== POSTHOG_CONSENT_STORAGE_KEY && event.key !== null) return;
+      setAllowed(analyticsAllowed());
     };
 
     window.addEventListener("blindboxai:consent", onConsent);
-    return () => window.removeEventListener("blindboxai:consent", onConsent);
-  }, []);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("blindboxai:consent", onConsent);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [pathname]);
 
   useEffect(() => {
-    if (!allowed || !pathname) return;
+    if (!allowed || !pathname || privateReportingPath(pathname)) return;
     const path = pathname.slice(0, 120);
     const campaign = captureCampaignAttribution();
     const landingSource = captureLandingAttributionSource();
@@ -214,11 +222,12 @@ export default function CoreAnalytics() {
       utmContent: campaign.utmContent,
     };
     track("page_view", payload);
+    capturePostHogPageView(path, payload);
     captureFirstParty("page_view", payload);
   }, [allowed, pathname]);
 
   useEffect(() => {
-    if (!allowed) return;
+    if (!allowed || privateReportingPath(pathname) || landingOnce.current) return;
     const campaign = captureCampaignAttribution();
     const landingSource = captureLandingAttributionSource();
     const source = campaign.campaignSource || (landingSource !== "none" ? landingSource : safeLandingSource());
@@ -233,17 +242,23 @@ export default function CoreAnalytics() {
       utmContent: campaign.utmContent,
     };
     try {
-      if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") return;
+      if (sessionStorage.getItem("bbai_landing_source_recorded") === "1") { landingOnce.current = true; return; }
+      landingOnce.current = true;
       track("landing_session_source", payload);
+      capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
       sessionStorage.setItem("bbai_landing_source_recorded", "1");
     } catch {
+      if (landingOnce.current) return;
+      landingOnce.current = true;
       track("landing_session_source", payload);
+      capturePostHogEvent("landing_session_source", payload);
       captureFirstParty("landing_session_source", payload);
     }
-  }, [allowed]);
+  }, [allowed, pathname]);
 
   useEffect(() => {
+    if (privateReportingPath(pathname)) return;
     const onClick = (event) => {
       const anchor = event.target?.closest?.("a[href]");
       if (!anchor) return;
@@ -257,15 +272,20 @@ export default function CoreAnalytics() {
         (attribution.source !== "none" ? attribution.source : attribution.landingSource);
       const effectiveSource = outboundSource !== "none" ? outboundSource : "none";
 
-      if (allowed) {
+      if (allowed && isAnalyticsConsentGranted()) {
         const payload = {
           destination,
           path: window.location.pathname.slice(0, 120),
           vertical: attribution.vertical,
           source: effectiveSource,
           campaign: attribution.campaignId || "none",
+          utmSource: attribution.utmSource,
+          utmMedium: attribution.utmMedium,
+          utmCampaign: attribution.utmCampaign,
+          utmContent: attribution.utmContent,
         };
         track("commerce_intent_click", payload);
+        capturePostHogEvent("commerce_intent_click", payload);
         captureFirstParty("commerce_intent_click", payload);
       }
 
@@ -304,7 +324,7 @@ export default function CoreAnalytics() {
 
     document.addEventListener("click", onClick, { capture: true });
     return () => document.removeEventListener("click", onClick, { capture: true });
-  }, [allowed]);
+  }, [allowed, pathname]);
 
   return null;
 }
