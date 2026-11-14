@@ -6,6 +6,10 @@
 
 **Contract rechecked 2026-11-14:** Google's current Omni guide redirects to https://aistudio.google.com/docs/omni and now illustrates `gemini-omni-1.2-flash`. Its REST response schema still places completed MP4 output under `steps[].content[]`; `output_video` remains an SDK convenience. This repair preserves the existing `gemini-omni-1.1-flash` configuration and does not establish that model's current account availability or approve a model upgrade. No live render or provider charge was performed. Credentialed requests now reject redirects, with a negative no-upload test. The older inventory and pricing below are dated assessment context, not a current availability or billing guarantee.
 
+## Current spending status — owner pause, November 14, 2026
+
+**Approval plus max-dollar enforcement is NOT IMPLEMENTED.** The follow-up to PR #284 disables both paid render jobs with an unconditional false condition, removes Gemini fallback commands and credentials from both workflows, and makes the legacy Gemini stage CLI exit before any provider/upload operation. This supersedes the previously callable fallback described below. Keep it off until the owner approves a named action and maximum amount and a reviewed check enforces that approval before the provider call. No paid render, live test render or live video output is authorized by this change.
+
 ## Decision: do not replace Gemini Omni in the MP4 renderer with a text-only model
 
 Google documents `gemini-3.8-flash` as accepting video inputs but producing **text output**. Google's separate `gemini-omni-1.1-flash` produces **video output**. Therefore changing `lib/gemini-video-renderer.mjs`'s model to 3.8 Flash would make the existing video decoder fail closed (or break video rendering). Keep video generation on its own model/cost gate. Do not pretend that a new environment variable turns 3.8 Flash into a renderer.
@@ -46,7 +50,7 @@ For an actual future text classification consumer, require a narrow `EBAY|AMAZON
 
 ## Unenforced spending requirements (not executable controls)
 
-This document does not enforce spending approval or a dollar ceiling. The existing autonomous workflow can reach a billable Gemini fallback on a qualifying `main` source-data push when provider credentials are present, before the later publishing approval. That existing path has no verified per-render dollar limit. The requirements below are owner policy and a release warning, not an implemented spend control. This parser repair adds no render trigger, provider credential, model upgrade or budget authorization.
+PR #284 documented, but did not enforce, spending approval or a dollar ceiling. Before the follow-up pause, the autonomous workflow could reach a billable Gemini fallback on a qualifying `main` source-data push before publishing approval. That requirement remains unfinished. The current mitigation is to disable rendering entirely in those workflows and block the Gemini stage CLI, as described above; it is not an implemented approval/budget mechanism. The historical policy and assessment below do not authorize a render.
 
 - Google's 3.8 Flash standard free tier may apply within an eligible project's limits; actual billing/usage status is unverified. A Vercel API key is not evidence of free tier.
 - Standard paid introductory prices **through 2026-12-31**: $0.75 per million input tokens and $3.75 per million output tokens (thinking included). From **2027-01-01**: $1.50 input and $7.50 output.
@@ -88,6 +92,6 @@ FIXED_WRONG_MODEL_OR_INCOMPLETE_OR_TEXT: FAIL_CLOSED
 
 The repository's normal video test suite also adds raw REST success and rejection regression cases. This is **only a code repair proposal**, not evidence that production actually renders or that its key is valid.
 
-**Remaining known risk:** The workflows have an existing Creatomate/Gemini fallback path with no verified per-render dollar ceiling. Do not activate billable credentials or dispatch renders to validate this PR without the owner's separate explicit amount approval. A further narrowly scoped cost enforcement change requires an approved budget definition and its own disposable E2E gate.
+**Unfinished requirement:** The approval and max-dollar check still needs implementation and disposable E2E verification. The former automatic Creatomate/Gemini workflow path is now paused and Gemini fallback is removed. Do not re-enable it or dispatch a live render without the owner's explicit approval of the exact action and maximum amount.
 
 This change does **not** add a text Gemini runtime consumer, change the model to 3.8, add schedules or secrets, or authorize deployment, video rendering, publishing, or spending. It preserves the existing capable video model while preventing the confirmed REST decoding mismatch.
