@@ -67,7 +67,7 @@ test("Gemini renderer rejects unsupported resolution", async () => {
   );
 });
 
-test("Gemini REST text-only response is rejected without uploading or silent fallback", async () => {
+test("Gemini REST model mismatch is rejected without uploading or silent fallback", async () => {
   let uploadCalls = 0;
   await assert.rejects(
     () => renderGeminiOmni({
@@ -135,4 +135,32 @@ test("redirected provider responses never reach storage", async () => {
     uploadVideo: async () => { uploads++; throw new Error("must not upload"); },
   }), /render request failed/);
   assert.equal(uploads, 0);
+});
+
+test("text-only output from the configured video model never reaches storage", async () => {
+  let uploads = 0;
+  await assert.rejects(() => renderGeminiOmni({
+    apiKey: "fixture-only", record,
+    fetchImpl: async () => ({ ok: true, json: async () => ({
+      model: "gemini-omni-1.1-flash", status: "completed",
+      steps: [{ type: "model_output", content: [{ type: "text", text: "No video" }] }],
+    }) }),
+    uploadVideo: async () => { uploads++; },
+  }), /unexpected video count/);
+  assert.equal(uploads, 0);
+});
+
+test("impossible lengths, invalid padding and noncanonical pad bits reject before upload", async () => {
+  for (const data of ["A".repeat(33), "A".repeat(31) + "===", "A".repeat(30) + "B=", "A".repeat(29) + "B=="]) {
+    let uploads = 0;
+    await assert.rejects(() => renderGeminiOmni({
+      apiKey: "fixture-only", record,
+      fetchImpl: async () => ({ ok: true, json: async () => ({
+        model: "gemini-omni-1.1-flash", status: "completed",
+        steps: [{ type: "model_output", content: [{ type: "video", mime_type: "video/mp4", data }] }],
+      }) }),
+      uploadVideo: async () => { uploads++; },
+    }), /bounded MP4|noncanonical base64/);
+    assert.equal(uploads, 0);
+  }
 });

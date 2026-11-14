@@ -44,7 +44,9 @@ The official Interactions API recommends `model: "gemini-3.8-flash"`, `generatio
 
 For an actual future text classification consumer, require a narrow `EBAY|AMAZON|BOTH|NONE` JSON enum/schema, local schema re-validation, bounded output, low thinking for tagging and high thinking for source reasoning, server-only system data rules, bounded timeout, retry/backoff on 429/5xx, and fail closed on missing key, malformed output, or insufficient evidence. Use sold comparables rather than asking prices; never substitute lot/bundle sales for singles; clearly label unsupported prices and stats UNVERIFIED. Do not enable an unreviewed production call or substitute an unrelated model. These are **requirements, not implemented capabilities**.
 
-## Cost / approval gate
+## Unenforced spending requirements (not executable controls)
+
+This document does not enforce spending approval or a dollar ceiling. The existing autonomous workflow can reach a billable Gemini fallback on a qualifying `main` source-data push when provider credentials are present, before the later publishing approval. That existing path has no verified per-render dollar limit. The requirements below are owner policy and a release warning, not an implemented spend control. This parser repair adds no render trigger, provider credential, model upgrade or budget authorization.
 
 - Google's 3.8 Flash standard free tier may apply within an eligible project's limits; actual billing/usage status is unverified. A Vercel API key is not evidence of free tier.
 - Standard paid introductory prices **through 2026-12-31**: $0.75 per million input tokens and $3.75 per million output tokens (thinking included). From **2027-01-01**: $1.50 input and $7.50 output.
@@ -67,7 +69,7 @@ Open PR [#283](https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/pull/283
 
 ## Scoped remediation included in this PR
 
-The existing raw HTTP Gemini Omni renderer expected `interaction.output_video.data`, which Google's documentation says exists **only in SDK responses**; the raw REST format places MP4 base64 at `steps[].content[]` within a completed `model_output`. A disposable mock of the documented REST response reproduced the prior failure:
+The existing raw HTTP Gemini Omni renderer expected `interaction.output_video.data`, which Google's documentation says exists **only in SDK responses**; the raw REST format places MP4 base64 at `steps[].content[]` within a completed `model_output`. The original author reported the following historical mock summary. It is **UNVERIFIED as raw test evidence** because the exact original command and complete output are not retained in this document:
 
 ```
 BASELINE_EXPECTED_FAIL_TYPE: Error
@@ -77,7 +79,7 @@ BASELINE_UPLOAD_CALLS: 0
 
 The proposed repair to `lib/gemini-video-renderer.mjs` parses and validates the raw REST response, requires `completed` status and the exact Omni model, enforces single MP4 output and size bounds, sets a request timeout, and moves the API key to the standard `x-goog-api-key` header instead of a URL query parameter. Existing Gemini video prompt, vendor and rendering approval workflow remain unchanged. There are deliberately no automatic video retries, since 429/5xx retries can create ambiguous billable render attempts without a verified spend ceiling.
 
-Local disposable post-fix mocked evidence:
+Historical post-fix summary — **UNVERIFIED as raw test evidence**; these labels do not substitute for the exact command and complete output:
 
 ```
 FIXED_RAW_REST_MOCK: PASS
