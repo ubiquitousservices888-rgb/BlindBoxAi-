@@ -12,7 +12,7 @@ export default function FakeCheckGuideBox({ attribution = {}, from }) {
     >
       <p style={{ margin: "0 0 6px", fontWeight: 700 }}>Want the full printable checklist?</p>
       <p style={{ margin: "0 0 10px", lineHeight: 1.5 }}>
-        {FAKE_CHECK_GUIDE.shortName}: sourced checks for Pop Mart blind boxes, Labubu and Pokémon cards, with 11 real vs fake pictures. ${FAKE_CHECK_GUIDE.priceUsd} PDF.
+        {FAKE_CHECK_GUIDE.shortName}: {FAKE_CHECK_GUIDE.promoSummary} ${FAKE_CHECK_GUIDE.priceUsd} PDF.
       </p>
       <Link href={fakeCheckGuidePagePath(attribution, from)}>See what's inside →</Link>
     </aside>

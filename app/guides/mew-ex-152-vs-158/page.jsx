@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { normalizeCampaignId, resolveLandingSource } from "../../../lib/campaign-attribution.mjs";
 
 import FakeCheckGuideBox from "../../_components/FakeCheckGuideBox";
 import {
@@ -32,18 +33,11 @@ function dateLabel(value) {
 
 export default async function MewComparisonPage({ searchParams }) {
   const query = await searchParams;
-  // Repeated ?campaign= or ?source= arrive as arrays; only a single value counts.
+  // Validate each candidate before fallback; repeated values cannot mask UTM tags.
   const attribution = {
-    campaignId: typeof query?.campaign === "string" ? query.campaign : undefined,
-    source: typeof query?.source === "string" ? query.source : undefined,
+    campaignId: normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign),
+    source: resolveLandingSource(query?.source, query?.utm_source),
   };
-  // Support standard UTM-tagged videos without changing explicit campaign precedence.
-  if (!attribution.campaignId && typeof query?.utm_campaign === "string") {
-    attribution.campaignId = query.utm_campaign;
-  }
-  if (!attribution.source && typeof query?.utm_source === "string") {
-    attribution.source = query.utm_source;
-  }
   return (
     <main style={{ width: "min(900px,calc(100% - 32px))", margin: "36px auto 80px" }}>
       <p style={{ fontFamily: "monospace", opacity: .72 }}>MISLABEL WATCH · POKÉMON 30TH CELEBRATION</p>

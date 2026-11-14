@@ -11,9 +11,12 @@ import {
   normalizeGuidePlacement,
 } from "../lib/fake-check-guide.mjs";
 
+import { MEW_30TH_CARDS, mew30thOutboundPath } from "../lib/mew-30th-comparison.mjs";
+import { normalizeCampaignId, resolveLandingSource } from "../lib/campaign-attribution.mjs";
+
 const read = (relative) => fs.readFileSync(new URL(`../${relative}`, import.meta.url), "utf8");
 
-test("the guide's checkout target is the fixed published Gumroad product", () => {
+test("the guide's checkout target is the fixed configured Gumroad destination", () => {
   assert.equal(FAKE_CHECK_GUIDE.checkoutUrl, "https://ubiquity6.gumroad.com/l/bjfpgf");
   assert.equal(FAKE_CHECK_GUIDE.priceUsd, 7);
   assert.equal(FAKE_CHECK_GUIDE.path, "/guides/fake-check-field-guide");
@@ -26,9 +29,9 @@ test("buy links keep a tagged video visit and credit everyone else to the page",
     fakeCheckGuideOutboundPath({ campaignId: "bb-rv-3658d7e94a70b562", source: "youtube" }, "mew_guide"),
     "/api/out/guide?placement=mew_guide&campaign=bb-rv-3658d7e94a70b562&source=youtube",
   );
-  // A template source or an unsafe campaign never claims attribution.
+  // A template source is ignored; an unsafe campaign cannot suppress a valid source.
   assert.equal(fakeCheckGuideOutboundPath({ campaignId: "bb-rv-1", source: "page" }), "/api/out/guide?placement=guide_page");
-  assert.equal(fakeCheckGuideOutboundPath({ campaignId: "x\"><script>", source: "youtube" }), "/api/out/guide?placement=guide_page");
+  assert.equal(fakeCheckGuideOutboundPath({ campaignId: "x\"><script>", source: "youtube" }), "/api/out/guide?placement=guide_page&source=youtube");
   assert.equal(fakeCheckGuideOutboundPath({}, "https://evil.example"), "/api/out/guide?placement=unknown");
 });
 
@@ -158,4 +161,34 @@ test("video UTM and stored campaign tags remain on the owned-product path", () =
   assert.match(series, /query\?\.utm_campaign/);
   const mew = read("app/guides/mew-ex-152-vs-158/page.jsx");
   assert.match(mew, /query\?\.utm_source/);
+});
+
+test("source-only visits survive sales-page, checkout and Mew outbound links", () => {
+  const campaign = "bb-rv-9c5d";
+  const cases = [
+    { query: { utm_source: "youtube" }, source: "youtube", campaign: "" },
+    { query: { campaign: "bad campaign", utm_campaign: campaign, source: "page", utm_source: "tiktok" }, source: "tiktok", campaign },
+    { query: { campaign: ["bad", "other"], utm_campaign: campaign, source: ["site"], utm_source: "youtube" }, source: "youtube", campaign },
+    { query: { campaign, source: "youtube", utm_source: "tiktok" }, source: "youtube", campaign },
+  ];
+  for (const item of cases) {
+    const attribution = {
+      campaignId: normalizeCampaignId(item.query.campaign) || normalizeCampaignId(item.query.utm_campaign),
+      source: resolveLandingSource(item.query.source, item.query.utm_source),
+    };
+    for (const path of [
+      fakeCheckGuidePagePath(attribution, "mew_guide"),
+      fakeCheckGuideOutboundPath(attribution, "guide_page"),
+      mew30thOutboundPath(MEW_30TH_CARDS[0], attribution),
+    ]) {
+      const url = new URL(path, "https://blindboxai.com");
+      assert.equal(url.searchParams.get("source"), item.source);
+      assert.equal(url.searchParams.get("campaign") || "", item.campaign);
+    }
+  }
+  for (const source of [undefined, "page", "site", "---", ["youtube", "tiktok"]]) {
+    const attribution = { source };
+    assert.equal(new URL(fakeCheckGuideOutboundPath(attribution), "https://blindboxai.com").searchParams.has("source"), false);
+    assert.equal(new URL(mew30thOutboundPath(MEW_30TH_CARDS[0], attribution), "https://blindboxai.com").searchParams.get("source"), "mew_30th_guide");
+  }
 });

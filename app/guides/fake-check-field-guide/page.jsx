@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { normalizeAttributionSource, normalizeCampaignId } from "../../../lib/campaign-attribution.mjs";
+import { normalizeCampaignId, resolveLandingSource } from "../../../lib/campaign-attribution.mjs";
 import {
   FAKE_CHECK_GUIDE,
   fakeCheckGuideOutboundPath,
@@ -33,8 +33,8 @@ export default async function FakeCheckGuidePage({ searchParams }) {
   // Repeated params arrive as arrays; only a single value counts.
   const single = (value) => (typeof value === "string" ? value : undefined);
   const attribution = {
-    campaignId: normalizeCampaignId(single(query?.campaign) || single(query?.utm_campaign)),
-    source: normalizeAttributionSource(single(query?.source) || single(query?.utm_source)),
+    campaignId: normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign),
+    source: resolveLandingSource(query?.source, query?.utm_source),
   };
   const from = normalizeGuidePlacement(single(query?.from));
   const placement = from === "unknown" ? "guide_page" : from;
@@ -68,7 +68,7 @@ export default async function FakeCheckGuidePage({ searchParams }) {
       </section>
 
       <section style={{ marginTop: 30 }}>
-        <h2>Two of the pictures from the guide</h2>
+        <h2>Two of the illustrations from the guide</h2>
         <p style={{ opacity: .8 }}>Original drawings, not photos of real products.</p>
         <div style={{ display: "grid", gap: 16 }}>
           <figure style={{ margin: 0 }}>
