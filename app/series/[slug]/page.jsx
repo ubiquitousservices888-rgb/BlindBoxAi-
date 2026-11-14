@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
 import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../../../lib/market-eligibility.mjs";
-import { normalizeCampaignId, normalizeSource } from "../../../lib/campaign-attribution.mjs";
+import { normalizeCampaignId, resolveLandingSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
 import LiveEbayListings from "../../_components/LiveEbayListings";
 
@@ -56,8 +56,8 @@ export async function generateMetadata({ params }) {
 export default async function SeriesPage({ params, searchParams }) {
   const { slug } = await params;
   const query = await searchParams;
-  const campaignId = normalizeCampaignId(query?.campaign);
-  const source = normalizeSource(query?.source || query?.utm_source);
+  const campaignId = normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign);
+  const source = resolveLandingSource(query?.source, query?.utm_source);
   const attribution = { campaignId, source };
   const s = getSeries(slug);
   if (!s) return <main><h1>Series not found</h1><p><Link href="/">← All series</Link></p></main>;
