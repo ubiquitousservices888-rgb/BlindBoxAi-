@@ -126,14 +126,14 @@ async function stageForResearch({ accessCode, blob, title, file, metadata }) {
   return body;
 }
 
-async function approveVideo({ accessCode, videoUrl, researchRunId }) {
+async function approveVideo({ accessCode, videoUrl, researchRunId, reviewedTitle }) {
   const response = await fetch("/api/owner/approve-review", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ videoUrl, researchRunId, youtubeAudience: "not_made_for_kids" }),
+    body: JSON.stringify({ videoUrl, researchRunId, reviewedTitle, youtubeAudience: "not_made_for_kids" }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
@@ -176,7 +176,7 @@ export default function MediaUploadForm() {
     setBusy(true);
     setError("");
     try {
-      await approveVideo({ accessCode, videoUrl: result.url, researchRunId: stageResult?.researchRunId });
+      await approveVideo({ accessCode, videoUrl: result.url, researchRunId: stageResult?.researchRunId, reviewedTitle: stageResult?.title });
       setApproved(true);
       setStatus("approved");
       setAccessCode("");

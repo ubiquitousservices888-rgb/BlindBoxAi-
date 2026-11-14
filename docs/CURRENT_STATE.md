@@ -2,10 +2,10 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-10-26
+**Last reconciled:** 2026-10-31
 
 **Reconciliation note:** the October 13 baseline below is historical for EPN report validation and public platform verification. Current code requires versioned, attributed report evidence and exact public player metadata before recording a new platform URL. Source changes do not establish production deployment, historical URL reconciliation, video byte identity, or affiliate conversions.
-**Functional baseline inspected:** `main` at `5c4d3e136f07a56ccca308fef487547c42f19674`, after merged PRs #256, #268 and #269. Deployment READY and production smoke were reported in the release checks, but raw Vercel deployment ID, live HTTP status, and full smoke-run output are not retained here; this document marks independent deployment/smoke evidence **UNVERIFIED** until attached. No live platform post or affiliate commission is verified by this fact.
+**Functional baseline inspected:** `main` at `561d260089b5b3aa63f11f22d1634c135ac053ed`, after merged PR #297. This baseline has consent-gated Vercel event tracking and first-party aggregate telemetry; the PostHog appraisal funnel below is the proposed addition in this change. Production deployment and real PostHog traffic remain **UNVERIFIED** until the change is reviewed, deployed with its production settings, and receives real consented visits. No live platform post or affiliate commission is verified by this fact.
 
 This file is an orientation map, not evidence. If this document conflicts with code, workflow definitions, raw command output, or observable production behavior, the latter wins and this file must be updated in the same change that resolves the conflict.
 
@@ -29,7 +29,7 @@ Current invariants:
 
 - trigger: `workflow_dispatch` only;
 - default mode: `dry_run: true`;
-- production video channels are pinned exactly to `youtube,tiktok`;
+- production video channels are pinned exactly to `youtube,tiktok`; LinkedIn is a separate add-on in `ADDON_VIDEO_CHANNELS`, sent only by an exact `publish_channel: linkedin` dispatch, and never part of the pinned primary set;
 - X/Twitter is parked for this canonical review-queue publisher; merged PR #227 removed it from the completion target;
 - a run requires an explicit `publish_channel`; owner recovery can target one exact channel, while Blue launch uses `all` to serialize YouTube and TikTok;
 - a run can target one exact approved row with `research_run_id`; every live run requires this exact selector;
@@ -87,8 +87,9 @@ A subsystem document is authoritative only for that subsystem.
 
 ### Current social-channel decisions
 
-- **Review-queue video:** YouTube + TikTok only. X/Twitter is parked by merged PR #227.
-- **LinkedIn:** not an active production target. LinkedIn-capable daily-product code remains in the repository, but the daily workflow is validation-only with publishing paused.
+- **Review-queue video:** YouTube + TikTok are the primary channels that decide when a row is published. X/Twitter is parked by merged PR #227.
+- **LinkedIn (review-queue add-on only):** an owner can send an approved review video to LinkedIn with an exact `publish_channel: linkedin` dispatch, only after the same video is verified live on YouTube or TikTok. LinkedIn post pages cannot be read without a signed-in session, so a LinkedIn post is proven by Buffer's own sent receipt for the exact caption, the exact video and a LinkedIn post permalink, not by a public page check. LinkedIn never decides whether a row counts as published.
+- **LinkedIn (daily-product pipeline):** not an active production target. LinkedIn-capable daily-product code remains in the repository, but the daily workflow is validation-only with publishing paused.
 - Other specialist pipelines may contain additional service support. That capability must not be read as an active production target unless the owning workflow is enabled and its current configuration proves it.
 
 ## Review-video upload paths
@@ -97,6 +98,21 @@ A subsystem document is authoritative only for that subsystem.
 - **Owner Blue review surface:** after owner authentication, `/owner-dashboard` uses owner-only `/api/owner/review-queue` to paginate the current `ready_for_review` rows and render the returned review list with each exact MP4 plus Blue approval and Delete controls. The endpoint fails closed rather than returning a silently truncated list. After the owner has watched the exact video and selected its YouTube audience, `BLUE APPROVE + LAUNCH` calls `/api/owner/approve-review` and requests the exact-run governed publisher; network/provider verification remains mandatory.
 - **Legacy Vercel Blob compatibility path:** `/api/media/review-upload` still uses Vercel Blob. The separate `lib/owner-review-staging.mjs` helper accepts only approved `*.public.blob.vercel-storage.com/media/review/*.mp4` URLs and dispatches `manual-reviewed-video.yml`.
 - These paths are distinct. Do not infer the storage host or approval semantics of one from the other.
+
+## Consent-gated traffic and appraisal analytics
+
+`lib/posthog-client.mjs` is the proposed PostHog browser integration for product analytics. It initializes only after a visitor accepts optional analytics, persists the consent state, and opts out and resets the anonymous identifier when consent is revoked. If PostHog has not initialized in the current page, revocation clears its known persisted identity locally without loading the SDK. `autocapture`, pageleave capture, session recording, surveys, and person profiles are disabled. A before-send filter removes URL query strings, referrer paths, raw search terms, and UTM term/initial/entry values; retained source, medium, campaign, and content labels are normalized before PostHog events leave the browser.
+
+The event path is:
+
+- `CoreAnalytics`: `$pageview`, `landing_session_source`, and `commerce_intent_click` with normalized campaign and source labels;
+- `/ask`: `agent_question_started` and `agent_question_failed` carry only the lookup mode and failure class; successful `agent_question` events carry result counts and evidence freshness, never question text or price values;
+- audience research: `audience_value_research` with booleans for raw/graded fields, never entered amounts;
+- `/pro`: `waitlist_signup` only after a successful, nonduplicate signup, without the submitted email.
+
+Production configuration uses `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` and `NEXT_PUBLIC_POSTHOG_HOST` on the Vercel `blindboxai` project. With no consent or no valid project configuration, PostHog capture stays off. The current PostHog project setting does not anonymize IP addresses, so the privacy notice discloses that connection and browser metadata may be processed after consent. This integration does not backfill past visits, create synthetic traffic, or treat marketplace intent clicks as revenue. Real appraisal demand, acquisition sources, and revenue attribution can only be read after the reviewed production deployment receives actual visits and provider-confirmed conversion data is joined separately.
+
+`docs/qa-protocol.md` remains the authority for the isolated unit, service-integration, browser, and production-smoke checks. PR CI must pass before this proposed event path is treated as production code.
 
 ## Collector research and daily checks
 
@@ -191,6 +207,14 @@ The negative tests prove the guard rejects channel drift, extra workflow trigger
 
 Routine research freshness: supported official retail facts refresh automatically in the existing twice-daily public research workflow, without owner prompts. Exact POP MART product 7890 is extracted from its official US collection; retrieval time never substitutes for a sale date. Failed or ambiguous retrievals retain prior stored dated evidence. This changes no publishing or spending gate.
 
+## EPN daily reconciliation topology (PR #305 — review-only)
+
+The separate PR #305 proposes the mobile-owner read-only check under `/owner-dashboard/revenue` and guarded `GET /api/cron/epn-sync`, using `lib/epn-live-sync.mjs` and a private replaceable Blob snapshot. `vercel.json` schedules a once-daily invocation, but `EPN_AUTO_SYNC_ENABLED=true` and a private `CRON_SECRET` are additionally required; both must remain unconfigured until provider access, currency and owner review are confirmed. A successful code check is not a live report. The existing immutable conversion-evidence ledger is intentionally untouched; historical reversals, payout and lifetime revenue are not reconciled. See `docs/epn-live-reconciliation.md`.
+
+## EPN official reporting reader (proposed read-only addition)
+
+The isolated official EPN TDR reader is implemented at `lib/epn-tdr-api.mjs`, with private owner-authenticated `GET /api/owner/epn-tdr` and manual `.github/workflows/epn-tdr-readonly.yml` diagnostics. They are read-only and do not modify the existing CSV-import evidence ledger or bypass the EPN status/Custom ID checks. The EPN SID/token must be configured separately from eBay Buy OAuth; `EPN_REPORTING_CURRENCY=USD` is an explicit gate. At source stage, provider access, production deployment, verified commissions and any historical reversal reconciliation are UNVERIFIED until raw live provider evidence exists. See `docs/affiliate-revenue-dashboard.md` for exact authorization, data handling and restrictions.
+
 ## Read-only release-gate failure triage (proposal)
 
-The proposed `.github/workflows/ci-failure-investigation.yml` and `scripts/ci-failure-investigator.mjs` provide automatic read-only classification of failed release-gate job and step metadata. It runs trusted `main` with read-only GitHub Actions/contents permissions, produces only a bounded Actions Step Summary and never calls a model, changes production, writes repo content, or publishes media. Its separate `.github/workflows/ci-failure-doctor.md` agentic source is intentionally uncompiled and inactive pending explicit inference-spend authorization. Even if CI passes, do not promote this feature to LIVE VERIFIED before merge and a real failure-run observation. Full safety and testing contract: `docs/qa-protocol.md`.
+The proposed `.github/workflows/ci-failure-investigation.yml` and `scripts/ci-failure-investigator.mjs` classify failed release-gate job and step metadata using trusted `main` and read-only GitHub permissions. They produce a bounded Actions Step Summary without model calls, raw logs, repository writes, production changes or publishing. The separate `.github/workflows/ci-failure-doctor.md` is a non-runnable design note with no agentic workflow frontmatter or tool access. Activation requires a new reviewed implementation and explicit inference-spend authorization. Runtime behavior remains UNVERIFIED until merge and observation against an actual failed release run. See `docs/qa-protocol.md`.

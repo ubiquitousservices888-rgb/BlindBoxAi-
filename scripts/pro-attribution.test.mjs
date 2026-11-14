@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { safeWaitlistAttributionSource } from "../lib/waitlist-attribution.mjs";
+import { safeWaitlistAttributionSource, waitlistEventMetadata } from "../lib/waitlist-attribution.mjs";
 
 const analytics = fs.readFileSync(new URL("../app/_components/CoreAnalytics.jsx", import.meta.url), "utf8");
 const page = fs.readFileSync(new URL("../app/pro/page.jsx", import.meta.url), "utf8");
@@ -29,6 +29,8 @@ test("pro waitlist posts only to the first-party API route", () => {
 
 test("first-party waitlist preserves attribution without putting email into analytics", () => {
   assert.match(waitlist, /body:\s*JSON\.stringify\(\{ email, companyWebsite, \.\.\.attribution \}\)/);
+  assert.match(waitlist, /res\.status === 202 && body\?\.ok === true/);
+  assert.match(waitlist, /else if \(res\.ok && body\?\.duplicate === false\)/);
   assert.match(waitlistRoute, /waitlist_submit_attempt/);
   assert.match(waitlistRoute, /waitlist_submit_failed/);
   assert.match(waitlistRoute, /waitlist_signup/);
@@ -37,6 +39,34 @@ test("first-party waitlist preserves attribution without putting email into anal
   const eventBuilder = waitlistRoute.match(/function eventFrom[\s\S]*?\n\}/);
   assert.ok(eventBuilder);
   assert.doesNotMatch(eventBuilder[0], /email/);
+});
+
+test("waitlist events carry UTM dimensions from the submitted attribution", () => {
+  const clean = (value) => {
+    const cleaned = String(value ?? "").trim().slice(0, 80);
+    return cleaned && cleaned !== "none" ? cleaned : null;
+  };
+  const body = {
+    email: "owner@example.com",
+    utmSource: "  youtube ",
+    utmMedium: "shorts",
+    utmCampaign: "pro_verify_20261106",
+    utmContent: "none",
+    source: "youtube",
+  };
+  assert.deepEqual(waitlistEventMetadata(body, { ownedStorage: true }, clean), {
+    utmSource: "youtube",
+    utmMedium: "shorts",
+    utmCampaign: "pro_verify_20261106",
+    ownedStorage: true,
+  });
+  assert.equal(waitlistEventMetadata({ email: "owner@example.com" }, undefined, clean), undefined);
+  assert.deepEqual(waitlistEventMetadata({ utmSource: "x" }, { utmSource: "route" }, clean), { utmSource: "route" });
+  assert.doesNotMatch(JSON.stringify(waitlistEventMetadata(body, {}, clean)), /@/);
+
+  const eventBuilder = waitlistRoute.match(/function eventFrom[\s\S]*?\n\}/);
+  assert.ok(eventBuilder);
+  assert.match(eventBuilder[0], /metadata: waitlistEventMetadata\(body, metadata, cleanDimension\)/);
 });
 
 test("waitlist shows collection purpose and unsubscribe disclosure", () => {
@@ -71,6 +101,8 @@ test("waitlist hardening rejects duplicate inserts, traps bots, and uses friendl
   assert.match(waitlistRoute, /resolution=ignore-duplicates,return=representation/);
   assert.match(waitlistRoute, /waitlist_submit_duplicate/);
   assert.match(waitlistRoute, /companyWebsite/);
+  assert.match(waitlist, /name="optional_reference"/);
+  assert.match(waitlist, /autoComplete="new-password"/);
   assert.match(waitlistRoute, /bot_honeypot/);
   assert.match(waitlist, /You're already on the list/);
   assert.match(waitlist, /You're on the list — we'll email you when reseller tools launch/);

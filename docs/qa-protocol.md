@@ -37,12 +37,12 @@ The QA schedule has no Buffer, owner, Supabase service-role, or Vercel deploymen
 
 ## Release-gate failure investigation (no new AI charges)
 
-The workflow `.github/workflows/ci-failure-investigation.yml` is a separate **read-only** GitHub Actions diagnostic, automatically triggered by a failed or timed-out `BlindBoxAI release gate`. An owner can also dispatch it against an exact numeric failed release-gate run ID from `main`.
+The workflow `.github/workflows/ci-failure-investigation.yml` is a separate **read-only** GitHub Actions diagnostic, automatically triggered by a failed or timed-out `BlindBoxAI release gate`. An owner can also dispatch the diagnostic from `main` against an exact numeric failed release-gate run ID. The selected source run may belong to a pull request or `main`; its repository, workflow, completion state and commit SHA are validated before reading job metadata.
 
 It checks out trusted `main` with `persist-credentials: false`, and uses only `contents: read` and `actions: read`. It fetches authenticated GitHub run and job/step status metadata, validates the source repository and workflow, and writes fixed-category investigation suggestions to its own Actions Step Summary. It does not download raw logs, execute PR code, install npm dependencies, create PRs or comments, publish, deploy, call AI models, or touch Vercel, Supabase, Buffer, eBay, YouTube or TikTok.
 
 The test suite `scripts/ci-failure-investigator.test.mjs` uses synthetic GitHub API fixtures and hostile metadata. It runs under `npm run release:test`. Triage suggestions are hypotheses, not verified root causes. The linked original job logs and exact SHA remain the evidence.
 
-The separate `.github/workflows/ci-failure-doctor.md` is a **dormant GitHub Agentic Workflows blueprint**. No compiled `.lock.yml`, model inference permission, or billing path is enabled. Activating AI requires owner approval of a specific inference provider and spending, a reviewed and compiled gh-aw lock file, and a new reviewed PR. This draft does not run.
+The separate `.github/workflows/ci-failure-doctor.md` is a **non-runnable design note**. It has no agentic workflow frontmatter, tool grants, compiled `.lock.yml`, model inference permission or billing path. Activating AI requires a new reviewed implementation, deterministic source validation before tool access, metadata-only inputs, explicitly disabled write/failure-reporting outputs, and owner approval of a specific inference provider and spending. The note cannot run or grant access to logs.
 
 GitHub currently provides standard GitHub-hosted runner time free in public repositories. This is not authorization for charged model inference or larger runners.

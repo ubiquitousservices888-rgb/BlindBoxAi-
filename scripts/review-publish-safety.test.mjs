@@ -236,6 +236,7 @@ test("public verification retries transient Buffer lookup failures and returns v
     publicUrl: "https://www.youtube.com/watch?v=abc123",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    proofKind: "public_player",
     publicHttpStatus: 200,
     publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
     publicMediaAvailable: true,
@@ -448,7 +449,9 @@ test("channel selector supports one channel or serialized all while preserving t
 test("legacy queue titles are repaired only while holding the exact publishing lease", () => {
   const publisher = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
-  assert.match(publisher, /resolvePublicVideoTitle/);
+  const reviewCaption = fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8");
+  assert.match(publisher, /const publicTitle = reviewPublicTitle\(item\)/);
+  assert.match(reviewCaption, /resolvePublicVideoTitle\(item\?\.title/);
   assert.match(publisher, /action: "repair_title"/);
   const repairStart = queue.indexOf("async function repairTitle(");
   const repairEnd = queue.indexOf("async function recordChannel(", repairStart);
@@ -484,7 +487,7 @@ test("queue peek is read-only and separately authorized", () => {
   const peek = source.slice(start, end);
   assert.match(peek, /githubAuthorized/);
   assert.match(source, /nextApprovedForChannel/);
-  assert.match(source, /claimableStatusFilter\(\)/);
+  assert.match(source, /claimableStatusFilter\(channel\)/);
   assert.doesNotMatch(peek, /\.update\(/);
 });
 
@@ -503,7 +506,7 @@ test("workflow requires explicit channel and exact review row inputs", () => {
   const optionsBlock = channelBlock.slice(channelBlock.indexOf("options:"));
   assert.deepEqual(
     [...optionsBlock.matchAll(/^[ \t]+- ([a-z0-9_-]+)$/gm)].map((match) => match[1]),
-    ["youtube", "tiktok", "all"],
+    ["youtube", "tiktok", "linkedin", "all"],
   );
 
   const runBlock = source.slice(runStart, audienceStart);
@@ -613,9 +616,12 @@ test("published feed preserves previously verified channels across exact-channel
 
 test("live publisher fail-closes on missing tracked CTA or unverifiable public URL", () => {
   const source = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
-  assert.match(source, /const trackedUrl = new URL\(trackedCta\)/);
+  const reviewCaption = fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8");
+  assert.match(reviewCaption, /const trackedUrl = new URL\(trackedCta\)/);
+  assert.match(reviewCaption, /tracked CTA is missing campaign or source/);
+  assert.match(reviewCaption, /tracked CTA and affiliate disclosure are required/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
-  const ctaGuard = source.indexOf("tracked CTA is missing campaign or source");
+  const ctaGuard = source.indexOf("buildReviewCaption(item, channel, publicTitle)");
   const urlGuard = source.indexOf("platform public URL lacks an independent HTTP 200 receipt");
   assert.match(source, /result\.publicHttpStatus !== 200/);
   assert.match(source, /REVIEW_QUEUE_PUBLIC_HTTP_PROOF/);

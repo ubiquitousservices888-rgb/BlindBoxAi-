@@ -73,3 +73,41 @@ test("workflow is read-only and never executes pull-request source or post APIs"
   assert.match(yml, /timeout-minutes: 3/);
   assert.doesNotMatch(yml, /write|push|pull_request_target|repository_dispatch|secrets\.|curl|upload-artifact|npm ci|gh aw run/);
 });
+
+test("64-bit GitHub IDs retain their original decimal value in evidence links", async () => {
+  const runId = "9223372036854775807";
+  const jobId = "9007199254740993";
+  const requests = [];
+  const result = await investigate({ runId, token: "fixture-only", fetchImpl: async (url) => {
+    requests.push(url);
+    const body = url.includes("/jobs?")
+      ? '{"jobs":[{"id":9007199254740993,"name":"Test","conclusion":"failure","steps":[{"name":"Run isolated module and safety tests","conclusion":"failure"}]}]}'
+      : JSON.stringify(run);
+    return new Response(body, { status: 200 });
+  } });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0], `https://api.github.com/repos/${REPO}/actions/runs/${runId}`);
+  assert.equal(result.findings[0].jobId, jobId);
+  assert.ok(result.report.includes(`/actions/runs/${runId}/job/${jobId}`));
+  assert.doesNotMatch(result.report, /9007199254740992|fixture-only/);
+});
+
+test("unsafe numeric, malformed and out-of-range IDs cannot identify a job or run", async () => {
+  for (const id of [9007199254740992, "9223372036854775808", "0", "-1", "01", "1e3", "123.5"]) {
+    assert.deepEqual(classifyJobs([{ ...jobs[0], id }]), []);
+    let requested = false;
+    await assert.rejects(investigate({ runId: id, token: "fixture-only", fetchImpl: async () => {
+      requested = true;
+      throw new Error("must not request invalid identity");
+    } }), /Missing/);
+    assert.equal(requested, false);
+  }
+  assert.equal(classifyJobs([{ ...jobs[0], id: "9223372036854775807" }])[0].jobId, "9223372036854775807");
+});
+
+test("the AI design note cannot grant tools or compile as an agentic workflow", () => {
+  const note = readFileSync(new URL("../.github/workflows/ci-failure-doctor.md", import.meta.url), "utf8");
+  assert.doesNotMatch(note, /^(?:---|on:|engine:|tools:|permissions:|safe-outputs:)/m);
+  assert.match(note, /must never\s+receive raw logs/);
+  assert.match(note, /separate reviewed PR/);
+});

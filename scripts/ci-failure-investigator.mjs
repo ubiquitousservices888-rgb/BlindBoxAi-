@@ -30,7 +30,22 @@ const CATEGORIES = Object.freeze({
   },
 });
 
-const numericId = (v) => /^[1-9][0-9]{0,16}$/.test(String(v ?? ""));
+function numericId(value) {
+  if (typeof value === "number" && !Number.isSafeInteger(value)) return false;
+  const raw = String(value ?? "");
+  return /^[1-9][0-9]{0,18}$/.test(raw) && BigInt(raw) <= 9223372036854775807n;
+}
+
+// Node 24 exposes the original JSON number token to the reviver. Preserve IDs
+// before a JSON number can be rounded by JavaScript's numeric representation.
+function parseMetadata(text) {
+  return JSON.parse(text, (key, value, context) => {
+    if (key !== "id" || typeof value !== "number") return value;
+    const raw = context?.source;
+    if (!numericId(raw)) throw new Error("Invalid GitHub metadata ID");
+    return raw;
+  });
+}
 const validSha = (v) => /^[a-f0-9]{40}$/.test(String(v ?? ""));
 
 export function classifyJobs(jobs) {
@@ -88,7 +103,7 @@ export async function investigate({ runId, token, fetchImpl = fetch }) {
       signal: AbortSignal.timeout(10000),
     });
     if (!response.ok || response.redirected) throw new Error("GitHub read-only metadata unavailable");
-    return response.json();
+    return parseMetadata(await response.text());
   }
   const run = await get(root);
   if (run?.name !== WORKFLOW ||
