@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { normalizeCampaignId, resolveLandingSource } from "../../../lib/campaign-attribution.mjs";
 
+import FakeCheckGuideBox from "../../_components/FakeCheckGuideBox";
 import {
   MEW_30TH_CARDS,
   MEW_30TH_CHECKED_AT,
@@ -31,10 +33,10 @@ function dateLabel(value) {
 
 export default async function MewComparisonPage({ searchParams }) {
   const query = await searchParams;
-  // Repeated ?campaign= or ?source= arrive as arrays; only a single value counts.
+  // Validate each candidate before fallback; repeated values cannot mask UTM tags.
   const attribution = {
-    campaignId: typeof query?.campaign === "string" ? query.campaign : undefined,
-    source: typeof query?.source === "string" ? query.source : undefined,
+    campaignId: normalizeCampaignId(query?.campaign) || normalizeCampaignId(query?.utm_campaign),
+    source: resolveLandingSource(query?.source, query?.utm_source),
   };
   return (
     <main style={{ width: "min(900px,calc(100% - 32px))", margin: "36px auto 80px" }}>
@@ -107,6 +109,8 @@ export default async function MewComparisonPage({ searchParams }) {
           Verify the card number in the photos, ask for clear front and back images if needed, and compare against recent completed sales rather than asking prices.
         </p>
       </section>
+
+      <FakeCheckGuideBox attribution={attribution} from="mew_guide" />
 
       <section style={{ marginTop: 30 }}>
         <h2>What this page does not claim</h2>

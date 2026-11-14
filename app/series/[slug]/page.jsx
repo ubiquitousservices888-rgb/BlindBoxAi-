@@ -3,6 +3,7 @@ import { allSeries, getSeries, ebayOutboundPath } from "../../../lib/data";
 import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../../../lib/market-eligibility.mjs";
 import { normalizeCampaignId, resolveLandingSource } from "../../../lib/campaign-attribution.mjs";
 import FakeCheck from "../../_components/FakeCheck";
+import FakeCheckGuideBox from "../../_components/FakeCheckGuideBox";
 import LiveEbayListings from "../../_components/LiveEbayListings";
 
 export const revalidate = 86400;
@@ -150,6 +151,7 @@ export default async function SeriesPage({ params, searchParams }) {
         <section className="block">
           <h2>Fake check <span className="k">INSPECT</span></h2>
           <FakeCheck checklist={checklist} />
+          <FakeCheckGuideBox attribution={attribution} from="series_fake_check" />
         </section>
       )}
 
