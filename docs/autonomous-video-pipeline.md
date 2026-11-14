@@ -19,6 +19,8 @@ Keep the render jobs and Gemini fallback off until a separate reviewed change en
 
 This change does not implement that spending mechanism, authorize a paid or test render, produce a live video, or establish revenue. Existing parser unit tests use local synthetic responses only.
 
+The specialist commands `video:approve`, `video:reject` and `video:publish` are intentionally out of scope while rendering is paused. They do not approve spending or set a budget. The retained publisher still requires the existing `social-production` owner gate. Local receipts belong in `output/video-pipeline/state.json` and must not be committed.
+
 ## Offline checks
 
 ```bash

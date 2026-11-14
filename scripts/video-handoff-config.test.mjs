@@ -45,7 +45,7 @@ test("review-only video workflow keeps attribution checks while paid rendering i
   assert.match(reviewOnlyWorkflow, /NEXT_PUBLIC_EPN_CAMPID:/);
   assert.match(reviewOnlyWorkflow, /CREATOMATE_API_KEY/);
   assert.doesNotMatch(reviewOnlyWorkflow, /GEMINI_API_KEY|BLOB_READ_WRITE_TOKEN/);
-  assert.match(reviewOnlyWorkflow, /if:\s*\$\{\{ false \}\}/);
+  assert.match(reviewOnlyWorkflow, /\n  render:\n(?:    #[^\n]*\n)*    if: \$\{\{ false \}\}\n/);
   assert.match(reviewOnlyWorkflow, /npm run video:daily/);
   assert.doesNotMatch(reviewOnlyWorkflow, /npm run video:gemini-stage/);
   assert.match(reviewOnlyWorkflow, /ALLOW_GEMINI_VIDEO_RENDER:\s*"false"/);

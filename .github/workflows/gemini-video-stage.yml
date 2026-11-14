@@ -2,17 +2,6 @@ name: Review-only video stage (manual)
 
 on:
   workflow_dispatch:
-    inputs:
-      resolution:
-        description: "Draft resolution for Gemini fallback"
-        required: true
-        default: "360p"
-        type: choice
-        options:
-          - "360p"
-          - "720p"
-          - "1080p"
-          - "4k"
 
 permissions:
   contents: read
