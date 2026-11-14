@@ -6,6 +6,10 @@
 
 **Contract rechecked 2026-11-14:** Google's current Omni guide redirects to https://aistudio.google.com/docs/omni and now illustrates `gemini-omni-1.2-flash`. Its REST response schema still places completed MP4 output under `steps[].content[]`; `output_video` remains an SDK convenience. This repair preserves the existing `gemini-omni-1.1-flash` configuration and does not establish that model's current account availability or approve a model upgrade. No live render or provider charge was performed. Credentialed requests now reject redirects, with a negative no-upload test. The older inventory and pricing below are dated assessment context, not a current availability or billing guarantee.
 
+## Current spending status — owner pause, November 14, 2026
+
+**Approval plus max-dollar enforcement is NOT IMPLEMENTED.** The follow-up to PR #284 disables both paid render jobs with an unconditional false condition, removes Gemini fallback commands and credentials from both workflows, and makes the legacy Gemini stage CLI exit before any provider/upload operation. This supersedes the previously callable fallback described below. Keep it off until the owner approves a named action and maximum amount and a reviewed check enforces that approval before the provider call. No paid render, live test render or live video output is authorized by this change.
+
 ## Decision: do not replace Gemini Omni in the MP4 renderer with a text-only model
 
 Google documents `gemini-3.8-flash` as accepting video inputs but producing **text output**. Google's separate `gemini-omni-1.1-flash` produces **video output**. Therefore changing `lib/gemini-video-renderer.mjs`'s model to 3.8 Flash would make the existing video decoder fail closed (or break video rendering). Keep video generation on its own model/cost gate. Do not pretend that a new environment variable turns 3.8 Flash into a renderer.
@@ -18,9 +22,9 @@ Google documents `gemini-3.8-flash` as accepting video inputs but producing **te
 - https://ai.google.dev/gemini-api/docs/pricing
 - https://ai.google.dev/gemini-api/docs/structured-output
 
-## Read-only call-site inventory (GitHub default-branch code search)
+## Historical call-site inventory (before the owner pause)
 
-Searches: `gemini`, `generativelanguage`, `@google/genai`, `@google/generative-ai`, `GEMINI_`. Results are repository code-search evidence, **not** a complete local `git grep` of all tracked files; repeat on a complete checkout before claiming exhaustive coverage.
+The rows below describe the historical default-branch search before this pause, not current credential consumers. Both workflows have since removed their Gemini credentials and fallback commands, and the CLI is disabled. Searches: `gemini`, `generativelanguage`, `@google/genai`, `@google/generative-ai`, `GEMINI_`. These historical repository code-search results are **not** a complete local `git grep` of all tracked files.
 
 | Path | Responsibility | Model ID | Credential reference | Scope |
 |---|---|---|---|---|
@@ -34,9 +38,9 @@ Searches: `gemini`, `generativelanguage`, `@google/genai`, `@google/generative-a
 | `scripts/video-handoff-config.test.mjs` | Workflow boundary tests | none | name-only assertions | tests |
 | `tools/diagrams/blindbox_architecture.py` | Architecture drawing | none | none | no API request |
 
-No 3.8 Flash text-generation or structured-classification runtime call was found by these searches on current `main`; no `@google/genai` or `@google/generative-ai` import was found. Text classification must not be claimed migrated. Future classification could use `GEMINI_MODEL` defaulting to `gemini-3.8-flash` **only after** a real, scoped call site is approved and implemented.
+No 3.8 Flash text-generation or structured-classification runtime call was found by those historical searches; no `@google/genai` or `@google/generative-ai` import was found. Text classification must not be claimed migrated. Future classification could use `GEMINI_MODEL` defaulting to `gemini-3.8-flash` **only after** a real, scoped call site is approved and implemented.
 
-**Secret-scope mismatch:** The owner's report that `GEMINI_API_KEY` is configured in Vercel Production does not establish that the separate **GitHub Actions** secret exists or works. These workflows consume GitHub repository secrets. A Vercel redeploy by itself cannot verify this pipeline or show model invocation. Never copy secret values into docs, issue text, logs or comments. Also verify that no future Gemini key is exposed through `NEXT_PUBLIC_` variables.
+**Historical secret-scope mismatch:** The owner's report that `GEMINI_API_KEY` is configured in Vercel Production did not establish that the separate **GitHub Actions** secret existed or worked. Those Gemini secret references have now been removed from both workflows. A Vercel redeploy by itself cannot verify this pipeline or show model invocation. Never copy secret values into docs, issue text, logs or comments. Also verify that no future Gemini key is exposed through `NEXT_PUBLIC_` variables.
 
 ## 3.8 Flash settings for a future approved text consumer
 
@@ -46,14 +50,14 @@ For an actual future text classification consumer, require a narrow `EBAY|AMAZON
 
 ## Unenforced spending requirements (not executable controls)
 
-This document does not enforce spending approval or a dollar ceiling. The existing autonomous workflow can reach a billable Gemini fallback on a qualifying `main` source-data push when provider credentials are present, before the later publishing approval. That existing path has no verified per-render dollar limit. The requirements below are owner policy and a release warning, not an implemented spend control. This parser repair adds no render trigger, provider credential, model upgrade or budget authorization.
+PR #284 documented, but did not enforce, spending approval or a dollar ceiling. Before the follow-up pause, the autonomous workflow could reach a billable Gemini fallback on a qualifying `main` source-data push before publishing approval. That requirement remains unfinished. The current mitigation is to disable rendering entirely in those workflows and block the Gemini stage CLI, as described above; it is not an implemented approval/budget mechanism. The historical policy and assessment below do not authorize a render.
 
 - Google's 3.8 Flash standard free tier may apply within an eligible project's limits; actual billing/usage status is unverified. A Vercel API key is not evidence of free tier.
 - Standard paid introductory prices **through 2026-12-31**: $0.75 per million input tokens and $3.75 per million output tokens (thinking included). From **2027-01-01**: $1.50 input and $7.50 output.
 - Existing Gemini Omni Flash **video** is paid-only, approximately $0.10/second for 720p generated output, excluding other charges; a 3–10 second illustrative clip is approximately $0.30–$1.00 video output, not an approved charge.
 - Expected current 3.8 Flash runtime requests/day from inspected production app: **0**, because no live text call site was found. Actual Omni calls/day **UNKNOWN**; render actions depend on source-data pushes, manual triggers, configured credentials and provider fallback. No actual token usage metrics or billing evidence were available.
 - Illustrative **not forecast**: 10 future text requests/day × 30 days × 2,000 input + 500 output tokens = 0.6M input + 0.15M output = **$1.01/month** introductory / **$2.03/month** starting 2027 if all requests are billed; free-tier usage can reduce this and thinking-token output can increase it.
-- **Gate:** no paid requests, test renders, newly scheduled work, enlarged throughput, or silent fallback without the owner's explicit approval of the named action and maximum amount. In particular, the existing workflow currently configures Gemini fallback when credentials are available; review that separately before enabling any billable Gemini account.
+- **Owner rule, not an implemented spending gate:** no paid requests, test renders, newly scheduled work, enlarged throughput, or silent fallback without the owner's explicit approval of the exact action and maximum amount. Gemini fallback has been removed and both paid render jobs are paused. Keep them disabled until approval plus max-dollar enforcement is built and verified before any paid provider call.
 
 ## Separate pending OpenHands model configuration (overlap check)
 
@@ -88,6 +92,6 @@ FIXED_WRONG_MODEL_OR_INCOMPLETE_OR_TEXT: FAIL_CLOSED
 
 The repository's normal video test suite also adds raw REST success and rejection regression cases. This is **only a code repair proposal**, not evidence that production actually renders or that its key is valid.
 
-**Remaining known risk:** The workflows have an existing Creatomate/Gemini fallback path with no verified per-render dollar ceiling. Do not activate billable credentials or dispatch renders to validate this PR without the owner's separate explicit amount approval. A further narrowly scoped cost enforcement change requires an approved budget definition and its own disposable E2E gate.
+**Unfinished requirement:** The approval and max-dollar check still needs implementation and disposable E2E verification. The former automatic Creatomate/Gemini workflow path is now paused and Gemini fallback is removed. Do not re-enable it or dispatch a live render without the owner's explicit approval of the exact action and maximum amount.
 
 This change does **not** add a text Gemini runtime consumer, change the model to 3.8, add schedules or secrets, or authorize deployment, video rendering, publishing, or spending. It preserves the existing capable video model while preventing the confirmed REST decoding mismatch.

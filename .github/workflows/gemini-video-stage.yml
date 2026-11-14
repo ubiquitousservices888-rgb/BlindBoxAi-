@@ -2,17 +2,6 @@ name: Review-only video stage (manual)
 
 on:
   workflow_dispatch:
-    inputs:
-      resolution:
-        description: "Draft resolution for Gemini fallback"
-        required: true
-        default: "360p"
-        type: choice
-        options:
-          - "360p"
-          - "720p"
-          - "1080p"
-          - "4k"
 
 permissions:
   contents: read
@@ -20,17 +9,16 @@ permissions:
 
 jobs:
   render:
+    # Owner pause: no paid render until named approval and max-dollar enforcement exist.
+    if: ${{ false }}
     name: Generate hosted MP4 then stop at READY_FOR_REVIEW
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_EPN_CAMPID: "5339171775"
       CREATOMATE_API_KEY: ${{ secrets.CREATOMATE_API_KEY }}
       CREATOMATE_TEMPLATE_ID: ${{ vars.CREATOMATE_TEMPLATE_ID || '8b360817-3e33-40e3-bbb4-55a8b508f06e' }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-      GEMINI_VIDEO_RESOLUTION: ${{ inputs.resolution }}
       ALLOW_MANUAL_VIDEO_RENDER: "true"
-      ALLOW_GEMINI_VIDEO_RENDER: "true"
+      ALLOW_GEMINI_VIDEO_RENDER: "false"
       ALLOW_MANUAL_VIDEO_PUBLISH: "false"
       VIDEO_CHANNELS: ${{ vars.VIDEO_CHANNELS || 'youtube,tiktok' }}
     steps:
@@ -65,18 +53,8 @@ jobs:
             exit 0
           fi
 
-          gemini_status=1
-          if [ -n "$GEMINI_API_KEY" ] && [ -n "$BLOB_READ_WRITE_TOKEN" ]; then
-            echo "Creatomate unavailable; trying guarded Gemini renderer..."
-            npm run video:gemini-stage
-            gemini_status=$?
-          fi
           set -e
-
-          if [ "$gemini_status" -eq 0 ]; then
-            echo "VIDEO_RENDER_PROVIDER=gemini-omni"
-            exit 0
-          fi
+          echo "Gemini fallback is disabled until owner approval and max-dollar checks are enforced."
 
           echo "::error::No configured production-quality renderer succeeded. Nothing was published."
           exit 1

@@ -71,7 +71,7 @@ This is an **ACTIVE SPECIALIST** one-video path for the already-reviewed Hair Sa
 
 `.github/workflows/autonomous-video.yml`
 
-This is a separate render → review → owner-approval → Buffer path for `data/verified-video-products.json`. Its `VIDEO_CHANNELS` value also uses the repository variable with a `youtube,tiktok` fallback. It does not redefine the Supabase review-queue publisher above.
+This is a separate render → review → owner-approval → Buffer path for `data/verified-video-products.json`. **Paid rendering is PAUSED by the owner as of 2026-11-14:** the render jobs in both `autonomous-video.yml` and `gemini-video-stage.yml` have an unconditional false condition. Gemini fallback commands and Gemini credentials were removed from both workflows, and the legacy `video:gemini-stage` CLI exits before any provider or upload operation, even if old opt-in variables are set. In `autonomous-video.yml`, the separate `validate` job can still run; in `gemini-video-stage.yml`, the paused `render` job is the only job, so no validation runs. Neither workflow can produce a new video while paused, and the autonomous publisher cannot satisfy its successful-render dependency. The approval plus max-dollar spending control is NOT IMPLEMENTED; disabling rendering is the current mitigation, not completion of that control. Re-enabling requires the owner's explicit approval of the exact action and maximum amount, plus verified enforcement before the provider call. The specialist `VIDEO_CHANNELS` fallback remains `youtube,tiktok`; the canonical Supabase review-queue publisher above is unchanged.
 
 ## Social / affiliate specialist paths
 
