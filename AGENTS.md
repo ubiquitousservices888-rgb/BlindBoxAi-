@@ -83,4 +83,3 @@ This rule applies to every code change, including fixes suggested by another AI.
 Every PR handoff should include: exact changed paths, commit SHA, raw verification commands/results or an explicit UNVERIFIED label, known remaining risks, CI run URL, and a precise statement of whether it was merged or deployed.
 
 **Stop condition:** Never mark a coding task COMPLETE if final-source verification or required CI failed, is running, or was skipped without a stated reason.
-

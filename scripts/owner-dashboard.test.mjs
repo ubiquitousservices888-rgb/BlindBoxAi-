@@ -198,7 +198,9 @@ test("owner dashboard exposes per-video Blue approval and confirmed delete contr
 });
 
 test("review queue list and delete use owner auth and delete only review-storage media", () => {
-  assert.match(reviewQueueFunction, /async function listReady\(req: Request\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
+  assert.match(reviewQueueFunction, /async function listReady\(req: Request, body: any\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
+  assert.match(reviewQueueFunction, /body\?\.includeApproved === true \? \["ready_for_review", "approved"\] : \["ready_for_review"\]/);
+  assert.match(reviewQueueFunction, /if \(action === "list"\) return listReady\(req, body\);/);
   assert.match(reviewQueueFunction, /async function deleteReview\(req: Request, body: any\) \{\s*if \(!await ownerControlAuthorized\(req\)\)/);
   assert.match(reviewQueueFunction, /\.eq\("status", "ready_for_review"\)/);
   assert.match(reviewQueueFunction, /rejection_reason: "owner_rejected"/);

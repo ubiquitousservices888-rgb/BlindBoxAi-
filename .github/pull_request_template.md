@@ -10,7 +10,7 @@ Describe the problem, requested behavior, exact files changed, and any protected
 - [ ] Checked syntax/compilation of changed code before push, or explicitly marked UNVERIFIED
 - [ ] Ran the relevant tests, including positive/negative regression cases for safety guards, or explicitly marked UNVERIFIED
 - [ ] Checked that owner approval, publish/payment/authentication, and secret-handling gates remain intact
-- [ ] Recorded exact commands and complete output with secret values redacted (or linked retained run artifacts)
+- [ ] Recorded exact commands and complete output with secret values redacted from both commands and output, preserving the non-secret command structure (or linked retained run artifacts)
 
 ## Post-push verification
 
