@@ -98,3 +98,14 @@ test("diagnostic delegates only to existing read-only receipt reconciliation, wi
   assert.equal(report.writeActions, 0);
   assert.equal(report.publishActions, 0);
 });
+
+test("Buffer diagnostic runs both read-only receipt checks even after historical unverified results", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/buffer-organization-diagnostic.yml", import.meta.url), "utf8");
+  const runner = readFileSync(new URL("./reconcile-stuck-video-receipts.mjs", import.meta.url), "utf8");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /branches:\s*\n\s*-\s+main/);
+  assert.match(workflow, /run: node scripts\/reconcile-stuck-video-receipts\.mjs/);
+  assert.match(workflow, /if: \$\{\{ always\(\) \}\}/);
+  assert.match(runner, /reconcilePublicVideoUrls/);
+  assert.doesNotMatch(runner, /bufferGraphQL|mutation\s|shareNow|customScheduled|record_channel|record_submission|UPDATE\s|DELETE\s|INSERT\s/i);
+});
