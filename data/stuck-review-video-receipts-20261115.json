@@ -1,0 +1,56 @@
+{
+  "schema": "blindboxai.stuck-review-receipts/v1",
+  "source": "Read-only Supabase review_video_queue inventory captured 2026-11-15. All 5 rows were marked publishing with saved exact YouTube Buffer post IDs and no public URLs. Snapshot is NOT permission to write or publish; revalidate database before any repair.",
+  "rows": [
+    {
+      "research_run_id": "rv-3658d7e94a70b562",
+      "status": "publishing",
+      "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1790412198708-4639.mp4",
+      "size_bytes": 9336833,
+      "buffer_post_ids": {
+        "youtube": "6af206e07176a1c926fec680"
+      },
+      "publishing_at": "2026-11-09 17:46:05.265+00"
+    },
+    {
+      "research_run_id": "rv-3c9c9bb78c37ff6a",
+      "status": "publishing",
+      "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/sha256-7097fc885956f8b28cd38d942099ba8cb153f8b8adb68ce134cf311e14f996d0.mp4",
+      "size_bytes": 121797,
+      "buffer_post_ids": {
+        "youtube": "6af206753aa5c0b251b55b48"
+      },
+      "publishing_at": "2026-11-09 17:44:19.815+00"
+    },
+    {
+      "research_run_id": "rv-4815685fb0b10117",
+      "status": "publishing",
+      "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1794241590727-3972.mp4",
+      "size_bytes": 7754855,
+      "buffer_post_ids": {
+        "youtube": "6af206094af3cc032bb492db"
+      },
+      "publishing_at": "2026-11-09 17:42:29.305+00"
+    },
+    {
+      "research_run_id": "rv-6b6023cb4aaaca52",
+      "status": "publishing",
+      "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1794241144945-3973.mp4",
+      "size_bytes": 3904477,
+      "buffer_post_ids": {
+        "youtube": "6af2064dc1ebd32415dc5e2f"
+      },
+      "publishing_at": "2026-11-09 17:43:39.155+00"
+    },
+    {
+      "research_run_id": "rv-9c5d343830fb30a8",
+      "status": "publishing",
+      "video_url": "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1790216466129-3143.mp4",
+      "size_bytes": 4963475,
+      "buffer_post_ids": {
+        "youtube": "6af206e03aa5c0b251b59707"
+      },
+      "publishing_at": "2026-11-09 17:46:05.435+00"
+    }
+  ]
+}
