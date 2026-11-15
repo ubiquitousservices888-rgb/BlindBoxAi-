@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { resolveReadonlyEbayOutboundTarget } from "../lib/ebay-outbound-readonly.mjs";
 import { auditEpnUrl } from "../lib/affiliate-policy.mjs";
+import { normalizeEbayBrowseItem, getEbayProductionItem, resetEbayTokenCacheForTests } from "../lib/ebay-production-api.mjs";
 import { normalizeBlindBoxEpnCustomId } from "../lib/campaign-attribution.mjs";
 
 const SERIES = {
@@ -67,4 +68,61 @@ test("a tracked outbound route never creates a redirect or affiliate click recei
   assert.match(route, /recordAffiliateClick/);
   assert.match(route, /NextResponse\.redirect\(target, 302\)/);
   assert.doesNotMatch(route, /fetch\(.*ebay\.com|fetch\(.*\/api\/out\/ebay/i);
+});
+
+
+const validBrowseUrl = "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=5339171775&toolid=10001&customid=bb-live-test";
+
+test("live Browse URLs must have matching campaign and Custom ID, not just an eBay host", () => {
+  const sample = { itemId: "v1|123|0", title: "Fixture only", itemAffiliateWebUrl: validBrowseUrl };
+  const options = { expectedCampid: "5339171775", expectedReferenceId: "bb-live-test" };
+  assert.equal(normalizeEbayBrowseItem(sample, options)?.affiliateUrl, validBrowseUrl);
+  const bad = [
+    "https://www.ebay.com/itm/123",
+    "https://www.ebay.com/itm/123?campid=5339171775",
+    validBrowseUrl.replace("campid=5339171775", "campid=5555555555"),
+    validBrowseUrl.replace("customid=bb-live-test", "customid=some-other-site"),
+    validBrowseUrl.replace("mkevt=1", "mkevt=2"),
+    validBrowseUrl.replace("mkcid=1", "mkcid=2"),
+    validBrowseUrl.replace("toolid=10001", "toolid=bad"),
+    validBrowseUrl.replace("https://www.ebay.com/", "https://www.ebay.com.attacker.example/"),
+    validBrowseUrl.replace("https://www.ebay.com/", "https://user@www.ebay.com/"),
+  ];
+  for (const candidate of bad) {
+    assert.equal(normalizeEbayBrowseItem({ ...sample, itemAffiliateWebUrl: candidate }, options), null, candidate);
+  }
+});
+
+test("live API keeps expected campaign and reference across the provider response (offline fixtures)", async () => {
+  const env = {
+    EBAY_CLIENT_ID: "fixture-id",
+    EBAY_CLIENT_SECRET: "fixture-secret",
+    NEXT_PUBLIC_EPN_CAMPID: "5339171775",
+  };
+  const calls = [];
+  const fetchImpl = async (uri, init) => {
+    calls.push({ path: String(uri).split("?")[0], method: init.method || "GET",
+      campaignHeader: init.headers?.["X-EBAY-C-ENDUSERCTX"] || "" });
+    if (String(uri).includes("/oauth2/token")) {
+      return Response.json({ access_token: "fixture", expires_in: 3600 });
+    }
+    return Response.json({ itemId: "v1|123|0", title: "Fixture only",
+      itemAffiliateWebUrl: validBrowseUrl });
+  };
+  resetEbayTokenCacheForTests();
+  const item = await getEbayProductionItem({ itemId: "v1|123|0", affiliateReferenceId: "bb-live-test", env, fetchImpl });
+  assert.equal(item.affiliateUrl, validBrowseUrl);
+  assert.match(calls[1].campaignHeader, /affiliateCampaignId=5339171775,affiliateReferenceId=bb-live-test/);
+
+  resetEbayTokenCacheForTests();
+  const badFetch = async (uri, init) => {
+    if (String(uri).includes("/oauth2/token")) return Response.json({ access_token: "fixture", expires_in: 3600 });
+    return Response.json({ itemId: "v1|123|0", title: "Fixture only",
+      itemAffiliateWebUrl: validBrowseUrl.replace("customid=bb-live-test", "customid=wrong") });
+  };
+  await assert.rejects(
+    getEbayProductionItem({ itemId: "v1|123|0", affiliateReferenceId: "bb-live-test", env, fetchImpl: badFetch }),
+    /affiliate destination/i,
+  );
+  resetEbayTokenCacheForTests();
 });
