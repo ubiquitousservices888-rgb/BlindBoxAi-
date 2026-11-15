@@ -273,5 +273,5 @@ test("live eBay route does not expose a quota-consuming HEAD validator and sanit
     title: "Example",
     itemAffiliateWebUrl: "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=1234567890&toolid=10001&customid=fixture-audit",
   });
-  assert.match(safe.affiliateUrl, /^https:\/\/www\.ebay\.com\/itm\/123/);
+  assert.equal(safe.affiliateUrl, "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=1234567890&toolid=10001&customid=fixture-audit");
 });
