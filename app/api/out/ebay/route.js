@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { classifyEbayAffiliateRequest } from "../ebay-quality.mjs";
+import { classifyEbayAffiliateRequest, shouldSuppressAutomatedEbayAffiliateRequest } from "../ebay-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 import { resolveReadonlyEbayOutboundTarget } from "../../../../lib/ebay-outbound-readonly.mjs";
 
@@ -35,6 +35,11 @@ export async function HEAD(request) {
 
 export async function GET(request) {
   const clickQuality = classifyEbayAffiliateRequest(request);
+  // Robots/prefetchers must not create EPN tracking visits, false click
+  // evidence, or billable Browse API reads. No Location or click record.
+  if (shouldSuppressAutomatedEbayAffiliateRequest(clickQuality)) {
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  }
   const resolved = resolveReadonlyEbayOutboundTarget({
     requestUrl: request.url,
     referer: request.headers.get("referer") || "",
