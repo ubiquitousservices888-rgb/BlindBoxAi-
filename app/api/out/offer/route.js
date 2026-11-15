@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 
-import { buildEbaySearchUrl } from "../../../../lib/affiliate-policy.mjs";
+import { auditEpnUrl, buildEbaySearchUrl } from "../../../../lib/affiliate-policy.mjs";
 import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.mjs";
 import { getRevenueOffer, revenueOfferCustomId } from "../../../../lib/revenue-offers";
 import { classifyEbayAffiliateRequest } from "../ebay-quality.mjs";
@@ -30,8 +30,17 @@ export async function GET(request) {
   const offer = getRevenueOffer(offerId);
   if (!offer) return error("Offer not found.", 404);
 
+  // An untracked eBay visit is not an EPN referral. Never log it as one.
+  const campid = String(process.env.NEXT_PUBLIC_EPN_CAMPID || "").trim();
+  if (!/^\d{7,12}$/.test(campid)) {
+    return error("eBay affiliate tracking is temporarily unavailable.", 503);
+  }
+
   const customId = revenueOfferCustomId(offer, kind, { campaignId, source });
-  const target = buildEbaySearchUrl({ query: offer.searchQuery, kind, customId, campid: process.env.NEXT_PUBLIC_EPN_CAMPID });
+  const target = buildEbaySearchUrl({ query: offer.searchQuery, kind, customId, campid });
+  if (!auditEpnUrl(target, { kind, requireTracking: true }).ok) {
+    return error("eBay affiliate tracking is temporarily unavailable.", 503);
+  }
   const clickedAt = new Date().toISOString();
   const event = {
     schemaVersion: 4,
