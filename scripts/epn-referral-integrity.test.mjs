@@ -59,7 +59,7 @@ test("sold comparison is identified as research, and never loses campaign tracki
   assert.deepEqual(auditEpnUrl(result.target, { kind: "sold", requireTracking: true }), { ok: true, reasons: [] });
 });
 
-test("a tracked outbound route never creates a redirect or affiliate click receipt from an invalid config", () => {
+test("classic outbound route source keeps error path separate from redirect and recording", () => {
   const route = readFileSync(new URL("../app/api/out/ebay/route.js", import.meta.url), "utf8");
   const bad = checkWithCampid(undefined);
   assert.equal(bad.target, null);
@@ -85,12 +85,17 @@ test("live Browse URLs must have matching campaign and Custom ID, not just an eB
     validBrowseUrl.replace("mkevt=1", "mkevt=2"),
     validBrowseUrl.replace("mkcid=1", "mkcid=2"),
     validBrowseUrl.replace("toolid=10001", "toolid=bad"),
+    validBrowseUrl.replace("toolid=10001", "toolid=20002"),
+    validBrowseUrl.replace("mkrid=711-53200-19255-0", "mkrid=711-99999-99999-0"),
+    validBrowseUrl.replace("/itm/123?", "/itm/999?"),
     validBrowseUrl.replace("https://www.ebay.com/", "https://www.ebay.com.attacker.example/"),
     validBrowseUrl.replace("https://www.ebay.com/", "https://user@www.ebay.com/"),
   ];
   for (const candidate of bad) {
     assert.equal(normalizeEbayBrowseItem({ ...sample, itemAffiliateWebUrl: candidate }, options), null, candidate);
   }
+  assert.equal(normalizeEbayBrowseItem({ ...sample, itemId: "v1|999|0" }, options), null);
+  assert.equal(normalizeEbayBrowseItem({ ...sample, itemId: "not-an-ebay-id" }, options), null);
 });
 
 test("live API keeps expected campaign and reference across the provider response (offline fixtures)", async () => {
