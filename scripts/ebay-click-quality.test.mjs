@@ -59,3 +59,25 @@ test("known automated traffic must never become an outbound eBay referral", () =
   }
   assert.equal(shouldSuppressAutomatedEbayAffiliateRequest(null), false);
 });
+
+test("realistic shopper traffic is not suppressed; obvious crawler and prefetch are", () => {
+  const shoppers = [
+    new Request("https://blindboxai.com/api/out/ebay", {
+      headers: { "user-agent": "Mozilla/5.0 (Linux; Android 17) AppleWebKit/537.36 Chrome/130.0 Safari/537.36" },
+    }),
+    new Request("https://blindboxai.com/api/out/ebay", {
+      headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15" },
+    }),
+  ];
+  for (const shopper of shoppers) {
+    assert.equal(shouldSuppressAutomatedEbayAffiliateRequest(classifyEbayAffiliateRequest(shopper)), false);
+  }
+  for (const request of [
+    new Request("https://blindboxai.com/api/out/ebay", { headers: { "user-agent": "curl/8.1" } }),
+    new Request("https://blindboxai.com/api/out/ebay", {
+      headers: { "user-agent": "Mozilla/5.0", purpose: "prefetch" },
+    }),
+  ]) {
+    assert.equal(shouldSuppressAutomatedEbayAffiliateRequest(classifyEbayAffiliateRequest(request)), true);
+  }
+});
