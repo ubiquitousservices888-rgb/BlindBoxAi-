@@ -31,7 +31,7 @@ test("Browse items expose only HTTPS eBay affiliate destinations", () => {
         itemId: "v1|123|0",
         title: "Twinkle Twinkle",
         price: { value: "29.99", currency: "USD" },
-        itemAffiliateWebUrl: "https://www.ebay.com/itm/123?campid=1234567890",
+        itemAffiliateWebUrl: "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=1234567890&toolid=10001&customid=fixture-123",
       },
       {
         itemId: "v1|bad|0",
@@ -65,7 +65,7 @@ test("single Browse item normalization rejects non-eBay destinations", () => {
     itemId: "v1|789|0",
     title: "Strong Bread",
     price: { value: "46.00", currency: "USD" },
-    itemAffiliateWebUrl: "https://www.ebay.com/itm/789?campid=1234567890",
+    itemAffiliateWebUrl: "https://www.ebay.com/itm/789?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=1234567890&toolid=10001&customid=fixture-789",
   });
   assert.equal(item.itemId, "v1|789|0");
   assert.match(item.affiliateUrl, /^https:\/\/www\.ebay\.com\//);
