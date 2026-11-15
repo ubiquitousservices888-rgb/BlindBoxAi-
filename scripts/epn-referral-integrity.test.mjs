@@ -98,6 +98,17 @@ test("live Browse URLs must have matching campaign and Custom ID, not just an eB
   assert.equal(normalizeEbayBrowseItem({ ...sample, itemId: "not-an-ebay-id" }, options), null);
 });
 
+test("valid 19-digit eBay Browse listing IDs are matched exactly, not dropped or misrouted", () => {
+  const largeId = "1234567890123456789";
+  const affiliateUrl = "https://www.ebay.com/itm/" + largeId +
+    "?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=5339171775&toolid=10001&customid=bb-live-test";
+  const options = { expectedCampid: "5339171775", expectedReferenceId: "bb-live-test" };
+  const item = { itemId: "v1|" + largeId + "|0", title: "19-digit sample", itemAffiliateWebUrl: affiliateUrl };
+  assert.equal(normalizeEbayBrowseItem(item, options)?.affiliateUrl, affiliateUrl);
+  assert.equal(normalizeEbayBrowseItem({ ...item, itemId: "v1|1234567890123456788|0" }, options), null);
+  assert.equal(normalizeEbayBrowseItem({ ...item, itemAffiliateWebUrl: affiliateUrl.replace(largeId, "1234567890123456788") }, options), null);
+});
+
 test("live API keeps expected campaign and reference across the provider response (offline fixtures)", async () => {
   const env = {
     EBAY_CLIENT_ID: "fixture-id",
