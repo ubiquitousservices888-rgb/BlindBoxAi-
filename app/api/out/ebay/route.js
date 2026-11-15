@@ -42,6 +42,7 @@ export async function GET(request) {
   if (!resolved.target) {
     if (resolved.reason === "invalid-kind") return error("Invalid affiliate link type.");
     if (resolved.reason === "invalid-placement") return error("Invalid affiliate placement.");
+    if (resolved.reason === "epn-tracking-unavailable") return error("eBay affiliate tracking is temporarily unavailable.", 503);
     if (resolved.reason === "series-not-found") return error("Series not found.", 404);
     if (resolved.reason === "figure-not-found") return error("Figure not found.", 404);
     return error("Affiliate destination unavailable.", resolved.status || 400);
