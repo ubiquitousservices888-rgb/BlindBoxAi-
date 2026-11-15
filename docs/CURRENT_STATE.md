@@ -53,6 +53,8 @@ The October 26 inventory recovered the six missing provider IDs from `published_
 
 The owner-authorized ID-only repair at `2026-10-26T13:08:01.697554Z` restored those six IDs to the three queue rows. The readback found all ten historical queue rows carrying both IDs with exact ledger/source equality; public URLs remained empty. Raw before/SQL and after/readback evidence is retained in issue #290 comments `6416761531` and `6416892535`. No post was created or republished. URL recovery remains separately gated on source and public-availability evidence.
 
+**November 15 recovery diagnostic (proposed in draft branch, not yet live):** A read-only Supabase snapshot shows five additional `publishing` review rows, each with an exact stored YouTube Buffer post ID but no `public_urls`. The snapshot in `data/stuck-review-video-receipts-20261115.json` pins only those five identities; `scripts/reconcile-stuck-video-receipts.mjs` reuses the existing read-only provider/source/public-proof inspection and reports candidate URLs without status changes. A second step in `buffer-organization-diagnostic.yml` would run this bounded check even if the first historical check finishes nonzero. Neither diagnostic creates posts, retries publication, mutates queue rows, or imports revenue. A source match or HTTP 200 still does not prove YouTube playback. Snapshot freshness and exact provider receipts must be rechecked before any separate owner-approved repair. This paragraph describes the draft work, not evidence that its workflow has been merged or deployed.
+
 ## Other video paths are separate, not replacements
 
 ### Manual reviewed upload
