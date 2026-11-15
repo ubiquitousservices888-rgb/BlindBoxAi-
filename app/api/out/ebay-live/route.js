@@ -4,7 +4,7 @@ import { resolveRequestAttribution } from "../../../../lib/campaign-attribution.
 import { getSeries } from "../../../../lib/data";
 import { getEbayProductionItem, normalizeEbayAffiliateReference } from "../../../../lib/ebay-production-api.mjs";
 import { getRevenueOffer } from "../../../../lib/revenue-offers";
-import { classifyEbayAffiliateRequest } from "../ebay-quality.mjs";
+import { classifyEbayAffiliateRequest, shouldSuppressAutomatedEbayAffiliateRequest } from "../ebay-quality.mjs";
 import { recordAffiliateClick } from "../../../../lib/supabase-telemetry.mjs";
 
 export const runtime = "nodejs";
@@ -38,6 +38,11 @@ function sourcePathForContext(context) {
 
 export async function GET(request) {
   const clickQuality = classifyEbayAffiliateRequest(request);
+  // Robots/prefetchers must not create EPN tracking visits, false click
+  // evidence, or billable Browse API reads. No Location or click record.
+  if (shouldSuppressAutomatedEbayAffiliateRequest(clickQuality)) {
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+  }
   const url = new URL(request.url);
   const itemId = String(url.searchParams.get("item") || "").trim();
   const context = resolveContext(String(url.searchParams.get("context") || "").trim(), String(url.searchParams.get("id") || "").trim());
