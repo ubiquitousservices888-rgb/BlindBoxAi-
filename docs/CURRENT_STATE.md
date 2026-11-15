@@ -2,7 +2,7 @@
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
-**Last reconciled:** 2026-10-31
+**Last reconciled:** 2026-11-15 (video-receipt diagnostic section only; older system sections retain their stated historical baselines)
 
 **Reconciliation note:** the October 13 baseline below is historical for EPN report validation and public platform verification. Current code requires versioned, attributed report evidence and exact public player metadata before recording a new platform URL. Source changes do not establish production deployment, historical URL reconciliation, video byte identity, or affiliate conversions.
 **Functional baseline inspected:** `main` at `561d260089b5b3aa63f11f22d1634c135ac053ed`, after merged PR #297. This baseline has consent-gated Vercel event tracking and first-party aggregate telemetry; the PostHog appraisal funnel below is the proposed addition in this change. Production deployment and real PostHog traffic remain **UNVERIFIED** until the change is reviewed, deployed with its production settings, and receives real consented visits. No live platform post or affiliate commission is verified by this fact.
