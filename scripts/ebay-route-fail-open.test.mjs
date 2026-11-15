@@ -61,6 +61,16 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
     },
   });
 
+  let recordedClicks = 0;
+  t.mock.module(new URL("../lib/supabase-telemetry.mjs", import.meta.url), {
+    exports: {
+      recordAffiliateClick() {
+        recordedClicks += 1;
+        return Promise.resolve({ ok: true });
+      },
+    },
+  });
+
   t.mock.module(new URL("../lib/ebay-production-api.mjs", import.meta.url), {
     exports: {
       normalizeEbayAffiliateReference(value) {
@@ -131,23 +141,31 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
     const response = await routeCase.handler(routeCase.request);
     assertTrackedEbayRedirect(response);
   }
-
+  assert.equal(recordedClicks, 4, "valid redirects schedule mocked telemetry");
   for (const classification of ["bot", "prefetch", "head"]) {
     classifierMode = classification;
+    const prior = recordedClicks;
     for (const routeCase of cases) {
       const response = await routeCase.handler(routeCase.request);
       assert.equal(response.status, 204, classification + "/" + routeCase.name);
       assert.equal(response.headers.get("location"), null, classification + "/" + routeCase.name);
     }
+    assert.equal(recordedClicks, prior, classification + " must not record a click");
   }
   classifierMode = "throw";
 
-  // Do not count a plain eBay redirect as an affiliate click when the EPN
-  // campaign has been removed from production configuration.
-  delete process.env.NEXT_PUBLIC_EPN_CAMPID;
-  for (const routeCase of cases.filter((entry) => ["series route", "buy-or-pass offer route"].includes(entry.name))) {
-    const response = await routeCase.handler(routeCase.request);
-    assert.equal(response.status, 503, routeCase.name);
-    assert.equal(response.headers.get("location"), null, routeCase.name);
+  // Missing OR malformed EPN campaign IDs must never redirect or count an
+  // affiliate click. This executes the actual GET handlers with all calls mocked.
+  const classicRoutes = cases.filter((entry) => ["series route", "buy-or-pass offer route"].includes(entry.name));
+  for (const invalid of [undefined, "not-a-campaign", "123", "1234567890123456"]) {
+    if (invalid === undefined) delete process.env.NEXT_PUBLIC_EPN_CAMPID;
+    else process.env.NEXT_PUBLIC_EPN_CAMPID = invalid;
+    const before = recordedClicks;
+    for (const routeCase of classicRoutes) {
+      const response = await routeCase.handler(routeCase.request);
+      assert.equal(response.status, 503, String(invalid) + "/" + routeCase.name);
+      assert.equal(response.headers.get("location"), null, routeCase.name);
+    }
+    assert.equal(recordedClicks, before, "invalid config must not record a click");
   }
 });
