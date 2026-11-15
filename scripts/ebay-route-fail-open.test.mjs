@@ -51,10 +51,12 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
   });
   t.after(() => hooks.deregister());
 
+  let classifierMode = "throw";
   t.mock.module(new URL("../lib/click-quality.mjs", import.meta.url), {
     exports: {
       classifyAffiliateRequest() {
-        throw new Error("forced classifier failure");
+        if (classifierMode === "throw") throw new Error("forced classifier failure");
+        return { clientClass: classifierMode, qualityReason: "fixture_only" };
       },
     },
   });
@@ -129,6 +131,16 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
     const response = await routeCase.handler(routeCase.request);
     assertTrackedEbayRedirect(response);
   }
+
+  for (const classification of ["bot", "prefetch", "head"]) {
+    classifierMode = classification;
+    for (const routeCase of cases) {
+      const response = await routeCase.handler(routeCase.request);
+      assert.equal(response.status, 204, classification + "/" + routeCase.name);
+      assert.equal(response.headers.get("location"), null, classification + "/" + routeCase.name);
+    }
+  }
+  classifierMode = "throw";
 
   // Do not count a plain eBay redirect as an affiliate click when the EPN
   // campaign has been removed from production configuration.
