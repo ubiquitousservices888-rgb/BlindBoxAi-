@@ -129,4 +129,13 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
     const response = await routeCase.handler(routeCase.request);
     assertTrackedEbayRedirect(response);
   }
+
+  // Do not count a plain eBay redirect as an affiliate click when the EPN
+  // campaign has been removed from production configuration.
+  delete process.env.NEXT_PUBLIC_EPN_CAMPID;
+  for (const routeCase of cases.filter((entry) => ["series route", "buy-or-pass offer route"].includes(entry.name))) {
+    const response = await routeCase.handler(routeCase.request);
+    assert.equal(response.status, 503, routeCase.name);
+    assert.equal(response.headers.get("location"), null, routeCase.name);
+  }
 });
