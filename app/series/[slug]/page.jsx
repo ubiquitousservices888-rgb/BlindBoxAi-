@@ -130,11 +130,11 @@ export default async function SeriesPage({ params, searchParams }) {
                 </td>
                 <td>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <a className="ebay" href={ebayOutboundPath(s.slug, f.name, "sold", attribution)} target="_blank" rel="sponsored nofollow noopener">
-                      View sold comps on eBay ↗
-                    </a>
                     <a className="ebay" href={ebayOutboundPath(s.slug, f.name, "active", attribution)} target="_blank" rel="sponsored nofollow noopener">
-                      View active listings on eBay ↗
+                      Shop active listings on eBay ↗
+                    </a>
+                    <a className="ebay" href={ebayOutboundPath(s.slug, f.name, "sold", attribution)} target="_blank" rel="sponsored nofollow noopener">
+                      Check completed sales on eBay ↗
                     </a>
                   </div>
                 </td>
