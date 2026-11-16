@@ -1,6 +1,6 @@
 # Reseller Pro subscription pipeline
 
-**Documentation status: ACTIVE SPECIALIST — implementation under review.**
+**Documentation status: ACTIVE SPECIALIST — deployed code; paid checkout disabled.**
 
 Scope: BlindBoxAI's existing Next.js app, Vercel project and dedicated Supabase project. This is the single Pro subscription implementation. It incorporates the safety contract from draft PR #298; do not independently merge that older test-only branch over this implementation. Other open publishing, research and digital-guide PRs are separate work. Shared `package.json` and current-state edits must be merged from current main without replacing unrelated entries.
 
@@ -11,6 +11,55 @@ On November 15, 2026 the connected Stripe account exposed one active BlindBoxAI 
 The two inspected existing Stripe webhooks serve other projects. They are untouched. No BlindBoxAI webhook existed at inspection. Both legacy endpoints subscribe to Checkout completion, so account-wide event fanout still requires a receiver-ownership and fulfillment review before live Pro activation. A dedicated Pro customer mapping protects this implementation; it does not establish that legacy receivers ignore Pro events. Production Vercel settings had the existing Supabase server credentials, but no Pro Stripe or customer-auth publishable settings. The existing database had no Pro payment tables. **A local test is not provider test-mode verification, deployment, account approval, or financial evidence.**
 
 Before payment architecture changes, the exact test from #298 failed with `MISSING: server-side Stripe Checkout endpoint`. A disposable Next/Stripe-fixture journey returned checkout HTTP 404 instead of the required disabled HTTP 503, with zero fixture Stripe writes and zero production requests. Those baseline logs are retained with the implementation work.
+
+## November 16 live preparation snapshot
+
+The owner's instruction to proceed in live mode supersedes the earlier sandbox
+connection request for this release. It does not waive credential security,
+customer authentication, event signatures, tax review or truthful financial
+reporting. No live purchase, refund or artificial risk event was submitted.
+
+- PR #330 is marked merged as `7a10d1ca7f7f1065c22f7bfd490bf8bf0a587bed`.
+  Its tree is exactly the tested `3e55a785a20271eca1aa2adb3412f0490abc468f`
+  tree `109b2fd4b34549ab68035c164b09fe29fa600770`. Release-gate run
+  `43812131115` passed, including 19 Pro tests and all four browser journeys.
+- The existing Vercel project now has production deployment
+  `dpl_4ad77FgUoLjZDgjQcVXN2Y1tSRVJ` at that tested revision. The public
+  `/api/health`, `/pro` and `/pro/account` returned HTTP 200. The free waitlist
+  remains present and the paid account CTA remains absent. Unauthenticated
+  access/owner checks deny access; checkout returns HTTP 503 while unconfigured.
+- The reviewed migration is applied to the existing Supabase project. The
+  provider initially recorded generated version `20261116123017`; that one
+  newly created history row was aligned to the committed `20261116042308`
+  after matching its SQL hash. No SQL or existing migration was replaced, and
+  the migration must not be reapplied. Five Pro tables have RLS, no anonymous
+  or authenticated direct privileges, and server privileges. All eight Pro
+  functions are security invoker and executable only by the server role.
+- Live portal `bpc_1UcOuYEMF0eSPWJdopcm33aO` has Pro integration metadata,
+  payment-method updates and period-end cancellation, with plan switching off.
+  No portal configuration existed before creation; Stripe marked this first
+  configuration as default. This app always supplies its exact configuration ID.
+- Live webhook `we_1UcPcoEMF0eSPWJds58ytRqH` has the exact Pro URL, required
+  events, integration metadata and API version. It is **disabled** until the
+  runtime key and remaining launch checks are complete. Its signing secret was
+  transferred directly into a sensitive production variable without exposure.
+  Both older webhook URLs, versions, event lists and enabled states are unchanged.
+- Production settings now include the same project's publishable auth key,
+  Pro origin/mode, verified schema version, owner live approval, portal ID and
+  webhook settings. Checkout and auth-email-ready flags remain false. Settings
+  written after the first deployment are not yet present in that deployment;
+  redeploy after final credential/configuration setup.
+
+The remaining blockers are a restricted server Stripe key, real confirmation and
+recovery email/callback verification, a merchant tax decision (the existing price
+still has unspecified tax behavior), and the ownership/product filters of legacy
+Checkout receivers. The portal/schema/webhook objects alone do not prove working
+fulfillment. Production Pro account, subscription, payment-event and scenario
+counts were all zero at the final readback. No affiliate income is inferred.
+
+Release preparation observed a disagreement between the marked PR merge and
+branch-ref reads. Canonical branch alignment must use the repository's protected
+PR route with matching checks; never force a ref or introduce another Pro flow.
 
 ## Customer flow
 
@@ -87,7 +136,7 @@ Keep `PRO_PAYMENTS_ENABLED=false` until all of the following are evidenced:
 
 1. Protected-path review and exact-head CI pass. Review/apply additive migration `20261116042308_reseller_pro_stripe_pipeline.sql` through the established production migration process. It creates only `pro_*` tables/functions, enables RLS, denies anonymous/authenticated direct access and grants the server service role. Functions are security invoker, not definer. Tests execute the actual SQL against disposable PGlite PostgreSQL, including role denial, atomic claims and tenant isolation. This does not establish a production migration or its history entry.
 2. Configure server-only `SUPABASE_PUBLISHABLE_KEY` for the same existing project. Preserve the current Supabase URL and service-role credential. Add the exact Pro confirmation/recovery callback URL to the existing Auth redirect allowlist without replacing current entries. Verify real confirmation, sign-in, sign-out, refresh and password recovery. Production SMTP/deliverability must be confirmed; the built-in development sender is not a production-delivery claim. Only then set `PRO_AUTH_EMAIL_READY=true`.
-3. Connect an isolated Stripe sandbox/test-mode account. The current connection exposes only the live account; the implementation's local provider fixtures do not substitute for a Stripe test charge. Configure a matching test Price/Product, restricted API key, signed webhook and dedicated portal. Test successful/failed/delayed payments, renewal, period-end and immediate cancellation, retries, refunds and risk events without real money.
+3. The owner chose live preparation on November 16, superseding the earlier sandbox connection request for this release. Keep existing disposable tests as technical evidence, not provider payment evidence. Verify private configuration and real customer authentication before advertising checkout. Verify fulfillment after a genuine consenting purchaser uses the published price; do not manufacture live charges, refunds, disputes or fraud events. Leave financial results UNVERIFIED until authoritative provider evidence exists. An isolated sandbox remains available for future provider simulations when connected.
 4. For live operation, use a restricted key with customer read/write, Checkout read/write, subscription/price/invoice/charge/PaymentIntent reads, webhook endpoint read, and customer portal configuration read/session write. Store it as sensitive `PRO_STRIPE_SECRET_KEY`; never paste it into chat or commit it. No app-side catalog creation or modification permission is needed.
 5. Configure one Pro-only endpoint at `https://blindboxai.com/api/pro/webhook` with API version `2026-10-28.endive`, the required event list, and `metadata.integration=blindboxai_pro_v1`. Keep its signing secret in `PRO_STRIPE_WEBHOOK_SECRET` and ID in `PRO_STRIPE_WEBHOOK_ENDPOINT_ID`. Do not reuse or edit another project's endpoint. Inspect existing endpoints first to avoid duplicates. Confirm the owner and event/product filters of every legacy Checkout receiver before live activation; do not silently disable or rewrite another project's infrastructure to resolve event fanout.
 6. Reuse/create one dedicated Pro portal configuration with matching integration metadata, cancellation enabled at period end, payment-method update enabled, and subscription updates disabled. Store only its ID in `PRO_STRIPE_PORTAL_CONFIGURATION_ID`. Never replace the account's default configuration for other projects.

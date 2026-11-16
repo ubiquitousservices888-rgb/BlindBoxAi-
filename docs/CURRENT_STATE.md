@@ -1,8 +1,8 @@
 # BlindBoxAI Current State
 
-## Reseller Pro payment implementation under review
+## Reseller Pro code deployed; paid checkout remains disabled
 
-The Pro implementation in this change is the single proposed subscription path:
+The Pro implementation is the single subscription path:
 `/pro/account` → owner-identity-checked `/api/pro/checkout` → hosted Stripe
 Checkout → signed `/api/pro/webhook` → private `pro_*` ledger and current-provider
 entitlement checks → saved scenarios/CSV and customer portal cancellation. It
@@ -14,11 +14,25 @@ at source level only; its four safety tests are included in this change. The
 older `$9/month` alpha pricing hypothesis is superseded by the observed existing
 Stripe catalog price. No other project's products, webhooks or billing settings
 are changed. `docs/reseller-pro-stripe.md` is the specialist authority for this
-path and lists the additive migration, credentials, account email, tax review,
-Stripe sandbox evidence and exact launch switches still required. Production
-migration, real Stripe sandbox fulfillment, paid launch and revenue remain
-**UNVERIFIED**. New checkout defaults off; no merge/deployment is established by
-this paragraph. All existing affiliate and publishing priorities/gates still apply.
+path and records the remaining credentials, account email, tax review and exact
+launch switches. On November 16 the owner explicitly chose live preparation,
+superseding the earlier request to connect a sandbox for this release. This does
+not establish paid fulfillment or revenue.
+
+November 16 preparation snapshot: Vercel production deployment
+`dpl_4ad77FgUoLjZDgjQcVXN2Y1tSRVJ` serves tested revision
+`3e55a785a20271eca1aa2adb3412f0490abc468f`; the public health endpoint returned
+HTTP 200 with that exact revision. The additive Pro migration is applied as
+`20261116042308`, with RLS and server-only table/function privileges verified.
+One live Pro portal and one Pro webhook were created; the webhook is disabled
+pending launch readiness. Its signing secret is stored as a sensitive production
+variable, never in source. Existing receivers, prices and infrastructure remain.
+`PRO_PAYMENTS_ENABLED=false` and `PRO_AUTH_EMAIL_READY=false`. The restricted
+server Stripe key, actual account-email delivery, tax treatment and legacy
+receiver ownership/filter checks still block accepting payments. New environment
+settings require a later deployment before runtime use. No customer, subscription,
+paid event, sandbox charge or revenue is verified by this snapshot. All existing
+affiliate and publishing priorities/gates still apply.
 
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
