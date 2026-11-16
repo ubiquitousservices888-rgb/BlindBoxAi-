@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRO_LIVE_PRICE, PRO_LIVE_PRODUCT, proStripeConfig, assertProOrigin, proCheckoutAvailable, readProBody } from "../lib/pro-config.mjs";
+import { PRO_LIVE_PRICE, PRO_LIVE_PRODUCT, proStripeConfig, assertProOrigin, proCheckoutAvailable, proMissingSettings, readProBody, recordProFailure } from "../lib/pro-config.mjs";
+import { requireProUser, assertProAuthResult } from "../lib/pro-auth.mjs";
 import { createProStripe } from "../lib/pro-stripe.mjs";
 import { normalizeProScenario, proScenariosCsv } from "../lib/pro-collection.mjs";
 
@@ -15,6 +16,32 @@ test("live billing requires explicit configuration and cannot choose another pro
   const enabled = { ...env, PRO_PAYMENTS_ENABLED: "true", PRO_SCHEMA_VERSION: "1", PRO_AUTH_EMAIL_READY: "true", PRO_STRIPE_PORTAL_CONFIGURATION_ID: "bpc_fixture", PRO_STRIPE_WEBHOOK_ENDPOINT_ID: "we_fixture", PRO_STRIPE_WEBHOOK_SECRET: "whsec_fixture", PRO_TAX_CONFIGURATION: "manual-reviewed" };
   assert.throws(() => proStripeConfig(enabled, { checkout: true }), /checkout_unavailable/);
   assert.equal(proStripeConfig({ ...enabled, PRO_LIVE_BILLING_APPROVED: "true" }, { checkout: true }).live, true);
+  const ready = { ...enabled, PRO_LIVE_BILLING_APPROVED: "true", SUPABASE_URL: "https://lazzdoadoqzrzlarerfx.supabase.co", SUPABASE_PUBLISHABLE_KEY: "local-publishable-fixture", SUPABASE_SERVICE_ROLE_KEY: "local-service-fixture" };
+  assert.equal(proCheckoutAvailable(ready), true);
+  assert.equal(proCheckoutAvailable({ ...ready, SUPABASE_URL: "https://other-project.supabase.co" }), false);
+  assert.equal(proCheckoutAvailable({ ...ready, SUPABASE_URL: "" }), false);
+  assert.equal(proCheckoutAvailable({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }), false);
+  assert.throws(() => proStripeConfig({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }, { checkout: true }), /checkout_unavailable/);
+  assert.ok(proMissingSettings({ ...ready, PRO_PAYMENTS_ENABLED: "false" }).includes("PRO_PAYMENTS_ENABLED"));
+  assert.ok(proMissingSettings({ ...ready, PRO_LIVE_BILLING_APPROVED: "false" }).includes("PRO_LIVE_BILLING_APPROVED"));
+  assert.ok(proMissingSettings({ ...ready, PRO_STRIPE_MODE: "test", PRO_STRIPE_PRICE_ID: "" }).includes("PRO_STRIPE_PRICE_ID"));
+});
+
+test("provider outages remain unavailable rather than invalid credentials, and logs redact error content", async () => {
+  const user = { id: "11111111-1111-4111-8111-111111111111", email_confirmed_at: "2026-01-01" };
+  const auth = error => ({ client: { auth: { getUser: async () => ({ data: { user }, error }) } } });
+  await assert.rejects(requireProUser(auth({ status: 503, name: "AuthApiError" })), error => error.status === 503);
+  await assert.rejects(requireProUser(auth({ name: "AuthRetryableFetchError" })), error => error.status === 503);
+  await assert.rejects(requireProUser(auth({ status: 401, name: "AuthApiError" })), error => error.status === 401);
+  assert.throws(() => assertProAuthResult({ status: 503 }, "invalid_credentials"), error => error.status === 503);
+  assert.throws(() => assertProAuthResult({ status: 400 }, "invalid_credentials"), error => error.status === 401);
+  assert.throws(() => assertProAuthResult({ status: 429 }, "invalid_credentials"), error => error.status === 429);
+  const logs = [], before = console.error;
+  try {
+    console.error = (...values) => logs.push(JSON.stringify(values));
+    recordProFailure(Object.assign(new Error("private-token-in-provider-url"), { name: "private-token-in-provider-name" }), "checkout");
+  } finally { console.error = before; }
+  assert.match(logs.join(""), /unexpected_error/); assert.doesNotMatch(logs.join(""), /private-token/);
 });
 
 test("cross-origin requests and unbounded or malformed bodies are rejected", async () => {
@@ -34,4 +61,6 @@ test("CSV guards formula injection while preserving numeric loss amounts", () =>
   assert.equal(normalized.name, "=1+1");
   const csv = proScenariosCsv([row]);
   assert.match(csv, /"'=1\+1"/); assert.match(csv, /,-10,-10,/);
+  assert.equal(csv.charCodeAt(0), 0xFEFF);
+  assert.throws(() => normalizeProScenario({ ...row, id: [row.id] }), error => error.status === 400);
 });

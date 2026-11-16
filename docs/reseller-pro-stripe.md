@@ -8,7 +8,7 @@ Scope: BlindBoxAI's existing Next.js app, Vercel project and dedicated Supabase 
 
 On November 15, 2026 the connected Stripe account exposed one active BlindBoxAI Pro price: `price_1UKettEMF0eSPWJdNZYtb7sr`, product `prod_VLLaWLVDl8Nmoa`, lookup key `blindboxai_pro_monthly`, USD 999 cents/month. This public identifier is not a credential. The code pins this existing live identity rather than creating another product or price. The free waitlist's former $9 pricing hypothesis is superseded by the verified catalog price; no paying customer or revenue is implied.
 
-The two inspected existing Stripe webhooks serve other projects. They are untouched. No BlindBoxAI webhook existed at inspection. Production Vercel settings had the existing Supabase server credentials, but no Pro Stripe or customer-auth publishable settings. The existing database had no Pro payment tables. **A local test is not provider test-mode verification, deployment, account approval, or financial evidence.**
+The two inspected existing Stripe webhooks serve other projects. They are untouched. No BlindBoxAI webhook existed at inspection. Both legacy endpoints subscribe to Checkout completion, so account-wide event fanout still requires a receiver-ownership and fulfillment review before live Pro activation. A dedicated Pro customer mapping protects this implementation; it does not establish that legacy receivers ignore Pro events. Production Vercel settings had the existing Supabase server credentials, but no Pro Stripe or customer-auth publishable settings. The existing database had no Pro payment tables. **A local test is not provider test-mode verification, deployment, account approval, or financial evidence.**
 
 Before payment architecture changes, the exact test from #298 failed with `MISSING: server-side Stripe Checkout endpoint`. A disposable Next/Stripe-fixture journey returned checkout HTTP 404 instead of the required disabled HTTP 503, with zero fixture Stripe writes and zero production requests. Those baseline logs are retained with the implementation work.
 
@@ -35,6 +35,52 @@ Unpaid, failed or pending Checkout never grants access. Lifecycle handlers retri
 
 The ledger records event IDs and access state, not raw events, card details or passwords. This is not a payout/profit ledger and does not alter `provider_conversion_evidence` or affiliate reporting. Customer email is maintained by Auth/Stripe, not copied into the Pro ledger, so no local email-sync webhook is needed.
 
+### Manual risk-hold reconciliation
+
+There is no public or customer-operated hold-clear endpoint. An authorized owner
+must inspect the exact Stripe Customer, related refund/dispute/fraud cases and
+current subscription/invoice first. Do not clear a hold merely because a newer
+`invoice.paid` arrived. Retain the case IDs and owner decision in the private
+operations record. Only after that review, use the existing restricted database
+administration workflow with an exact customer and mode. Example placeholders:
+
+```sql
+begin;
+select user_id, livemode, stripe_customer_id, risk_hold
+from public.pro_accounts
+where user_id = '00000000-0000-0000-0000-000000000000'
+  and livemode = false and stripe_customer_id = 'cus_REPLACE_EXACT_CUSTOMER'
+for update;
+-- Continue only after confirming exactly the intended account and provider case.
+update public.pro_accounts set risk_hold = false
+where user_id = '00000000-0000-0000-0000-000000000000'
+  and livemode = false and stripe_customer_id = 'cus_REPLACE_EXACT_CUSTOMER'
+  and risk_hold = true
+returning user_id, livemode, risk_hold;
+commit;
+```
+
+Do not run this template unchanged, edit payment events, change subscription
+ownership or clear all accounts. A cleared hold still does not grant access:
+the signed paid-period mapping and current Stripe checks must pass independently.
+
+### Independent-review decisions
+
+The retained source contracts are supplemented by actual disabled-storefront
+browser coverage and the real success-return URL check in
+`tests/pro-next.integration.mjs`; source regexes alone are not fulfillment proof.
+Sign-out clears this app's local cookies independently of database/rate-limit
+availability. Recovery failures return to the account screen, and authentication
+provider failures remain service errors rather than invalid-password claims.
+
+An elapsed timestamp with a provider session still marked `open` is deliberately
+held until Stripe confirms expiration; it cannot authorize another checkout.
+The disposable test verifies no new session is created in that state. Likewise,
+unexpected errors log only allowlisted operation/category labels: raw provider
+messages, stacks, URLs and bodies are deliberately excluded because they can
+contain secrets or customer data. Owner readiness reports each check separately;
+`null` means a provider check could not run, not that it failed.
+
 ## Activation dependencies
 
 Keep `PRO_PAYMENTS_ENABLED=false` until all of the following are evidenced:
@@ -43,7 +89,7 @@ Keep `PRO_PAYMENTS_ENABLED=false` until all of the following are evidenced:
 2. Configure server-only `SUPABASE_PUBLISHABLE_KEY` for the same existing project. Preserve the current Supabase URL and service-role credential. Add the exact Pro confirmation/recovery callback URL to the existing Auth redirect allowlist without replacing current entries. Verify real confirmation, sign-in, sign-out, refresh and password recovery. Production SMTP/deliverability must be confirmed; the built-in development sender is not a production-delivery claim. Only then set `PRO_AUTH_EMAIL_READY=true`.
 3. Connect an isolated Stripe sandbox/test-mode account. The current connection exposes only the live account; the implementation's local provider fixtures do not substitute for a Stripe test charge. Configure a matching test Price/Product, restricted API key, signed webhook and dedicated portal. Test successful/failed/delayed payments, renewal, period-end and immediate cancellation, retries, refunds and risk events without real money.
 4. For live operation, use a restricted key with customer read/write, Checkout read/write, subscription/price/invoice/charge/PaymentIntent reads, webhook endpoint read, and customer portal configuration read/session write. Store it as sensitive `PRO_STRIPE_SECRET_KEY`; never paste it into chat or commit it. No app-side catalog creation or modification permission is needed.
-5. Configure one Pro-only endpoint at `https://blindboxai.com/api/pro/webhook` with API version `2026-10-28.endive`, the required event list, and `metadata.integration=blindboxai_pro_v1`. Keep its signing secret in `PRO_STRIPE_WEBHOOK_SECRET` and ID in `PRO_STRIPE_WEBHOOK_ENDPOINT_ID`. Do not reuse or edit another project's endpoint. Inspect existing endpoints first to avoid duplicates.
+5. Configure one Pro-only endpoint at `https://blindboxai.com/api/pro/webhook` with API version `2026-10-28.endive`, the required event list, and `metadata.integration=blindboxai_pro_v1`. Keep its signing secret in `PRO_STRIPE_WEBHOOK_SECRET` and ID in `PRO_STRIPE_WEBHOOK_ENDPOINT_ID`. Do not reuse or edit another project's endpoint. Inspect existing endpoints first to avoid duplicates. Confirm the owner and event/product filters of every legacy Checkout receiver before live activation; do not silently disable or rewrite another project's infrastructure to resolve event fanout.
 6. Reuse/create one dedicated Pro portal configuration with matching integration metadata, cancellation enabled at period end, payment-method update enabled, and subscription updates disabled. Store only its ID in `PRO_STRIPE_PORTAL_CONFIGURATION_ID`. Never replace the account's default configuration for other projects.
 7. Complete the merchant's tax review. `PRO_TAX_CONFIGURATION=manual-reviewed` requires an actual merchant decision about tax obligations/collection outside automatic tax. `stripe-tax-registered` enables automatic tax only after an active registration and inclusive/exclusive price tax behavior are verified. No tax setting, registration or paid tax feature is activated by this code. Do not assert tax collection merely because a flag exists.
 8. Set `PRO_STRIPE_MODE=live`, `PRO_SCHEMA_VERSION=1`, `PRO_LIVE_BILLING_APPROVED=true` and finally `PRO_PAYMENTS_ENABLED=true` only after the matching prerequisites and owner launch authorization. Live mode always reuses the pinned existing Pro price/product. Preview/test credentials must stay separate from production. The optional loopback fixture overrides require an explicitly isolated test runtime and are never production provider alternatives.

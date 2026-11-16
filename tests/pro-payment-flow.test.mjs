@@ -4,7 +4,7 @@ import { proFixtures, USER_A, USER_B } from "./pro-fixtures.mjs";
 import { createProCheckout } from "../lib/pro-stripe.mjs";
 import { processProWebhook } from "../lib/pro-webhook.mjs";
 import { resolveProEntitlement } from "../lib/pro-entitlements.mjs";
-import { proCheckoutHandler, proAuthHandler, proAccessHandler, proScenarioHandler, proPortalHandler } from "../lib/pro-handlers.mjs";
+import { proCheckoutHandler, proAuthHandler, proSignoutHandler, proAccessHandler, proScenarioHandler, proPortalHandler } from "../lib/pro-handlers.mjs";
 import { normalizeProScenario, proScenariosCsv } from "../lib/pro-collection.mjs";
 
 test("one checkout, signed fulfillment, renewal failure, cancellation, and risk events use disposable HTTP services", async () => {
@@ -44,7 +44,9 @@ test("one checkout, signed fulfillment, renewal failure, cancellation, and risk 
     assert.equal((await access()).cancelAtPeriodEnd, true);
     sub.status = "canceled";
     await deliver(f.event("customer.subscription.deleted", sub, { created: Math.floor(Date.now() / 1000) + 1 }));
+    sub.status = "active";
     await deliver(f.event("customer.subscription.updated", { ...sub, status: "active" }, { created: Math.floor(Date.now() / 1000) - 30 }));
+    assert.equal((await f.db.query("select status from public.pro_subscriptions where subscription_id=$1", [sub.id])).rows[0].status, "canceled");
     assert.equal((await access()).allowed, false, "old event cannot restore canceled access");
     sub.status = "active";
     await deliver(f.event("customer.subscription.updated", sub, { created: Math.floor(Date.now() / 1000) + 2 }));
@@ -121,6 +123,19 @@ test("a delayed claim still satisfies Stripe's minimum Checkout expiration windo
   } finally { await f.close(); }
 });
 
+test("an elapsed timestamp with a still-open provider session cannot create overlapping checkout", async () => {
+  const f = await proFixtures();
+  try {
+    const options = { user: f.users.get(USER_A), store: f.store, stripe: f.stripe, env: f.env };
+    await createProCheckout(options);
+    const session = [...f.state.sessions.values()][0]; session.expires_at = Math.floor(Date.now() / 1000) - 1;
+    await f.db.query("update public.pro_accounts set checkout_expires_at=now()-interval '1 second' where user_id=$1", [USER_A]);
+    const writesBefore = f.state.writes;
+    await assert.rejects(createProCheckout(options), /checkout_conflict/);
+    assert.equal(f.state.writes, writesBefore); assert.equal(f.state.checkoutCreates, 1);
+  } finally { await f.close(); }
+});
+
 test("authenticated routes isolate saved scenarios, CSV exports and portal ownership", async () => {
   const f = await proFixtures();
   try {
@@ -148,7 +163,7 @@ test("authenticated routes isolate saved scenarios, CSV exports and portal owner
     const mine = await proScenarioHandler(makeRequest("/api/pro/scenarios", { cookie: cookieA }));
     assert.equal((await mine.json()).scenarios[0].user_id, USER_A);
     const theirs = await proScenarioHandler(makeRequest("/api/pro/scenarios", { cookie: cookieB })); assert.equal((await theirs.json()).scenarios.length, 0);
-    const overwrite = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "POST", cookie: cookieB, body: scenario })); assert.equal(overwrite.status, 503);
+    const overwrite = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "POST", cookie: cookieB, body: scenario })); assert.equal(overwrite.status, 409);
     await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "DELETE", cookie: cookieB, body: { id: scenario.id } }));
     assert.equal((await f.store.scenarios(USER_A)).length, 1);
     const csv = await proScenarioHandler(makeRequest("/api/pro/scenarios/export", { cookie: cookieA }), { csv: true });
@@ -187,5 +202,52 @@ test("database privileges, atomic claims, stale event ordering and malformed inp
     assert.match(proScenariosCsv([{ ...scenario, name: "@SUM(1,2)" }]), /"'@SUM/);
     await f.store.rateLimit(USER_A, "test-bucket", 1, 60);
     await assert.rejects(f.store.rateLimit(USER_A, "test-bucket", 1, 60), /try_again_later/);
+  } finally { await f.close(); }
+});
+
+for (const type of ["charge.refunded", "charge.dispute.created", "radar.early_fraud_warning.created"]) {
+  test(`${type} independently places a previously healthy customer on hold`, async () => {
+    const f = await proFixtures();
+    try {
+      await createProCheckout({ user: f.users.get(USER_A), store: f.store, stripe: f.stripe, env: f.env });
+      const account = await f.store.account(USER_A, false), sub = f.paidSubscription(account.stripe_customer_id);
+      const deliver = event => processProWebhook({ ...f.signed(event), stripe: f.stripe, store: f.store, env: f.env });
+      await deliver(f.event("invoice.paid", sub.latest_invoice));
+      const access = () => resolveProEntitlement({ userId: USER_A, store: f.store, stripe: f.stripe, env: f.env });
+      assert.equal((await access()).allowed, true);
+      f.state.charges.set("ch_independent", { id: "ch_independent", livemode: false, customer: account.stripe_customer_id, amount_refunded: type === "charge.refunded" ? 1 : 0 });
+      await deliver(f.event(type, { id: type === "charge.refunded" ? "ch_independent" : "risk_fixture", charge: "ch_independent" }));
+      assert.equal((await access()).reason, "billing_review_required");
+      assert.equal((await f.store.account(USER_A, false)).risk_hold, true);
+    } finally { await f.close(); }
+  });
+}
+
+test("returning customers ignore canceled history; portal isolation, scenario caps and logout remain actionable", async () => {
+  const f = await proFixtures();
+  try {
+    await createProCheckout({ user: f.users.get(USER_A), store: f.store, stripe: f.stripe, env: f.env });
+    const account = await f.store.account(USER_A, false), sub = f.paidSubscription(account.stripe_customer_id);
+    const event = f.event("invoice.paid", sub.latest_invoice);
+    await processProWebhook({ ...f.signed(event), stripe: f.stripe, store: f.store, env: f.env });
+    await f.db.query("insert into public.pro_subscriptions(subscription_id,livemode,user_id,price_id,status,event_created,last_event_id) select 'sub_old_'||n,false,$1,$2,'canceled',1,'evt_history_'||n from generate_series(1,10) n", [USER_A, f.env.PRO_STRIPE_PRICE_ID]);
+    const access = () => resolveProEntitlement({ userId: USER_A, store: f.store, stripe: f.stripe, env: f.env });
+    assert.equal((await access()).allowed, true); assert.equal((await f.store.subscriptions(USER_A, false)).length, 1);
+    const makeRequest = (path, { method = "GET", body, cookie } = {}) => new Request(`${f.env.PRO_APP_ORIGIN}${path}`, { method, headers: { Origin: f.env.PRO_APP_ORIGIN, "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const login = await proAuthHandler(makeRequest("/api/pro/auth", { method: "POST", body: { action: "login", email: "one@example.test", password: "local-test-password" } }));
+    const cookie = login.headers.getSetCookie().map(c => c.split(";", 1)[0]).join("; ");
+    f.state.portalIntegration = "another_product";
+    assert.equal((await access()).billingAvailable, false);
+    const writesBefore = f.state.writes;
+    assert.equal((await proPortalHandler(makeRequest("/api/pro/portal", { method: "POST", body: {}, cookie }))).status, 503);
+    assert.equal(f.state.writes, writesBefore);
+    f.state.portalIntegration = "blindboxai_pro_v1";
+    await f.db.query("insert into public.pro_scenarios(id,user_id,name,inputs,quantity) select gen_random_uuid(),$1,'Saved scenario '||n,$2::jsonb,1 from generate_series(1,250) n", [USER_A, JSON.stringify(f.scenario().inputs)]);
+    const cap = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "POST", body: f.scenario(), cookie }));
+    assert.equal(cap.status, 409); assert.equal((await cap.json()).error, "scenario_limit");
+    f.state.schemaDown = true;
+    await f.db.exec("update public.pro_rate_limits set used=1000");
+    const logout = await proSignoutHandler(makeRequest("/api/pro/auth", { method: "DELETE", cookie }));
+    assert.equal(logout.status, 200); assert.ok(logout.headers.getSetCookie().some(c => /Max-Age=0/i.test(c)));
   } finally { await f.close(); }
 });

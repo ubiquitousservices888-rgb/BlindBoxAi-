@@ -16,6 +16,8 @@ const messages = {
   billing_review_required: "Billing needs review. You can still manage or cancel your subscription.",
   checkout_conflict: "An earlier checkout needs confirmation. Please use Manage billing or try again later.",
   invalid_scenario: "Check the scenario name, quantity, costs, and fee percentage.",
+  scenario_limit: "You have 250 saved scenarios. Edit or delete an existing scenario before adding another.",
+  scenario_conflict: "That scenario could not be changed. Refresh your saved scenarios and retry.",
 };
 const inputStyle = { padding: "10px", border: "1px solid var(--line)", borderRadius: "6px", background: "transparent", color: "inherit", width: "100%", boxSizing: "border-box", fontSize: "16px" };
 
@@ -34,15 +36,32 @@ export default function ProAccount() {
     return data;
   }
   async function refresh() {
+    let state;
     try {
-      const state = await api("/api/pro/access"); setAccess(state); setUnavailable(false);
-      setRows(state.allowed ? (await api("/api/pro/scenarios")).scenarios : []);
+      state = await api("/api/pro/access");
     } catch (error) {
       setAccess(error.status === 401 ? { signedIn: false } : null);
       setUnavailable(error.status !== 401); setRows([]);
+      return;
+    }
+    setAccess(state); setUnavailable(false);
+    if (!state.allowed) { setRows([]); return; }
+    try { setRows((await api("/api/pro/scenarios")).scenarios); }
+    catch (error) {
+      setRows([]);
+      if (error.status === 401) setAccess({ signedIn: false });
+      else if (error.status === 402) {
+        try { const current = await api("/api/pro/access"); setAccess(current.allowed ? { ...current, allowed: false, reason: "access_confirmation_pending" } : current); }
+        catch { setAccess({ ...state, allowed: false, reason: "access_confirmation_pending" }); }
+      } else setNotice(error.message);
     }
   }
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    const marker = new URLSearchParams(window.location.search).get("auth");
+    if (marker === "confirmation_failed") setNotice("This confirmation or recovery link is invalid or expired. Sign in, or request a new recovery email.");
+    if (marker === "service_unavailable") setNotice("Account confirmation is temporarily unavailable. Please retry later.");
+    refresh();
+  }, []);
   async function perform(action) {
     if (busy) return;
     setBusy(true); setNotice("");
@@ -94,7 +113,7 @@ export default function ProAccount() {
         <h2>{access.allowed ? "Pro access verified" : "Your subscription"}</h2>
         {access.allowed ? <p>Access paid through {new Date(access.paidThrough).toLocaleDateString()}.{access.cancelAtPeriodEnd ? " Your subscription ends at the close of this paid period." : " Renews monthly unless canceled."}</p> : <p>{access.reason === "billing_review_required" ? messages.billing_review_required : "Access opens after Stripe confirms a paid subscription. Returning from checkout alone does not activate access."}</p>}
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          {!access.allowed && access.checkoutAvailable && access.reason !== "billing_review_required" ? <button className="cta" disabled={busy} onClick={() => billing("/api/pro/checkout")}>{access.billingAvailable ? "Start or resume checkout" : "Subscribe for $9.99/month"}</button> : null}
+          {!access.allowed && access.checkoutAvailable && access.reason === "subscription_required" ? <button className="cta" disabled={busy} onClick={() => billing("/api/pro/checkout")}>{access.billingAvailable ? "Start or resume checkout" : "Subscribe for $9.99/month"}</button> : null}
           {access.billingAvailable ? <button className="cta" disabled={busy} onClick={() => billing("/api/pro/portal")}>Manage billing / cancel</button> : null}
           <button disabled={busy} onClick={() => perform(refresh)}>Refresh access</button>
           <button disabled={busy} onClick={() => perform(async () => { await api("/api/pro/auth", "DELETE"); setPassword(""); clearEditor(); await refresh(); })}>Sign out</button>

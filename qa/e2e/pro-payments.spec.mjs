@@ -31,6 +31,11 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   await page.goto(`${origin}/pro`);
   await page.getByRole("button", { name: "Reject optional analytics", exact: true }).click();
   await page.getByRole("link", { name: "Open your Pro account" }).click();
+  const badLink = await context.request.get(`${origin}/api/pro/auth/callback?code=invalid-fixture`, { maxRedirects: 0 });
+  expect(badLink.status()).toBe(303);
+  expect(badLink.headers().location).toContain("auth=confirmation_failed");
+  await page.goto(badLink.headers().location);
+  await expect(page.getByText(/This confirmation or recovery link is invalid or expired/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill("one@example.test");
   await page.getByLabel("Password", { exact: true }).fill("local-test-password");
@@ -65,6 +70,18 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("bbai-pro-auth")).every(cookie => cookie.httpOnly)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: "test-results/pro-mobile-workspace.png", fullPage: true });
+  await context.route(`${origin}/api/pro/scenarios`, async route => {
+    if (route.request().method() !== "GET") return route.continue();
+    sub.status = "canceled";
+    await context.unroute(`${origin}/api/pro/scenarios`);
+    return route.fulfill({ status: 402, contentType: "application/json", body: JSON.stringify({ error: "subscription_required" }) });
+  });
+  await page.getByRole("button", { name: "Refresh access", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your subscription", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pro services are being verified" })).toHaveCount(0);
+  sub.status = "active";
+  await page.getByRole("button", { name: "Refresh access", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Saved resale scenarios" })).toBeVisible();
   sub.cancel_at_period_end = true;
   await deliver("customer.subscription.updated", sub);
   await page.getByRole("button", { name: "Refresh access", exact: true }).click();

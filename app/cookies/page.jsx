@@ -59,6 +59,8 @@ export default function CookieNoticePage() {
         </p>
         <p>
           Stripe handles subscription payment details and billing management.
+          Stripe Checkout and the billing portal are third-party pages that may
+          set their own cookies under <a href="https://stripe.com/privacy">Stripe&apos;s privacy terms</a>.
           BlindBoxAI stores the customer and subscription references, payment-event
           identifiers, access period, and billing-review status needed to provide
           the service. Card details are entered on Stripe, not stored by BlindBoxAI.

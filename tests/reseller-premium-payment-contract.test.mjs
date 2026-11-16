@@ -5,7 +5,9 @@ import { readFileSync, existsSync } from "node:fs";
 const root = new URL("../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
 
-test("premium checkout must not be advertised before paid fulfillment exists", () => {
+// The disabled storefront is rendered by qa/e2e/pro-payments.spec.mjs; these
+// retained baseline checks are source contracts, not payment or revenue proof.
+test("free early-access copy remains separate from subscription enrollment", () => {
   const page = read("app/pro/page.jsx");
   assert.match(page, /EARLY ACCESS · NO CHARGE/);
   assert.match(page, /not live paid services|not an active subscription/);
@@ -27,6 +29,9 @@ test("payment implementation requires server-only checkout, verified webhook and
 });
 
 test("never activate premium access from a browser success redirect", () => {
-  const page = read("app/pro/page.jsx");
+  const page = read("app/pro/account/ProAccount.jsx");
+  assert.match(page, /\/api\/pro\/access/);
+  // tests/pro-next.integration.mjs visits the real success-return URL and checks
+  // access is denied before signed fulfillment; the browser journey repeats it.
   assert.doesNotMatch(page, /setPremium\(true\)|localStorage\.setItem\(.premium/i);
 });

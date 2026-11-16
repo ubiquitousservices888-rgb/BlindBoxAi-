@@ -60,6 +60,11 @@ try {
   assert.equal((await request("/api/pro/scenarios")).status, 402);
   assert.equal((await request("/api/pro/portal", { method: "POST", body: {} })).status, 201);
   assert.equal((await request("/api/pro/checkout", { method: "POST", body: {}, headers: { Origin: "https://attacker.example" } })).status, 403);
+  fixture.state.schemaDown = true;
+  const readiness = await request("/api/owner/pro-status", { headers: { Authorization: `Bearer ${fixture.env.OWNER_CONTROL_CODE}` } });
+  assert.equal(readiness.status, 200);
+  const checks = (await readiness.json()).checks;
+  assert.equal(checks.schema, false); assert.equal(checks.price, true); assert.equal(checks.delivery, true);
   const logout = await request("/api/pro/auth", { method: "DELETE" }); assert.equal(logout.status, 200);
   assert.ok(logout.headers.getSetCookie().some(c => /Max-Age=0/i.test(c)));
   cookie = "";

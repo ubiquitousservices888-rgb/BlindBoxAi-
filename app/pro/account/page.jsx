@@ -8,9 +8,12 @@ export const metadata = { title: "Your Pro account | BlindBoxAI", robots: { inde
 export const dynamic = "force-dynamic";
 
 export default async function ProAccountPage() {
-  const origin = proOrigin();
   const host = (await headers()).get("host");
-  if (["blindboxai.com", "www.blindboxai.com"].includes(host) && host !== new URL(origin).host) redirect(`${origin}/pro/account`);
+  let origin;
+  if (["blindboxai.com", "www.blindboxai.com"].includes(host)) {
+    try { origin = proOrigin(); } catch { /* Render the account's unavailable state. */ }
+    if (origin && host !== new URL(origin).host) redirect(`${origin}/pro/account`);
+  }
   return <main>
     <Link className="crumb" href="/pro">← Reseller tools</Link>
     <h1 className="ptitle">Your BlindBoxAI Pro account</h1>
