@@ -1,5 +1,25 @@
 # BlindBoxAI Current State
 
+## Reseller Pro payment implementation under review
+
+The Pro implementation in this change is the single proposed subscription path:
+`/pro/account` → owner-identity-checked `/api/pro/checkout` → hosted Stripe
+Checkout → signed `/api/pro/webhook` → private `pro_*` ledger and current-provider
+entitlement checks → saved scenarios/CSV and customer portal cancellation. It
+reuses the existing live BlindBoxAI Pro USD $9.99/month price and the current
+Supabase/Vercel infrastructure. The free waitlist and calculator remain independent.
+
+This supersedes the missing-implementation diagnosis in test-only draft PR #298
+at source level only; its four safety tests are included in this change. The
+older `$9/month` alpha pricing hypothesis is superseded by the observed existing
+Stripe catalog price. No other project's products, webhooks or billing settings
+are changed. `docs/reseller-pro-stripe.md` is the specialist authority for this
+path and lists the additive migration, credentials, account email, tax review,
+Stripe sandbox evidence and exact launch switches still required. Production
+migration, real Stripe sandbox fulfillment, paid launch and revenue remain
+**UNVERIFIED**. New checkout defaults off; no merge/deployment is established by
+this paragraph. All existing affiliate and publishing priorities/gates still apply.
+
 **Purpose:** prevent state/documentation divergence by giving humans and agents one canonical orientation point.
 
 **Last reconciled:** 2026-11-15 (video-receipt diagnostic section only; older system sections retain their stated historical baselines)

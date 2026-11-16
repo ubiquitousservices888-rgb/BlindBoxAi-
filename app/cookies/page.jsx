@@ -49,6 +49,26 @@ export default function CookieNoticePage() {
       </section>
 
       <section className="block">
+        <h2>Pro accounts and saved scenarios</h2>
+        <p>
+          When Pro accounts are available, Supabase handles account confirmation,
+          sign-in, and password recovery. Essential, secure account cookies keep
+          you signed in; they are separate from optional analytics. Saved scenario
+          names, quantities, and costs are stored privately for your account. You
+          can export or delete scenarios from your account while your access is active.
+        </p>
+        <p>
+          Stripe handles subscription payment details and billing management.
+          BlindBoxAI stores the customer and subscription references, payment-event
+          identifiers, access period, and billing-review status needed to provide
+          the service. Card details are entered on Stripe, not stored by BlindBoxAI.
+          Account email, passwords, scenario amounts, and billing identifiers are
+          not sent to site analytics or affiliate telemetry. Security rate limits
+          use keyed hashes rather than storing raw email or IP addresses.
+        </p>
+      </section>
+
+      <section className="block">
         <h2>Affiliate links</h2>
         <p>
           Some outbound links may be affiliate links. If you follow one, the destination marketplace may use its own cookies or similar technologies under its own privacy terms. BlindBoxAI does not control cookies set after you leave this site.
