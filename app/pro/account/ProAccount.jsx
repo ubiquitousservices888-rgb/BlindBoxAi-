@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { calculateResaleMargin } from "../../../lib/resale-unit-economics.mjs";
 
 const fields = [["purchase", "Purchase price"], ["inboundShipping", "Inbound shipping"], ["salesTax", "Purchase tax"], ["salePrice", "Expected resale price"], ["feePercent", "Selling fees (%)"], ["outboundShipping", "Outbound shipping"], ["desiredProfit", "Target profit"]];
@@ -26,6 +26,7 @@ export default function ProAccount() {
   const [mode, setMode] = useState("login"), [email, setEmail] = useState(""), [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState("");
   const [rows, setRows] = useState([]), [editing, setEditing] = useState(null);
+  const draftId = useRef(null);
   const [name, setName] = useState(""), [quantity, setQuantity] = useState("1"), [inputs, setInputs] = useState(blank);
   const result = calculateResaleMargin(inputs);
 
@@ -77,11 +78,12 @@ export default function ProAccount() {
     });
   }
   const billing = path => perform(async () => { window.location.assign((await api(path, "POST", {})).url); });
-  function clearEditor() { setEditing(null); setName(""); setQuantity("1"); setInputs(blank()); }
+  function clearEditor() { draftId.current = null; setEditing(null); setName(""); setQuantity("1"); setInputs(blank()); }
   async function save(event) {
     event.preventDefault();
     await perform(async () => {
-      await api("/api/pro/scenarios", "POST", { id: editing || crypto.randomUUID(), name, quantity: Number(quantity), inputs: Object.fromEntries(fields.map(([key]) => [key, inputs[key] === "" ? null : Number(inputs[key])])) });
+      const id = editing || (draftId.current ||= crypto.randomUUID());
+      await api("/api/pro/scenarios", "POST", { id, name, quantity: Number(quantity), inputs: Object.fromEntries(fields.map(([key]) => [key, inputs[key] === "" ? null : Number(inputs[key])])) });
       clearEditor(); await refresh(); setNotice("Scenario saved.");
     });
   }
@@ -128,7 +130,7 @@ export default function ProAccount() {
           <label>Scenario name<input style={inputStyle} required maxLength={120} value={name} onChange={event => setName(event.target.value)} /></label>
           <label>Quantity<input style={inputStyle} type="number" required min="1" max="100000" step="1" value={quantity} onChange={event => setQuantity(event.target.value)} /></label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "12px" }}>{fields.map(([key, label]) => <label key={key}>{label}<input style={inputStyle} type="number" required min="0" max={key === "feePercent" ? "99.99" : "100000000"} step="0.01" value={inputs[key]} onChange={event => setInputs(current => ({ ...current, [key]: event.target.value }))} /></label>)}</div>
-          {result.valid ? <p>Estimated profit per item: <strong>{money(result.netProfit)}</strong>. Break-even resale: {money(result.breakEvenSalePrice)}.</p> : <p>{result.reason}</p>}
+          {result.valid ? <p>Estimated profit per item: <strong>{money(result.netProfit)}</strong>. Break-even resale: {money(result.breakEvenSalePrice)}. Maximum buy price for target profit: {result.maxPurchasePrice >= 0 ? money(result.maxPurchasePrice) : "No feasible nonnegative price"}.</p> : <p>{result.reason}</p>}
           <div><button className="cta" disabled={busy}>{editing ? "Update scenario" : "Save scenario"}</button>{editing ? <button type="button" onClick={clearEditor} disabled={busy}>Cancel editing</button> : null}</div>
         </form>
         <button disabled={busy || !rows.length} style={{ marginTop: "20px" }} onClick={exportCsv}>Export CSV</button>

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRO_LIVE_PRICE, PRO_LIVE_PRODUCT, proStripeConfig, assertProOrigin, proCheckoutAvailable, proMissingSettings, readProBody, recordProFailure } from "../lib/pro-config.mjs";
+import { PRO_LIVE_PRICE, PRO_LIVE_PRODUCT, proStripeConfig, assertProOrigin, proCheckoutConfigured, proMissingSettings, readProBody, recordProFailure } from "../lib/pro-config.mjs";
 import { requireProUser, assertProAuthResult } from "../lib/pro-auth.mjs";
 import { createProStripe } from "../lib/pro-stripe.mjs";
 import { normalizeProScenario, proScenariosCsv } from "../lib/pro-collection.mjs";
@@ -9,18 +9,20 @@ test("live billing requires explicit configuration and cannot choose another pro
   const env = { PRO_STRIPE_MODE: "live", PRO_STRIPE_SECRET_KEY: "rk_live_fixture", PRO_APP_ORIGIN: "https://blindboxai.com" };
   assert.deepEqual([proStripeConfig(env).price, proStripeConfig(env).product], [PRO_LIVE_PRICE, PRO_LIVE_PRODUCT]);
   assert.throws(() => proStripeConfig(env, { checkout: true }), /checkout_unavailable/);
-  assert.equal(proCheckoutAvailable(env), false);
+  assert.equal(proCheckoutConfigured(env), false);
   assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_PRICE_ID: "price_another_app" }), /configuration_unavailable/);
+  assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_PRODUCT_ID: "prod_another_app" }), /configuration_unavailable/);
+  for (const key of ["rk_live_", "rk_live_ bad", "sk_live_suffix\n", "rk_live_!invalid"]) assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_SECRET_KEY: key }), /configuration_unavailable/);
   assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_SECRET_KEY: "rk_test_fixture" }), /configuration_unavailable/);
   assert.throws(() => createProStripe({ ...env, PRO_STRIPE_API_ORIGIN: "https://attacker.example" }), /configuration_unavailable/);
   const enabled = { ...env, PRO_PAYMENTS_ENABLED: "true", PRO_SCHEMA_VERSION: "1", PRO_AUTH_EMAIL_READY: "true", PRO_STRIPE_PORTAL_CONFIGURATION_ID: "bpc_fixture", PRO_STRIPE_WEBHOOK_ENDPOINT_ID: "we_fixture", PRO_STRIPE_WEBHOOK_SECRET: "whsec_fixture", PRO_TAX_CONFIGURATION: "manual-reviewed" };
   assert.throws(() => proStripeConfig(enabled, { checkout: true }), /checkout_unavailable/);
   assert.equal(proStripeConfig({ ...enabled, PRO_LIVE_BILLING_APPROVED: "true" }, { checkout: true }).live, true);
   const ready = { ...enabled, PRO_LIVE_BILLING_APPROVED: "true", SUPABASE_URL: "https://lazzdoadoqzrzlarerfx.supabase.co", SUPABASE_PUBLISHABLE_KEY: "local-publishable-fixture", SUPABASE_SERVICE_ROLE_KEY: "local-service-fixture" };
-  assert.equal(proCheckoutAvailable(ready), true);
-  assert.equal(proCheckoutAvailable({ ...ready, SUPABASE_URL: "https://other-project.supabase.co" }), false);
-  assert.equal(proCheckoutAvailable({ ...ready, SUPABASE_URL: "" }), false);
-  assert.equal(proCheckoutAvailable({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }), false);
+  assert.equal(proCheckoutConfigured(ready), true);
+  assert.equal(proCheckoutConfigured({ ...ready, SUPABASE_URL: "https://other-project.supabase.co" }), false);
+  assert.equal(proCheckoutConfigured({ ...ready, SUPABASE_URL: "" }), false);
+  assert.equal(proCheckoutConfigured({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }), false);
   assert.throws(() => proStripeConfig({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }, { checkout: true }), /checkout_unavailable/);
   assert.ok(proMissingSettings({ ...ready, PRO_PAYMENTS_ENABLED: "false" }).includes("PRO_PAYMENTS_ENABLED"));
   assert.ok(proMissingSettings({ ...ready, PRO_LIVE_BILLING_APPROVED: "false" }).includes("PRO_LIVE_BILLING_APPROVED"));
@@ -30,12 +32,12 @@ test("live billing requires explicit configuration and cannot choose another pro
 test("provider outages remain unavailable rather than invalid credentials, and logs redact error content", async () => {
   const user = { id: "11111111-1111-4111-8111-111111111111", email_confirmed_at: "2026-01-01" };
   const auth = error => ({ client: { auth: { getUser: async () => ({ data: { user }, error }) } } });
-  await assert.rejects(requireProUser(auth({ status: 503, name: "AuthApiError" })), error => error.status === 503);
-  await assert.rejects(requireProUser(auth({ name: "AuthRetryableFetchError" })), error => error.status === 503);
-  await assert.rejects(requireProUser(auth({ status: 401, name: "AuthApiError" })), error => error.status === 401);
-  assert.throws(() => assertProAuthResult({ status: 503 }, "invalid_credentials"), error => error.status === 503);
-  assert.throws(() => assertProAuthResult({ status: 400 }, "invalid_credentials"), error => error.status === 401);
-  assert.throws(() => assertProAuthResult({ status: 429 }, "invalid_credentials"), error => error.status === 429);
+  await assert.rejects(requireProUser(auth({ status: 503, name: "AuthApiError" })), error => error.status === 503 && error.code === "auth_provider_unavailable");
+  await assert.rejects(requireProUser(auth({ name: "AuthRetryableFetchError" })), error => error.status === 503 && error.code === "auth_provider_unavailable");
+  await assert.rejects(requireProUser(auth({ status: 401, name: "AuthApiError" })), error => error.status === 401 && error.code === "sign_in_required");
+  assert.throws(() => assertProAuthResult({ status: 503 }, "invalid_credentials"), error => error.status === 503 && error.code === "auth_provider_unavailable");
+  assert.throws(() => assertProAuthResult({ status: 400 }, "invalid_credentials"), error => error.status === 401 && error.code === "invalid_credentials");
+  assert.throws(() => assertProAuthResult({ status: 429 }, "invalid_credentials"), error => error.status === 429 && error.code === "try_again_later");
   const logs = [], before = console.error;
   try {
     console.error = (...values) => logs.push(JSON.stringify(values));

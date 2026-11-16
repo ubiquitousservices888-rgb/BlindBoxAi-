@@ -63,8 +63,18 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   await page.getByLabel("Purchase price", { exact: true }).fill("10");
   await page.getByLabel("Expected resale price", { exact: true }).fill("30");
   await page.getByLabel("Selling fees (%)", { exact: true }).fill("10");
+  await expect(page.getByText(/Maximum buy price for target profit/)).toBeVisible();
+  await page.route(`${origin}/api/pro/scenarios`, async route => {
+    const committed = await route.fetch();
+    expect(committed.status()).toBe(200);
+    await route.abort("failed");
+  }, { times: 1 });
+  await page.getByRole("button", { name: "Save scenario", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save scenario", exact: true })).toBeEnabled();
+  await expect.poll(async () => (await fixture.store.scenarios(USER_A)).length).toBe(1);
   await page.getByRole("button", { name: "Save scenario", exact: true }).click();
   await expect(page.getByText("My exact-card cost check", { exact: true })).toBeVisible();
+  expect((await fixture.store.scenarios(USER_A)).length).toBe(1);
   const csv = await context.request.get(`${origin}/api/pro/scenarios/export`);
   expect(csv.status()).toBe(200); expect(await csv.text()).toContain("User assumptions; not verified sales or cash revenue");
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("bbai-pro-auth")).every(cookie => cookie.httpOnly)).toBe(true);

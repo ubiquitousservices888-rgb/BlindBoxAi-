@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Waitlist from "./waitlist";
 import ResaleCalculator from "./ResaleCalculator";
-import { proCheckoutAvailable } from "../../lib/pro-config.mjs";
+import { proCheckoutAvailable } from "../../lib/pro-stripe.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +10,8 @@ export const metadata = {
   description: "Calculate a collectible resale margin with your own assumptions. Join free early access for BlindBoxAI reseller tools built around evidence, costs, and reasons to pass.",
 };
 
-export default function Pro() {
-  const subscriptionsOpen = proCheckoutAvailable();
+export default async function Pro() {
+  const subscriptionsOpen = await proCheckoutAvailable();
   return (
     <main>
       <Link className="crumb" href="/">← All series</Link>

@@ -23,6 +23,10 @@ export async function proFixtures() {
   await db.exec("create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key);");
   await db.query("insert into auth.users(id) values ($1),($2)", [USER_A, USER_B]);
   await db.exec(await readFile(new URL("../supabase/migrations/20261116042308_reseller_pro_stripe_pipeline.sql", import.meta.url), "utf8"));
+  const serviceQuery = (query, args = []) => db.transaction(async tx => {
+    await tx.exec("set local role service_role");
+    return tx.query(query, args);
+  });
   const state = { customers: new Map(), sessions: new Map(), subscriptions: new Map(), invoices: new Map(), charges: new Map(), idempotency: new Map(), customerCreates: 0, checkoutCreates: 0, requests: [], writes: 0, priceValid: true, deliveryValid: true, portalIntegration: "blindboxai_pro_v1", schemaDown: false };
   const env = {
     NODE_ENV: "test", CI: "true", BLINDBOXAI_ALLOW_TEST_INGEST: "true", PRO_APP_ORIGIN: "http://127.0.0.1:3376",
@@ -32,6 +36,7 @@ export async function proFixtures() {
     PRO_STRIPE_WEBHOOK_ENDPOINT_ID: "we_pro_fixture", PRO_PAYMENTS_ENABLED: "true", PRO_SCHEMA_VERSION: "1", PRO_AUTH_EMAIL_READY: "true", PRO_TAX_CONFIGURATION: "manual-reviewed",
     OWNER_CONTROL_CODE: "local-owner-fixture",
   };
+  const providerIds = { price: env.PRO_STRIPE_PRICE_ID, product: env.PRO_STRIPE_PRODUCT_ID, webhook: env.PRO_STRIPE_WEBHOOK_ENDPOINT_ID, portal: env.PRO_STRIPE_PORTAL_CONFIGURATION_ID };
   const users = new Map([[USER_A, { id: USER_A, email: "one@example.test", role: "authenticated", aud: "authenticated", email_confirmed_at: "2026-01-01T00:00:00Z", is_anonymous: false }], [USER_B, { id: USER_B, email: "two@example.test", role: "authenticated", aud: "authenticated", email_confirmed_at: "2026-01-01T00:00:00Z", is_anonymous: false }]]);
   function token(user) { return `${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: user.id, exp: Math.floor(Date.now() / 1000) + 3600, session_id: randomUUID() })).toString('base64url')}.fixture`; }
   const sessions = new Map();
@@ -39,7 +44,7 @@ export async function proFixtures() {
     const access = token(user); sessions.set(access, user);
     return { access_token: access, token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: "local-refresh-fixture", user };
   }
-  const price = () => ({ id: env.PRO_STRIPE_PRICE_ID, object: "price", active: true, livemode: false, currency: "usd", unit_amount: state.priceValid ? 999 : 2900, product: { id: env.PRO_STRIPE_PRODUCT_ID, object: "product", active: true }, recurring: { interval: "month", interval_count: 1, usage_type: "licensed" }, tax_behavior: "exclusive" });
+  const price = () => ({ id: providerIds.price, object: "price", active: true, livemode: false, currency: "usd", unit_amount: state.priceValid ? 999 : 2900, product: { id: providerIds.product, object: "product", active: true }, recurring: { interval: "month", interval_count: 1, usage_type: "licensed" }, tax_behavior: "exclusive" });
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://127.0.0.1");
@@ -59,7 +64,7 @@ export async function proFixtures() {
           const body = json();
           const args = keys.map(k => k === "p_inputs" || k === "p_subscription" ? body[k] == null ? null : JSON.stringify(body[k]) : body[k]);
           const query = `select public.${name}(${keys.map((k, i) => `$${i + 1}${["p_inputs", "p_subscription"].includes(k) ? "::jsonb" : ""}`).join(",")}) as value`;
-          return reply((await db.query(query, args)).rows[0].value);
+          return reply((await serviceQuery(query, args)).rows[0].value);
         }
         if (!["pro_accounts", "pro_subscriptions", "pro_scenarios"].includes(path)) return reply({ error: "missing_table" }, 404);
         const values = [], clauses = [];
@@ -69,13 +74,14 @@ export async function proFixtures() {
           values.push(filter.slice(3)); clauses.push(`${key}=$${values.length}`);
         }
         const where = clauses.length ? ` where ${clauses.join(" and ")}` : "";
-        if (req.method === "DELETE") { await db.query(`delete from public.${path}${where}`, values); return reply(null, 200); }
+        if (req.method === "DELETE") { await serviceQuery(`delete from public.${path}${where}`, values); return reply(null, 200); }
         const limit = Math.min(250, Number(url.searchParams.get("limit") || "250"));
         const statusFilter = path === "pro_subscriptions" && url.searchParams.get("status") === "not.in.(canceled,incomplete_expired)" ? `${where ? " and " : " where "}status not in ('canceled','incomplete_expired')` : "";
-        return reply((await db.query(`select * from public.${path}${where}${statusFilter}${path === "pro_scenarios" ? " order by created_at desc" : ""} limit ${limit}`, values)).rows);
+        return reply((await serviceQuery(`select * from public.${path}${where}${statusFilter}${path === "pro_scenarios" ? " order by created_at desc" : ""} limit ${limit}`, values)).rows);
       }
       if (url.pathname.startsWith("/auth/v1/")) {
         if (req.headers.apikey !== env.SUPABASE_PUBLISHABLE_KEY) return reply({ message: "invalid key" }, 401);
+        if (state.authFailure?.path === url.pathname && (!state.authFailure.method || state.authFailure.method === req.method)) return reply({ msg: "Fixture auth failure" }, state.authFailure.status);
         if (url.pathname === "/auth/v1/token") {
           const body = json(); const user = [...users.values()].find(u => u.email === body.email);
           if (!user || body.password !== "local-test-password") return reply({ msg: "Invalid login credentials" }, 400);
@@ -97,9 +103,10 @@ export async function proFixtures() {
         return reply(saved.value);
       }
       const finish = value => { if (key) state.idempotency.set(key, { raw, value }); reply(value); };
-      if (url.pathname.startsWith("/v1/prices/")) return reply(price());
-      if (url.pathname.startsWith("/v1/webhook_endpoints/")) return reply({ id: env.PRO_STRIPE_WEBHOOK_ENDPOINT_ID, status: state.deliveryValid ? "enabled" : "disabled", livemode: false, url: `${env.PRO_APP_ORIGIN}/api/pro/webhook`, api_version: PRO_STRIPE_API_VERSION, enabled_events: PRO_EVENTS, metadata: { integration: PRO_INTEGRATION } });
-      if (url.pathname.startsWith("/v1/billing_portal/configurations/")) return reply({ id: env.PRO_STRIPE_PORTAL_CONFIGURATION_ID, active: true, livemode: false, metadata: { integration: state.portalIntegration }, features: { subscription_cancel: { enabled: true, mode: "at_period_end" }, payment_method_update: { enabled: true }, subscription_update: { enabled: false } } });
+      const missing = () => reply({ error: { type: "invalid_request_error", code: "resource_missing", message: "No such fixture resource" } }, 404);
+      if (url.pathname.startsWith("/v1/prices/")) return url.pathname.split("/").pop() === providerIds.price ? reply(price()) : missing();
+      if (url.pathname.startsWith("/v1/webhook_endpoints/")) return url.pathname.split("/").pop() === providerIds.webhook ? reply({ id: providerIds.webhook, status: state.deliveryValid ? "enabled" : "disabled", livemode: false, url: `${env.PRO_APP_ORIGIN}/api/pro/webhook`, api_version: PRO_STRIPE_API_VERSION, enabled_events: PRO_EVENTS, metadata: { integration: PRO_INTEGRATION } }) : missing();
+      if (url.pathname.startsWith("/v1/billing_portal/configurations/")) return url.pathname.split("/").pop() === providerIds.portal ? reply({ id: providerIds.portal, active: true, livemode: false, metadata: { integration: state.portalIntegration }, features: { subscription_cancel: { enabled: true, mode: "at_period_end" }, payment_method_update: { enabled: true }, subscription_update: { enabled: false } } }) : missing();
       if (url.pathname === "/v1/customers" && req.method === "POST") {
         const value = { id: `cus_fixture_${++state.customerCreates}`, object: "customer", livemode: false };
         state.customers.set(value.id, value); return finish(value);

@@ -1,7 +1,7 @@
 import { assertOwnerCode } from "../../../../lib/evidence";
 import { createProStore } from "../../../../lib/pro-store.mjs";
 import { createProStripe, inspectProDelivery, inspectProPrice } from "../../../../lib/pro-stripe.mjs";
-import { proJson, proCheckoutAvailable, proMissingSettings, proStripeConfig } from "../../../../lib/pro-config.mjs";
+import { proJson, proCheckoutConfigured, proMissingSettings, proStripeConfig } from "../../../../lib/pro-config.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,5 +20,5 @@ export async function GET(request) {
     try { await inspectProPrice(stripe, config); checks.price = true; } catch { checks.price = false; }
     try { await inspectProDelivery(stripe, process.env, config); checks.delivery = true; } catch { checks.delivery = false; }
   }
-  return proJson({ ready: Object.values(checks).every(value => value === true) && proCheckoutAvailable(), checks, missing, liveChargesTested: false, customerEmailDeliveryVerifiedByThisCheck: false, storedRevenueVerifiedByThisCheck: false });
+  return proJson({ ready: Object.values(checks).every(value => value === true) && proCheckoutConfigured(), checks, missing, liveChargesTested: false, customerEmailDeliveryVerifiedByThisCheck: false, storedRevenueVerifiedByThisCheck: false });
 }

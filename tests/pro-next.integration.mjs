@@ -27,6 +27,9 @@ try {
   }
   assert.equal(ready, true, "built disposable Next app starts");
   const page = await request("/pro"); assert.equal(page.status, 200); assert.match(await page.text(), /Open your Pro account/);
+  fixture.state.deliveryValid = false;
+  assert.doesNotMatch(await (await request("/pro")).text(), /Open your Pro account/);
+  fixture.state.deliveryValid = true;
   assert.equal((await request("/api/pro/checkout", { method: "POST", body: {} })).status, 401);
   assert.equal(fixture.state.writes, 0);
   const login = await request("/api/pro/auth", { method: "POST", body: { action: "login", email: "one@example.test", password: "local-test-password" } });
@@ -63,7 +66,9 @@ try {
   fixture.state.schemaDown = true;
   const readiness = await request("/api/owner/pro-status", { headers: { Authorization: `Bearer ${fixture.env.OWNER_CONTROL_CODE}` } });
   assert.equal(readiness.status, 200);
-  const checks = (await readiness.json()).checks;
+  const readinessResult = await readiness.json();
+  assert.equal(readinessResult.ready, false);
+  const checks = readinessResult.checks;
   assert.equal(checks.schema, false); assert.equal(checks.price, true); assert.equal(checks.delivery, true);
   const logout = await request("/api/pro/auth", { method: "DELETE" }); assert.equal(logout.status, 200);
   assert.ok(logout.headers.getSetCookie().some(c => /Max-Age=0/i.test(c)));

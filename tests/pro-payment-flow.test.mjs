@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { proFixtures, USER_A, USER_B } from "./pro-fixtures.mjs";
-import { createProCheckout } from "../lib/pro-stripe.mjs";
+import { createProCheckout, proCheckoutAvailable } from "../lib/pro-stripe.mjs";
 import { processProWebhook } from "../lib/pro-webhook.mjs";
 import { resolveProEntitlement } from "../lib/pro-entitlements.mjs";
 import { proCheckoutHandler, proAuthHandler, proSignoutHandler, proAccessHandler, proScenarioHandler, proPortalHandler } from "../lib/pro-handlers.mjs";
@@ -164,7 +164,8 @@ test("authenticated routes isolate saved scenarios, CSV exports and portal owner
     assert.equal((await mine.json()).scenarios[0].user_id, USER_A);
     const theirs = await proScenarioHandler(makeRequest("/api/pro/scenarios", { cookie: cookieB })); assert.equal((await theirs.json()).scenarios.length, 0);
     const overwrite = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "POST", cookie: cookieB, body: scenario })); assert.equal(overwrite.status, 409);
-    await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "DELETE", cookie: cookieB, body: { id: scenario.id } }));
+    const crossDelete = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "DELETE", cookie: cookieB, body: { id: scenario.id } }));
+    assert.equal(crossDelete.status, 200);
     assert.equal((await f.store.scenarios(USER_A)).length, 1);
     const csv = await proScenarioHandler(makeRequest("/api/pro/scenarios/export", { cookie: cookieA }), { csv: true });
     assert.equal(csv.status, 200); assert.match(await csv.text(), /' =|"'=HYPERLINK/);
@@ -249,5 +250,38 @@ test("returning customers ignore canceled history; portal isolation, scenario ca
     await f.db.exec("update public.pro_rate_limits set used=1000");
     const logout = await proSignoutHandler(makeRequest("/api/pro/auth", { method: "DELETE", cookie }));
     assert.equal(logout.status, 200); assert.ok(logout.headers.getSetCookie().some(c => /Max-Age=0/i.test(c)));
+  } finally { await f.close(); }
+});
+
+
+test("provider availability rejects wrong IDs and actual service-role permission failures", async () => {
+  const f = await proFixtures();
+  try {
+    const options = { env: f.env, stripe: f.stripe, store: f.store };
+    assert.equal(await proCheckoutAvailable(options), true);
+    for (const read of [() => f.stripe.prices.retrieve("price_wrong"), () => f.stripe.webhookEndpoints.retrieve("we_wrong"), () => f.stripe.billingPortal.configurations.retrieve("bpc_wrong")]) await assert.rejects(read(), error => error.statusCode === 404);
+    f.state.priceValid = false; assert.equal(await proCheckoutAvailable(options), false);
+    f.state.priceValid = true; f.state.deliveryValid = false; assert.equal(await proCheckoutAvailable(options), false);
+    f.state.deliveryValid = true; f.state.schemaDown = true; assert.equal(await proCheckoutAvailable(options), false);
+    f.state.schemaDown = false;
+    await f.db.exec("revoke select on public.pro_accounts from service_role");
+    await assert.rejects(f.store.account(USER_A, false), /storage_unavailable/);
+    await f.db.exec("grant select on public.pro_accounts to service_role");
+    assert.equal(await f.store.account(USER_A, false), null);
+    assert.equal(f.state.writes, 0);
+  } finally { await f.close(); }
+});
+
+test("signup, recovery and password changes preserve provider outage codes", async () => {
+  const f = await proFixtures();
+  try {
+    const request = (action, cookie) => new Request(`${f.env.PRO_APP_ORIGIN}/api/pro/auth`, { method: "POST", headers: { Origin: f.env.PRO_APP_ORIGIN, "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify({ action, email: "one@example.test", password: "local-test-password" }) });
+    const login = await proAuthHandler(request("login")); assert.equal(login.status, 200);
+    const cookie = login.headers.getSetCookie().map(c => c.split(";", 1)[0]).join("; ");
+    for (const [action, path, method] of [["signup", "/auth/v1/signup", "POST"], ["recover", "/auth/v1/recover", "POST"], ["password", "/auth/v1/user", "PUT"]]) {
+      f.state.authFailure = { path, method, status: 503 };
+      const response = await proAuthHandler(request(action, cookie));
+      assert.equal(response.status, 503); assert.equal((await response.json()).error, "auth_provider_unavailable");
+    }
   } finally { await f.close(); }
 });
