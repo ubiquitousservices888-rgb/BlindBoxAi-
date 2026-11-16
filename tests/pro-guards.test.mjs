@@ -22,6 +22,7 @@ test("live billing requires explicit configuration and cannot choose another pro
   assert.equal(proCheckoutConfigured(ready), true);
   assert.equal(proCheckoutConfigured({ ...ready, SUPABASE_URL: "https://other-project.supabase.co" }), false);
   assert.equal(proCheckoutConfigured({ ...ready, SUPABASE_URL: "" }), false);
+  for (const name of ["SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) assert.equal(proCheckoutConfigured({ ...ready, [name]: "   " }), false);
   assert.equal(proCheckoutConfigured({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }), false);
   assert.throws(() => proStripeConfig({ ...ready, PRO_STRIPE_WEBHOOK_SECRET: "malformed" }, { checkout: true }), /checkout_unavailable/);
   assert.ok(proMissingSettings({ ...ready, PRO_PAYMENTS_ENABLED: "false" }).includes("PRO_PAYMENTS_ENABLED"));
@@ -55,6 +56,11 @@ test("cross-origin requests and unbounded or malformed bodies are rejected", asy
   await assert.rejects(readProBody(request("[]")), /invalid_request/);
   await assert.rejects(readProBody(request("null")), /invalid_request/);
   assert.deepEqual(await readProBody(request("{}")), {});
+});
+
+test("isolated loopback Stripe HTTP uses port 80 when no port is specified", () => {
+  const stripe = createProStripe({ NODE_ENV: "test", BLINDBOXAI_ALLOW_TEST_INGEST: "true", PRO_STRIPE_MODE: "test", PRO_STRIPE_SECRET_KEY: "rk_test_fixture", PRO_STRIPE_PRICE_ID: "price_fixture", PRO_STRIPE_PRODUCT_ID: "prod_fixture", PRO_STRIPE_API_ORIGIN: "http://127.0.0.1/" });
+  assert.equal(stripe.getApiField("port"), 80);
 });
 
 test("CSV guards formula injection while preserving numeric loss amounts", () => {

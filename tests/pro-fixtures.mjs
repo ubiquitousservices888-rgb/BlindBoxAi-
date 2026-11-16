@@ -94,6 +94,7 @@ export async function proFixtures() {
       }
       if (!url.pathname.startsWith("/v1/")) return reply({ error: "missing" }, 404);
       if (req.headers.authorization !== `Bearer ${env.PRO_STRIPE_SECRET_KEY}`) return reply({ error: { message: "Invalid API key", type: "authentication_error" } }, 401);
+      if (state.providerGate) await state.providerGate;
       state.requests.push({ path: url.pathname, method: req.method, params: Object.fromEntries(form) });
       if (req.method === "POST") state.writes++;
       const key = req.headers["idempotency-key"];
@@ -104,6 +105,7 @@ export async function proFixtures() {
       }
       const finish = value => { if (key) state.idempotency.set(key, { raw, value }); reply(value); };
       const missing = () => reply({ error: { type: "invalid_request_error", code: "resource_missing", message: "No such fixture resource" } }, 404);
+      const mapped = map => { const value = map.get(url.pathname.split("/").pop()); return value ? reply(value) : missing(); };
       if (url.pathname.startsWith("/v1/prices/")) return url.pathname.split("/").pop() === providerIds.price ? reply(price()) : missing();
       if (url.pathname.startsWith("/v1/webhook_endpoints/")) return url.pathname.split("/").pop() === providerIds.webhook ? reply({ id: providerIds.webhook, status: state.deliveryValid ? "enabled" : "disabled", livemode: false, url: `${env.PRO_APP_ORIGIN}/api/pro/webhook`, api_version: PRO_STRIPE_API_VERSION, enabled_events: PRO_EVENTS, metadata: { integration: PRO_INTEGRATION } }) : missing();
       if (url.pathname.startsWith("/v1/billing_portal/configurations/")) return url.pathname.split("/").pop() === providerIds.portal ? reply({ id: providerIds.portal, active: true, livemode: false, metadata: { integration: state.portalIntegration }, features: { subscription_cancel: { enabled: true, mode: "at_period_end" }, payment_method_update: { enabled: true }, subscription_update: { enabled: false } } }) : missing();
@@ -111,7 +113,7 @@ export async function proFixtures() {
         const value = { id: `cus_fixture_${++state.customerCreates}`, object: "customer", livemode: false };
         state.customers.set(value.id, value); return finish(value);
       }
-      if (url.pathname.startsWith("/v1/customers/")) return reply(state.customers.get(url.pathname.split("/").pop()));
+      if (url.pathname.startsWith("/v1/customers/")) return mapped(state.customers);
       if (url.pathname === "/v1/subscriptions") return reply({ object: "list", has_more: false, data: [...state.subscriptions.values()].filter(s => s.customer === url.searchParams.get("customer")) });
       if (url.pathname.startsWith("/v1/subscriptions/")) {
         const sub = state.subscriptions.get(url.pathname.split("/").pop());
@@ -122,9 +124,9 @@ export async function proFixtures() {
         const value = { id: `cs_test_fixture_${++state.checkoutCreates}`, object: "checkout.session", mode: "subscription", status: "open", payment_status: "unpaid", customer: form.get("customer"), livemode: false, url: `https://checkout.stripe.com/c/pay/local_fixture_${state.checkoutCreates}`, expires_at: Number(form.get("expires_at")) };
         state.sessions.set(value.id, value); return finish(value);
       }
-      if (url.pathname.startsWith("/v1/checkout/sessions/")) return reply(state.sessions.get(url.pathname.split("/").pop()));
-      if (url.pathname.startsWith("/v1/invoices/")) return reply(state.invoices.get(url.pathname.split("/").pop()));
-      if (url.pathname.startsWith("/v1/charges/")) return reply(state.charges.get(url.pathname.split("/").pop()));
+      if (url.pathname.startsWith("/v1/checkout/sessions/")) return mapped(state.sessions);
+      if (url.pathname.startsWith("/v1/invoices/")) return mapped(state.invoices);
+      if (url.pathname.startsWith("/v1/charges/")) return mapped(state.charges);
       if (url.pathname === "/v1/billing_portal/sessions") return finish({ id: "bps_fixture", customer: form.get("customer"), url: "https://billing.stripe.com/p/session/local_fixture" });
       return reply({ error: { type: "invalid_request_error", message: "Unimplemented fixture" } }, 404);
     } catch (error) {

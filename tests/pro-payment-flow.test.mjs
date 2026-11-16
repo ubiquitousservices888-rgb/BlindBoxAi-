@@ -4,7 +4,7 @@ import { proFixtures, USER_A, USER_B } from "./pro-fixtures.mjs";
 import { createProCheckout, proCheckoutAvailable } from "../lib/pro-stripe.mjs";
 import { processProWebhook } from "../lib/pro-webhook.mjs";
 import { resolveProEntitlement } from "../lib/pro-entitlements.mjs";
-import { proCheckoutHandler, proAuthHandler, proSignoutHandler, proAccessHandler, proScenarioHandler, proPortalHandler } from "../lib/pro-handlers.mjs";
+import { proCheckoutHandler, proAuthHandler, proAuthCallback, proSignoutHandler, proAccessHandler, proScenarioHandler, proPortalHandler } from "../lib/pro-handlers.mjs";
 import { normalizeProScenario, proScenariosCsv } from "../lib/pro-collection.mjs";
 
 test("one checkout, signed fulfillment, renewal failure, cancellation, and risk events use disposable HTTP services", async () => {
@@ -81,11 +81,11 @@ test("configuration, price, delivery and origin failures make no provider write"
   } finally { await f.close(); }
 });
 
-test("a lost checkout checkpoint retries the exact submission and delayed payments stay unfulfilled", async () => {
+for (const committed of [false, true]) test(`a lost ${committed ? "committed" : "uncommitted"} checkout checkpoint retries once and delayed payments stay unfulfilled`, async () => {
   const f = await proFixtures();
   try {
     let checkpoints = 0;
-    const store = { ...f.store, saveCheckout: async (...args) => { if (++checkpoints === 1) throw new Error("simulated lost storage response"); return f.store.saveCheckout(...args); } };
+    const store = { ...f.store, saveCheckout: async (...args) => { const result = committed ? await f.store.saveCheckout(...args) : undefined; if (++checkpoints === 1) throw new Error("simulated lost storage response"); return committed ? result : f.store.saveCheckout(...args); } };
     const options = { user: f.users.get(USER_A), store, stripe: f.stripe, env: f.env };
     await assert.rejects(createProCheckout(options), /simulated lost storage response/);
     const resumed = await createProCheckout(options);
@@ -259,7 +259,7 @@ test("provider availability rejects wrong IDs and actual service-role permission
   try {
     const options = { env: f.env, stripe: f.stripe, store: f.store };
     assert.equal(await proCheckoutAvailable(options), true);
-    for (const read of [() => f.stripe.prices.retrieve("price_wrong"), () => f.stripe.webhookEndpoints.retrieve("we_wrong"), () => f.stripe.billingPortal.configurations.retrieve("bpc_wrong")]) await assert.rejects(read(), error => error.statusCode === 404);
+    for (const read of [() => f.stripe.prices.retrieve("price_wrong"), () => f.stripe.webhookEndpoints.retrieve("we_wrong"), () => f.stripe.billingPortal.configurations.retrieve("bpc_wrong"), () => f.stripe.customers.retrieve("cus_wrong"), () => f.stripe.checkout.sessions.retrieve("cs_test_wrong"), () => f.stripe.invoices.retrieve("in_wrong"), () => f.stripe.charges.retrieve("ch_wrong")]) await assert.rejects(read(), error => error.statusCode === 404);
     f.state.priceValid = false; assert.equal(await proCheckoutAvailable(options), false);
     f.state.priceValid = true; f.state.deliveryValid = false; assert.equal(await proCheckoutAvailable(options), false);
     f.state.deliveryValid = true; f.state.schemaDown = true; assert.equal(await proCheckoutAvailable(options), false);
@@ -283,5 +283,9 @@ test("signup, recovery and password changes preserve provider outage codes", asy
       const response = await proAuthHandler(request(action, cookie));
       assert.equal(response.status, 503); assert.equal((await response.json()).error, "auth_provider_unavailable");
     }
+    const callback = () => proAuthCallback(new Request(`${f.env.PRO_APP_ORIGIN}/api/pro/auth/callback?code=invalid-fixture`));
+    assert.match((await callback()).headers.get("location"), /auth=confirmation_failed/);
+    await f.db.exec("update public.pro_rate_limits set used=1000");
+    assert.match((await callback()).headers.get("location"), /auth=retry_later/);
   } finally { await f.close(); }
 });

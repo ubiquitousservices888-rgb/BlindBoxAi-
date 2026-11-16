@@ -26,7 +26,21 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   assert.equal(ready, true, "built disposable Next app starts");
-  const page = await request("/pro"); assert.equal(page.status, 200); assert.match(await page.text(), /Open your Pro account/);
+  let releaseProvider, deadlineTimer, reader, html = "";
+  fixture.state.providerGate = new Promise(resolve => { releaseProvider = resolve; });
+  const deadline = new Promise((_, reject) => { deadlineTimer = setTimeout(() => reject(new Error("free calculator blocked on billing probes")), 3000); });
+  const decoder = new TextDecoder();
+  try {
+    const page = await Promise.race([request("/pro"), deadline]); assert.equal(page.status, 200);
+    reader = page.body.getReader();
+    while (!html.includes("Free resale margin check")) {
+      const chunk = await Promise.race([reader.read(), deadline]);
+      assert.equal(chunk.done, false, "free calculator renders while Stripe probes are blocked");
+      html += decoder.decode(chunk.value, { stream: true });
+    }
+  } finally { clearTimeout(deadlineTimer); fixture.state.providerGate = null; releaseProvider(); }
+  while (true) { const chunk = await reader.read(); if (chunk.done) break; html += decoder.decode(chunk.value, { stream: true }); }
+  assert.match(html, /Open your Pro account/);
   fixture.state.deliveryValid = false;
   assert.doesNotMatch(await (await request("/pro")).text(), /Open your Pro account/);
   fixture.state.deliveryValid = true;

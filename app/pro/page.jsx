@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import Waitlist from "./waitlist";
 import ResaleCalculator from "./ResaleCalculator";
 import { proCheckoutAvailable } from "../../lib/pro-stripe.mjs";
@@ -10,8 +11,12 @@ export const metadata = {
   description: "Calculate a collectible resale margin with your own assumptions. Join free early access for BlindBoxAI reseller tools built around evidence, costs, and reasons to pass.",
 };
 
-export default async function Pro() {
+async function ProEnrollment() {
   const subscriptionsOpen = await proCheckoutAvailable();
+  return subscriptionsOpen ? <><p><strong>$9.99 USD/month</strong>. Review applicable tax at checkout. Cancel renewal through your account.</p><Link className="cta" href="/pro/account">Open your Pro account</Link></> : <p>New subscriptions are not open yet. The free calculator and waitlist below remain available.</p>;
+}
+
+export default function Pro() {
   return (
     <main>
       <Link className="crumb" href="/">← All series</Link>
@@ -24,7 +29,7 @@ export default async function Pro() {
       <section className="plan" style={{ marginBottom: "24px" }}>
         <h2>BlindBoxAI Pro</h2>
         <p>Save up to 250 resale cost scenarios, compare your own assumptions, and export your saved scenarios to CSV. Automated price alerts and market valuations are not included.</p>
-        {subscriptionsOpen ? <><p><strong>$9.99 USD/month</strong>. Review applicable tax at checkout. Cancel renewal through your account.</p><Link className="cta" href="/pro/account">Open your Pro account</Link></> : <p>New subscriptions are not open yet. The free calculator and waitlist below remain available.</p>}
+        <Suspense fallback={<p>Checking Pro enrollment availability…</p>}><ProEnrollment /></Suspense>
       </section>
       <div className="plan">
         <p className="fine">EARLY ACCESS · NO CHARGE · NO GUARANTEED INVITE</p>

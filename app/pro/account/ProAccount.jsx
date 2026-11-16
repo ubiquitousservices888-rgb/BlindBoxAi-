@@ -61,6 +61,7 @@ export default function ProAccount() {
     const marker = new URLSearchParams(window.location.search).get("auth");
     if (marker === "confirmation_failed") setNotice("This confirmation or recovery link is invalid or expired. Sign in, or request a new recovery email.");
     if (marker === "service_unavailable") setNotice("Account confirmation is temporarily unavailable. Please retry later.");
+    if (marker === "retry_later") setNotice(messages.try_again_later);
     refresh();
   }, []);
   async function perform(action) {
@@ -120,7 +121,7 @@ export default function ProAccount() {
           <button disabled={busy} onClick={() => perform(refresh)}>Refresh access</button>
           <button disabled={busy} onClick={() => perform(async () => { await api("/api/pro/auth", "DELETE"); setPassword(""); clearEditor(); await refresh(); })}>Sign out</button>
         </div>
-        {!access.checkoutAvailable && !access.allowed ? <p>New subscriptions are not open yet. Your free account does not incur charges.</p> : null}
+        {access.reason === "billing_unavailable" ? <p>Billing verification is temporarily unavailable. Retry the account check before making another payment attempt.</p> : !access.checkoutAvailable && !access.allowed && access.reason === "subscription_required" ? <p>New subscriptions are not open yet. Your free account does not incur charges.</p> : null}
         <p className="fine">Pro is $9.99 USD per month. Review the total, including any applicable tax, on Stripe before paying. Cancel in Manage billing to stop renewal; access continues through the paid period. Refunds and payment reviews may suspend access.</p>
       </section>
       {access.allowed ? <section className="plan" style={{ marginTop: "24px" }}>
