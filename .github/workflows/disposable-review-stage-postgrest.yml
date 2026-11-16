@@ -51,7 +51,12 @@ jobs:
             research_run_id text PRIMARY KEY,
             status text NOT NULL,
             title text NOT NULL,
-            video_url text NOT NULL
+            video_url text NOT NULL,
+            publishing_at timestamptz,
+            updated_at timestamptz,
+            buffer_post_ids jsonb NOT NULL DEFAULT '{}',
+            public_urls jsonb NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(public_urls) = 'object'),
+            published_channels text[] NOT NULL DEFAULT '{}' CHECK (cardinality(published_channels) <= 16)
           );
           GRANT USAGE ON SCHEMA public TO web_anon;
           GRANT SELECT, INSERT, UPDATE, DELETE ON public.review_video_queue TO web_anon;
@@ -72,7 +77,7 @@ jobs:
           done
           echo "::error::Disposable PostgREST failed to become ready"
           exit 1
-      - name: Prove ignored conflict preserves approval and rejected states
+      - name: Prove staging and accepted-post checkpoints against disposable PostgREST
         run: node --test tests/postgrest-stage-conflict.integration.mjs
       - name: Dispose of isolated database runtime
         if: always()

@@ -53,7 +53,22 @@ function safePublicUrl(channel: string, value: unknown) {
   if (channel === "twitter" && ["x.com", "www.x.com", "twitter.com", "www.twitter.com", "mobile.twitter.com"].includes(host)) {
     if (/^\/(?:i\/web\/|[^/]+\/)status\/\d+(?:\/)?$/.test(url.pathname)) return url.toString();
   }
+  if (channel === "linkedin" && ["linkedin.com", "www.linkedin.com"].includes(host) && !url.search && !url.hash &&
+      /^\/feed\/update\/urn(?::|%3A)li(?::|%3A)(?:share|activity|ugcPost)(?::|%3A)\d{6,25}\/?$/i.test(url.pathname)) {
+    return url.toString();
+  }
   return null;
+}
+// Primary channels decide when a row is fully published. Add-on channels
+// (LinkedIn) are posted afterwards, only for a video already verified live on
+// a primary channel, and never change whether the row counts as published.
+const PRIMARY_PUBLISH_CHANNELS = ["youtube", "tiktok"];
+const ADDON_PUBLISH_CHANNELS = ["linkedin"];
+function isAddOnChannel(channel: string) { return ADDON_PUBLISH_CHANNELS.includes(channel); }
+function hasVerifiedPrimaryChannel(item: any) {
+  const channels = Array.isArray(item?.published_channels) ? item.published_channels : [];
+  const urls = item?.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
+  return PRIMARY_PUBLISH_CHANNELS.some((value) => channels.includes(value) && Boolean(safePublicUrl(value, urls[value])));
 }
 const REVIEW_BUCKET = "blindboxai-review-videos";
 const REVIEW_PATH_PREFIX = "media/review/";
@@ -140,16 +155,19 @@ async function stage(req: Request, body: any) {
   if (canonical.video_url !== videoUrl || !canonical.title) return json({ error: "Canonical review identity mismatch" }, 409);
   return json({ status: "staged_for_owner_review", state: "READY_FOR_REVIEW", approved: false, duplicate: true, videoUrl: canonical.video_url, title: canonical.title, researchRunId, campaignId: `bb-${researchRunId}` });
 }
-async function listReady(req: Request) {
+async function listReady(req: Request, body: any) {
   if (!await ownerControlAuthorized(req)) return json({ error: "Unauthorized" }, 401);
+  // Owner dashboard may also ask for approved-but-unpublished rows so it can
+  // show them and re-launch publishing. Default stays ready_for_review only.
+  const statuses = body?.includeApproved === true ? ["ready_for_review", "approved"] : ["ready_for_review"];
   try {
     const items = await collectPaginatedRows({
       pageSize: OWNER_REVIEW_PAGE_SIZE,
       maxPages: OWNER_REVIEW_MAX_PAGES,
       fetchPage: async (from, to) => {
         const { data, error } = await db.from("review_video_queue")
-          .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at")
-          .eq("status", "ready_for_review")
+          .select("research_run_id,video_url,title,vertical,size_bytes,duration_seconds,width,height,status,approved_at,created_at,updated_at,last_error")
+          .in("status", statuses)
           .order("created_at", { ascending: false })
           .range(from, to);
         if (error) throw new Error("Queue lookup failed");
@@ -266,15 +284,20 @@ function requestedResearchRunId(body: any) {
 }
 
 const STALE_PUBLISHING_LEASE_MS = 45 * 60 * 1000;
-function claimableStatusFilter() {
+function claimableStatusFilter(channel = "") {
   const cutoff = new Date(Date.now() - STALE_PUBLISHING_LEASE_MS).toISOString();
-  return `status.eq.approved,and(status.eq.publishing,publishing_at.lt."${cutoff}")`;
+  const base = `status.eq.approved,and(status.eq.publishing,publishing_at.lt."${cutoff}")`;
+  // An add-on post may follow a row that is already fully published.
+  return isAddOnChannel(channel) ? `${base},status.eq.published` : base;
 }
 
 async function nextApprovedForChannel(channel: string, researchRunId = "") {
+  // Add-on posts are sent only for one exact, owner-named row, so they never
+  // scan the queue (and never miss a row beyond the scan window).
+  if (isAddOnChannel(channel) && !researchRunId) return null;
   let query = db.from("review_video_queue")
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls")
-    .or(claimableStatusFilter())
+    .or(claimableStatusFilter(channel))
     .order("approved_at", { ascending: true });
   if (researchRunId) query = query.eq("research_run_id", researchRunId);
   const { data, error } = await query.limit(researchRunId ? 1 : 100);
@@ -283,6 +306,7 @@ async function nextApprovedForChannel(channel: string, researchRunId = "") {
     if (!channel) return true;
     const channels = Array.isArray(item.published_channels) ? item.published_channels : [];
     const urls = item.public_urls && typeof item.public_urls === "object" ? item.public_urls : {};
+    if (isAddOnChannel(channel) && !hasVerifiedPrimaryChannel(item)) return false;
     return !channels.includes(channel) || !safePublicUrl(channel, urls[channel]);
   }) || null;
 }
@@ -317,7 +341,7 @@ async function claim(req: Request, body: any) {
   const { data: claimed, error: claimError } = await db.from("review_video_queue")
     .update({ status: "publishing", publishing_at: now, updated_at: now })
     .eq("research_run_id", item.research_run_id)
-    .or(claimableStatusFilter())
+    .or(claimableStatusFilter(channel))
     .select("research_run_id,video_url,title,vertical,published_channels,buffer_post_ids,public_urls,publishing_at")
     .maybeSingle();
   if (claimError) return json({ error: "Queue claim failed" }, 500);
@@ -347,6 +371,43 @@ function leaseTokenFrom(body: any) {
   const token = clean(body?.leaseToken, 40);
   return token && !Number.isNaN(Date.parse(token)) ? token : "";
 }
+async function recordSubmission(req: Request, body: any) {
+  if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
+  const researchRunId = clean(body?.researchRunId, 40);
+  const channel = clean(body?.channel, 32).toLowerCase();
+  const externalId = clean(body?.externalId, 200);
+  const leaseToken = leaseTokenFrom(body);
+  if (!/^rv-[a-f0-9]{16}$/.test(researchRunId) || !["youtube", "tiktok", "linkedin"].includes(channel) ||
+      !/^[A-Za-z0-9_-]{1,200}$/.test(externalId) || !leaseToken) {
+    return json({ error: "Invalid submission receipt" }, 400);
+  }
+  const { data: current, error: readError } = await db.from("review_video_queue")
+    .select("buffer_post_ids")
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .maybeSingle();
+  if (readError) return json({ error: "Queue submission lookup failed" }, 500);
+  if (!current) return json({ error: "Queue submission lost its publishing lease" }, 409);
+  const prior = current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {};
+  if (prior[channel]) {
+    if (prior[channel] !== externalId) return json({ error: "Conflicting Buffer submission receipt" }, 409);
+    return json({ ok: true, idempotent: true });
+  }
+  // CAS the whole receipt map as well as the lease so concurrent checkpoints
+  // cannot lose another channel's ID. This never marks a channel published.
+  const { data, error } = await db.from("review_video_queue")
+    .update({ buffer_post_ids: { ...prior, [channel]: externalId }, updated_at: new Date().toISOString() })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .eq("buffer_post_ids", JSON.stringify(prior))
+    .select("research_run_id")
+    .maybeSingle();
+  if (error) return json({ error: "Queue submission checkpoint failed" }, 500);
+  if (!data) return json({ error: "Queue submission lost its publishing lease or receipt changed" }, 409);
+  return json({ ok: true, idempotent: false });
+}
 async function recordChannel(req: Request, body: any) {
   if (!await githubAuthorized(req)) return json({ error: "GitHub publisher authorization required" }, 403);
   const researchRunId = clean(body?.researchRunId, 40);
@@ -360,26 +421,36 @@ async function recordChannel(req: Request, body: any) {
   const leaseToken = leaseTokenFrom(body);
   if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
   if (!/^[a-z0-9_-]{2,32}$/.test(channel) || !externalId || !publicUrl) return json({ error: "Invalid verified channel publication" }, 400);
-  if (!targetChannels.length || !targetChannels.includes(channel)) return json({ error: "Invalid target channel set" }, 400);
+  if (!targetChannels.length || targetChannels.some((value: string) => !PRIMARY_PUBLISH_CHANNELS.includes(value)) ||
+      (!targetChannels.includes(channel) && !isAddOnChannel(channel))) {
+    return json({ error: "Invalid target channel set" }, 400);
+  }
 
   const { data: current, error: readError } = await db.from("review_video_queue")
-    .select("published_channels,buffer_post_ids,public_urls")
+    .select("published_channels,buffer_post_ids,public_urls,published_at")
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
     .eq("publishing_at", leaseToken)
     .maybeSingle();
   if (readError) return json({ error: "Queue lookup failed" }, 500);
   if (!current) return json({ error: "Queue item is not currently publishing" }, 409);
+  if (current.buffer_post_ids?.[channel] && current.buffer_post_ids[channel] !== externalId) {
+    return json({ error: "Verified channel conflicts with its submission receipt" }, 409);
+  }
+  if (isAddOnChannel(channel) && !hasVerifiedPrimaryChannel(current)) {
+    return json({ error: "Add-on channel requires a verified primary channel first" }, 409);
+  }
 
   const publishedChannels = [...new Set([...(Array.isArray(current.published_channels) ? current.published_channels : []), channel])];
   const bufferPostIds = { ...(current.buffer_post_ids && typeof current.buffer_post_ids === "object" ? current.buffer_post_ids : {}), [channel]: externalId };
   const publicUrls = { ...(current.public_urls && typeof current.public_urls === "object" ? current.public_urls : {}), [channel]: publicUrl };
-  const allDone = targetChannels.every((value: string) =>
+  const wasPublished = Boolean(current.published_at);
+  const allDone = wasPublished || targetChannels.every((value: string) =>
     publishedChannels.includes(value) && Boolean(safePublicUrl(value, publicUrls[value]))
   );
   const now = new Date().toISOString();
   const patch = allDone
-    ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, published_at: now, updated_at: now, last_error: null }
+    ? { status: "published", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, published_at: current.published_at || now, updated_at: now, last_error: null }
     : { status: "publishing", published_channels: publishedChannels, buffer_post_ids: bufferPostIds, public_urls: publicUrls, publishing_at: leaseToken, updated_at: now, last_error: null };
 
   const { data, error } = await db.from("review_video_queue")
@@ -400,17 +471,28 @@ async function release(req: Request, body: any) {
   if (!/^rv-[a-f0-9]{16}$/.test(researchRunId)) return json({ error: "Invalid researchRunId" }, 400);
   const leaseToken = leaseTokenFrom(body);
   if (!leaseToken) return json({ error: "Invalid lease token" }, 400);
+  // A row that was already fully published (an add-on attempt) goes back to
+  // published; anything else reopens as approved for a safe retry.
   const now = new Date().toISOString();
+  const lastError = clean(body?.error, 500) || "Public post verification pending";
+  const restored = await db.from("review_video_queue")
+    .update({ status: "published", publishing_at: null, updated_at: now, last_error: lastError })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .not("published_at", "is", null);
+  if (restored.error) return json({ error: "Queue release failed" }, 500);
   const { error } = await db.from("review_video_queue")
     .update({
       status: "approved",
       publishing_at: null,
       updated_at: now,
-      last_error: clean(body?.error, 500) || "Public post verification pending",
+      last_error: lastError,
     })
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
-    .eq("publishing_at", leaseToken);
+    .eq("publishing_at", leaseToken)
+    .is("published_at", null);
   if (error) return json({ error: "Queue release failed" }, 500);
   return json({ ok: true });
 }
@@ -424,17 +506,28 @@ async function complete(req: Request, body: any) {
   if (body?.success === true) {
     return json({ error: "Verified channel URLs must be recorded with record_channel" }, 409);
   }
+  // A row that was already fully published (an add-on attempt) goes back to
+  // published; anything else reopens as approved for a safe retry.
   const now = new Date().toISOString();
+  const lastError = clean(body?.error, 500) || "Publish failed; row reopened for safe retry";
+  const restored = await db.from("review_video_queue")
+    .update({ status: "published", publishing_at: null, updated_at: now, last_error: lastError })
+    .eq("research_run_id", researchRunId)
+    .eq("status", "publishing")
+    .eq("publishing_at", leaseToken)
+    .not("published_at", "is", null);
+  if (restored.error) return json({ error: "Queue update failed" }, 500);
   const { error } = await db.from("review_video_queue")
     .update({
       status: "approved",
       publishing_at: null,
       updated_at: now,
-      last_error: clean(body?.error, 500) || "Publish failed; row reopened for safe retry",
+      last_error: lastError,
     })
     .eq("research_run_id", researchRunId)
     .eq("status", "publishing")
-    .eq("publishing_at", leaseToken);
+    .eq("publishing_at", leaseToken)
+    .is("published_at", null);
   if (error) return json({ error: "Queue update failed" }, 500);
   return json({ ok: true });
 }
@@ -444,13 +537,14 @@ Deno.serve(async (req: Request) => {
   let body: any; try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const action = clean(body?.action, 30);
   if (action === "stage") return stage(req, body);
-  if (action === "list") return listReady(req);
+  if (action === "list") return listReady(req, body);
   if (action === "approve") return approve(req, body);
   if (action === "reject") return reject(req, body);
   if (action === "delete") return deleteReview(req, body);
   if (action === "peek") return peek(req, body);
   if (action === "claim") return claim(req, body);
   if (action === "repair_title") return repairTitle(req, body);
+  if (action === "record_submission") return recordSubmission(req, body);
   if (action === "record_channel") return recordChannel(req, body);
   if (action === "release") return release(req, body);
   if (action === "complete") return complete(req, body);

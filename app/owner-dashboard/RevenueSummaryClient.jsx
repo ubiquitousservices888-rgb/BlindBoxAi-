@@ -77,6 +77,9 @@ export default function RevenueSummaryClient() {
   const [epnFile, setEpnFile] = useState(null);
   const [amazonFile, setAmazonFile] = useState(null);
   const [message, setMessage] = useState("");
+  const [epnLive, setEpnLive] = useState(null);
+  const [epnLiveError, setEpnLiveError] = useState("");
+  const [epnLiveChecking, setEpnLiveChecking] = useState(false);
 
   async function load(token) {
     if (!token) {
@@ -122,12 +125,34 @@ export default function RevenueSummaryClient() {
       const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${code}` }, body: form, cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `Unable to import ${label} report.`);
-      setMessage(`${label} report connected: ${numberOrStatus(data.orders)} orders, ${money(data.earnings)} confirmed earnings.`);
+      const description = label === "eBay EPN" ? "confirmed BlindBoxAI transactions" : "reported orders";
+      setMessage(`${label} report imported: ${numberOrStatus(data.orders)} ${description}, ${money(data.earnings)} ${label === "eBay EPN" ? "eligible commissions" : "reported commissions"}.${data.warning ? ` ${data.warning}` : ""}`);
       await load(code);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `Unable to import ${label} report.`);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function verifyEpnLive() {
+    if (!code || epnLiveChecking) return;
+    setEpnLiveChecking(true);
+    setEpnLive(null);
+    setEpnLiveError("");
+    try {
+      const response = await fetch("/api/owner/epn-tdr", {
+        headers: { Authorization: `Bearer ${code}` }, cache: "no-store",
+      });
+      const report = await response.json().catch(() => ({}));
+      if (!response.ok || report.source !== "epn_authenticated_tdr_api" || report.persisted !== false) {
+        throw new Error("Live eBay reporting could not be verified. Check the owner settings or provider access.");
+      }
+      setEpnLive(report);
+    } catch {
+      setEpnLiveError("Live eBay reporting is not verified. No commission data was saved.");
+    } finally {
+      setEpnLiveChecking(false);
     }
   }
 
@@ -174,7 +199,25 @@ export default function RevenueSummaryClient() {
 
     <section style={{ border: "1px solid currentColor", borderRadius: 12, padding: 16 }}>
       <h3 style={{ marginTop: 0 }}>Network status & payout timing</h3>
+      <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
+        <button type="button" disabled={busy || epnLiveChecking} onClick={verifyEpnLive} style={{ padding: 12, fontWeight: 700 }}>
+          {epnLiveChecking ? "Checking eBay reporting..." : "Verify live eBay report (read-only)"}
+        </button>
+        {epnLiveError ? <p role="alert">{epnLiveError}</p> : null}
+        {epnLive ? <div role="status" style={{ border: "1px solid currentColor", padding: 12, borderRadius: 8 }}>
+          <p><strong>Authenticated provider report received.</strong> No report or commission record has been saved by this check.</p>
+          <p>Provider report type: {epnLive.reportType === "transaction_detail" ? "Transaction detail" : "Unverified report type"}</p>
+          <p>Approved BlindBoxAI transaction count: {numberOrStatus(epnLive.matchedApprovedTransactions)}</p>
+          <p>Eligible commissions in this report window: {epnLive.reconciliationRequired ? "Withheld pending historical reconciliation" : money(epnLive.matchedApprovedEarningsUSD, UNAVAILABLE_IN_REPORT)}</p>
+          <p>Pending rows: {numberOrStatus(epnLive.pendingRows)}. Reversed rows: {numberOrStatus(epnLive.reversedRows)}.</p>
+          <p>Historical reconciliation: {epnLive.reconciliationRequired ? "Required before financial totals are used" : "Not triggered by this report; older periods remain unchecked"}.</p>
+          <p style={{ opacity: 0.75 }}>Data window: {epnLive.startDate} through {epnLive.endDate}. This does not prove a payout or all-time earnings.</p>
+        </div> : null}
+      </div>
       <p><strong>eBay:</strong> {epn.status || "Not connected"}</p>
+      {epn.warning ? <p role="status"><strong>Report warning:</strong> {epn.warning}</p> : null}
+      {epn.matchedClicks != null ? <p>BlindBoxAI-tagged EPN clicks (not revenue): {numberOrStatus(epn.matchedClicks)}</p> : null}
+      {epn.buckets ? <p>Network-reported commissions by classification (diagnostic only): {Object.entries(epn.buckets).map(([name, value]) => `${name}: ${money(value.networkReportedCommissions)}`).join(" | ")}</p> : null}
       <p style={{ opacity: 0.8 }}>{epn.payoutTiming}</p>
       <p><strong>Amazon:</strong> {amazon.status || "Not connected"}</p>
       <p style={{ opacity: 0.8 }}>{amazon.payoutTiming}</p>

@@ -59,9 +59,8 @@ export async function POST(request) {
   if (utmMedium) metadata.utmMedium = utmMedium;
   if (utmCampaign) metadata.utmCampaign = utmCampaign;
   if (utmContent) metadata.utmContent = utmContent;
-  if (eventName === "waitlist_signup") {
-    metadata.providerConfirmed = body?.providerConfirmed === true;
-  }
+  // Browser-supplied flags must never establish a confirmed signup.
+  // Only the owned /api/waitlist storage path can set trusted confirmation metadata.
 
   const event = {
     schemaVersion: 1,

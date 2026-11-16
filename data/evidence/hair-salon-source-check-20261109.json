@@ -1,0 +1,31 @@
+{
+  "checkedAt": "2026-11-09T16:40:12Z",
+  "method": "Read-only visit of both official US pages in a browser; fields matched in the rendered page text. No purchase, render or publication.",
+  "claimsMatched": {
+    "releaseDateAndTime": true,
+    "dimensionsCm": true,
+    "materials": true,
+    "officialUsRetailUSD": true
+  },
+  "retailUSD": 39.99,
+  "isCompletedSaleEvidence": false,
+  "sources": [
+    {
+      "url": "https://www.popmart.com/us/products/7890/the-monsters-hair-salon-series-vinyl-plush-pendant-blind-box",
+      "matchedText": [
+        "Online Release (Official Website): June 25, 2026 at 7:00 PM (PST)",
+        "SIZE: 9.5*8*17.5cm / 3.74*3.15*6.89inches",
+        "MATERIAL: Polyester / Nylon / PVC / ABS; Stuffing: Polyester Fibers"
+      ]
+    },
+    {
+      "url": "https://www.popmart.com/us/collection/11/the-monsters",
+      "finalUrl": "https://www.popmart.com/us/collection/the-monsters",
+      "matchedText": [
+        "THE MONSTERS Hair Salon Series - Vinyl Plush Pendant Blind Box $ 39.99"
+      ]
+    }
+  ],
+  "responseHashes": null,
+  "responseHashesNote": "Not recorded: this check read the pages in a browser because direct HTTPS fetches were not available from the checking environment. The rendered page is assembled client-side, so a hash of it would not be comparable to the October raw-HTML hashes."
+}

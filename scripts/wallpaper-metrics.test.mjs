@@ -34,6 +34,7 @@ test("snapshot contains aggregate-only totals and real series", () => {
     counts: {
       rawClicks: 1396,
       qualifiedClicks: 27,
+      unclassifiedClicks: 1369,
       analyticsEvents: 69,
       questions: 404,
       publishedVideos: 10,
@@ -48,6 +49,7 @@ test("snapshot contains aggregate-only totals and real series", () => {
   });
   assert.equal(snapshot.refreshSeconds, 900);
   assert.equal(snapshot.totals.rawClicks, 1396);
+  assert.equal(snapshot.totals.unclassifiedClicks, 1369);
   assert.equal(snapshot.totals.reviewQueue, 3);
   assert.equal(snapshot.totals.publishedVideos, 10);
   assert.equal(snapshot.totals.confirmedConversions, 0);
@@ -56,4 +58,13 @@ test("snapshot contains aggregate-only totals and real series", () => {
   assert.equal(snapshot.status.privacy, "aggregate-only");
   assert.equal(snapshot.last24h.qualifiedClicks.at(-1).count, 1);
   assert.equal(Object.prototype.hasOwnProperty.call(snapshot, "recentClicks"), false);
+});
+
+
+test("Android wallpaper displays unclassified traffic rather than labeling it human", async () => {
+  const fs = await import("node:fs");
+  const java = fs.readFileSync(new URL("../wallpaper/app/src/main/java/com/ubiquitous/blindboxwallpaper/WallpaperEngineService.java", import.meta.url), "utf8");
+  assert.match(java, /"UNCLASSIFIED", snapshot\.unclassifiedClicksText/);
+  assert.match(java, /totals\.optLong\("unclassifiedClicks", 0\)/);
+  assert.match(java, /this\.unclassifiedClicks = unclassifiedClicks/);
 });

@@ -1,0 +1,86 @@
+name: P1 owner dashboard read-only Playwright proof
+
+# Manual only: the existing hourly P1 watch remains the single coordinator.
+# Never call /api/owner/live-verify, approval, publishing, or click endpoints.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p1-owner-dashboard-read-only
+  cancel-in-progress: false
+
+jobs:
+  dashboard-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Install isolated Chromium
+        run: npx playwright install --with-deps chromium --only-shell
+      - name: Verify exact production URL with GET only
+        env:
+          TARGET_URL: https://blindboxai.com/owner-dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+
+          const expected = 'https://blindboxai.com/owner-dashboard';
+          if (process.env.TARGET_URL !== expected) throw new Error('Target URL changed');
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const context = await browser.newContext({
+              serviceWorkers: 'block',
+              acceptDownloads: false,
+              javaScriptEnabled: false,
+            });
+            const page = await context.newPage();
+            // No authentication, no clicks, no POSTs, no browser artifacts.
+            // Block any subresource requests; permit only the exact top-level GET.
+            await page.route('**/*', async (route) => {
+              const request = route.request();
+              if (request.isNavigationRequest() &&
+                  request.method() === 'GET' &&
+                  request.url() === expected) {
+                await route.continue();
+              } else {
+                await route.abort();
+              }
+            });
+            const response = await page.goto(expected, {
+              waitUntil: 'domcontentloaded',
+              timeout: 30000,
+            });
+            const status = response?.status() ?? 0;
+            const finalUrl = page.url();
+            console.log('P1_DASHBOARD_TARGET:', expected);
+            console.log('P1_DASHBOARD_HTTP_STATUS:', status);
+            console.log('P1_DASHBOARD_FINAL_URL:', finalUrl);
+            console.log('P1_GITHUB_TEST_REVISION:', process.env.GITHUB_SHA ?? 'unknown');
+            console.log('P1_DEPLOYED_VERCEL_REVISION: NOT_VERIFIED_BY_THIS_CHECK');
+            console.log('P1_AUTHENTICATED_OWNER_VIEW: NOT_VERIFIED_BY_THIS_CHECK');
+            console.log('P1_OWNER_SCREENSHOT: NOT_VERIFIED_BY_THIS_CHECK');
+            console.log('P1_DISCORD_OWNER_APPROVAL_RECEIPT: NOT_VERIFIED_BY_THIS_CHECK');
+            console.log('P1_PUBLIC_VIDEO_AND_SUPABASE_RECEIPT: NOT_VERIFIED_BY_THIS_CHECK');
+            if (status !== 200 || finalUrl !== expected) {
+              throw new Error('Exact production dashboard HTTP 200 check failed');
+            }
+            console.log('P1_DASHBOARD_EXACT_HTTP_200: PASS');
+          } finally {
+            await browser.close();
+          }
+          NODE

@@ -34,7 +34,7 @@ test("social visit, consent, first-party event, and EPN outbound route stay attr
   expect(event.postDataJSON()).toMatchObject({ campaign: CAMPAIGN, source: "youtube" });
   expect((await event.response()).status()).toBe(202);
 
-  const active = page.getByRole("link", { name: /View active listings on eBay/ }).first();
+  const active = page.getByRole("link", { name: /Shop active listings on eBay/ }).first();
   const internal = new URL(await active.getAttribute("href"), "http://127.0.0.1:3205");
   expect(internal.pathname).toBe("/api/out/ebay");
   expect(internal.searchParams.get("campaign")).toBe(CAMPAIGN);
@@ -60,10 +60,10 @@ test("separate visitors do not share consent or campaign state", async ({ browse
     await two.goto(SERIES_PATH);
     await one.waitForFunction(() => sessionStorage.getItem("bbai_landing_source_v1") === "youtube");
     await one.getByRole("button", { name: "Accept optional analytics" }).click();
-    await expect.poll(() => one.evaluate(() => JSON.parse(localStorage.getItem("blindboxai_consent_v1") || "null")?.analytics)).toBe(true);
+    await expect.poll(() => one.evaluate(() => JSON.parse(localStorage.getItem("blindboxai_consent_v2") || "null")?.analytics)).toBe(true);
     expect(await two.evaluate(() => sessionStorage.getItem("bbai_landing_source_v1"))).toBeNull();
-    expect(await two.evaluate(() => localStorage.getItem("blindboxai_consent_v1"))).toBeNull();
-    const secondLink = new URL(await two.getByRole("link", { name: /View active listings on eBay/ }).first().getAttribute("href"), "http://127.0.0.1:3205");
+    expect(await two.evaluate(() => localStorage.getItem("blindboxai_consent_v2"))).toBeNull();
+    const secondLink = new URL(await two.getByRole("link", { name: /Shop active listings on eBay/ }).first().getAttribute("href"), "http://127.0.0.1:3205");
     expect(secondLink.searchParams.has("campaign")).toBe(false);
     expect(secondLink.searchParams.has("source")).toBe(false);
   } finally {

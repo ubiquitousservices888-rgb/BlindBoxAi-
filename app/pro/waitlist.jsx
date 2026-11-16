@@ -7,6 +7,7 @@ import {
   normalizeCampaignId,
   normalizeSource,
 } from "../../lib/campaign-attribution.mjs";
+import { capturePostHogEvent, isAnalyticsConsentGranted } from "../../lib/posthog-client.mjs";
 
 const CAMPAIGN_STORAGE_KEY = "bbai_campaign";
 const CAMPAIGN_SOURCE_STORAGE_KEY = "bbai_campaign_source";
@@ -81,8 +82,15 @@ export default function Waitlist() {
       const body = await res.json().catch(() => ({}));
       if (res.ok && body?.duplicate === true) {
         setStatus("duplicate");
-      } else if (res.ok) {
-        track("waitlist_signup", attribution);
+      } else if (res.status === 202 && body?.ok === true) {
+        // Keep the honeypot indistinguishable from success to bots, but never
+        // record it as a real signup because the API did not store an email.
+        setStatus("done");
+      } else if (res.ok && body?.duplicate === false) {
+        if (isAnalyticsConsentGranted()) {
+          track("waitlist_signup", attribution);
+          capturePostHogEvent("waitlist_signup", attribution);
+        }
         setStatus("done");
       } else {
         setStatus("error");
@@ -105,13 +113,13 @@ export default function Waitlist() {
         aria-hidden="true"
         style={{ position: "absolute", left: "-10000px", width: "1px", height: "1px", overflow: "hidden" }}
       >
-        <label htmlFor="company-website">Leave this field blank</label>
+        <label htmlFor="optional-reference">Leave this field blank</label>
         <input
-          id="company-website"
-          name="company_website"
+          id="optional-reference"
+          name="optional_reference"
           type="text"
           tabIndex={-1}
-          autoComplete="off"
+          autoComplete="new-password"
           value={companyWebsite}
           onChange={(e) => setCompanyWebsite(e.target.value)}
         />

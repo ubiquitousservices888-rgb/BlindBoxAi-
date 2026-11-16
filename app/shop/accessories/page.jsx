@@ -42,7 +42,9 @@ export default async function AccessoriesShopPage({ searchParams }) {
         {offers.map((offer) => (
           <article
             key={offer.id}
+            id={offer.id}
             style={{
+              scrollMarginTop: 96,
               border: "1px solid rgba(255,255,255,0.16)",
               borderRadius: 16,
               padding: 18,

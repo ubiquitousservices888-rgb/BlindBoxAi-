@@ -7,6 +7,11 @@ on:
       - main
     paths:
       - .github/workflows/buffer-organization-diagnostic.yml
+      - scripts/reconcile-public-video-urls.mjs
+      - scripts/reconcile-stuck-video-receipts.mjs
+      - data/stuck-review-video-receipts-20261115.json
+      - lib/**
+      - data/public-video-receipt-inventory.json
 
 permissions:
   contents: read
@@ -14,9 +19,20 @@ permissions:
 jobs:
   buffer-organization:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       BUFFER_API_TOKEN: ${{ secrets.BUFFER_API_TOKEN }}
+      BUFFER_ORGANIZATION_ID: ${{ vars.BUFFER_ORGANIZATION_ID }}
     steps:
+      - name: Checkout exact diagnostic revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
       - name: Verify Buffer token is configured
         shell: bash
         run: |
@@ -50,3 +66,12 @@ jobs:
 
           echo "Buffer organizations found: $org_count"
           printf '%s' "$response" | jq -r '.data.account.organizations[] | "::notice title=Buffer organization::name=\(.name) id=\(.id)"'
+
+      - name: Reconcile exact historical public URLs without publishing or database writes
+        run: node scripts/reconcile-public-video-urls.mjs
+
+      # Separate, read-only evidence for the five Nov 9 queue leases. It must
+      # run even if historical YouTube verification failed; never submit a post.
+      - name: Inspect saved Buffer IDs on five stuck publishing rows (read only)
+        if: ${{ !cancelled() }}
+        run: node scripts/reconcile-stuck-video-receipts.mjs

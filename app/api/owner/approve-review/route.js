@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertOwnerCode } from "../../../../lib/evidence";
 import { dispatchApprovedReviewPublication } from "../../../../lib/owner-review-launch.mjs";
+import { reviewCaptionPreview } from "../../../../lib/review-caption.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,47 @@ export async function POST(request) {
     return NextResponse.json({ error: "This review item is missing its exact research run ID." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
+  const videoUrl = String(body?.videoUrl ?? "").trim();
+  const reviewedTitle = typeof body?.reviewedTitle === "string" ? body.reviewedTitle : "";
+  if (!reviewedTitle) {
+    return NextResponse.json({ error: "This approval is missing the title you reviewed. Refresh and review it again." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+
+  // Server-side gate: re-read the exact row and rebuild its caption here, so
+  // approval cannot rely on the browser's copy of the preview.
+  let row;
+  try {
+    const listResponse = await fetch(REVIEW_QUEUE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ownerCode}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "list", includeApproved: true }),
+      cache: "no-store",
+    });
+    const listed = await listResponse.json().catch(() => ({}));
+    if (!listResponse.ok) {
+      return NextResponse.json({ error: listed?.error || "Unable to check this review video." }, { status: listResponse.status, headers: PRIVATE_HEADERS });
+    }
+    row = (Array.isArray(listed?.items) ? listed.items : [])
+      .find((item) => item?.research_run_id === researchRunId && item?.video_url === videoUrl);
+  } catch (lookupError) {
+    console.error("owner_review_gate_lookup_failed", { message: lookupError instanceof Error ? lookupError.message : "Unknown lookup error" });
+    return NextResponse.json({ error: "Unable to check this review video." }, { status: 502, headers: PRIVATE_HEADERS });
+  }
+  if (!row) {
+    return NextResponse.json({ error: "This video is no longer waiting for approval or publishing. Refresh the dashboard." }, { status: 409, headers: PRIVATE_HEADERS });
+  }
+  if (reviewedTitle !== String(row.title ?? "")) {
+    return NextResponse.json({ error: "This video changed after you reviewed it. Refresh and review it again." }, { status: 409, headers: PRIVATE_HEADERS });
+  }
+  const preview = reviewCaptionPreview(row);
+  const blocked = preview.find((entry) => entry?.ok !== true);
+  if (!preview.length || blocked) {
+    return NextResponse.json(
+      { error: blocked?.error || "This caption could not be built safely, so this video cannot publish until it is fixed.", launch: { status: "blocked_caption" } },
+      { status: 422, headers: PRIVATE_HEADERS },
+    );
+  }
+
   try {
     const response = await fetch(REVIEW_QUEUE_URL, {
       method: "POST",
@@ -50,7 +92,7 @@ export async function POST(request) {
         Authorization: `Bearer ${ownerCode}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ action: "approve", videoUrl: body?.videoUrl }),
+      body: JSON.stringify({ action: "approve", videoUrl }),
       cache: "no-store",
     });
     const result = await response.json().catch(() => ({}));
@@ -87,12 +129,34 @@ export async function POST(request) {
       console.error("owner_review_launch_dispatch_failed", {
         message: launchError instanceof Error ? launchError.message : "Unknown launch dispatch error",
         status: Number.isInteger(launchError?.status) ? launchError.status : undefined,
+        code: typeof launchError?.code === "string" ? launchError.code : undefined,
+        runCancelled: launchError?.runCancelled === true,
+        cancelStatus: Number.isInteger(launchError?.cancelStatus) ? launchError.cancelStatus : undefined,
       });
+      const reason = typeof launchError?.ownerMessage === "string" ? launchError.ownerMessage : "";
+      const cancelled = launchError?.runCancelled === true;
+      const certain = launchError?.approvalCertainlyNotGiven === true;
+      const runUrl = typeof launchError?.htmlUrl === "string" && launchError.htmlUrl.startsWith("https://github.com/") ? launchError.htmlUrl : null;
+      const outcome = certain
+        ? "Video approved, but publishing did not start, so nothing was posted."
+        : "Video approved, but the dashboard could not confirm whether publishing started. Check the GitHub run before pressing again.";
+      const followUp = !certain
+        ? " The run was left alone so a publish that already started is not cut off half-way."
+        : cancelled
+          ? " The run was asked to cancel, so pressing again starts clean once GitHub shows it cancelled."
+          : " The run could not be cancelled and is still on GitHub; it would post only if someone approves it there.";
       return NextResponse.json(
         {
           ...result,
-          error: "Video approved, but automatic publishing dispatch failed. Press Blue again to retry safely.",
-          launch: { status: "dispatch_failed" },
+          error: `${outcome}${reason ? ` ${reason}` : ""}${followUp}`,
+          launch: {
+            status: "dispatch_failed",
+            reason: typeof launchError?.code === "string" ? launchError.code : "unknown",
+            outcome: certain ? "not_posted" : "uncertain",
+            runCancelled: cancelled,
+            runId: Number.isSafeInteger(launchError?.runId) ? launchError.runId : null,
+            runUrl,
+          },
         },
         { status: 502, headers: PRIVATE_HEADERS },
       );

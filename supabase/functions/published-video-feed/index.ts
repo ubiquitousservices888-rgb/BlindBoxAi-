@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
+import { feedChannelGrowthPatch } from "../_shared/published-feed-growth.mjs";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -149,10 +150,37 @@ async function handlePublish(req: Request) {
       campaign_id: existing.campaign_id,
       status: existing.status,
     };
-    if (!sameJson(existingCanonical, canonical)) {
-      return json({ error: "Published video conflict" }, 409);
+    if (sameJson(existingCanonical, canonical)) {
+      return json({ ok: true, researchRunId, idempotent: true, publishedAt: existing.published_at });
     }
-    return json({ ok: true, researchRunId, idempotent: true, publishedAt: existing.published_at });
+    const growth = feedChannelGrowthPatch(existingCanonical, canonical);
+    if (!growth) return json({ error: "Published video conflict" }, 409);
+    const { data: updated, error: growError } = await db.from("published_collectible_videos")
+      .update({ ...growth, updated_at: new Date().toISOString() })
+      .eq("research_run_id", researchRunId)
+      .eq("status", existing.status)
+      .eq("channels", JSON.stringify(Array.isArray(existing.channels) ? existing.channels : []))
+      .select("research_run_id")
+      .maybeSingle();
+    if (growError) return json({ error: "Published video channel update failed" }, 500);
+    if (!updated) {
+      // Another request may have stored this same canonical copy first.
+      const { data: latest, error: latestError } = await db.from("published_collectible_videos")
+        .select("research_run_id,title,vertical,video_url,channels,buffer_post_ids,campaign_id,status,published_at")
+        .eq("research_run_id", researchRunId)
+        .maybeSingle();
+      if (latestError) return json({ error: "Published video lookup failed" }, 500);
+      const latestCanonical = latest && {
+        research_run_id: latest.research_run_id, title: latest.title, vertical: latest.vertical, video_url: latest.video_url,
+        channels: normalizedChannelList(latest.channels), buffer_post_ids: normalizedObject(latest.buffer_post_ids),
+        campaign_id: latest.campaign_id, status: latest.status,
+      };
+      if (latestCanonical && sameJson(latestCanonical, canonical)) {
+        return json({ ok: true, researchRunId, idempotent: true, publishedAt: latest.published_at });
+      }
+      return json({ error: "Published video changed during channel update" }, 409);
+    }
+    return json({ ok: true, researchRunId, idempotent: false, channelsAdded: true, publishedAt: existing.published_at });
   }
 
   const now = queueRow.published_at || new Date().toISOString();

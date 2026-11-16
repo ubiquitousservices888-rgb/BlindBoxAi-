@@ -18,6 +18,8 @@ GitHub's scheduled workflow can be delayed; its run history is the authority for
 
 ## Running from Termux
 
+`npm run video:test` also exercises false-200 private/deleted/consent responses, exact public media IDs, TikTok detail metadata, bounded response size/time and a disposable HTTP platform service. A public player metadata response is not proof of matching transcoded bytes or completed viewer playback. Unknown platform markup fails closed and requires reconciliation without republishing.
+
 The fast, local layers need only Node 24 and the locked dependencies:
 
 ```sh
@@ -32,3 +34,15 @@ The browser layer runs in GitHub Actions on Linux, with its headless browser ins
 ## Publication boundary
 
 The QA schedule has no Buffer, owner, Supabase service-role, or Vercel deployment secrets. The existing validation job reads the EPN campaign secret for link construction; the browser job uses only a fake campaign fixture. Tests set their own loopback or fake service responses. The canonical `.github/workflows/publish-approved-reviews.yml` direct-dispatch path can publish an exact reviewed queue item; `.github/workflows/autonomous-video.yml` can also publish its exact approved queue row behind its existing `social-production` gate. The canonical workflow remains `workflow_dispatch` only. The owner-authenticated Blue action dispatches one exact serialized YouTube + TikTok run and approves only that run's `social-production` gate, while direct owner dispatch remains available for recovery and dry-run diagnostics. This QA protocol itself does not approve, claim, or publish an item.
+
+## Release-gate failure investigation (no new AI charges)
+
+The workflow `.github/workflows/ci-failure-investigation.yml` is a separate **read-only** GitHub Actions diagnostic, automatically triggered by a failed or timed-out `BlindBoxAI release gate`. An owner can also dispatch the diagnostic from `main` against an exact numeric failed release-gate run ID. The selected source run may belong to a pull request or `main`; its repository, workflow, completion state and commit SHA are validated before reading job metadata.
+
+It checks out trusted `main` with `persist-credentials: false`, and uses only `contents: read` and `actions: read`. It fetches authenticated GitHub run and job/step status metadata, validates the source repository and workflow, and writes fixed-category investigation suggestions to its own Actions Step Summary. It does not download raw logs, execute PR code, install npm dependencies, create PRs or comments, publish, deploy, call AI models, or touch Vercel, Supabase, Buffer, eBay, YouTube or TikTok.
+
+The test suite `scripts/ci-failure-investigator.test.mjs` uses synthetic GitHub API fixtures and hostile metadata. It runs under `npm run release:test`. Triage suggestions are hypotheses, not verified root causes. The linked original job logs and exact SHA remain the evidence.
+
+The separate `.github/workflows/ci-failure-doctor.md` is a **non-runnable design note**. It has no agentic workflow frontmatter, tool grants, compiled `.lock.yml`, model inference permission or billing path. Activating AI requires a new reviewed implementation, deterministic source validation before tool access, metadata-only inputs, explicitly disabled write/failure-reporting outputs, and owner approval of a specific inference provider and spending. The note cannot run or grant access to logs.
+
+GitHub currently provides standard GitHub-hosted runner time free in public repositories. This is not authorization for charged model inference or larger runners.

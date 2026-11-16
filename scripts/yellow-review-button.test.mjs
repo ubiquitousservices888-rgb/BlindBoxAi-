@@ -5,7 +5,7 @@ import test from "node:test";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
 import { requirePublicVideoTitle, resolvePublicVideoTitle } from "../lib/public-video-title.mjs";
-import { dispatchApprovedReviewPublication } from "../lib/owner-review-launch.mjs";
+import { dispatchApprovedReviewPublication, ReviewLaunchError } from "../lib/owner-review-launch.mjs";
 
 const dashboard = fs.readFileSync(new URL("../app/owner-dashboard/DashboardClient.jsx", import.meta.url), "utf8");
 const dashboardRoute = fs.readFileSync(new URL("../app/api/owner/dashboard/route.js", import.meta.url), "utf8");
@@ -122,7 +122,7 @@ test("public video titles auto-repair launch-blocking names without inventing pr
 
 test("Blue approval binds launch to the exact queue row and permits blank title repair", () => {
   assert.match(dashboard, /researchRunId/);
-  assert.match(dashboard, /JSON\.stringify\(\{ videoUrl, researchRunId, youtubeAudience:/);
+  assert.match(dashboard, /JSON\.stringify\(\{ videoUrl, researchRunId, reviewedTitle, youtubeAudience:/);
   assert.match(uploadPage, /researchRunId: stageResult\?\.researchRunId/);
   assert.doesNotMatch(uploadPage, /maxLength=\{100\} required/);
   assert.match(approvalRoute, /\^rv-\[a-f0-9\]\{16\}\$/);
@@ -142,7 +142,8 @@ test("new queue publishing requires explicit approval before Buffer publishing",
   assert.match(queuedWorkflow, /publish-approved-review-queue\.mjs/);
   assert.match(queuedPublisher, /action:\s*dryRun\s*\?\s*"peek"\s*:\s*"claim"/);
   assert.match(queuedPublisher, /createReviewBufferPublisher/);
-  assert.match(queuedPublisher, /DISCLOSURE/);
+  assert.match(queuedPublisher, /buildReviewCaption\(item, channel, publicTitle\)/);
+  assert.match(fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8"), /caption\.includes\(DISCLOSURE\)/);
   assert.match(queuedPublisher, /blindboxai-review-publisher/);
 });
 
@@ -185,26 +186,24 @@ test("review publisher sends required YouTube metadata while omitting metadata f
         text: body.variables.input.text,
         status: "sending",
         channelId,
+        assets: body.variables.input.assets.map(asset => ({ source: asset.video.url })),
       };
       createdPostsByChannel.set(channelId, post);
       return jsonResponse({ data: { createPost: { post } } });
     }
     if (query.includes("query VerifySentPost")) {
-      const channelId = body.variables.channelIds[0];
+      const channelId = [...createdPostsByChannel.keys()].find(id => createdPostsByChannel.get(id).id === body.variables.postId);
       const created = createdPostsByChannel.get(channelId);
       if (!created) throw new Error(`no created post for ${channelId}`);
       const isYoutube = channelId === "channel-youtube";
-      return jsonResponse({ data: { posts: {
-        edges: [{ node: {
+      return jsonResponse({ data: { post: {
           ...created,
           status: "sent",
           externalLink: isYoutube
             ? "https://www.youtube.com/watch?v=verified123"
             : "https://www.tiktok.com/@blindboxai/video/1234567890",
           sentAt: "2026-09-22T13:00:00Z",
-        } }],
-        pageInfo: { hasNextPage: false, endCursor: null },
-      } } });
+        } } });
     }
     throw new Error("unexpected Buffer query");
   };
@@ -212,9 +211,15 @@ test("review publisher sends required YouTube metadata while omitting metadata f
   const publisher = createReviewBufferPublisher({
     token: "test-token", organizationId: "org-1", fetchImpl,
     mediaProbe: async () => ({ durationSeconds: 67, width: 720, height: 1280 }),
+    publicHttpProbe: async ({ channel, externalLink }) => {
+      assert.match(externalLink, channel === "youtube" ? /youtube\.com\/watch/ : /tiktok\.com\/@/);
+      return { status: 200, checkedAt: "2026-10-22T12:00:00.000Z", publicMediaAvailable: true,
+        mediaId: channel === "youtube" ? "verified123" : "1234567890" };
+    },
   });
   const caption = `Collector research\nhttps://blindboxai.com/series/test\n${DISCLOSURE}`;
   await assert.rejects(() => publisher({ channel: "youtube", videoUrl, caption, title: "Missing decision" }), /explicit Made-for-Kids decision/);
+  await assert.rejects(() => publisher({ channel: "twitter", videoUrl, caption, title: "Unsupported" }), /refused before Buffer publish/);
   const youtubeResult = await publisher({ channel: "youtube", videoUrl, caption, title: "YouTube <Title>", youtubeMadeForKids: true });
   const tiktokResult = await publisher({ channel: "tiktok", videoUrl, caption, title: "ignored" });
   await publisher({ channel: "youtube", videoUrl, caption, title: "Another Title", youtubeMadeForKids: false });
@@ -225,6 +230,10 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     publicUrl: "https://www.youtube.com/watch?v=verified123",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    proofKind: "public_player",
+    publicHttpStatus: 200,
+    publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
     duplicate: false,
   });
   assert.deepEqual(tiktokResult, {
@@ -232,6 +241,10 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     publicUrl: "https://www.tiktok.com/@blindboxai/video/1234567890",
     status: "sent",
     sentAt: "2026-09-22T13:00:00Z",
+    proofKind: "public_player",
+    publicHttpStatus: 200,
+    publicHttpCheckedAt: "2026-10-22T12:00:00.000Z",
+    publicMediaAvailable: true,
     duplicate: false,
   });
   assert.deepEqual(createRequests[0].variables.input, {
@@ -240,7 +253,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     schedulingType: "automatic",
     mode: "shareNow",
     assets: [{ video: { url: videoUrl } }],
-    metadata: { youtube: { title: "YouTube Title", categoryId: "17", madeForKids: true } },
+    metadata: { youtube: { title: "YouTube Title", categoryId: "17", madeForKids: true, privacy: "public" } },
   });
   assert.deepEqual(createRequests[1].variables.input, {
     text: caption,
@@ -250,7 +263,7 @@ test("review publisher sends required YouTube metadata while omitting metadata f
     assets: [{ video: { url: videoUrl } }],
   });
   assert.deepEqual(createRequests[2].variables.input.metadata.youtube, {
-    title: "Another Title", categoryId: "17", madeForKids: false,
+    title: "Another Title", categoryId: "17", madeForKids: false, privacy: "public",
   });
   assert.match(createRequests[0].query, /CreateReviewVideo\(\$input: CreatePostInput!\)/);
   assert.match(createRequests[0].query, /createPost\(input: \$input\)/);
@@ -303,6 +316,140 @@ test("Blue approval dispatches one serialized YouTube + TikTok production run", 
   assert.equal(approvalRequests.length, 1);
   assert.equal(JSON.parse(approvalRequests[0].options.body).state, "approved");
   assert.deepEqual(JSON.parse(approvalRequests[0].options.body).environment_ids, [1101]);
+});
+
+function launchFetch({ approveStatus = 204, approveMessage = "", canApprove = true, gateAppears = true, cancelStatus = 202, pollStatus = 200, pollFailures = Infinity } = {}) {
+  const requests = [];
+  let pollCount = 0;
+  const fetchImpl = async (url, options = {}) => {
+    const request = { url: String(url), options };
+    requests.push(request);
+    const method = options.method || "GET";
+    if (method === "POST" && request.url.endsWith("/actions/workflows/publish-approved-reviews.yml/dispatches")) {
+      return jsonResponse({ workflow_run_id: 202, html_url: "https://github.com/example/actions/runs/202" });
+    }
+    if (method === "GET" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
+      pollCount += 1;
+      if (pollStatus !== 200 && pollCount <= pollFailures) return jsonResponse({ message: "Server Error" }, pollStatus);
+      return jsonResponse(gateAppears ? [{ environment: { id: 1101, name: "social-production" }, current_user_can_approve: canApprove }] : []);
+    }
+    if (method === "POST" && request.url.endsWith("/actions/runs/202/pending_deployments")) {
+      return approveStatus === 204 ? { ok: true, status: 204, json: async () => ({}) } : jsonResponse({ message: approveMessage }, approveStatus);
+    }
+    if (method === "POST" && request.url.endsWith("/actions/runs/202/cancel")) {
+      return { ok: cancelStatus < 300, status: cancelStatus, json: async () => ({}) };
+    }
+    throw new Error(`unexpected GitHub request: ${method} ${request.url}`);
+  };
+  return { requests, fetchImpl };
+}
+
+async function launchError(options) {
+  const { requests, fetchImpl } = launchFetch(options);
+  try {
+    await dispatchApprovedReviewPublication({
+      token: "masked-test-token",
+      researchRunId: "rv-0123456789abcdef",
+      youtubeAudience: "not_made_for_kids",
+      fetchImpl,
+      delayImpl: async () => {},
+    });
+  } catch (error) {
+    return { error, requests };
+  }
+  throw new Error("expected the launch to fail");
+}
+
+test("Blue launch cancels its run and names the reason when GitHub refuses the approval", async () => {
+  const { error, requests } = await launchError({ approveStatus: 403, approveMessage: "Resource not accessible by personal access token" });
+  assert.ok(error instanceof ReviewLaunchError);
+  assert.equal(error.code, "approval_not_permitted");
+  assert.equal(error.runCancelled, true);
+  assert.equal(error.runId, 202);
+  assert.match(error.ownerMessage, /Deployments, read and write/);
+  assert.match(error.message, /Resource not accessible by personal access token/);
+  assert.match(error.ownerMessage, /\(GitHub: Resource not accessible by personal access token\)/);
+  assert.equal(error.approvalCertainlyNotGiven, true);
+  assert.doesNotMatch(error.message, /masked-test-token/);
+  assert.equal(requests.filter((request) => request.url.endsWith("/dispatches")).length, 1);
+  assert.equal(requests.filter((request) => request.url.endsWith("/actions/runs/202/cancel")).length, 1);
+});
+
+test("Blue launch cancels its run when the approver is not allowed or the gate never appears", async () => {
+  const notAllowed = await launchError({ canApprove: false });
+  assert.equal(notAllowed.error.code, "approver_not_allowed");
+  assert.equal(notAllowed.error.runCancelled, true);
+  assert.equal(notAllowed.requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments")).length, 0);
+
+  const noGate = await launchError({ gateAppears: false });
+  assert.equal(noGate.error.code, "gate_not_reached");
+  assert.equal(noGate.error.runCancelled, true);
+  assert.equal(noGate.requests.filter((request) => request.url.endsWith("/pending_deployments") && (request.options.method || "GET") === "GET").length, 20);
+});
+
+test("Blue launch reports a failed cancel instead of claiming a clean retry", async () => {
+  const { error } = await launchError({ approveStatus: 403, cancelStatus: 409 });
+  assert.equal(error.runCancelled, false);
+  assert.equal(error.cancelStatus, 409);
+});
+
+test("an unexpected GitHub failure on the approval leaves the outcome uncertain", async () => {
+  const { error, requests } = await launchError({ approveStatus: 502, approveMessage: "Server Error" });
+  assert.equal(error.code, "approval_failed");
+  assert.equal(error.approvalCertainlyNotGiven, false);
+  assert.equal(error.htmlUrl, "https://github.com/example/actions/runs/202");
+  // The run may already be publishing, so it is left alone, not cancelled.
+  assert.equal(error.runCancelled, false);
+  assert.equal(requests.filter((request) => request.url.endsWith("/actions/runs/202/cancel")).length, 0);
+});
+
+test("a short GitHub hiccup while checking the run is retried, not treated as a failure", async () => {
+  const { fetchImpl, requests } = launchFetch({ pollStatus: 502, pollFailures: 2 });
+  const result = await dispatchApprovedReviewPublication({
+    token: "masked-test-token",
+    researchRunId: "rv-0123456789abcdef",
+    youtubeAudience: "not_made_for_kids",
+    fetchImpl,
+    delayImpl: async () => {},
+  });
+  assert.equal(result.status, "dispatched_and_environment_approved");
+  assert.equal(requests.filter((request) => (request.options.method || "GET") === "GET" && request.url.endsWith("/pending_deployments")).length, 3);
+  assert.equal(requests.filter((request) => request.url.endsWith("/cancel")).length, 0);
+});
+
+test("a permission error while checking the run stops at once", async () => {
+  const { error, requests } = await launchError({ pollStatus: 403 });
+  assert.equal(error.code, "status_check_failed");
+  assert.equal(requests.filter((request) => (request.options.method || "GET") === "GET" && request.url.endsWith("/pending_deployments")).length, 1);
+});
+
+test("a failed status check is not reported as a refused approval", async () => {
+  const { error, requests } = await launchError({ pollStatus: 500 });
+  assert.equal(requests.filter((request) => (request.options.method || "GET") === "GET" && request.url.endsWith("/pending_deployments")).length, 20);
+  assert.equal(error.code, "status_check_failed");
+  assert.equal(error.approvalCertainlyNotGiven, true);
+  assert.doesNotMatch(error.ownerMessage, /refused/);
+  assert.equal(requests.filter((request) => request.options.method === "POST" && request.url.endsWith("/pending_deployments")).length, 0);
+  assert.equal(error.runCancelled, true);
+});
+
+test("approval route tells the owner why publishing did not start and that nothing was posted", () => {
+  assert.match(approvalRoute, /nothing was posted/);
+  assert.match(approvalRoute, /could not confirm whether publishing started/);
+  assert.match(approvalRoute, /approvalCertainlyNotGiven === true/);
+  assert.match(approvalRoute, /runUrl/);
+  assert.match(approvalRoute, /left alone so a publish that already started is not cut off/);
+  assert.match(approvalRoute, /launchError\?\.ownerMessage/);
+  assert.match(approvalRoute, /runCancelled/);
+});
+
+test("dashboard source: disabled Blue and Publish buttons are grey and render their reason beside the button", () => {
+  assert.match(dashboard, /onClick=\{\(\) => approveReviewVideo\([^)]*\)\} disabled=\{blueDisabled\} style=\{\{[^}]*background: blueDisabled \? "#64748b" : "#2563eb"/);
+  assert.match(dashboard, /onClick=\{\(\) => publishApprovedVideo\(item\)\} disabled=\{publishDisabled\} style=\{\{[^}]*background: publishDisabled \? "#64748b" : "#2563eb"/);
+  assert.match(dashboard, /\{blueBlockedReason \? <p role="note"[^>]*>\{blueBlockedReason\}<\/p> : null\}/);
+  assert.match(dashboard, /\{publishBlockedReason \? <p role="note"[^>]*>\{publishBlockedReason\}<\/p> : null\}\s*<button type="button" onClick=\{\(\) => publishApprovedVideo/);
+  assert.match(dashboard, /captionBlockedReason\(item\)/);
+  assert.match(dashboard, /another video is being approved/);
 });
 
 test("successful queued publishing is linked into the public homepage feed", () => {

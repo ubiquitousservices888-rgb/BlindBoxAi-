@@ -51,14 +51,27 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
   });
   t.after(() => hooks.deregister());
 
+  let classifierMode = "throw";
   t.mock.module(new URL("../lib/click-quality.mjs", import.meta.url), {
     exports: {
       classifyAffiliateRequest() {
-        throw new Error("forced classifier failure");
+        if (classifierMode === "throw") throw new Error("forced classifier failure");
+        return { clientClass: classifierMode, qualityReason: "fixture_only" };
       },
     },
   });
 
+  let recordedClicks = 0;
+  t.mock.module(new URL("../lib/supabase-telemetry.mjs", import.meta.url), {
+    exports: {
+      recordAffiliateClick() {
+        recordedClicks += 1;
+        return Promise.resolve({ ok: true });
+      },
+    },
+  });
+
+  let browseCalls = 0;
   t.mock.module(new URL("../lib/ebay-production-api.mjs", import.meta.url), {
     exports: {
       normalizeEbayAffiliateReference(value) {
@@ -69,6 +82,7 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
           .slice(0, 256);
       },
       async getEbayProductionItem({ itemId, affiliateReferenceId }) {
+        browseCalls += 1;
         const target = new URL("https://www.ebay.com/itm/800688881524");
         target.searchParams.set("mkcid", "1");
         target.searchParams.set("campid", CAMPID);
@@ -128,5 +142,35 @@ test("all eBay outbound routes still redirect when the shared classifier throws"
   for (const routeCase of cases) {
     const response = await routeCase.handler(routeCase.request);
     assertTrackedEbayRedirect(response);
+  }
+  assert.equal(recordedClicks, 4, "valid redirects schedule mocked telemetry");
+  assert.equal(browseCalls, 2, "two legitimate live-item lookups occurred");
+  for (const classification of ["bot", "prefetch", "head"]) {
+    classifierMode = classification;
+    const prior = recordedClicks;
+    const beforeBrowse = browseCalls;
+    for (const routeCase of cases) {
+      const response = await routeCase.handler(routeCase.request);
+      assert.equal(response.status, 204, classification + "/" + routeCase.name);
+      assert.equal(response.headers.get("location"), null, classification + "/" + routeCase.name);
+    }
+    assert.equal(recordedClicks, prior, classification + " must not record a click");
+    assert.equal(browseCalls, beforeBrowse, classification + " must not query the eBay Browse API");
+  }
+  classifierMode = "throw";
+
+  // Missing OR malformed EPN campaign IDs must never redirect or count an
+  // affiliate click. This executes the actual GET handlers with all calls mocked.
+  const classicRoutes = cases.filter((entry) => ["series route", "buy-or-pass offer route"].includes(entry.name));
+  for (const invalid of [undefined, "not-a-campaign", "123", "1234567890123456"]) {
+    if (invalid === undefined) delete process.env.NEXT_PUBLIC_EPN_CAMPID;
+    else process.env.NEXT_PUBLIC_EPN_CAMPID = invalid;
+    const before = recordedClicks;
+    for (const routeCase of classicRoutes) {
+      const response = await routeCase.handler(routeCase.request);
+      assert.equal(response.status, 503, String(invalid) + "/" + routeCase.name);
+      assert.equal(response.headers.get("location"), null, routeCase.name);
+    }
+    assert.equal(recordedClicks, before, "invalid config must not record a click");
   }
 });

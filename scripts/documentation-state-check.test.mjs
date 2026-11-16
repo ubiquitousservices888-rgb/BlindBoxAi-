@@ -25,7 +25,7 @@ function fixture(t) {
   ].join("\n"));
   write(root, "README.md", "Governance: see AGENTS.md.\n");
   write(root, "docs/CONTEXT_TRANSFER.md", "Use the state vocabulary defined in AGENTS.md.\n");
-  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nSpecialist path: hair-salon-owner-approval.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn is not an active production target.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
+  write(root, "docs/CURRENT_STATE.md", "Canonical publisher: publish-approved-reviews.yml\nSpecialist path: hair-salon-owner-approval.yml\nChannels: youtube,tiktok\nmerged PR #227; X/Twitter is parked; LinkedIn (daily-product pipeline): not an active production target.\nLinkedIn (review-queue add-on only): only after it is verified live on YouTube or TikTok; proven by Buffer's own sent receipt.\nPhone: /media-upload; legacy: /api/media/review-upload.\nOwner eBay OAuth: merged PR #168; lib/owner-ebay-oauth.mjs.\nState vocabulary: see AGENTS.md.\n");
   write(root, ".github/workflows/publish-approved-reviews.yml", [
     "name: Publish approved review videos",
     "on:",
@@ -131,6 +131,28 @@ test("missing files are collected into one consolidated failure report", (t) => 
   assert.match(result.stderr, /docs\/labubu-buffer-automation\.md: file missing/);
 });
 
+
+test("missing daily-product LinkedIn decision fails", (t) => {
+  const root = fixture(t);
+  const file = path.join(root, "docs/CURRENT_STATE.md");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("LinkedIn (daily-product pipeline): not an active production target.\n", ""));
+  const result = run(root);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /inactive daily-product LinkedIn decision/);
+});
+
+test("LinkedIn add-on without its live-first gate or Buffer receipt proof fails", (t) => {
+  for (const removed of ["only after it is verified live on YouTube or TikTok; ", "; proven by Buffer's own sent receipt"]) {
+    const root = fixture(t);
+    const file = path.join(root, "docs/CURRENT_STATE.md");
+    const before = fs.readFileSync(file, "utf8");
+    assert.ok(before.includes(removed));
+    fs.writeFileSync(file, before.replace(removed, ""));
+    const result = run(root);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /review-queue LinkedIn add-on/);
+  }
+});
 
 test("missing owner eBay OAuth state fails", (t) => {
   const root = fixture(t);

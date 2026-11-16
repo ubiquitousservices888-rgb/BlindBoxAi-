@@ -157,7 +157,8 @@ export default function ControlPanel({ activeCode }) {
         <div className="metrics">
           <div className={`metric ${flash.ebayEpn ? "flash" : ""}`}><div className="label">eBay EPN clicks</div><div className="value">{totals.ebayEpn ?? "—"}</div><div className="sub">last 24 hours</div></div>
           <div className={`metric ${flash.amazonAssociates ? "flash" : ""}`}><div className="label">Amazon clicks</div><div className="value">{totals.amazonAssociates ?? "—"}</div><div className="sub">last 24 hours</div></div>
-          <div className="metric"><div className="label">Qualified human clicks</div><div className="value">{totals.qualifiedHuman ?? "—"}</div><div className="sub">affiliate funnel · 24h</div></div>
+          <div className="metric"><div className="label">Qualified affiliate clicks</div><div className="value">{totals.qualifiedHuman ?? "—"}</div><div className="sub">requires independent provider-confirmed attribution</div></div>
+          <div className="metric"><div className="label">Unclassified clicks</div><div className="value">{totals.unclassified ?? "—"}</div><div className="sub">last 24 hours · not verified human</div></div>
           <div className="metric"><div className="label">Actions green</div><div className="value">{summary.success ?? "—"}</div><div className="sub">{summary.failed ?? 0} failed · {summary.active ?? 0} active</div></div>
         </div>
 

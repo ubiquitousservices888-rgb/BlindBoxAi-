@@ -108,7 +108,7 @@ export default function DashboardClient() {
     reviewQueueRequestInFlight.current = true;
     setReviewQueueError("");
     try {
-      const response = await fetch("/api/owner/review-queue", {
+      const response = await fetch("/api/owner/review-queue?include=approved", {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
@@ -174,7 +174,7 @@ export default function DashboardClient() {
     setReviewPlayback({ videoUrl, status: "metadata_ready", message: "" });
   }
 
-  async function approveReviewVideo(videoUrl, researchRunId) {
+  async function approveReviewVideo(videoUrl, researchRunId, reviewedTitle) {
     if (!activeCode || !videoUrl || !researchRunId || approvingReviewUrl || busy) return;
     if (reviewPlayback.videoUrl !== videoUrl || reviewPlayback.status !== "watched") {
       setError("Watch the playable video completely before approving.");
@@ -191,7 +191,7 @@ export default function DashboardClient() {
         method: "POST",
         headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({ videoUrl, researchRunId, youtubeAudience: reviewAudience[researchRunId] }),
+        body: JSON.stringify({ videoUrl, researchRunId, reviewedTitle, youtubeAudience: reviewAudience[researchRunId] }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Unable to approve this review video.");
@@ -201,6 +201,37 @@ export default function DashboardClient() {
       await Promise.all([load(activeCode, false), loadReviewQueue(activeCode)]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to approve this review video.");
+    } finally {
+      setApprovingReviewUrl("");
+    }
+  }
+
+  // Approved rows that never went live: re-run the same server-checked
+  // approval, which is idempotent for approved rows and dispatches publishing.
+  async function publishApprovedVideo(item) {
+    if (!activeCode || !item?.mediaUrl || !item?.researchRunId || approvingReviewUrl || busy) return;
+    if (!["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId])) {
+      setError("Choose the YouTube audience for this exact video before publishing.");
+      return;
+    }
+    setApprovingReviewUrl(item.mediaUrl);
+    setError("");
+    setReviewMessage("");
+    try {
+      const response = await fetch("/api/owner/approve-review", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${activeCode}`, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ videoUrl: item.mediaUrl, researchRunId: item.researchRunId, reviewedTitle: item.title, youtubeAudience: reviewAudience[item.researchRunId] }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to publish this approved video.");
+      setApprovedReviewUrls((previous) => new Set([...previous, item.mediaUrl]));
+      setReviewMessage(`Publishing dispatched for "${item.title || item.researchRunId}". Track platform verification before calling it live.`);
+      etagRef.current = "";
+      await Promise.all([load(activeCode, false), loadReviewQueue(activeCode)]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to publish this approved video.");
     } finally {
       setApprovingReviewUrl("");
     }
@@ -283,9 +314,7 @@ export default function DashboardClient() {
   const funnel = snapshot.funnel || {};
   const epn = revenue.epn || {};
   const amazon = revenue.amazon || {};
-  const reviewNotifications = reviewQueue
-    .filter((item) => item?.status === "ready_for_review" && item?.video_url)
-    .map((item) => ({
+  const toReviewCard = (item) => ({
       pathname: item.research_run_id,
       mediaUrl: item.video_url,
       title: item.title,
@@ -294,7 +323,20 @@ export default function DashboardClient() {
       vertical: item.vertical,
       durationSeconds: Number(item.duration_seconds || 0),
       sizeBytes: Number(item.size_bytes || 0),
-    }));
+      captionPreview: Array.isArray(item.caption_preview) ? item.caption_preview : [],
+      lastError: typeof item.last_error === "string" ? item.last_error : "",
+    });
+  const reviewNotifications = reviewQueue
+    .filter((item) => item?.status === "ready_for_review" && item?.video_url)
+    .map(toReviewCard);
+  const approvedNotPublished = reviewQueue
+    .filter((item) => item?.status === "approved" && item?.video_url)
+    .map(toReviewCard);
+  const isCaptionReady = (item) => item.captionPreview.length > 0 && item.captionPreview.every((preview) => preview?.ok === true);
+  const captionBlockedReason = (item) => {
+    const failing = item.captionPreview.find((preview) => preview?.ok !== true);
+    return typeof failing?.error === "string" && failing.error ? failing.error : "its caption could not be checked yet.";
+  };
 
   return <div style={{ display: "grid", gap: 24 }}>
     <ControlPanel activeCode={activeCode} />
@@ -314,6 +356,9 @@ export default function DashboardClient() {
           const watching = watchingReviewUrl === item.mediaUrl;
           const playbackPassed = reviewPlayback.videoUrl === item.mediaUrl && reviewPlayback.status === "watched";
           const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
+          const captionReady = isCaptionReady(item);
+          const blueDisabled = !playbackPassed || !validAudience || !captionReady || approved || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy;
+          const blueBlockedReason = approved || approvingReviewUrl === item.mediaUrl ? "" : approvingReviewUrl ? "Blue is off while another video is being approved." : deletingReviewId ? "Blue is off while a video is being deleted." : !captionReady ? `Blue is off: ${captionBlockedReason(item)}` : !playbackPassed ? "Blue is off until you watch this video to the end." : !validAudience ? "Blue is off until you pick the YouTube audience." : busy ? "Blue is off while the dashboard refreshes." : "";
           return (
             <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
               <strong>{item.title || item.message || "BlindBoxAI review video"}</strong>
@@ -324,18 +369,20 @@ export default function DashboardClient() {
                 <button type="button" onClick={() => openReviewVideo(item.mediaUrl)} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: "#facc15", color: "#111827", fontWeight: 800 }}>
                   {watching ? "CLOSE VIDEO" : "WATCH VIDEO"}
                 </button>
-                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId)} disabled={!playbackPassed || !validAudience || approved || approvingReviewUrl === item.mediaUrl || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: approved ? "#64748b" : (approvingReviewUrl === item.mediaUrl ? "#64748b" : "#2563eb"), color: "white", fontWeight: 800 }}>
+                <button type="button" onClick={() => approveReviewVideo(item.mediaUrl, item.researchRunId, item.title)} disabled={blueDisabled} style={{ padding: "11px 15px", border: 0, borderRadius: 9, background: blueDisabled ? "#64748b" : "#2563eb", color: "white", fontWeight: 800, cursor: blueDisabled ? "not-allowed" : "pointer", opacity: blueDisabled && !approved ? 0.6 : 1 }}>
                   {approved ? "LAUNCH DISPATCHED" : approvingReviewUrl === item.mediaUrl ? "APPROVING + LAUNCHING…" : "BLUE APPROVE + LAUNCH"}
                 </button>
                 <button type="button" onClick={() => deleteReviewVideo(item)} disabled={Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy} style={{ padding: "11px 15px", border: "1px solid #b91c1c", borderRadius: 9, background: deletingReviewId === item.researchRunId ? "#64748b" : "#b91c1c", color: "white", fontWeight: 800 }}>
                   {deletingReviewId === item.researchRunId ? "DELETING…" : "DELETE"}
                 </button>
               </div>
+              {blueBlockedReason ? <p role="note" style={{ margin: "8px 0 0", fontWeight: 700 }}>{blueBlockedReason}</p> : null}
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 <strong>YouTube audience (required for this exact video)</strong>
                 <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "not_made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "not_made_for_kids" }))} /> Not made for kids</label>
                 <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "made_for_kids" }))} /> Made for kids</label>
               </div>
+              <CaptionPreview preview={item.captionPreview} />
               {watching ? (
                 <>
                   <video
@@ -353,10 +400,41 @@ export default function DashboardClient() {
                   <p role="status" style={{ fontWeight: 700 }}>{reviewPlayback.videoUrl === item.mediaUrl ? (reviewPlayback.status === "watched" ? "Playback finished — owner may approve after reviewing the content." : reviewPlayback.message || "Playback: " + reviewPlayback.status) : "Open the video to verify playback."}</p>
                 </>
               ) : null}
-              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved and its publishing workflow dispatched; live links still require verification." : "The Blue button unlocks only after this video plays through and you select the correct YouTube audience. Content, product facts and affiliate-link verification must also pass the production evidence gate. Delete removes a rejected review file."}</p>
+              <p style={{ marginBottom: 0, opacity: 0.75 }}>{approved ? "This exact video was approved and its publishing workflow dispatched; live links still require verification." : "The Blue button unlocks only after this video plays through, you select the correct YouTube audience, and the caption above was built with its tracked link, its disclosure and an affiliate page that matches the video. Content, product facts and affiliate-link verification must also pass the production evidence gate. Delete removes a rejected review file."}</p>
             </article>
           );
         }) : <p>No videos are currently staged for review in the dashboard window.</p>}
+      </div>
+
+      <div style={{ marginTop: 24, display: "grid", gap: 12 }}>
+        <h3 style={{ marginBottom: 0 }}>Approved, not published yet ({approvedNotPublished.length})</h3>
+        <p style={{ margin: 0, opacity: 0.75 }}>You already approved these, but they are not live. Each one can publish only when its link lands on a page with matching affiliate links. Pick the YouTube audience, then press Publish now.</p>
+        {approvedNotPublished.length ? approvedNotPublished.map((item) => {
+          const captionReady = isCaptionReady(item);
+          const validAudience = ["made_for_kids", "not_made_for_kids"].includes(reviewAudience[item.researchRunId]);
+          const dispatched = approvedReviewUrls.has(item.mediaUrl);
+          const publishing = approvingReviewUrl === item.mediaUrl;
+          const publishDisabled = !captionReady || !validAudience || dispatched || publishing || Boolean(approvingReviewUrl) || Boolean(deletingReviewId) || busy;
+          const publishBlockedReason = dispatched || publishing ? "" : approvingReviewUrl ? "Publish is off while another video is being published." : deletingReviewId ? "Publish is off while a video is being deleted." : !captionReady ? `Publish is off: ${captionBlockedReason(item)}` : !validAudience ? "Publish is off until you pick the YouTube audience." : busy ? "Publish is off while the dashboard refreshes." : "";
+          return (
+            <article key={item.pathname} style={{ border: "1px solid currentColor", borderRadius: 12, padding: 12 }}>
+              <strong>{item.title || "BlindBoxAI review video"}</strong>
+              <div style={{ fontFamily: "monospace", fontSize: 12, marginTop: 4 }}>{item.researchRunId}</div>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>{durationLabel(item.durationSeconds)}</div>
+              {item.lastError ? <p style={{ margin: "6px 0 0" }}>Last attempt: {item.lastError}</p> : null}
+              <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                <strong>YouTube audience (required for this exact video)</strong>
+                <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "not_made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "not_made_for_kids" }))} /> Not made for kids</label>
+                <label><input type="radio" name={"audience-" + item.researchRunId} checked={reviewAudience[item.researchRunId] === "made_for_kids"} onChange={() => setReviewAudience((previous) => ({ ...previous, [item.researchRunId]: "made_for_kids" }))} /> Made for kids</label>
+              </div>
+              <CaptionPreview preview={item.captionPreview} />
+              {publishBlockedReason ? <p role="note" style={{ margin: "8px 0 0", fontWeight: 700 }}>{publishBlockedReason}</p> : null}
+              <button type="button" onClick={() => publishApprovedVideo(item)} disabled={publishDisabled} style={{ marginTop: 10, padding: "11px 15px", border: 0, borderRadius: 9, background: publishDisabled ? "#64748b" : "#2563eb", color: "white", fontWeight: 800, cursor: publishDisabled ? "not-allowed" : "pointer", opacity: publishDisabled && !dispatched ? 0.6 : 1 }}>
+                {dispatched ? "PUBLISHING DISPATCHED" : publishing ? "PUBLISHING…" : "PUBLISH NOW"}
+              </button>
+            </article>
+          );
+        }) : <p>No approved videos are waiting to publish.</p>}
       </div>
     </section>
 
@@ -410,6 +488,26 @@ export default function DashboardClient() {
     {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
     <p style={{ opacity: 0.65, fontSize: 13 }}>Auto-refresh: every 30 seconds. The dashboard scans {snapshot.window?.lookbackDays ?? 2} UTC dates and stores no IP address, email, cookie, referrer, or user-agent in affiliate click events.</p>
   </div>;
+}
+
+function CaptionPreview({ preview }) {
+  return (
+    <details open style={{ marginTop: 10 }}>
+      <summary style={{ fontWeight: 700 }}>What will post (read-only)</summary>
+      {preview.length ? preview.map((entry) => (
+        <div key={entry.channel} style={{ marginTop: 8 }}>
+          <strong>{entry.channel === "youtube" ? "YouTube" : entry.channel === "tiktok" ? "TikTok" : entry.channel}</strong>
+          {entry.ok ? (
+            <>
+              {entry.landing ? <div style={{ fontSize: 13, marginTop: 4 }}>Affiliate page: {entry.landing}</div> : null}
+              <div style={{ fontSize: 13, marginTop: 4, wordBreak: "break-all" }}>Link: {entry.link}</div>
+              <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13, margin: "4px 0 0", padding: 8, border: "1px solid currentColor", borderRadius: 8 }}>{entry.caption}</pre>
+            </>
+          ) : <p role="alert" style={{ color: "crimson", margin: "4px 0 0" }}>{entry.error}</p>}
+        </div>
+      )) : <p role="alert" style={{ color: "crimson", margin: "4px 0 0" }}>Caption preview is missing, so approval is blocked. Refresh and try again.</p>}
+    </details>
+  );
 }
 
 function Stat({ label, value }) {

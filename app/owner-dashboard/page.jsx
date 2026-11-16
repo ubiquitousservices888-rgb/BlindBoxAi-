@@ -26,6 +26,7 @@ export default function OwnerDashboardPage() {
           UPLOAD NEW REVIEW VIDEO
         </Link>
       </section>
+      <p><Link href="/owner-dashboard/epn-check" style={{ fontWeight: 800 }}>TEST LIVE EBAY AFFILIATE CONNECTION →</Link></p>
       <p><Link href="/owner-dashboard/revenue">Open the daily earnings & payout dashboard →</Link></p>
       <p><Link href="/owner-dashboard/ebay">Connect eBay for owner-only research →</Link></p>
       <DashboardClient />

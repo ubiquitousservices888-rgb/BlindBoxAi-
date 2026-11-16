@@ -4,7 +4,7 @@ import test from "node:test";
 
 const workflow = fs.readFileSync(new URL("../.github/workflows/autonomous-video.yml", import.meta.url), "utf8");
 
-test("video workflow stages verified renders only by explicit non-scheduled triggers", () => {
+test("video workflow retains the review handoff while paid rendering is paused", () => {
   assert.match(workflow, /workflow_dispatch/);
   assert.doesNotMatch(workflow, /\bschedule\s*:/);
   assert.match(workflow, /Render one verified video for review/);
@@ -39,19 +39,16 @@ test("production video path avoids the former Zapier handoff and preserves exact
 
 const reviewOnlyWorkflow = fs.readFileSync(new URL("../.github/workflows/gemini-video-stage.yml", import.meta.url), "utf8");
 
-test("review-only video workflow validates attribution, uses configured renderers, and cannot publish", () => {
+test("review-only video workflow keeps attribution checks while paid rendering is paused", () => {
   assert.match(reviewOnlyWorkflow, /workflow_dispatch/);
   assert.doesNotMatch(reviewOnlyWorkflow, /\bschedule\s*:/);
   assert.match(reviewOnlyWorkflow, /NEXT_PUBLIC_EPN_CAMPID:/);
   assert.match(reviewOnlyWorkflow, /CREATOMATE_API_KEY/);
-  assert.match(reviewOnlyWorkflow, /GEMINI_API_KEY/);
-  assert.match(reviewOnlyWorkflow, /BLOB_READ_WRITE_TOKEN/);
+  assert.doesNotMatch(reviewOnlyWorkflow, /GEMINI_API_KEY|BLOB_READ_WRITE_TOKEN/);
+  assert.match(reviewOnlyWorkflow, /\n  render:\n(?:    #[^\n]*\n)*    if: \$\{\{ false \}\}\n/);
   assert.match(reviewOnlyWorkflow, /npm run video:daily/);
-  assert.match(reviewOnlyWorkflow, /npm run video:gemini-stage/);
-  assert.ok(
-    reviewOnlyWorkflow.indexOf("npm run video:daily") < reviewOnlyWorkflow.indexOf("npm run video:gemini-stage"),
-    "Creatomate must run before the guarded Gemini fallback",
-  );
+  assert.doesNotMatch(reviewOnlyWorkflow, /npm run video:gemini-stage/);
+  assert.match(reviewOnlyWorkflow, /ALLOW_GEMINI_VIDEO_RENDER:\s*"false"/);
   assert.match(reviewOnlyWorkflow, /missing a renderer provider/);
   assert.match(reviewOnlyWorkflow, /VIDEO_CHANNELS:.*youtube,tiktok/);
   assert.match(reviewOnlyWorkflow, /ALLOW_MANUAL_VIDEO_PUBLISH:\s*"false"/);

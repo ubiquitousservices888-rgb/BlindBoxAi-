@@ -262,10 +262,16 @@ test("live eBay route does not expose a quota-consuming HEAD validator and sanit
     title: "Example",
     itemAffiliateWebUrl: "https://evil.example/itm/123",
   }), null);
-  const safe = normalizeEbayBrowseItem({
+  // An ordinary View Item URL is safe to read but not proof of commission tracking.
+  assert.equal(normalizeEbayBrowseItem({
     itemId: "v1|123|0",
     title: "Example",
     itemAffiliateWebUrl: "https://www.ebay.com/itm/123",
+  }), null);
+  const safe = normalizeEbayBrowseItem({
+    itemId: "v1|123|0",
+    title: "Example",
+    itemAffiliateWebUrl: "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=1234567890&toolid=10001&customid=fixture-audit",
   });
-  assert.equal(safe.affiliateUrl, "https://www.ebay.com/itm/123");
+  assert.equal(safe.affiliateUrl, "https://www.ebay.com/itm/123?mkevt=1&mkcid=1&mkrid=711-53200-19255-0&campid=1234567890&toolid=10001&customid=fixture-audit");
 });
