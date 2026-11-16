@@ -29,6 +29,7 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
     return route.abort();
   });
   await page.goto(`${origin}/pro`);
+  await page.getByRole("button", { name: "Reject optional analytics", exact: true }).click();
   await page.getByRole("link", { name: "Open your Pro account" }).click();
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill("one@example.test");
@@ -77,6 +78,7 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
 test("existing site keeps the free waitlist and payment-disabled default", async ({ page, request }) => {
   await page.route("**/*", route => new URL(route.request().url()).hostname === "127.0.0.1" ? route.continue() : route.abort());
   await page.goto("/pro");
+  await page.getByRole("button", { name: "Reject optional analytics", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Free resale margin check" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Join the waitlist →", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open your Pro account" })).toHaveCount(0);
