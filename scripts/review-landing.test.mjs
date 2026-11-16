@@ -92,8 +92,8 @@ test("Mew guide links keep a video's campaign tag and otherwise credit the guide
   assert.match(mewPage, /export const dynamic = "force-dynamic";/);
   assert.match(mewPage, /const query = await searchParams;/);
   assert.match(mewPage, /mew30thOutboundPath\(card, attribution\)/);
-  assert.match(mewPage, /typeof query\?\.campaign === "string" \? query\.campaign : undefined/);
-  assert.match(mewPage, /typeof query\?\.source === "string" \? query\.source : undefined/);
+  assert.match(mewPage, /normalizeCampaignId\(query\?\.campaign\) \|\| normalizeCampaignId\(query\?\.utm_campaign\)/);
+  assert.match(mewPage, /resolveLandingSource\(query\?\.source, query\?\.utm_source\)/);
 });
 
 test("approval re-checks the exact row and its caption on the server before approving", () => {

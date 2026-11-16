@@ -174,6 +174,8 @@ function destinationKind(href) {
   if (href.includes("/api/out/ebay")) return "ebay_affiliate";
   if (href.includes("/api/out/offer")) return "marketplace_offer";
   if (href.includes("/api/out/amazon")) return "amazon_affiliate";
+  if (href.includes("/api/out/guide")) return "own_product";
+  if (href.includes("/guides/fake-check-field-guide")) return "own_product_page";
   if (href.includes("/tools/buy-or-pass")) return "buy_or_pass";
   if (href.includes("/series/")) return "series_detail";
   return "internal_cta";
@@ -289,7 +291,7 @@ export default function CoreAnalytics() {
         captureFirstParty("commerce_intent_click", payload);
       }
 
-      if (!isAffiliateDestination(destination)) return;
+      if (!isAffiliateDestination(destination) && destination !== "own_product" && destination !== "own_product_page") return;
 
       try {
         const target = new URL(href, window.location.origin);
