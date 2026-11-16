@@ -108,6 +108,7 @@ export async function proFixtures() {
         return sub ? reply(sub) : reply({ error: { type: "invalid_request_error", message: "No such subscription" } }, 404);
       }
       if (url.pathname === "/v1/checkout/sessions" && req.method === "POST") {
+        if (Number(form.get("expires_at")) < Math.floor(Date.now() / 1000) + 1800) return reply({ error: { type: "invalid_request_error", message: "expires_at must be at least 30 minutes after creation" } }, 400);
         const value = { id: `cs_test_fixture_${++state.checkoutCreates}`, object: "checkout.session", mode: "subscription", status: "open", payment_status: "unpaid", customer: form.get("customer"), livemode: false, url: `https://checkout.stripe.com/c/pay/local_fixture_${state.checkoutCreates}`, expires_at: Number(form.get("expires_at")) };
         state.sessions.set(value.id, value); return finish(value);
       }

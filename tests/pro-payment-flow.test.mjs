@@ -109,6 +109,18 @@ test("a lost checkout checkpoint retries the exact submission and delayed paymen
   } finally { await f.close(); }
 });
 
+test("a delayed claim still satisfies Stripe's minimum Checkout expiration window", async () => {
+  const f = await proFixtures();
+  try {
+    await f.store.claimCheckout(USER_A, false);
+    await f.db.query("update public.pro_accounts set checkout_attempt_created_at=now()-interval '20 minutes' where user_id=$1", [USER_A]);
+    await createProCheckout({ user: f.users.get(USER_A), store: f.store, stripe: f.stripe, env: f.env });
+    const session = [...f.state.sessions.values()][0];
+    assert.ok(session.expires_at - Date.now() / 1000 > 39 * 60);
+    assert.equal(f.state.checkoutCreates, 1);
+  } finally { await f.close(); }
+});
+
 test("authenticated routes isolate saved scenarios, CSV exports and portal ownership", async () => {
   const f = await proFixtures();
   try {
