@@ -1,0 +1,96 @@
+{
+  "investigation_date": "2026-11-18",
+  "rea": {
+    "repository": "morluto/rea",
+    "version": "6.9.0",
+    "source_head_observed": "b21db3f3293bcfaffa6793be2f09b1aaf35dcc69",
+    "npm_integrity": "sha512-KqDn1UR5BMqHoQ3MGAnPuWiSKwgdFaz1L/uUNgrKt+1W8kPtgYP8AWEOXIF1lDIOBVyPuYIIst2iamo1Wf3r8g==",
+    "license": "MIT",
+    "install_lifecycle_scripts": false,
+    "optional_dependencies": false
+  },
+  "targets": [
+    {
+      "repository": "dubinc/dub",
+      "revision": "6b463b4bdd9ed2fd9aa416f67b5b77d317b1471e",
+      "module": "apps/web/lib/api/conversions/track-sale.ts",
+      "source_sha256": "5c8a6fd6534a80d82f64c3681f6fa446d2f4f042b1bf3b72f36223db3667d20c",
+      "source_url": "https://github.com/dubinc/dub/blob/6b463b4bdd9ed2fd9aa416f67b5b77d317b1471e/apps/web/lib/api/conversions/track-sale.ts",
+      "rea_evidence_id": "ev_a8d6914a9b719de0793f0fde4984c59912814265b9d9682f5b324ff396820619",
+      "rea_bundle_sha256": "e2eb805062007993b7d13fe0af06e4a82afff25b9c1506c597383c902eff5427",
+      "static_only": true,
+      "selected_sources": 1,
+      "unselected_sources_remain_unknown": true,
+      "semantic_trace": {
+        "evidence_id": "ev_98ab0b4ba4e062309f431ebbf6f55b9527db3107abdf82f1e18a348fd488731c",
+        "sha256": "067350ff8a8c89d56b6d77c31e2122c87131cdfbc654213347cd1972a2caf8be",
+        "status": "ambiguous",
+        "coverage": "partial",
+        "summary": {
+          "total_seed_matches": 1,
+          "traversed_nodes": 6,
+          "traversed_relations": 5,
+          "traversed_functions": 1,
+          "traversed_modules": 1,
+          "relevant_unknowns": 3
+        }
+      }
+    },
+    {
+      "repository": "gitroomhq/postiz-app",
+      "revision": "a63809174197e562dde5fe003aee93e8deacd8a1",
+      "module": "libraries/nestjs-libraries/src/integrations/social/youtube.provider.ts",
+      "source_sha256": "c51205b4192ae807ebe0eca256a812309e77cae26f383a9849294423b2e699a5",
+      "source_url": "https://github.com/gitroomhq/postiz-app/blob/a63809174197e562dde5fe003aee93e8deacd8a1/libraries/nestjs-libraries/src/integrations/social/youtube.provider.ts",
+      "rea_evidence_id": "ev_59e0a37afa7da4a3e81b67d2042f64455bb2d74700984cae11b7af0684e0d64a",
+      "rea_bundle_sha256": "520e24e6c6527d846a2907f4a15939ba24e2eeba58da9c09d15bd0a5a89fdad0",
+      "static_only": true,
+      "selected_sources": 1,
+      "unselected_sources_remain_unknown": true,
+      "semantic_trace": {
+        "evidence_id": "ev_862c03688006efa4d5de779a10de55a8ea17e6dae1b7ecbc1c70e1a759728137",
+        "sha256": "125212e1e7c3fd3e0ad9c801b1d18dc79778c7ef069ae94126b4227d54c36d35",
+        "status": "partial",
+        "coverage": "partial",
+        "summary": {
+          "total_seed_matches": 1,
+          "traversed_nodes": 3,
+          "traversed_relations": 2,
+          "traversed_functions": 1,
+          "traversed_modules": 1,
+          "relevant_unknowns": 2
+        }
+      }
+    },
+    {
+      "repository": "ubiquitousservices888-rgb/BlindBoxAi-",
+      "revision": "f4f8f3341595e65a29901ea37446509ab95e0da5",
+      "module": "lib/funnel-events.mjs",
+      "source_sha256": "b376713f87ed6f0d6c64cc9db3201aba7d6b30cc462a92833f5f6705e3ccd3fd",
+      "source_url": "https://github.com/ubiquitousservices888-rgb/BlindBoxAi-/blob/f4f8f3341595e65a29901ea37446509ab95e0da5/lib/funnel-events.mjs",
+      "rea_evidence_id": "ev_bc9f787e6d9891e9c7bad00bfbfb1190e55dc8aa23e97cdfaa50387e09b7a81d",
+      "rea_bundle_sha256": "3d184656a94b3f71760a2ebb82b5d14606b2c49b3d8d11f2d6789d31f8fd3e07",
+      "static_only": true,
+      "selected_sources": 1,
+      "unselected_sources_remain_unknown": true,
+      "semantic_trace": {
+        "evidence_id": "ev_e48b30e80bdafcf0b2d34fbbff43195046a9b10e60f48d68b88153f6e6fa9168",
+        "sha256": "9e06d5a2680c7e9af713c6ed4d66eff1c4b9f226a02913a01fd3a6f2953f42c9",
+        "status": "partial",
+        "coverage": "partial",
+        "summary": {
+          "total_seed_matches": 1,
+          "traversed_nodes": 4,
+          "traversed_relations": 3,
+          "traversed_functions": 1,
+          "traversed_modules": 1,
+          "relevant_unknowns": 2
+        }
+      }
+    }
+  ],
+  "implementation": {
+    "upstream_application_code_copied": false,
+    "purpose": "Offline evidence consistency audit; no production authorization or financial authentication"
+  }
+}
