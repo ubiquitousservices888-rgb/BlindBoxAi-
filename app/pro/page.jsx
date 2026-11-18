@@ -13,7 +13,7 @@ export const metadata = {
 
 async function ProEnrollment() {
   const subscriptionsOpen = await proCheckoutAvailable();
-  return subscriptionsOpen ? <><p><strong>$9.99 USD/month</strong>. Review applicable tax at checkout. Cancel renewal through your account.</p><Link className="cta" href="/pro/account">Open your Pro account</Link></> : <p>New subscriptions are not open yet. The free calculator and waitlist below remain available.</p>;
+  return subscriptionsOpen ? <><p><strong>$9.99 USD/month</strong>. Review applicable tax at checkout. Cancel renewal through your account.</p><Link className="cta" href="/pro/account">Open your Pro account</Link></> : <p>Pro enrollment is currently unavailable. Please check again later. The free calculator and waitlist below remain available.</p>;
 }
 
 export default function Pro() {

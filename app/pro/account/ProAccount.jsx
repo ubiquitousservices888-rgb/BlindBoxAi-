@@ -53,7 +53,10 @@ export default function ProAccount() {
       if (error.status === 401) setAccess({ signedIn: false });
       else if (error.status === 402) {
         try { const current = await api("/api/pro/access"); setAccess(current.allowed ? { ...current, allowed: false, reason: "access_confirmation_pending" } : current); }
-        catch { setAccess({ ...state, allowed: false, reason: "access_confirmation_pending" }); }
+        catch (error) {
+          setAccess(error.status === 401 ? { signedIn: false } : null);
+          setUnavailable(error.status !== 401);
+        }
       } else setNotice(error.message);
     }
   }

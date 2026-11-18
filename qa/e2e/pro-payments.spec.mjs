@@ -100,6 +100,18 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   await page.getByRole("button", { name: "Refresh access", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Saved resale scenarios" })).toHaveCount(0);
   expect((await context.request.get(`${origin}/api/pro/scenarios`)).status()).toBe(402);
+  sub.status = "active";
+  let accessRequests = 0;
+  await context.route(`${origin}/api/pro/access`, route => {
+    if (++accessRequests === 1) return route.continue();
+    return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "sign_in_required" }) });
+  }, { times: 2 });
+  await context.route(`${origin}/api/pro/scenarios`, route => route.fulfill({
+    status: 402, contentType: "application/json", body: JSON.stringify({ error: "subscription_required" }),
+  }), { times: 1 });
+  await page.getByRole("button", { name: "Refresh access", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your subscription", exact: true })).toHaveCount(0);
 });
 
 test("existing site keeps the free waitlist and payment-disabled default", async ({ page, request }) => {

@@ -56,6 +56,16 @@ test("cross-origin requests and unbounded or malformed bodies are rejected", asy
   await assert.rejects(readProBody(request("[]")), /invalid_request/);
   await assert.rejects(readProBody(request("null")), /invalid_request/);
   assert.deepEqual(await readProBody(request("{}")), {});
+  for (const contentType of ["application/jsonp", "application/json-extra", "text/plain"]) {
+    await assert.rejects(readProBody(new Request("https://blindboxai.com/api/pro/checkout", {
+      method: "POST", headers: { "Content-Type": contentType }, body: "{}",
+    })), /invalid_request/);
+  }
+  for (const contentType of ["application/json; charset=utf-8", "Application/JSON"]) {
+    assert.deepEqual(await readProBody(new Request("https://blindboxai.com/api/pro/checkout", {
+      method: "POST", headers: { "Content-Type": contentType }, body: "{}",
+    })), {});
+  }
 });
 
 test("isolated loopback Stripe HTTP uses port 80 when no port is specified", () => {
