@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/video-candidate-review-ci.yml'
+      - '.github/workflows/daily-video-candidate-stage.yml'
+      - 'data/video-autonomy-exclusions.json'
+      - 'scripts/workflow-publish-safety.test.mjs'
       - 'lib/daily-video-plan.mjs'
       - 'scripts/daily-video-candidate.mjs'
       - 'scripts/daily-video-candidate.test.mjs'
