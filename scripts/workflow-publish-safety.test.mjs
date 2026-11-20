@@ -131,5 +131,7 @@ test('daily video stage cannot post, spend, or bypass owner approval', () => {
   assert.match(text, /schedule:/);
   assert.match(text, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0'/);
   assert.match(text, /blindboxai-draft-candidate/);
+  assert.match(text, /node scripts\/daily-video-candidate\.mjs/);
+  assert.doesNotMatch(text, /node scripts\/video-pipeline\.mjs validate/);
   assert.doesNotMatch(text, /BUFFER_API_TOKEN|CREATOMATE_API_KEY|GEMINI_API_KEY|publish-approved-review-queue\.mjs|publish-reviewed-upload\.mjs|gh workflow run|actions\/workflows\/.*\/dispatches/);
 });
