@@ -1,13 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { planDailyVideo } from '../lib/daily-video-plan.mjs';
 import { validateVerifiedProduct, generateVideoScript, DISCLOSURE } from '../lib/video-pipeline.mjs';
-import { hardenGenerativeVideoScript } from '../lib/epn-genai-safety.mjs';
+import { hardenGenerativeVideoScript, sanitizeProductForGenerativeVideo } from '../lib/epn-genai-safety.mjs';
 
-const outputDir = 'output/daily-video';
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const outputDir = path.join(repositoryRoot, 'output/daily-video');
 const historyDir = path.join(outputDir, 'history');
-const products = JSON.parse(fs.readFileSync('data/verified-video-products.json', 'utf8')).products;
-const exclusionConfig = JSON.parse(fs.readFileSync('data/video-autonomy-exclusions.json', 'utf8'));
+const products = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'data/verified-video-products.json'), 'utf8')).products;
+const exclusionConfig = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'data/video-autonomy-exclusions.json'), 'utf8'));
 if (exclusionConfig?.schema !== 'blindboxai/video-autonomy-exclusions/v1' || !Array.isArray(exclusionConfig.excludedProductIds)) throw new Error('Autonomy product exclusion data is required');
 const history = fs.existsSync(historyDir) ? fs.readdirSync(historyDir)
   .filter((name) => /^candidate-[0-9]+\.json$/.test(name))
@@ -17,8 +19,13 @@ const monthlyLimitRaw = process.env.DAILY_VIDEO_MAX_RENDERS_PER_MONTH || '0';
 if (!/^(0|[1-9][0-9]?)$/.test(monthlyLimitRaw)) throw new Error('Invalid monthly render cap');
 const candidate = planDailyVideo({
   products, history, now,
-  validateProduct: validateVerifiedProduct,
-  makeScript: (product, date) => hardenGenerativeVideoScript(generateVideoScript(product, date), DISCLOSURE),
+  validateProduct: (product, date) => {
+    validateVerifiedProduct(product, date);
+    // Require independent non-eBay visual/narration evidence before preparing a candidate.
+    validateVerifiedProduct(sanitizeProductForGenerativeVideo(product), date);
+  },
+  makeScript: (product, date) => hardenGenerativeVideoScript(
+    generateVideoScript(product, date, { evidenceProduct: sanitizeProductForGenerativeVideo(product) }), DISCLOSURE),
   monthlyRenderLimit: Number(monthlyLimitRaw),
   excludedProductIds: exclusionConfig.excludedProductIds,
 });
