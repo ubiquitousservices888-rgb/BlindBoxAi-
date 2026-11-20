@@ -58,8 +58,8 @@ test("later rejection or attribution conflict cannot leave a profitable row coun
   }
 });
 
-test("equivalent reconciled evidence and numeric encodings can agree", () => {
-  const r = audit([conversion(), conversion({ status: "reconciled", confirmedRevenueUSD: 4.5 })]);
+test("equivalent reconciled decimal strings can agree", () => {
+  const r = audit([conversion(), conversion({ status: "reconciled", confirmedRevenueUSD: "4.5" })]);
   assert.equal(r.analysis.consistentIdentities, 1);
   assert.equal(r.analysis.consistentReportedAmountCents, "450");
 });
@@ -149,4 +149,28 @@ test("CLI bounds input, suppresses malformed data and includes the exact file di
     const large = spawnSync(process.execPath, [cli, "--input", input, "--kind", "export"], { encoding: "utf8" });
     assert.equal(large.status, 2);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test("JSON numeric monetary values are quarantined rather than rounded into cents", () => {
+  for (const number of [4.5, 0.1, 90071992547409.01, 9007199254740992]) {
+    const result = audit([conversion({ confirmedRevenueUSD: number })]).analysis;
+    assert.equal(result.consistentIdentities, 0);
+    assert.equal(result.quarantinedIdentities, 1);
+    assert.equal(result.consistentReportedAmountCents, "0");
+  }
+  const mixed = audit([conversion(), conversion({ confirmedRevenueUSD: 4.5 })]).analysis;
+  assert.equal(mixed.quarantinedIdentities, 1);
+  assert.equal(mixed.consistentReportedAmountCents, "0");
+  const precise = audit([conversion({ confirmedRevenueUSD: "90071992547409.00" })]).analysis;
+  assert.equal(precise.consistentReportedAmountCents, "9007199254740900");
+});
+
+test("research manifest never presents unrecomputed source and REA hashes as verified", () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL("./study-manifest.json", import.meta.url), "utf8"));
+  assert.equal(manifest.hash_verification.status, "UNVERIFIED");
+  assert.equal(manifest.hash_verification.source_files_recomputed, false);
+  assert.equal(manifest.hash_verification.rea_bundles_recomputed, false);
+  assert.equal(manifest.hash_verification.semantic_traces_recomputed, false);
+  assert.equal(manifest.targets.length, 3);
+  assert.ok(manifest.targets.every((target) => target.source_url.startsWith("https://github.com/")));
 });
