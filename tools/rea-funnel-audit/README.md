@@ -34,8 +34,12 @@ The accepted event shape is a JSON array or `{ "events": [...] }`, with the
 existing `lib/funnel-events.mjs` field names. Only explicitly production,
 `test: false`, `provider_conversion` records with bounded provider/evidence IDs
 enter identity comparison. Clicks cannot become conversions. Missing or invalid
-identity rows are counted separately and excluded. Monetary values must be
-nonnegative exact cents within the existing safe range. Negative adjustments,
+identity rows are counted separately and excluded. Monetary amounts must be
+JSON **decimal strings** (for example, `"4.50"`), with at most two decimal places;
+JSON numeric amounts are quarantined, including apparently ordinary numbers,
+because parsing can silently round them before the audit. Convert from the
+**original authoritative decimal text**, never a parsed JavaScript number.
+Amounts must be nonnegative exact cents within the existing safe range. Negative adjustments,
 nonconfirmed observations, malformed amounts, explicit non-USD currency and
 disagreement on Custom ID quarantine the complete identified transaction.
 Confirmed and reconciled statuses can agree; they are not proof of payout.
@@ -74,10 +78,14 @@ dependencies omitted. Its local CLI statically analyzed these pinned modules:
 | Postiz | `a63809174197e562dde5fe003aee93e8deacd8a1` | `libraries/nestjs-libraries/src/integrations/social/youtube.provider.ts` | Resumable upload session state and returned video identity are distinct from ancillary title/thumbnail failures. |
 | BlindBoxAI | `f4f8f3341595e65a29901ea37446509ab95e0da5` | `lib/funnel-events.mjs` | Production/test separation and provider tuple keys already exist; differing repeated amounts currently retain the first eligible observation. |
 
-`study-manifest.json` records the exact selected-source hashes and REA Evidence
-IDs/hashes, including forward semantic traces of `invoiceId`, `uploadUri` and
-`dedupedConversions`. Those traces returned ambiguous/partial coverage, not proof
-of complete behavior. Analysis is partial and static: unselected modules and runtime/provider
+`study-manifest.json` retains **research-reported, UNVERIFIED** SHA-256 values
+for selected sources, REA bundles, and semantic traces (including `invoiceId`,
+`uploadUri` and `dedupedConversions`). **These hashes have not been recomputed**
+from the pinned upstream bytes or retained REA output in this change; they are
+orientation metadata, **not independently validated provenance**. Recompute from
+the exact upstream source and saved REA artifacts before making any source-integrity
+claim. The semantic traces reported ambiguous/partial coverage, not proof of
+complete behavior. Analysis is partial and static: unselected modules and runtime/provider
 behavior remain unknown. No native binary was decompiled and no live social or
 payment operation was attempted. REA does not automatically return a production
 C++ rewrite: it supplies observations and pseudocode; implementation and tests
