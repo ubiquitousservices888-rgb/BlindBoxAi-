@@ -17,8 +17,10 @@ const identity = (value) => typeof value === "string" && value.length > 0 &&
 const encode = (value) => Buffer.from(value, "utf8").toString("hex");
 
 function cents(value) {
-  if (!["number", "string"].includes(typeof value)) return "X";
-  const match = String(value).trim().match(/^(0|[1-9]\d*)(?:\.(\d{1,2}))?$/);
+  // Parsing a JSON number can round the amount before this audit observes it.
+  // Require the source decimal text to preserve exact cents.
+  if (typeof value !== "string") return "X";
+  const match = value.trim().match(/^(0|[1-9]\d*)(?:\.(\d{1,2}))?$/);
   if (!match || match[1].length > 14) return "X";
   return String(BigInt(match[1]) * 100n + BigInt((match[2] || "").padEnd(2, "0")));
 }
