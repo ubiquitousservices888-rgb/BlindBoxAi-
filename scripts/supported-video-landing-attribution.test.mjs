@@ -69,7 +69,7 @@ test("sample supported series retains campaign and source in first-party outboun
       }));
       const target = new URL(resolved.target);
       assert.equal(target.protocol, "https:");
-      assert.match(target.hostname, /(^|\\.)ebay\\.com$/);
+      assert.match(target.hostname, /(^|\.)ebay\.com$/);
       assert.equal(target.searchParams.get("campid"), "5339171775");
     }
   } finally {
