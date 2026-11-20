@@ -92,5 +92,12 @@
   "implementation": {
     "upstream_application_code_copied": false,
     "purpose": "Offline evidence consistency audit; no production authorization or financial authentication"
+  },
+  "hash_verification": {
+    "status": "UNVERIFIED",
+    "source_files_recomputed": false,
+    "rea_bundles_recomputed": false,
+    "semantic_traces_recomputed": false,
+    "note": "Historical research hashes were not independently recomputed from pinned source bytes and REA output artifacts in this PR; do not cite as verified provenance."
   }
 }
