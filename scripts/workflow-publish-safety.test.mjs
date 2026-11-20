@@ -13,6 +13,7 @@ const workflowFiles = fs.readdirSync(workflowsDir)
 const scheduledAllowlist = new Set([
   "bounded-operations.yml",
   "daily-research-check.yml",
+  "daily-video-candidate-stage.yml",
   "evergreen-shopping-stage.yml",
   "know-it-all-public-research.yml",
   "know-it-all-transaction-verification.yml",
@@ -123,4 +124,12 @@ test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed,
   assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
   assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+});
+
+test('daily video stage cannot post, spend, or bypass owner approval', () => {
+  const text = source('daily-video-candidate-stage.yml');
+  assert.match(text, /schedule:/);
+  assert.match(text, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0'/);
+  assert.match(text, /blindboxai-draft-candidate/);
+  assert.doesNotMatch(text, /BUFFER_API_TOKEN|CREATOMATE_API_KEY|GEMINI_API_KEY|publish-approved-review-queue\.mjs|publish-reviewed-upload\.mjs|gh workflow run|actions\/workflows\/.*\/dispatches/);
 });
