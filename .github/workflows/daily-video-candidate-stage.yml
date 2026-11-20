@@ -1,0 +1,82 @@
+name: Daily video candidate preparation (draft only)
+
+on:
+  schedule:
+    - cron: '23 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: blindboxai-daily-video-candidate
+  cancel-in-progress: false
+
+jobs:
+  stage-draft:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_EPN_CAMPID: '5339171775'
+      DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify candidate safety tests
+        run: node --test scripts/daily-video-candidate.test.mjs
+      - name: Restore 30-day candidate receipts or stop
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/daily-video/history
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=blindboxai-draft-candidate&per_page=100" > "$RUNNER_TEMP/draft-artifacts.json"
+          jq -e '(.total_count | type == "number") and (.artifacts | type == "array")' "$RUNNER_TEMP/draft-artifacts.json" > /dev/null
+          count="$(jq -r '.total_count' "$RUNNER_TEMP/draft-artifacts.json")"
+          if [ "$count" -gt 100 ]; then
+            echo '::error::Candidate history exceeds one complete page. Refusing to stage a duplicate.'
+            exit 1
+          fi
+          jq -r '.artifacts[] | select(.expired == false) | .id' "$RUNNER_TEMP/draft-artifacts.json" |
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            [[ "$id" =~ ^[0-9]+$ ]] || exit 1
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" > "$RUNNER_TEMP/draft-${id}.zip"
+            unzip -p "$RUNNER_TEMP/draft-${id}.zip" candidate.json > "$RUNNER_TEMP/draft-${id}.json"
+            if jq -e '.status == "READY_TO_RENDER" and (.productId | type == "string") and (.date | type == "string")' "$RUNNER_TEMP/draft-${id}.json" > /dev/null; then
+              cp "$RUNNER_TEMP/draft-${id}.json" "output/daily-video/history/candidate-${id}.json"
+            elif jq -e '.status == "NO_UNUSED_VERIFIED_PRODUCT" and (.date | type == "string")' "$RUNNER_TEMP/draft-${id}.json" > /dev/null; then
+              :
+            else
+              echo '::error::A prior draft receipt is malformed. Refusing to proceed.'
+              exit 1
+            fi
+          done
+      - name: Validate source evidence
+        run: node scripts/video-pipeline.mjs validate
+      - name: Prepare one new source-backed draft or report no candidate
+        run: node scripts/daily-video-candidate.mjs
+      - name: Preserve draft receipt for duplicate prevention
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: blindboxai-draft-candidate
+          path: output/daily-video/candidate.json
+          retention-days: 35
+          if-no-files-found: error
+      - name: Summarize safely without releasing content
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -r '"Candidate status: " + .status + "; product ID: " + (.productId // "none")' output/daily-video/candidate.json >> "$GITHUB_STEP_SUMMARY"
+          echo 'Candidate file is a private Actions artifact, not a produced MP4 or social post.' >> "$GITHUB_STEP_SUMMARY"
