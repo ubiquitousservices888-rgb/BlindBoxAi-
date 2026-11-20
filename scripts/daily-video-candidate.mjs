@@ -7,6 +7,8 @@ import { hardenGenerativeVideoScript } from '../lib/epn-genai-safety.mjs';
 const outputDir = 'output/daily-video';
 const historyDir = path.join(outputDir, 'history');
 const products = JSON.parse(fs.readFileSync('data/verified-video-products.json', 'utf8')).products;
+const exclusionConfig = JSON.parse(fs.readFileSync('data/video-autonomy-exclusions.json', 'utf8'));
+if (exclusionConfig?.schema !== 'blindboxai/video-autonomy-exclusions/v1' || !Array.isArray(exclusionConfig.excludedProductIds)) throw new Error('Autonomy product exclusion data is required');
 const history = fs.existsSync(historyDir) ? fs.readdirSync(historyDir)
   .filter((name) => /^candidate-[0-9]+\.json$/.test(name))
   .map((name) => JSON.parse(fs.readFileSync(path.join(historyDir, name), 'utf8'))) : [];
@@ -18,6 +20,7 @@ const candidate = planDailyVideo({
   validateProduct: validateVerifiedProduct,
   makeScript: (product, date) => hardenGenerativeVideoScript(generateVideoScript(product, date), DISCLOSURE),
   monthlyRenderLimit: Number(monthlyLimitRaw),
+  excludedProductIds: exclusionConfig.excludedProductIds,
 });
 fs.mkdirSync(outputDir, { recursive: true });
 fs.writeFileSync(path.join(outputDir, 'candidate.json'), JSON.stringify(candidate, null, 2) + '\n');
