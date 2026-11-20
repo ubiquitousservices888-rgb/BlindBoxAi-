@@ -40,6 +40,9 @@ test('rejects off-site CTA and unauthorized redirects', () => {
 });
 test('rejects stale inventory as defined by production validation', () => {
   assert.equal(run({ products: [{ id: 'stale' }] }).status, 'NO_UNUSED_VERIFIED_PRODUCT');
+  const mixed = run({ products: [{ id: 'stale' }, products[0]] });
+  assert.equal(mixed.status, 'READY_TO_RENDER');
+  assert.equal(mixed.productId, 'one');
 });
 
 test('does not prepare an owner-retired product', () => {
