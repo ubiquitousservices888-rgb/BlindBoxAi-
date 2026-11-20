@@ -63,9 +63,9 @@ jobs:
               exit 1
             fi
           done
-      - name: Validate source evidence
-        run: node scripts/video-pipeline.mjs validate
-      - name: Prepare one new source-backed draft or report no candidate
+      - name: Prepare one eligible source-verified draft or report no candidate
+        # The candidate planner individually checks every allowed product's evidence.
+        # Do not fail on retired or stale products that cannot be selected.
         run: node scripts/daily-video-candidate.mjs
       - name: Preserve draft receipt for duplicate prevention
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
