@@ -36,30 +36,52 @@ jobs:
         run: npm ci
       - name: Verify candidate safety tests
         run: node --test scripts/daily-video-candidate.test.mjs
-      - name: Restore 30-day candidate receipts or stop
+      - name: Restore trusted successful main-branch receipts or stop
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p output/daily-video/history
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=blindboxai-draft-candidate&per_page=100" > "$RUNNER_TEMP/draft-artifacts.json"
-          jq -e '(.total_count | type == "number") and (.artifacts | type == "array")' "$RUNNER_TEMP/draft-artifacts.json" > /dev/null
-          count="$(jq -r '.total_count' "$RUNNER_TEMP/draft-artifacts.json")"
-          if [ "$count" -gt 100 ]; then
-            echo '::error::Candidate history exceeds one complete page. Refusing to stage a duplicate.'
+          cutoff="$(date -u -d '30 days ago' +%Y-%m-%d)"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-video-candidate-stage.yml/runs?branch=main&created=${cutoff}..&per_page=100" > "$RUNNER_TEMP/draft-workflow-runs.json"
+          jq -e '(.total_count | type == "number") and (.workflow_runs | type == "array")' "$RUNNER_TEMP/draft-workflow-runs.json" > /dev/null
+          if [ "$(jq -r '.total_count' "$RUNNER_TEMP/draft-workflow-runs.json")" -gt 100 ]; then
+            echo '::error::Workflow run history exceeds one complete page; refusing to stage.'
             exit 1
           fi
-          jq -r '.artifacts[] | select(.expired == false) | .id' "$RUNNER_TEMP/draft-artifacts.json" |
-          while IFS= read -r id; do
-            [ -n "$id" ] || continue
-            [[ "$id" =~ ^[0-9]+$ ]] || exit 1
-            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" > "$RUNNER_TEMP/draft-${id}.zip"
-            unzip -p "$RUNNER_TEMP/draft-${id}.zip" candidate.json > "$RUNNER_TEMP/draft-${id}.json"
-            if jq -e '.status == "READY_TO_RENDER" and (.productId | type == "string") and (.date | type == "string")' "$RUNNER_TEMP/draft-${id}.json" > /dev/null; then
-              cp "$RUNNER_TEMP/draft-${id}.json" "output/daily-video/history/candidate-${id}.json"
-            elif jq -e '.status == "NO_UNUSED_VERIFIED_PRODUCT" and (.date | type == "string")' "$RUNNER_TEMP/draft-${id}.json" > /dev/null; then
+          if ! jq -e 'all(.workflow_runs[]; .head_branch == "main" and (.event == "schedule" or .event == "workflow_dispatch"))' "$RUNNER_TEMP/draft-workflow-runs.json" > /dev/null; then
+            echo '::error::Workflow run history contains an unexpected branch or trigger.'
+            exit 1
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=blindboxai-draft-candidate&per_page=100" > "$RUNNER_TEMP/draft-artifacts.json"
+          jq -e '(.total_count | type == "number") and (.artifacts | type == "array")' "$RUNNER_TEMP/draft-artifacts.json" > /dev/null
+          if [ "$(jq -r '.total_count' "$RUNNER_TEMP/draft-artifacts.json")" -gt 100 ]; then
+            echo '::error::Artifact list is truncated; refusing to stage.'
+            exit 1
+          fi
+          jq -r '.workflow_runs[] | select(.status == "completed" and .conclusion == "success") | .id' "$RUNNER_TEMP/draft-workflow-runs.json" |
+          while IFS= read -r run_id; do
+            [[ "$run_id" =~ ^[0-9]+$ ]] || exit 1
+            artifact_id="$(jq -r --argjson id "$run_id" '[.artifacts[] | select(.workflow_run.id == $id and .expired == false) | .id] | first // empty' "$RUNNER_TEMP/draft-artifacts.json")"
+            if ! [[ "$artifact_id" =~ ^[0-9]+$ ]]; then
+              echo '::error::A successful main workflow run has no available bound receipt.'
+              exit 1
+            fi
+            created="$(jq -r --argjson id "$artifact_id" '.artifacts[] | select(.id == $id) | .created_at' "$RUNNER_TEMP/draft-artifacts.json")"
+            expires="$(jq -r --argjson id "$artifact_id" '.artifacts[] | select(.id == $id) | .expires_at' "$RUNNER_TEMP/draft-artifacts.json")"
+            created_epoch="$(date -u -d "$created" +%s)"
+            expires_epoch="$(date -u -d "$expires" +%s)"
+            if [ "$((expires_epoch - created_epoch))" -lt 2592000 ]; then
+              echo '::error::Observed artifact retention is shorter than the 30-day cooldown; fail closed.'
+              exit 1
+            fi
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$RUNNER_TEMP/draft-${artifact_id}.zip"
+            unzip -p "$RUNNER_TEMP/draft-${artifact_id}.zip" candidate.json > "$RUNNER_TEMP/draft-${artifact_id}.json"
+            if jq -e '.status == "READY_TO_RENDER" and (.productId | type == "string") and (.date | type == "string")' "$RUNNER_TEMP/draft-${artifact_id}.json" > /dev/null; then
+              cp "$RUNNER_TEMP/draft-${artifact_id}.json" "output/daily-video/history/candidate-${artifact_id}.json"
+            elif jq -e '.status == "NO_UNUSED_VERIFIED_PRODUCT" and (.date | type == "string")' "$RUNNER_TEMP/draft-${artifact_id}.json" > /dev/null; then
               :
             else
-              echo '::error::A prior draft receipt is malformed. Refusing to proceed.'
+              echo '::error::A trusted draft receipt is malformed; refusing to stage.'
               exit 1
             fi
           done
