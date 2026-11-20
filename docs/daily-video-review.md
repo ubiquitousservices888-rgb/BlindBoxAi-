@@ -20,3 +20,12 @@ Release verification:
 6. After individual owner approval, verify public YouTube/TikTok receipts, actual landing traffic, and partner-confirmed conversions.
 
 The current proposed schedule has no charge path. Future paid workflows must include a separately approved monetary limit and fail-closed provider enforcement. Never erase candidate receipts to re-trigger duplicates.
+
+## Supersession of historical PR #279
+
+- PR #278's insert-only staging fix is already merged; the earlier staging prerequisite in #279 is historical.
+- This PR replaces the **candidate preparation only** from #279. It does not revive its manual provider-render opt-in, exact-product dispatch, paid provider calls, or automatic Buffer publishing.
+- Review-only candidate receipts are saved on every successful scheduled run, including when rendering is disabled; a second reservation for the same UTC date fails closed. A product used within 30 days is excluded, and missing/malformed artifact history prevents candidate selection.
+- The scheduled workflow's monthly render-request cap is **fixed at 0** and is **not** a financial budget or a permission to spend. The optional `canRender` value from the pure planner cannot activate any external renderer.
+- Source verification is applied separately to each eligible item: a retired or stale source cannot block another eligible, verified product. Excluded products remain excluded until an owner-authorized inventory update.
+- The PR CI path filter covers the planner, its tests, source validation modules, verified product input, protected workflow tests, and package dependencies. PR #279's historical failed commits do not constitute current release evidence; require green checks on this PR's exact head.
