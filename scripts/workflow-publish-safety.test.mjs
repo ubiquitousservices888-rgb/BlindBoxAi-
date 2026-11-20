@@ -130,6 +130,15 @@ test('daily video stage cannot post, spend, or bypass owner approval', () => {
   const text = source('daily-video-candidate-stage.yml');
   assert.match(text, /schedule:/);
   assert.match(text, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0'/);
+  assert.equal((text.match(/DAILY_VIDEO_MAX_RENDERS_PER_MONTH\s*:/g) || []).length, 1, 'a step must not override the zero cap');
+  assert.doesNotMatch(text, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH\s*=/);
+  assert.match(text, /^permissions:\s*\n  contents: read\s*\n  actions: read\s*$/m);
+  assert.doesNotMatch(text, /secrets\s*\./);
+  assert.doesNotMatch(text, /\b(?:contents|actions|id-token|packages|deployments|pull-requests): write\b/);
+  assert.match(text, /runs\?branch=main/);
+  assert.match(text, /\.conclusion == "success"/);
+  assert.match(text, /\.workflow_run\.id == \$id/);
+  assert.match(text, /2592000/);
   assert.match(text, /blindboxai-draft-candidate/);
   assert.match(text, /node scripts\/daily-video-candidate\.mjs/);
   assert.doesNotMatch(text, /node scripts\/video-pipeline\.mjs validate/);
