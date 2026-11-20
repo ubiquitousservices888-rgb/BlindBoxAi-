@@ -13,8 +13,18 @@ const output = path.join(projectRoot, 'output/daily-video/candidate.json');
 test('the real zero-spend candidate CLI reads canonical inputs from any cwd', () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'blindbox-video-candidate-smoke-'));
   const previous = fs.existsSync(output) ? fs.readFileSync(output) : null;
+  // Run the exact entrypoint with external networking blocked before module import.
+  const networkGuard = path.join(cwd, 'deny-network.cjs');
+  fs.writeFileSync(networkGuard, [
+    'globalThis.fetch = () => { throw new Error("EXTERNAL_NETWORK_FORBIDDEN"); };',
+    'for (const module of ["node:http", "node:https"]) {',
+    '  const transport = require(module);',
+    '  transport.request = () => { throw new Error("EXTERNAL_NETWORK_FORBIDDEN"); };',
+    '  transport.get = () => { throw new Error("EXTERNAL_NETWORK_FORBIDDEN"); };',
+    '}',
+  ].join('\\n'));
   try {
-    const child = spawnSync(process.execPath, [entry], {
+    const child = spawnSync(process.execPath, ['--require', networkGuard, entry], {
       cwd,
       env: { ...process.env, DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0',
         NEXT_PUBLIC_EPN_CAMPID: process.env.NEXT_PUBLIC_EPN_CAMPID || '5339171775' },
