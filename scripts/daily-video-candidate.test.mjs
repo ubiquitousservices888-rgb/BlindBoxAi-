@@ -41,3 +41,18 @@ test('rejects off-site CTA and unauthorized redirects', () => {
 test('rejects stale inventory as defined by production validation', () => {
   assert.equal(run({ products: [{ id: 'stale' }] }).status, 'NO_UNUSED_VERIFIED_PRODUCT');
 });
+
+test('does not prepare an owner-retired product', () => {
+  const blocked = products.map((product) => product.id);
+  const result = run({ excludedProductIds: blocked });
+  assert.equal(result.status, 'NO_UNUSED_VERIFIED_PRODUCT');
+  assert.equal(result.canRender, false);
+});
+test('one retired product never reappears under the same ID', () => {
+  const selected = run().productId;
+  assert.notEqual(run({ excludedProductIds: [selected] }).productId, selected);
+});
+test('malformed retired product IDs fail closed', () => {
+  assert.throws(() => run({ excludedProductIds: 'all' }), /Exact excluded product IDs/);
+  assert.throws(() => run({ excludedProductIds: ['../outside'] }), /Exact excluded product IDs/);
+});
