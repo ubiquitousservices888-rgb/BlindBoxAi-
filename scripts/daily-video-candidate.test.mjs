@@ -56,3 +56,28 @@ test('malformed retired product IDs fail closed', () => {
   assert.throws(() => run({ excludedProductIds: 'all' }), /Exact excluded product IDs/);
   assert.throws(() => run({ excludedProductIds: ['../outside'] }), /Exact excluded product IDs/);
 });
+
+test('second run on the same UTC date cannot rotate into another product', () => {
+  assert.throws(() => run({ history: [{ productId: 'one', date: '2026-10-16' }] }), /already staged for this UTC day/);
+});
+
+test('deduplication excludes a product at 29 days but permits it at 31 days', () => {
+  const single = [products[0]];
+  const recent = run({ products: single, history: [{ productId: 'one', date: '2026-09-17' }] });
+  const old = run({ products: single, history: [{ productId: 'one', date: '2026-09-15' }] });
+  assert.equal(recent.status, 'NO_UNUSED_VERIFIED_PRODUCT');
+  assert.equal(old.status, 'READY_TO_RENDER');
+  assert.equal(old.productId, 'one');
+});
+
+test('a legitimate first-party CTA still requires exact written affiliate disclosure', () => {
+  assert.throws(() => run({ makeScript: (product) => ({
+    caption: 'Verified item without the required ad disclosure',
+    productUrl: product.productUrl,
+  }) }), /Verified script must include first-party CTA and disclosure/);
+});
+
+test('a positive limit permits a draft plan before the monthly request cap', () => {
+  assert.equal(run({ monthlyRenderLimit: 1 }).canRender, true);
+  assert.equal(run({ monthlyRenderLimit: 1, history: [{ productId: 'old1', date: '2026-10-02' }] }).canRender, false);
+});
