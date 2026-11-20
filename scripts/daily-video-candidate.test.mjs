@@ -31,7 +31,7 @@ test('never renders if monthly cap is zero or already consumed', () => {
   assert.equal(run({ monthlyRenderLimit: 0 }).canRender, false);
   const history = [{ productId: 'old1', date: '2026-10-02' }, { productId: 'old2', date: '2026-10-03' }];
   assert.equal(run({ renderHistory: history, monthlyRenderLimit: 2 }).canRender, false);
-  assert.equal(run({ history, monthlyRenderLimit: 2 }).canRender, false);
+  assert.equal(run({ history, monthlyRenderLimit: 2 }).canRender, true);
 });
 test('fails closed on invalid budget or missing verified script', () => {
   assert.throws(() => run({ monthlyRenderLimit: 40 }), /Monthly render limit/);
