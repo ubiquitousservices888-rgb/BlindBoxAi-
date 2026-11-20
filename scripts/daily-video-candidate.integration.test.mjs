@@ -22,7 +22,7 @@ test('the real zero-spend candidate CLI reads canonical inputs from any cwd', ()
     '  transport.request = () => { throw new Error("EXTERNAL_NETWORK_FORBIDDEN"); };',
     '  transport.get = () => { throw new Error("EXTERNAL_NETWORK_FORBIDDEN"); };',
     '}',
-  ].join('\\n'));
+  ].join('\n'));
   try {
     const child = spawnSync(process.execPath, ['--require', networkGuard, entry], {
       cwd,
