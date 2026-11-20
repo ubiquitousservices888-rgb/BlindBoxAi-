@@ -19,4 +19,4 @@ Release verification:
 5. Test one render and verify canonical storage, MP4 quality, correct source, caption, disclosure, and READY_FOR_REVIEW without creating a public Buffer post.
 6. After individual owner approval, verify public YouTube/TikTok receipts, actual landing traffic, and partner-confirmed conversions.
 
-To halt new charges, disable `DAILY_VIDEO_RENDER_ENABLED`. Never erase artifact receipts to re-trigger duplicates.
+The current proposed schedule has no charge path. Future paid workflows must include a separately approved monetary limit and fail-closed provider enforcement. Never erase candidate receipts to re-trigger duplicates.
