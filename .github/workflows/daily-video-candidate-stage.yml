@@ -1,0 +1,120 @@
+name: Daily video candidate preparation (draft only)
+
+on:
+  schedule:
+    - cron: '23 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: blindboxai-daily-video-candidate
+  cancel-in-progress: false
+
+jobs:
+  stage-draft:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_EPN_CAMPID: '5339171775'
+      DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify candidate safety tests
+        run: node --test scripts/daily-video-candidate.test.mjs
+      - name: Restore trusted successful main-branch receipts or stop
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output/daily-video/history
+          cutoff="$(date -u -d '30 days ago' +%Y-%m-%d)"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-video-candidate-stage.yml/runs?branch=main&created=${cutoff}..*&per_page=100" > "$RUNNER_TEMP/draft-workflow-runs.json"
+          jq -e '(.total_count | type == "number") and (.workflow_runs | type == "array")' "$RUNNER_TEMP/draft-workflow-runs.json" > /dev/null
+          if [ "$(jq -r '.total_count' "$RUNNER_TEMP/draft-workflow-runs.json")" -gt 100 ]; then
+            echo '::error::Workflow run history exceeds one complete page; refusing to stage.'
+            exit 1
+          fi
+          # No recent runs does not prove initial use after a long schedule gap.
+          recent_count="$(jq -r '.total_count' "$RUNNER_TEMP/draft-workflow-runs.json")"
+          if [ "$recent_count" -eq 0 ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-video-candidate-stage.yml/runs?branch=main&per_page=1" > "$RUNNER_TEMP/all-draft-workflow-runs.json"
+            jq -e '(.total_count | type == "number") and (.workflow_runs | type == "array")' "$RUNNER_TEMP/all-draft-workflow-runs.json" > /dev/null
+            if [ "$(jq -r '.total_count' "$RUNNER_TEMP/all-draft-workflow-runs.json")" -ne 0 ]; then
+              echo '::error::A prior candidate run exists outside the 30-day window; cannot assume first run.'
+              exit 1
+            fi
+          fi
+          if ! jq -e 'all(.workflow_runs[]; .head_branch == "main" and (.event == "schedule" or .event == "workflow_dispatch"))' "$RUNNER_TEMP/draft-workflow-runs.json" > /dev/null; then
+            echo '::error::Workflow run history contains an unexpected branch or trigger.'
+            exit 1
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=blindboxai-draft-candidate&per_page=100" > "$RUNNER_TEMP/draft-artifacts.json"
+          jq -e '(.total_count | type == "number") and (.artifacts | type == "array")' "$RUNNER_TEMP/draft-artifacts.json" > /dev/null
+          if [ "$(jq -r '.total_count' "$RUNNER_TEMP/draft-artifacts.json")" -gt 100 ]; then
+            echo '::error::Artifact list is truncated; refusing to stage.'
+            exit 1
+          fi
+          jq -r '.workflow_runs[] | select(.status == "completed" and .conclusion == "success") | .id' "$RUNNER_TEMP/draft-workflow-runs.json" |
+          while IFS= read -r run_id; do
+            [[ "$run_id" =~ ^[0-9]+$ ]] || exit 1
+            artifact_id="$(jq -r --argjson id "$run_id" '[.artifacts[] | select(.workflow_run.id == $id and .expired == false) | .id] | first // empty' "$RUNNER_TEMP/draft-artifacts.json")"
+            if ! [[ "$artifact_id" =~ ^[0-9]+$ ]]; then
+              echo '::error::A successful main workflow run has no available bound receipt.'
+              exit 1
+            fi
+            created="$(jq -r --argjson id "$artifact_id" '.artifacts[] | select(.id == $id) | .created_at' "$RUNNER_TEMP/draft-artifacts.json")"
+            expires="$(jq -r --argjson id "$artifact_id" '.artifacts[] | select(.id == $id) | .expires_at' "$RUNNER_TEMP/draft-artifacts.json")"
+            created_epoch="$(date -u -d "$created" +%s)"
+            expires_epoch="$(date -u -d "$expires" +%s)"
+            if [ "$((expires_epoch - created_epoch))" -lt 2592000 ]; then
+              echo '::error::Observed artifact retention is shorter than the 30-day cooldown; fail closed.'
+              exit 1
+            fi
+            gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$RUNNER_TEMP/draft-${artifact_id}.zip"
+            unzip -p "$RUNNER_TEMP/draft-${artifact_id}.zip" candidate.json > "$RUNNER_TEMP/draft-${artifact_id}.json"
+            receipt_date="$(jq -r 'if (.date | type) == "string" then .date else "" end' "$RUNNER_TEMP/draft-${artifact_id}.json")"
+            if ! [[ "$receipt_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] ||
+               [[ "$(date -u -d "$receipt_date" +%F 2>/dev/null || true)" != "$receipt_date" ]]; then
+              echo '::error::A trusted draft receipt has an invalid calendar date; refusing to stage.'
+              exit 1
+            fi
+            if jq -e '.status == "READY_TO_RENDER" and (.productId | type == "string") and (.date | type == "string")' "$RUNNER_TEMP/draft-${artifact_id}.json" > /dev/null; then
+              cp "$RUNNER_TEMP/draft-${artifact_id}.json" "output/daily-video/history/candidate-${artifact_id}.json"
+            elif jq -e '.status == "NO_UNUSED_VERIFIED_PRODUCT" and (.date | type == "string")' "$RUNNER_TEMP/draft-${artifact_id}.json" > /dev/null; then
+              :
+            else
+              echo '::error::A trusted draft receipt is malformed; refusing to stage.'
+              exit 1
+            fi
+          done
+      - name: Prepare one eligible source-verified draft or report no candidate
+        # The candidate planner individually checks every allowed product's evidence.
+        # Do not fail on retired or stale products that cannot be selected.
+        run: node scripts/daily-video-candidate.mjs
+      - name: Preserve draft receipt for duplicate prevention
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: blindboxai-draft-candidate
+          path: output/daily-video/candidate.json
+          retention-days: 35
+          if-no-files-found: error
+      - name: Summarize safely without releasing content
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -r '"Candidate status: " + .status + "; product ID: " + (.productId // "none")' output/daily-video/candidate.json >> "$GITHUB_STEP_SUMMARY"
+          echo 'Candidate file is a private Actions artifact, not a produced MP4 or social post.' >> "$GITHUB_STEP_SUMMARY"

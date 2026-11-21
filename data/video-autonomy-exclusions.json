@@ -1,0 +1,14 @@
+{
+  "schema": "blindboxai/video-autonomy-exclusions/v1",
+  "reason": "Owner requested removal of the five incomplete review-queue videos; prevent reusing the matching verified Hair Salon product while removal remains unresolved.",
+  "excludedProductIds": [
+    "labubu-hair-salon-vinyl-plush-pendant"
+  ],
+  "pendingRemovalResearchRunIds": [
+    "rv-9c5d343830fb30a8",
+    "rv-6b6023cb4aaaca52",
+    "rv-4815685fb0b10117",
+    "rv-3c9c9bb78c37ff6a",
+    "rv-3658d7e94a70b562"
+  ]
+}
