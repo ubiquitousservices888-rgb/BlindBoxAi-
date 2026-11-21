@@ -44,3 +44,16 @@ test("spoofed owner/CI headers do not prove human identity; preview clients rema
   assert.deepEqual(classifyAffiliateRequest(request({ headers: { "user-agent": "MyPreviewBot/1.0" } })),
     { clientClass: "bot", qualityReason: "bot_signature" });
 });
+
+test("explicit HTTP automation clients are not counted as buyer clicks", () => {
+  for (const userAgent of ["axios/1.7.9", "undici/6.21.0", "undici", "Mozilla/5.0 axios/1.7.9"]) {
+    assert.deepEqual(classifyAffiliateRequest(request({ headers: { "user-agent": userAgent } })), {
+      clientClass: "bot", qualityReason: "bot_signature",
+    });
+  }
+  for (const userAgent of ["Mozilla/5.0 Chrome/140 Safari/537.36", "MyAxiosApp Browser/1.0", "MyUndiciApp Browser/1.0"]) {
+    assert.deepEqual(classifyAffiliateRequest(request({ headers: { "user-agent": userAgent } })), {
+      clientClass: "unclassified", qualityReason: "default_unclassified",
+    });
+  }
+});
