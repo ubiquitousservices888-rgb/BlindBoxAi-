@@ -42,11 +42,21 @@ jobs:
           set -euo pipefail
           mkdir -p output/daily-video/history
           cutoff="$(date -u -d '30 days ago' +%Y-%m-%d)"
-          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-video-candidate-stage.yml/runs?branch=main&created=${cutoff}..&per_page=100" > "$RUNNER_TEMP/draft-workflow-runs.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-video-candidate-stage.yml/runs?branch=main&created=${cutoff}..*&per_page=100" > "$RUNNER_TEMP/draft-workflow-runs.json"
           jq -e '(.total_count | type == "number") and (.workflow_runs | type == "array")' "$RUNNER_TEMP/draft-workflow-runs.json" > /dev/null
           if [ "$(jq -r '.total_count' "$RUNNER_TEMP/draft-workflow-runs.json")" -gt 100 ]; then
             echo '::error::Workflow run history exceeds one complete page; refusing to stage.'
             exit 1
+          fi
+          # No recent runs does not prove initial use after a long schedule gap.
+          recent_count="$(jq -r '.total_count' "$RUNNER_TEMP/draft-workflow-runs.json")"
+          if [ "$recent_count" -eq 0 ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/daily-video-candidate-stage.yml/runs?branch=main&per_page=1" > "$RUNNER_TEMP/all-draft-workflow-runs.json"
+            jq -e '(.total_count | type == "number") and (.workflow_runs | type == "array")' "$RUNNER_TEMP/all-draft-workflow-runs.json" > /dev/null
+            if [ "$(jq -r '.total_count' "$RUNNER_TEMP/all-draft-workflow-runs.json")" -ne 0 ]; then
+              echo '::error::A prior candidate run exists outside the 30-day window; cannot assume first run.'
+              exit 1
+            fi
           fi
           if ! jq -e 'all(.workflow_runs[]; .head_branch == "main" and (.event == "schedule" or .event == "workflow_dispatch"))' "$RUNNER_TEMP/draft-workflow-runs.json" > /dev/null; then
             echo '::error::Workflow run history contains an unexpected branch or trigger.'
@@ -76,6 +86,12 @@ jobs:
             fi
             gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$RUNNER_TEMP/draft-${artifact_id}.zip"
             unzip -p "$RUNNER_TEMP/draft-${artifact_id}.zip" candidate.json > "$RUNNER_TEMP/draft-${artifact_id}.json"
+            receipt_date="$(jq -r 'if (.date | type) == "string" then .date else "" end' "$RUNNER_TEMP/draft-${artifact_id}.json")"
+            if ! [[ "$receipt_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] ||
+               [[ "$(date -u -d "$receipt_date" +%F 2>/dev/null || true)" != "$receipt_date" ]]; then
+              echo '::error::A trusted draft receipt has an invalid calendar date; refusing to stage.'
+              exit 1
+            fi
             if jq -e '.status == "READY_TO_RENDER" and (.productId | type == "string") and (.date | type == "string")' "$RUNNER_TEMP/draft-${artifact_id}.json" > /dev/null; then
               cp "$RUNNER_TEMP/draft-${artifact_id}.json" "output/daily-video/history/candidate-${artifact_id}.json"
             elif jq -e '.status == "NO_UNUSED_VERIFIED_PRODUCT" and (.date | type == "string")' "$RUNNER_TEMP/draft-${artifact_id}.json" > /dev/null; then
