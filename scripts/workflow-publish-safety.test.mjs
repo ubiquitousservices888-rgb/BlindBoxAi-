@@ -136,6 +136,11 @@ test('daily video stage cannot post, spend, or bypass owner approval', () => {
   assert.doesNotMatch(text, /secrets\s*\./);
   assert.doesNotMatch(text, /\b(?:contents|actions|id-token|packages|deployments|pull-requests): write\b/);
   assert.match(text, /runs\?branch=main/);
+  assert.match(text, /created=\$\{cutoff\}\.\.\*/);
+  assert.match(text, /runs\?branch=main&per_page=1/);
+  assert.match(text, /A prior candidate run exists outside the 30-day window/);
+  assert.match(text, /receipt_date=.*jq -r/);
+  assert.match(text, /invalid calendar date; refusing to stage/);
   assert.match(text, /\.conclusion == "success"/);
   assert.match(text, /\.workflow_run\.id == \$id/);
   assert.match(text, /2592000/);
