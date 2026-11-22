@@ -2,7 +2,7 @@
   "schema": "blindboxai/know-it-all/transaction-verification/v1",
   "agent": "Mr. Know It All",
   "mode": "public-sales-with-readonly-provider-credential",
-  "researchedAt": "2026-09-20T08:48:09.140Z",
+  "researchedAt": "2026-11-18T12:14:47.426Z",
   "security": {
     "credentialsProvided": true,
     "secretsRead": true,
@@ -289,7 +289,7 @@
         "Topps-certified autograph",
         "serial-numbered 009/149"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -319,7 +319,7 @@
         "game-used memorabilia",
         "relic is not tied to a specific game, event, or season"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -344,7 +344,7 @@
       "claims": [
         "Topps-certified autograph"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -371,7 +371,7 @@
         "autograph guaranteed by Panini",
         "memorabilia is not associated with a specific player, game, or event"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -397,7 +397,7 @@
         "rookie card",
         "player-worn/used material guaranteed by Panini"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -424,7 +424,7 @@
         "Topps-certified autograph",
         "player-worn memorabilia"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -449,7 +449,7 @@
       "claims": [
         "autograph guaranteed by Panini"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -475,7 +475,7 @@
         "rookie card",
         "serial-numbered 083/125"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -501,7 +501,7 @@
         "game-used memorabilia",
         "serial-numbered 103/349"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -527,7 +527,7 @@
         "rookie card",
         "Pink Pulsar parallel"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -552,7 +552,7 @@
       "claims": [
         "parallel requires exact verification before pricing"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -578,7 +578,7 @@
         "rookie card",
         "serial-numbered 53/75"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -603,7 +603,7 @@
       "claims": [
         "vintage-style lenticular card; exact sold comps required"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -628,7 +628,7 @@
       "claims": [
         "exact parallel must be verified before pricing"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -653,7 +653,7 @@
       "claims": [
         "autograph card"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -678,7 +678,7 @@
       "claims": [
         "exact parallel must be verified before pricing"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -704,7 +704,7 @@
         "rated rookie",
         "Orange Laser parallel"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -729,7 +729,7 @@
       "claims": [
         "1st Bowman prospect"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -754,7 +754,7 @@
       "claims": [
         "1st Bowman prospect"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -779,7 +779,7 @@
       "claims": [
         "exact parallel must be verified before pricing"
       ],
-      "providerStatus": "ok",
+      "providerStatus": "timeout",
       "providerReturnedCount": 0,
       "providerAcceptedCount": 0,
       "verification": {
@@ -1028,140 +1028,140 @@
     {
       "source": "The Card API",
       "target": "2022-topps-tier-one-jose-abreu-t1ta-ja-auto-149",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-topps-triple-threads-david-ortiz-ttr-do2-18",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-bowman-platinum-nick-gonzales-pe-23-auto",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2020-21-panini-obsidian-killian-hayes-rji-klh-99",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-panini-national-treasures-dylan-carlson-cm-dc-99",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-topps-triple-threads-tanner-houck-asjr-th-99",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-panini-chronicles-prestige-dylan-cease-pr-dc-auto",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2024-25-panini-obsidian-yves-missi-177-orange-125",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2022-topps-tier-one-yasmani-grandal-t1r-yg-349",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-panini-chronicles-overdrive-jonathan-india-24-pink-pulsar",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-22-panini-contenders-giannis-antetokounmpo-superstar-8",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-panini-chronicles-crusade-andrew-vaughn-15-green-75",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "1994-sportflics-2000-cecil-fielder-mm3",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2020-21-donruss-optic-giannis-antetokounmpo-29-parallel-unresolved",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-donruss-optic-bobby-bradley-rs87-bb-auto",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-22-panini-contenders-devin-booker-suite-shots-13-parallel-unresolved",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-22-donruss-ayo-dosunmu-221-orange-laser",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-bowman-chrome-malvin-valdez-bcp-184-mega-box",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-bowman-chrome-helcris-olivarez-bcp-154-mega-box",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     },
     {
       "source": "The Card API",
       "target": "2021-panini-elite-extra-edition-christian-macleod-159-parallel-unresolved",
-      "status": "ok",
+      "status": "timeout",
       "returnedCount": 0,
       "acceptedExactSaleCount": 0
     }
