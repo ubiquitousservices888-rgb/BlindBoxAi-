@@ -30,3 +30,9 @@ test("duplicate or unrecognized records fail closed", () => {
   assert.throws(() => triageVideoQueue([row, row]), /duplicate/);
   assert.throws(() => triageVideoQueue([{ ...row, status: "unknown" }]), /Invalid/);
 });
+
+test("repeated video identity parameters cannot count as a candidate", () => {
+  const [result] = triageVideoQueue([{ research_run_id: run, status: "publishing", public_urls: { youtube: "https://www.youtube.com/watch?v=AZOsnqn48rI&v=grY2Zsp05FU" } }]);
+  assert.equal(result.hasCandidateYoutubeUrl, false);
+  assert.equal(result.mustNotRepublish, true);
+});
