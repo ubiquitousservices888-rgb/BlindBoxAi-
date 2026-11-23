@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Script from "next/script";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 // These are the owner's own Gumroad products, not eBay or Amazon affiliate listings.
 // Keep the product IDs explicit: Gumroad's official embed widget uses these IDs.
@@ -19,9 +19,31 @@ const PRODUCTS = Object.freeze([
 ]);
 
 export default function FakeCheckGumroadEmbeds() {
+  const pathname = usePathname();
   const [enabled, setEnabled] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    // Gumroad scans product containers when this script executes. Reloading
+    // on each opted-in route covers client-side navigation and fresh nodes.
+    setLoaded(false);
+    setLoadFailed(false);
+    const script = document.createElement("script");
+    script.src = "https://gumroad.com/js/gumroad-embed.js";
+    script.async = true;
+    script.onload = () => setLoaded(true);
+    script.onerror = () => setLoadFailed(true);
+    document.body.appendChild(script);
+
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+      script.remove();
+    };
+  }, [enabled, pathname]);
 
   return (
     <aside
@@ -34,10 +56,11 @@ export default function FakeCheckGumroadEmbeds() {
         Preview both digital products here, then complete any purchase securely on Gumroad.
         These educational resources do not authenticate or appraise collectibles.
       </p>
-      {!enabled ? (
-        <button
+      <button
           type="button"
           data-testid="load-gumroad-product-previews"
+          aria-expanded={enabled}
+          aria-controls="gumroad-product-choices"
           onClick={() => setEnabled(true)}
           style={{
             border: "1px solid var(--verify)",
@@ -50,10 +73,9 @@ export default function FakeCheckGumroadEmbeds() {
             marginBottom: 14,
           }}
         >
-          Show the two Gumroad product previews
+          {enabled ? "Gumroad previews requested" : "Show the two Gumroad product previews"}
         </button>
-      ) : null}
-      <div style={{ display: "grid", gap: 16 }}>
+      <div id="gumroad-product-choices" style={{ display: "grid", gap: 16 }}>
         {PRODUCTS.map((product) => (
           <section
             key={product.id}
@@ -80,22 +102,13 @@ export default function FakeCheckGumroadEmbeds() {
         ))}
       </div>
       {enabled ? (
-        <>
-          <Script
-            id="blindboxai-gumroad-product-embed"
-            src="https://gumroad.com/js/gumroad-embed.js"
-            strategy="afterInteractive"
-            onLoad={() => setLoaded(true)}
-            onError={() => setLoadFailed(true)}
-          />
-          <p role="status" aria-live="polite" style={{ fontSize: 12, marginTop: 10, color: "var(--muted)" }}>
-            {loadFailed
-              ? "Product previews could not load. Use the direct Gumroad links above."
-              : loaded
-                ? "Gumroad product previews loaded. Checkout opens securely on Gumroad."
-                : "Loading Gumroad product previews…"}
-          </p>
-        </>
+        <p role="status" aria-live="polite" style={{ fontSize: 12, marginTop: 10, color: "var(--muted)" }}>
+          {loadFailed
+            ? "Product previews could not load. Use the direct Gumroad links above."
+            : loaded
+              ? "Gumroad preview script loaded. If previews do not appear, use the direct product links."
+              : "Loading Gumroad product previews…"}
+        </p>
       ) : (
         <p style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
           Third-party Gumroad content loads only when you choose to show the previews.
