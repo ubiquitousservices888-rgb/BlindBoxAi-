@@ -48,7 +48,7 @@ test("failed or unavailable embeds retain safe direct product links and honest c
   assert.match(purchaseEmbed, /rel="noopener noreferrer"/);
   assert.match(purchaseEmbed, /onError=\{\(\) => setLoadFailed\(true\)\}/);
   assert.match(purchaseEmbed, /Product previews could not load/);
-  assert.match(purchaseEmbed, /checkout securely on Gumroad/i);
+  assert.match(purchaseEmbed, /complete any purchase securely on Gumroad/i);
   assert.match(purchaseEmbed, /do not authenticate or appraise collectibles/);
   assert.doesNotMatch(purchaseEmbed, /earn a commission|verified delivery|successful sale|guaranteed/);
 });
