@@ -34,6 +34,12 @@ export default function FakeCheckGumroadEmbeds() {
       if (window.sessionStorage.getItem(PREVIEW_FLAG) === pathname) {
         window.sessionStorage.removeItem(PREVIEW_FLAG);
         setEnabled(true);
+      } else {
+        // A new SPA route must not inherit a previous route's loaded widget.
+        // The next click creates a fresh document before loading Gumroad.
+        setEnabled(false);
+        setLoaded(false);
+        setLoadFailed(false);
       }
     } catch {
       // If storage is blocked, visitors still have direct Gumroad links.
