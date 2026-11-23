@@ -64,6 +64,24 @@ export default function FakeCheck({ checklist = [] }) {
         ))}
       </ol>
       <p className="fc-note">Diagrams are illustrative reference art, not photos of specific listings. Always compare against the maker's official images before buying.</p>
+      <aside
+        data-testid="fake-check-gumroad-store"
+        aria-label="Ubiquitous Services Gumroad resources"
+        style={{ marginTop: 14, padding: "14px 16px", border: "1px solid var(--line)", borderRadius: 12 }}
+      >
+        <p style={{ margin: "0 0 8px" }}>Explore more collector research resources:</p>
+        <a
+          href="https://ubiquity6.gumroad.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Visit the Ubiquitous Services Gumroad store ↗
+        </a>
+        <p style={{ margin: "8px 0 0", fontSize: 12 }}>
+          External storefront. Educational checks are not an authenticity certificate;
+          Gumroad handles any purchases.
+        </p>
+      </aside>
     </div>
   );
 }
