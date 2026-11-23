@@ -37,30 +37,30 @@ test("each verified Gumroad URL stays paired with its exact product ID and title
   assert.match(purchaseEmbed, /href=\{product\.url\}/);
 });
 
-test("Gumroad script runs only after opt-in and reinitializes on each mounted route", () => {
+test("the Gumroad script loads only after a visitor-clicked full reload", () => {
   assert.match(purchaseEmbed, /^"use client";/);
   assert.match(purchaseEmbed, /const \[enabled, setEnabled\] = useState\(false\)/);
-  assert.match(purchaseEmbed, /usePathname\(\)/);
-  assert.match(purchaseEmbed, /useEffect\(\(\) => \{/);
-  assert.match(purchaseEmbed, /if \(!enabled\) return undefined/);
-  assert.match(purchaseEmbed, /onClick=\{\(\) => setEnabled\(true\)\}/);
-  assert.match(purchaseEmbed, /script\.src = "https:\/\/gumroad\.com\/js\/gumroad-embed\.js"/);
-  assert.equal((purchaseEmbed.match(/script\.src = "https:\/\/gumroad\.com\/js\/gumroad-embed\.js"/g) || []).length, 1);
-  assert.match(purchaseEmbed, /document\.body\.appendChild\(script\)/);
-  assert.match(purchaseEmbed, /\}, \[enabled, pathname\]\)/);
-  assert.match(purchaseEmbed, /script\.remove\(\)/);
+  assert.match(purchaseEmbed, /const PREVIEW_FLAG = "blindboxai_gumroad_previews_once"/);
+  const flow = purchaseEmbed.slice(purchaseEmbed.indexOf("  useEffect(() => {"), purchaseEmbed.indexOf("  return ("));
+  assert.match(flow, /if \(window\.sessionStorage\.getItem\(PREVIEW_FLAG\) === pathname\) \{[\s\S]*?setEnabled\(true\)/);
+  assert.match(flow, /function requestPreviews\(\) \{[\s\S]*?if \(enabled\) return;[\s\S]*?window\.sessionStorage\.setItem\(PREVIEW_FLAG, pathname\);[\s\S]*?window\.location\.reload\(\)/);
+  assert.match(purchaseEmbed, /\{enabled \? \(\s*<>\s*<Script/);
+  assert.match(purchaseEmbed, /src="https:\/\/gumroad\.com\/js\/gumroad-embed\.js"/);
+  assert.equal((purchaseEmbed.match(/<Script\s/g) || []).length, 1);
+  assert.doesNotMatch(purchaseEmbed, /document\.body\.appendChild\(script\)|script\.remove\(\)/);
   assert.doesNotMatch(rootLayout, /gumroad-embed\.js|gumroad\.js/);
   assert.doesNotMatch(fakeCheck, /gumroad-embed\.js|<iframe|<script/);
 });
 
 test("the opt-in button remains focusable and products retain safe links when widgets fail", () => {
-  assert.match(purchaseEmbed, /aria-expanded=\{enabled\}/);
-  assert.match(purchaseEmbed, /aria-controls="gumroad-product-choices"/);
+  assert.match(purchaseEmbed, /<button\s+type="button"\s+data-testid="load-gumroad-product-previews"/);
+  assert.match(purchaseEmbed, /onClick=\{requestPreviews\}/);
+  assert.doesNotMatch(purchaseEmbed, /aria-expanded=\{enabled\}/);
   assert.match(purchaseEmbed, /id="gumroad-product-choices"/);
   assert.doesNotMatch(purchaseEmbed, /\{!enabled \? \(\s*<button/);
   assert.match(purchaseEmbed, /target="_blank"/);
   assert.match(purchaseEmbed, /rel="noopener noreferrer"/);
-  assert.match(purchaseEmbed, /script\.onerror = \(\) => setLoadFailed\(true\)/);
+  assert.match(purchaseEmbed, /onError=\{\(\) => setLoadFailed\(true\)\}/);
   assert.match(purchaseEmbed, /Product previews could not load/);
   assert.match(purchaseEmbed, /complete any purchase securely on Gumroad/i);
   assert.match(purchaseEmbed, /do not authenticate or appraise collectibles/);
