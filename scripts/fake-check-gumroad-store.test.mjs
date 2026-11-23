@@ -43,6 +43,7 @@ test("the Gumroad script loads only after a visitor-clicked full reload", () => 
   assert.match(purchaseEmbed, /const PREVIEW_FLAG = "blindboxai_gumroad_previews_once"/);
   const flow = purchaseEmbed.slice(purchaseEmbed.indexOf("  useEffect(() => {"), purchaseEmbed.indexOf("  return ("));
   assert.match(flow, /if \(window\.sessionStorage\.getItem\(PREVIEW_FLAG\) === pathname\) \{[\s\S]*?setEnabled\(true\)/);
+  assert.match(flow, /\} else \{[\s\S]*?setEnabled\(false\);[\s\S]*?setLoaded\(false\);[\s\S]*?setLoadFailed\(false\)/);
   assert.match(flow, /function requestPreviews\(\) \{[\s\S]*?if \(enabled\) return;[\s\S]*?window\.sessionStorage\.setItem\(PREVIEW_FLAG, pathname\);[\s\S]*?window\.location\.reload\(\)/);
   assert.match(purchaseEmbed, /\{enabled \? \(\s*<>\s*<Script/);
   assert.match(purchaseEmbed, /src="https:\/\/gumroad\.com\/js\/gumroad-embed\.js"/);
