@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
 
@@ -26,21 +26,20 @@ export default function FakeCheckGumroadEmbeds() {
   const [enabled, setEnabled] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const handledPath = useRef(null);
 
   useEffect(() => {
-    // Only activate Gumroad after a deliberate visitor click, carried through
-    // a full page navigation so its widget scanner starts on fresh DOM nodes.
+    // Strict Mode replays effects on the same mount; consume consent only once per route.
+    if (!pathname || handledPath.current === pathname) return;
+    handledPath.current = pathname;
+    // A new route must never inherit the previous route's preview state.
+    setEnabled(false);
+    setLoaded(false);
+    setLoadFailed(false);
     try {
-      if (window.sessionStorage.getItem(PREVIEW_FLAG) === pathname) {
-        window.sessionStorage.removeItem(PREVIEW_FLAG);
-        setEnabled(true);
-      } else {
-        // A new SPA route must not inherit a previous route's loaded widget.
-        // The next click creates a fresh document before loading Gumroad.
-        setEnabled(false);
-        setLoaded(false);
-        setLoadFailed(false);
-      }
+      const requestedPath = window.sessionStorage.getItem(PREVIEW_FLAG);
+      if (requestedPath !== null) window.sessionStorage.removeItem(PREVIEW_FLAG);
+      if (requestedPath === pathname) setEnabled(true);
     } catch {
       // If storage is blocked, visitors still have direct Gumroad links.
     }
