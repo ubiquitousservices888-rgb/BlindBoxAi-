@@ -23,6 +23,11 @@ const PREVIEW_FLAG = "blindboxai_gumroad_previews_once";
 
 export default function FakeCheckGumroadEmbeds() {
   const pathname = usePathname();
+  // A route change remounts the preview before the first render, not after an effect.
+  return <RouteScopedPreviews key={pathname ?? ""} pathname={pathname} />;
+}
+
+function RouteScopedPreviews({ pathname }) {
   const [enabled, setEnabled] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -46,6 +51,7 @@ export default function FakeCheckGumroadEmbeds() {
   }, [pathname]);
 
   function requestPreviews() {
+    if (!pathname) return;
     if (enabled) return;
     try {
       window.sessionStorage.setItem(PREVIEW_FLAG, pathname);
