@@ -138,3 +138,9 @@ test("preview lifecycle denies missing, mismatched and inaccessible consent", ()
   blocked.visit("/series/b");
   assert.deepEqual(blocked.state, { enabled: false, loaded: false, failed: false });
 });
+
+test("route-scoped remount denies stale consent before effects run", () => {
+  assert.match(purchaseEmbed, /const pathname = usePathname\(\);[\s\S]*?return <RouteScopedPreviews key=\{pathname \?\? ""\} pathname=\{pathname\} \/>;/);
+  assert.match(purchaseEmbed, /function RouteScopedPreviews\(\{ pathname \}\) \{\s*const \[enabled, setEnabled\] = useState\(false\);/);
+  assert.match(purchaseEmbed, /function requestPreviews\(\) \{\s*if \(!pathname\) return;\s*if \(enabled\) return;/);
+});
