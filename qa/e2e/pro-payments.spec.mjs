@@ -101,6 +101,7 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   await expect(page.getByRole("heading", { name: "Saved resale scenarios" })).toHaveCount(0);
   expect((await context.request.get(`${origin}/api/pro/scenarios`)).status()).toBe(402);
   sub.status = "active";
+  await deliver("customer.subscription.updated", sub);
   let accessRequests = 0;
   await context.route(`${origin}/api/pro/access`, route => {
     if (++accessRequests === 1) return route.continue();
@@ -111,6 +112,7 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   }), { times: 1 });
   await page.getByRole("button", { name: "Refresh access", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  expect(accessRequests).toBe(2);
   await expect(page.getByRole("heading", { name: "Your subscription", exact: true })).toHaveCount(0);
 });
 
