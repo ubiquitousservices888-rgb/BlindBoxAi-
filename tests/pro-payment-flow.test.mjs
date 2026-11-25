@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { proFixtures, USER_A, USER_B } from "./pro-fixtures.mjs";
-import { createProCheckout, proCheckoutAvailable } from "../lib/pro-stripe.mjs";
+import { createProCheckout, proCheckoutAvailable, PRO_STRIPE_API_VERSION } from "../lib/pro-stripe.mjs";
 import { processProWebhook } from "../lib/pro-webhook.mjs";
 import { resolveProEntitlement } from "../lib/pro-entitlements.mjs";
 import { proCheckoutHandler, proAuthHandler, proAuthCallback, proSignoutHandler, proAccessHandler, proScenarioHandler, proPortalHandler } from "../lib/pro-handlers.mjs";
@@ -78,6 +78,44 @@ test("configuration, price, delivery and origin failures make no provider write"
     assert.equal(f.state.writes, 0);
     const result = await proCheckoutHandler(new Request(`${f.env.PRO_APP_ORIGIN}/api/pro/checkout`, { method: "POST", headers: { Origin: "https://attacker.example", "Content-Type": "application/json" }, body: "{}" }));
     assert.equal(result.status, 403); assert.equal(f.state.writes, 0);
+  } finally { await f.close(); }
+});
+
+test("Pro requires zero off-Stripe cents on both invoice retrieval paths", async () => {
+  const f = await proFixtures();
+  try {
+    await f.store.claimCheckout(USER_A, false);
+    await f.store.bindCustomer(USER_A, false, "cus_pro_fixture");
+    const sub = f.paidSubscription("cus_pro_fixture");
+    const invoice = sub.latest_invoice;
+    const event = f.event("customer.subscription.updated", sub);
+    await processProWebhook({ ...f.signed(event), stripe: f.stripe, store: f.store, env: f.env });
+    const access = () => resolveProEntitlement({ userId: USER_A, store: f.store, stripe: f.stripe, env: f.env });
+    for (const fallback of [false, true]) {
+      sub.latest_invoice = fallback ? invoice.id : invoice;
+      for (const [label, offStripeCents, allowed] of [
+        ["missing", undefined, false],
+        ["entirely off-Stripe", 999, false],
+        ["mixed payment", 400, false],
+        ["Stripe-collected", 0, true],
+      ]) {
+        if (offStripeCents === undefined) delete invoice.amount_paid_off_stripe;
+        else invoice.amount_paid_off_stripe = offStripeCents;
+        const start = f.state.requests.length;
+        assert.equal((await access()).allowed, allowed, `${label}, ${fallback ? "fallback" : "expanded"} invoice`);
+        const requests = f.state.requests.slice(start);
+        const subscription = requests.find(request => request.path === `/v1/subscriptions/${sub.id}`);
+        const fetchedInvoice = requests.find(request => request.path === `/v1/invoices/${invoice.id}`);
+        assert.equal(subscription?.stripeVersion, PRO_STRIPE_API_VERSION);
+        assert.ok(Object.values(subscription.query).includes("latest_invoice.amount_paid_off_stripe"));
+        if (fallback) {
+          assert.equal(fetchedInvoice?.stripeVersion, PRO_STRIPE_API_VERSION);
+          assert.ok(Object.values(fetchedInvoice.query).includes("amount_paid_off_stripe"));
+        } else {
+          assert.equal(fetchedInvoice, undefined);
+        }
+      }
+    }
   } finally { await f.close(); }
 });
 
