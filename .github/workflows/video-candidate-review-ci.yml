@@ -1,0 +1,65 @@
+name: Video candidate autonomous tests and review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/video-candidate-review-ci.yml'
+      - '.github/workflows/daily-video-candidate-stage.yml'
+      - 'data/video-autonomy-exclusions.json'
+      - 'scripts/workflow-publish-safety.test.mjs'
+      - 'lib/**'
+      - 'scripts/**'
+      - 'data/verified-video-products.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/**'
+      - 'docs/CURRENT_STATE.md'
+      - 'lib/daily-video-plan.mjs'
+      - 'scripts/daily-video-candidate.mjs'
+      - 'scripts/daily-video-candidate.test.mjs'
+      - 'docs/daily-video-review.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Automated tests and publishing-safety review
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Test candidate selection and deduplication
+        run: node --test scripts/daily-video-candidate.test.mjs
+      - name: Test entrypoint from a different working directory
+        run: node --test scripts/daily-video-candidate.integration.test.mjs
+      - name: Test workflow publishing boundaries
+        run: node --test scripts/workflow-publish-safety.test.mjs
+      - name: Test existing video pipeline
+        run: npm run video:test
+      - name: Fail-closed direct candidate code action scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(lib/daily-video-plan.mjs scripts/daily-video-candidate.mjs lib/epn-genai-safety.mjs)
+          for file in "${files[@]}"; do
+            test -f "$file" || { echo "::error::Required source missing: $file"; exit 1; }
+          done
+          set +e
+          grep -nEi '(gh workflow run|buffer\.com/api|api\.buffer\.com|stripe\.com|vercel deploy|publish_after_approval[[:space:]]*=[[:space:]]*true|fetch\(|spawnSync\(|execSync\()' "${files[@]}"
+          code="$?"
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo '::error::Unsafe direct candidate action or scan failure.'
+            exit 1
+          fi
+          echo 'Candidate entrypoint/planner/sanitizer have no matched direct external action.'

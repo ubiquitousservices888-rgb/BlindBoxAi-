@@ -52,6 +52,21 @@ assert.deepEqual(safe.claims.map((claim) => claim.text), ["Official brand fact."
 assert.ok(!JSON.stringify(safe).includes("ebay.com"));
 assert.ok(!JSON.stringify(safe).includes("sold-price"));
 
+for (const sources of [
+  [product.sources[1], { ...product.sources[0], id: "ebay-sold" }],
+  [{ ...product.sources[0], id: "ebay-sold" }, product.sources[1]],
+]) {
+  assert.throws(() => sanitizeProductForGenerativeVideo({
+    ...product,
+    sources,
+    claims: [{ text: "Misattributed eBay evidence.", sourceId: "ebay-sold" }],
+  }), /Duplicate or invalid evidence source ID/);
+}
+assert.throws(() => sanitizeProductForGenerativeVideo({
+  ...product,
+  sources: [{ ...product.sources[0], id: 123 }],
+}), /Duplicate or invalid evidence source ID/);
+
 const base = generateVideoScript(safe, now);
 
 const accessory = {

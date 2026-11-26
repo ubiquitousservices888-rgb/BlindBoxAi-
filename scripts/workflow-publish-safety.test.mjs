@@ -13,6 +13,7 @@ const workflowFiles = fs.readdirSync(workflowsDir)
 const scheduledAllowlist = new Set([
   "bounded-operations.yml",
   "daily-research-check.yml",
+  "daily-video-candidate-stage.yml",
   "evergreen-shopping-stage.yml",
   "know-it-all-public-research.yml",
   "know-it-all-transaction-verification.yml",
@@ -123,4 +124,28 @@ test("Hair Salon one-approval workflow is main-only, immutable, Supabase-backed,
   assert.match(text, /environment:\s*\n\s*name:\s*social-production/);
   assert.match(text, /VIDEO_CHANNELS:\s*youtube,tiktok/);
   assert.match(text, /YOUTUBE_AUDIENCE:\s*not_made_for_kids/);
+});
+
+test('daily video stage cannot post, spend, or bypass owner approval', () => {
+  const text = source('daily-video-candidate-stage.yml');
+  assert.match(text, /schedule:/);
+  assert.match(text, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH: '0'/);
+  assert.equal((text.match(/DAILY_VIDEO_MAX_RENDERS_PER_MONTH\s*:/g) || []).length, 1, 'a step must not override the zero cap');
+  assert.doesNotMatch(text, /DAILY_VIDEO_MAX_RENDERS_PER_MONTH\s*=/);
+  assert.match(text, /^permissions:\s*\n  contents: read\s*\n  actions: read\s*$/m);
+  assert.doesNotMatch(text, /secrets\s*\./);
+  assert.doesNotMatch(text, /\b(?:contents|actions|id-token|packages|deployments|pull-requests): write\b/);
+  assert.match(text, /runs\?branch=main/);
+  assert.match(text, /created=\$\{cutoff\}\.\.\*/);
+  assert.match(text, /runs\?branch=main&per_page=1/);
+  assert.match(text, /A prior candidate run exists outside the 30-day window/);
+  assert.match(text, /receipt_date=.*jq -r/);
+  assert.match(text, /invalid calendar date; refusing to stage/);
+  assert.match(text, /\.conclusion == "success"/);
+  assert.match(text, /\.workflow_run\.id == \$id/);
+  assert.match(text, /2592000/);
+  assert.match(text, /blindboxai-draft-candidate/);
+  assert.match(text, /node scripts\/daily-video-candidate\.mjs/);
+  assert.doesNotMatch(text, /node scripts\/video-pipeline\.mjs validate/);
+  assert.doesNotMatch(text, /BUFFER_API_TOKEN|CREATOMATE_API_KEY|GEMINI_API_KEY|publish-approved-review-queue\.mjs|publish-reviewed-upload\.mjs|gh workflow run|actions\/workflows\/.*\/dispatches/);
 });
