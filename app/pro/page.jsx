@@ -1,11 +1,20 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import Waitlist from "./waitlist";
 import ResaleCalculator from "./ResaleCalculator";
+import { proCheckoutAvailable } from "../../lib/pro-stripe.mjs";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Collector & reseller alpha | BlindBoxAI",
   description: "Calculate a collectible resale margin with your own assumptions. Join free early access for BlindBoxAI reseller tools built around evidence, costs, and reasons to pass.",
 };
+
+async function ProEnrollment() {
+  const subscriptionsOpen = await proCheckoutAvailable();
+  return subscriptionsOpen ? <><p><strong>$9.99 USD/month</strong>. Review applicable tax at checkout. Cancel renewal through your account.</p><Link className="cta" href="/pro/account">Open your Pro account</Link></> : <p>Pro enrollment is currently unavailable. Please check again later. The free calculator and waitlist below remain available.</p>;
+}
 
 export default function Pro() {
   return (
@@ -17,13 +26,18 @@ export default function Pro() {
         and when walking away is the better decision. BlindBoxAI keeps reviewed
         sold-price evidence separate from asking prices and marks missing research.
       </p>
+      <section className="plan" style={{ marginBottom: "24px" }}>
+        <h2>BlindBoxAI Pro</h2>
+        <p>Save up to 250 resale cost scenarios, compare your own assumptions, and export your saved scenarios to CSV. Automated price alerts and market valuations are not included.</p>
+        <Suspense fallback={<p>Checking Pro enrollment availability…</p>}><ProEnrollment /></Suspense>
+      </section>
       <div className="plan">
         <p className="fine">EARLY ACCESS · NO CHARGE · NO GUARANTEED INVITE</p>
         <h2>Help shape the next reseller tools</h2>
         <p style={{ lineHeight: 1.65 }}>
           We are recruiting early users who buy, trade, or resell blind boxes and
-          collectible cards. The margin calculator below works now. Price alerts,
-          bulk valuation, CSV export, and saved collections are proposed features,
+          collectible cards. The margin calculator below works now. Price alerts
+          and automated market valuations are still proposed features,
           not live paid services.
         </p>
         <ul>
@@ -39,11 +53,11 @@ export default function Pro() {
       </div>
       <ResaleCalculator />
       <section className="plan" style={{ marginTop: "24px" }}>
-        <h2>What could become paid</h2>
+        <h2>What is still in development</h2>
         <p style={{ lineHeight: 1.65 }}>
-          Planned $9/month reseller tools: price-change alerts, collection-level
-          tracking, batch valuation, and CSV export. This is a product hypothesis,
-          not an active subscription. We will validate usefulness before charging.
+          Automated price alerts and market valuations are still in development.
+          Pro covers saved cost scenarios and CSV export when subscriptions open.
+          Joining the free waitlist does not start a subscription.
         </p>
       </section>
     </main>
