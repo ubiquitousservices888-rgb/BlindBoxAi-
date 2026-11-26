@@ -19,6 +19,12 @@ const RPC = {
   pro_save_scenario: ["p_user_id", "p_id", "p_name", "p_inputs", "p_quantity"],
 };
 
+function invoiceResponse(invoice, includeOffStripeAmount) {
+  const response = { ...invoice };
+  if (!includeOffStripeAmount) delete response.amount_paid_off_stripe;
+  return response;
+}
+
 export async function proFixtures() {
   const db = new PGlite();
   await db.exec("create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key);");
@@ -135,11 +141,16 @@ export async function proFixtures() {
       if (url.pathname.startsWith("/v1/customers/")) return mapped(state.customers);
       if (url.pathname === "/v1/subscriptions") return reply({ object: "list", has_more: false, data: [...state.subscriptions.values()].filter(s => s.customer === url.searchParams.get("customer")) });
       if (url.pathname.startsWith("/v1/subscriptions/")) {
-        if (expansions.some(field => field !== "latest_invoice")) return reply({ error: { type: "invalid_request_error", message: "Unsupported subscription expansion" } }, 400);
+        if (expansions.some(field => field !== "latest_invoice" && field !== "latest_invoice.amount_paid_off_stripe")) return reply({ error: { type: "invalid_request_error", message: "Unsupported subscription expansion" } }, 400);
         const sub = state.subscriptions.get(url.pathname.split("/").pop());
         if (!sub) return missing();
         const invoice = sub.latest_invoice;
-        return reply({ ...sub, latest_invoice: expansions.includes("latest_invoice") || typeof invoice === "string" ? invoice : invoice?.id ?? null });
+        const includeOffStripeAmount = expansions.includes("latest_invoice.amount_paid_off_stripe");
+        const expandInvoice = includeOffStripeAmount || expansions.includes("latest_invoice");
+        const latestInvoice = invoice && typeof invoice === "object"
+          ? (expandInvoice ? invoiceResponse(invoice, includeOffStripeAmount) : invoice.id)
+          : invoice ?? null;
+        return reply({ ...sub, latest_invoice: latestInvoice });
       }
       if (url.pathname === "/v1/checkout/sessions" && req.method === "POST") {
         if (Number(form.get("expires_at")) < Math.floor(Date.now() / 1000) + 1800) return reply({ error: { type: "invalid_request_error", message: "expires_at must be at least 30 minutes after creation" } }, 400);
@@ -148,8 +159,9 @@ export async function proFixtures() {
       }
       if (url.pathname.startsWith("/v1/checkout/sessions/")) return mapped(state.sessions);
       if (url.pathname.startsWith("/v1/invoices/")) {
-        if (expansions.length) return reply({ error: { type: "invalid_request_error", message: "Unsupported invoice expansion" } }, 400);
-        return mapped(state.invoices);
+        if (expansions.some(field => field !== "amount_paid_off_stripe")) return reply({ error: { type: "invalid_request_error", message: "Unsupported invoice expansion" } }, 400);
+        const invoice = state.invoices.get(url.pathname.split("/").pop());
+        return invoice ? reply(invoiceResponse(invoice, expansions.includes("amount_paid_off_stripe"))) : missing();
       }
       if (url.pathname.startsWith("/v1/charges/")) return mapped(state.charges);
       if (url.pathname === "/v1/billing_portal/sessions") return finish({ id: "bps_fixture", customer: form.get("customer"), url: "https://billing.stripe.com/p/session/local_fixture" });
