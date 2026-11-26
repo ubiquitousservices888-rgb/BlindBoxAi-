@@ -80,6 +80,10 @@ test("one-shot workflow is serialized only for marked pushes and retries transie
     /if ! oidc_token=[\s\S]*json\.load[\s\S]*then\s+sleep 10\s+continue\s+fi/,
   );
 
-  assert.match(workflow, /000\|409\|500\|501\|502\|503\|504\|505\|506\|507\|508\|510\|511/);
+  assert.doesNotMatch(workflow, /000\|409\|500/);
+  assert.match(workflow, /if \[ "\$http_code" = "000" \]; then\s+echo "Owner Blue live verifier transport outcome indeterminate; inspect queue before retrying"\s+exit 1/);
+  assert.match(workflow, /if \[ "\$http_code" = "409" \] && \[ "\$reason" = "production_revision_not_ready" \]; then\s+sleep 10\s+continue\s+fi/);
+  assert.match(workflow, /data\.get\("revision"\) != os\.environ\["GITHUB_SHA"\]/);
+  assert.match(workflow, /Owner Blue live verifier HTTP \$http_code: \$reason/);
   assert.match(workflow, /https:\/\/blindboxai\.com\/api\/owner\/live-verify/);
 });
