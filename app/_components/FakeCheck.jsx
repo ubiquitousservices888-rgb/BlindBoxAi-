@@ -1,3 +1,5 @@
+import FakeCheckGumroadEmbeds from "./FakeCheckGumroadEmbeds";
+
 // Generic blind-box figure silhouette (owned artwork, no third-party photos).
 // Left = genuine (clean). Right = suspect (numbered problem pins matching tells).
 function Figure({ suspect = false, pins = [] }) {
@@ -64,6 +66,7 @@ export default function FakeCheck({ checklist = [] }) {
         ))}
       </ol>
       <p className="fc-note">Diagrams are illustrative reference art, not photos of specific listings. Always compare against the maker's official images before buying.</p>
+      <FakeCheckGumroadEmbeds />
     </div>
   );
 }
