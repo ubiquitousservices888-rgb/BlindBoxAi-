@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { createProStore } from "../lib/pro-store.mjs";
 import { createProStripe, PRO_STRIPE_API_VERSION } from "../lib/pro-stripe.mjs";
 import { PRO_EVENTS, PRO_INTEGRATION } from "../lib/pro-config.mjs";
+import { PRO_UUID } from "../lib/pro-collection.mjs";
 
 export const USER_A = "11111111-1111-4111-8111-111111111111";
 export const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -28,6 +29,7 @@ export async function proFixtures() {
     return tx.query(query, args);
   });
   const state = { customers: new Map(), sessions: new Map(), subscriptions: new Map(), invoices: new Map(), charges: new Map(), idempotency: new Map(), customerCreates: 0, checkoutCreates: 0, requests: [], writes: 0, priceValid: true, deliveryValid: true, portalIntegration: "blindboxai_pro_v1", schemaDown: false };
+  state.scenarioDeleteDown = false;
   const env = {
     NODE_ENV: "test", CI: "true", BLINDBOXAI_ALLOW_TEST_INGEST: "true", PRO_APP_ORIGIN: "http://127.0.0.1:3376",
     SUPABASE_SERVICE_ROLE_KEY: "local-service-fixture", SUPABASE_PUBLISHABLE_KEY: "local-publishable-fixture",
@@ -57,6 +59,23 @@ export async function proFixtures() {
       if (url.pathname.startsWith("/rest/v1/")) {
         if (req.headers.apikey !== env.SUPABASE_SERVICE_ROLE_KEY || req.headers.authorization !== `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`) return reply({ error: "unauthorized" }, 401);
         const path = url.pathname.slice("/rest/v1/".length);
+        if (req.method === "DELETE") {
+          const params = url.searchParams;
+          const user = params.get("user_id");
+          const id = params.get("id");
+          if (path !== "pro_scenarios" || raw || params.size !== 3 ||
+              req.headers.prefer !== "return=representation" || params.get("select") !== "id" ||
+              !user?.startsWith("eq.") || !PRO_UUID.test(user.slice(3)) ||
+              !id?.startsWith("eq.") || !PRO_UUID.test(id.slice(3))) {
+            throw new Error("Unsupported fixture DELETE request");
+          }
+          if (state.scenarioDeleteDown) return reply({ error: "fixture_storage_unavailable" }, 503);
+          const deleted = await serviceQuery(
+            "delete from public.pro_scenarios where user_id=$1 and id=$2 returning id",
+            [user.slice(3), id.slice(3)],
+          );
+          return reply(deleted.rows);
+        }
         if (path.startsWith("rpc/")) {
           const name = path.slice(4), keys = RPC[name];
           if (!keys) return reply({ error: "missing_rpc" }, 404);
@@ -74,7 +93,6 @@ export async function proFixtures() {
           values.push(filter.slice(3)); clauses.push(`${key}=$${values.length}`);
         }
         const where = clauses.length ? ` where ${clauses.join(" and ")}` : "";
-        if (req.method === "DELETE") { await serviceQuery(`delete from public.${path}${where}`, values); return reply(null, 200); }
         const limit = Math.min(250, Number(url.searchParams.get("limit") || "250"));
         const statusFilter = path === "pro_subscriptions" && url.searchParams.get("status") === "not.in.(canceled,incomplete_expired)" ? `${where ? " and " : " where "}status not in ('canceled','incomplete_expired')` : "";
         return reply((await serviceQuery(`select * from public.${path}${where}${statusFilter}${path === "pro_scenarios" ? " order by created_at desc" : ""} limit ${limit}`, values)).rows);

@@ -203,7 +203,8 @@ test("authenticated routes isolate saved scenarios, CSV exports and portal owner
     const theirs = await proScenarioHandler(makeRequest("/api/pro/scenarios", { cookie: cookieB })); assert.equal((await theirs.json()).scenarios.length, 0);
     const overwrite = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "POST", cookie: cookieB, body: scenario })); assert.equal(overwrite.status, 409);
     const crossDelete = await proScenarioHandler(makeRequest("/api/pro/scenarios", { method: "DELETE", cookie: cookieB, body: { id: scenario.id } }));
-    assert.equal(crossDelete.status, 200);
+    assert.equal(crossDelete.status, 404);
+    assert.deepEqual(await crossDelete.json(), { error: "scenario_not_found" });
     assert.equal((await f.store.scenarios(USER_A)).length, 1);
     const csv = await proScenarioHandler(makeRequest("/api/pro/scenarios/export", { cookie: cookieA }), { csv: true });
     assert.equal(csv.status, 200); assert.match(await csv.text(), /' =|"'=HYPERLINK/);
