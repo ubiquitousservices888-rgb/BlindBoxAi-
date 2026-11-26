@@ -36,3 +36,30 @@ test("repeated video identity parameters cannot count as a candidate", () => {
   assert.equal(result.hasCandidateYoutubeUrl, false);
   assert.equal(result.mustNotRepublish, true);
 });
+
+test("fresh receipt identities remain protected even when queue status disagrees", () => {
+  // Reproduce the November 26 sent-but-public-proof-pending receipt, not a live fetch.
+  const row = { research_run_id: "rv-04690175ee0d9a6c",
+    buffer_post_ids: { youtube: "6ab1dbcbffe5c8afb1274015" },
+    public_urls: { youtube: "https://www.youtube.com/watch?v=EJILIzobl84" } };
+  for (const status of ["failed", "approved", "ready_for_review", "rejected", "publishing", "published"]) {
+    const [result] = triageVideoQueue([{ ...row, status }]);
+    assert.equal(result.mustNotRepublish, true, status);
+    assert.equal(result.publicProofVerified, false, status);
+    assert.equal(result.nextAction, status === "published" ? "AUDIT_PUBLIC_PROOF" : "RECONCILE_EXACT_PROVIDER_RECEIPT", status);
+  }
+});
+
+test("candidate-only and historically published rows never authorize replacement", () => {
+  for (const status of ["failed", "approved", "ready_for_review", "rejected", "published"]) {
+    const [result] = triageVideoQueue([{ research_run_id: run, status,
+      public_urls: { youtube: "https://www.youtube.com/watch?v=EJILIzobl84" } }]);
+    assert.equal(result.mustNotRepublish, true, status);
+    assert.equal(result.nextAction, status === "published" ? "AUDIT_PUBLIC_PROOF" : "HOLD_MISSING_PROVIDER_ID");
+  }
+  const [published] = triageVideoQueue([{ research_run_id: run, status: "published" }]);
+  assert.equal(published.mustNotRepublish, true);
+  const [unsubmitted] = triageVideoQueue([{ research_run_id: run, status: "approved" }]);
+  assert.equal(unsubmitted.nextAction, "RESPECT_EXISTING_REVIEW_GATE");
+  assert.equal(unsubmitted.mustNotRepublish, false);
+});
