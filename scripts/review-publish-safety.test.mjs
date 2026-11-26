@@ -1,3 +1,4 @@
+import "./buffer-review-daily-scheduler.test.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
