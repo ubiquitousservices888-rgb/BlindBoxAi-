@@ -63,3 +63,21 @@ test("candidate-only and historically published rows never authorize replacement
   assert.equal(unsubmitted.nextAction, "RESPECT_EXISTING_REVIEW_GATE");
   assert.equal(unsubmitted.mustNotRepublish, false);
 });
+
+test("malformed stored receipt evidence cannot authorize replacement", () => {
+  for (const status of ["failed", "approved", "ready_for_review", "rejected"]) {
+    for (const fields of [
+      { buffer_post_ids: { youtube: " " } },
+      { buffer_post_ids: { youtube: " padded-id " } },
+      { buffer_post_ids: { youtube: 42 } },
+      { public_urls: { youtube: "https://youtube.example/watch?v=EJILIzobl84" } },
+      { public_urls: { youtube: "" } },
+    ]) {
+      const [result] = triageVideoQueue([{ research_run_id: run, status, ...fields }]);
+      assert.equal(result.mustNotRepublish, true, JSON.stringify({ status, fields }));
+      assert.equal(result.hasExactYoutubePostId, false);
+      assert.equal(result.publicProofVerified, false);
+      assert.equal(result.nextAction, "HOLD_MISSING_PROVIDER_ID");
+    }
+  }
+});
