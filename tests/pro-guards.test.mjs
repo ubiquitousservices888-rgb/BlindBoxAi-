@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PRO_LIVE_PRICE, PRO_LIVE_PRODUCT, proStripeConfig, assertProOrigin, proCheckoutConfigured, proMissingSettings, readProBody, recordProFailure } from "../lib/pro-config.mjs";
+import { PRO_LIVE_PRICE, PRO_LIVE_PRODUCT, proStripeConfig, assertProOrigin, proCheckoutConfigured, proMissingSettings, proTestRuntime, readProBody, recordProFailure } from "../lib/pro-config.mjs";
 import { requireProUser, assertProAuthResult } from "../lib/pro-auth.mjs";
 import { createProStripe } from "../lib/pro-stripe.mjs";
 import { normalizeProScenario, proScenariosCsv } from "../lib/pro-collection.mjs";
@@ -12,7 +12,7 @@ test("live billing requires explicit configuration and cannot choose another pro
   assert.equal(proCheckoutConfigured(env), false);
   assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_PRICE_ID: "price_another_app" }), /configuration_unavailable/);
   assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_PRODUCT_ID: "prod_another_app" }), /configuration_unavailable/);
-  for (const key of ["rk_live_", "rk_live_ bad", "sk_live_suffix\n", "rk_live_!invalid"]) assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_SECRET_KEY: key }), /configuration_unavailable/);
+  for (const key of ["rk_live_", "rk_live_ bad", "sk_live_fixture", "sk_live_suffix\n", "rk_live_!invalid"]) assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_SECRET_KEY: key }), /configuration_unavailable/);
   assert.throws(() => proStripeConfig({ ...env, PRO_STRIPE_SECRET_KEY: "rk_test_fixture" }), /configuration_unavailable/);
   assert.throws(() => createProStripe({ ...env, PRO_STRIPE_API_ORIGIN: "https://attacker.example" }), /configuration_unavailable/);
   const enabled = { ...env, PRO_PAYMENTS_ENABLED: "true", PRO_SCHEMA_VERSION: "1", PRO_AUTH_EMAIL_READY: "true", PRO_STRIPE_PORTAL_CONFIGURATION_ID: "bpc_fixture", PRO_STRIPE_WEBHOOK_ENDPOINT_ID: "we_fixture", PRO_STRIPE_WEBHOOK_SECRET: "whsec_fixture", PRO_TAX_CONFIGURATION: "manual-reviewed" };
@@ -20,6 +20,8 @@ test("live billing requires explicit configuration and cannot choose another pro
   assert.equal(proStripeConfig({ ...enabled, PRO_LIVE_BILLING_APPROVED: "true" }, { checkout: true }).live, true);
   const ready = { ...enabled, PRO_LIVE_BILLING_APPROVED: "true", SUPABASE_URL: "https://lazzdoadoqzrzlarerfx.supabase.co", SUPABASE_PUBLISHABLE_KEY: "local-publishable-fixture", SUPABASE_SERVICE_ROLE_KEY: "local-service-fixture" };
   assert.equal(proCheckoutConfigured(ready), true);
+  assert.equal(proCheckoutConfigured({ ...ready, PRO_STRIPE_SECRET_KEY: "sk_live_fixture" }), false);
+  assert.ok(proMissingSettings({ ...ready, PRO_STRIPE_SECRET_KEY: "sk_live_fixture" }).includes("PRO_STRIPE_SECRET_KEY"));
   assert.equal(proCheckoutConfigured({ ...ready, SUPABASE_URL: "https://other-project.supabase.co" }), false);
   assert.equal(proCheckoutConfigured({ ...ready, SUPABASE_URL: "" }), false);
   for (const name of ["SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) assert.equal(proCheckoutConfigured({ ...ready, [name]: "   " }), false);
@@ -71,6 +73,15 @@ test("cross-origin requests and unbounded or malformed bodies are rejected", asy
 test("isolated loopback Stripe HTTP uses port 80 when no port is specified", () => {
   const stripe = createProStripe({ NODE_ENV: "test", BLINDBOXAI_ALLOW_TEST_INGEST: "true", PRO_STRIPE_MODE: "test", PRO_STRIPE_SECRET_KEY: "rk_test_fixture", PRO_STRIPE_PRICE_ID: "price_fixture", PRO_STRIPE_PRODUCT_ID: "prod_fixture", PRO_STRIPE_API_ORIGIN: "http://127.0.0.1/" });
   assert.equal(stripe.getApiField("port"), 80);
+});
+
+test("an injected environment alone controls Pro test runtime and Stripe loopback", () => {
+  const env = { BLINDBOXAI_ALLOW_TEST_INGEST: "true", PRO_STRIPE_MODE: "test", PRO_STRIPE_SECRET_KEY: "sk_test_fixture", PRO_STRIPE_PRICE_ID: "price_fixture", PRO_STRIPE_PRODUCT_ID: "prod_fixture", PRO_STRIPE_API_ORIGIN: "http://127.0.0.1/" };
+  assert.equal(proTestRuntime(env), false);
+  assert.throws(() => createProStripe(env), /configuration_unavailable/);
+  const testEnv = { ...env, NODE_TEST_CONTEXT: "child-v8" };
+  assert.equal(proTestRuntime(testEnv), true);
+  assert.equal(createProStripe(testEnv).getApiField("host"), "127.0.0.1");
 });
 
 test("CSV guards formula injection while preserving numeric loss amounts", () => {

@@ -7,6 +7,7 @@ const fields = [["purchase", "Purchase price"], ["inboundShipping", "Inbound shi
 const blank = () => Object.fromEntries(fields.map(([key]) => [key, "0"]));
 const money = value => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const messages = {
+  sign_in_required: "Your session expired. Sign in to continue.",
   invalid_credentials: "Sign-in failed. Check your email, password, and account confirmation.",
   invalid_password: "Use a password between 12 and 128 characters.",
   invalid_email: "Enter a valid email address.",
@@ -18,8 +19,15 @@ const messages = {
   invalid_scenario: "Check the scenario name, quantity, costs, and fee percentage.",
   scenario_limit: "You have 250 saved scenarios. Edit or delete an existing scenario before adding another.",
   scenario_conflict: "That scenario could not be changed. Refresh your saved scenarios and retry.",
+  scenario_not_found: "That scenario is no longer available. Refresh your saved scenarios.",
 };
 const inputStyle = { padding: "10px", border: "1px solid var(--line)", borderRadius: "6px", background: "transparent", color: "inherit", width: "100%", boxSizing: "border-box", fontSize: "16px" };
+
+async function requireOk(response, fallback = "The service is temporarily unavailable. Please try again later.") {
+  if (response.ok) return;
+  const data = await response.json().catch(() => ({}));
+  throw Object.assign(new Error(messages[data?.error] || fallback), { status: response.status });
+}
 
 export default function ProAccount() {
   const [access, setAccess] = useState(null), [unavailable, setUnavailable] = useState(false);
@@ -32,17 +40,24 @@ export default function ProAccount() {
 
   async function api(path, method = "GET", body) {
     const response = await fetch(path, { method, cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(messages[data.error] || "The service is temporarily unavailable. Please try again later."), { status: response.status });
-    return data;
+    await requireOk(response);
+    return response.json().catch(() => ({}));
+  }
+  function showSignIn() {
+    setAccess({ signedIn: false });
+    setUnavailable(false);
+    setRows([]);
+    setPassword("");
+    setMode("login");
+    clearEditor();
   }
   async function refresh() {
     let state;
     try {
       state = await api("/api/pro/access");
     } catch (error) {
-      setAccess(error.status === 401 ? { signedIn: false } : null);
-      setUnavailable(error.status !== 401); setRows([]);
+      if (error.status === 401) showSignIn();
+      else { setAccess(null); setUnavailable(true); setRows([]); }
       return;
     }
     setAccess(state); setUnavailable(false);
@@ -50,12 +65,12 @@ export default function ProAccount() {
     try { setRows((await api("/api/pro/scenarios")).scenarios); }
     catch (error) {
       setRows([]);
-      if (error.status === 401) setAccess({ signedIn: false });
+      if (error.status === 401) showSignIn();
       else if (error.status === 402) {
         try { const current = await api("/api/pro/access"); setAccess(current.allowed ? { ...current, allowed: false, reason: "access_confirmation_pending" } : current); }
         catch (error) {
-          setAccess(error.status === 401 ? { signedIn: false } : null);
-          setUnavailable(error.status !== 401);
+          if (error.status === 401) showSignIn();
+          else { setAccess(null); setUnavailable(true); }
         }
       } else setNotice(error.message);
     }
@@ -70,7 +85,10 @@ export default function ProAccount() {
   async function perform(action) {
     if (busy) return;
     setBusy(true); setNotice("");
-    try { await action(); } catch (error) { setNotice(error.message || "Please try again later."); }
+    try { await action(); } catch (error) {
+      if (error.status === 401 && access?.signedIn) showSignIn();
+      setNotice(error.message || "Please try again later.");
+    }
     finally { setBusy(false); }
   }
   async function authenticate(event) {
@@ -93,7 +111,7 @@ export default function ProAccount() {
   }
   const exportCsv = () => perform(async () => {
     const response = await fetch("/api/pro/scenarios/export", { cache: "no-store", redirect: "error" });
-    if (!response.ok) throw new Error("Export unavailable. Refresh subscription access and retry.");
+    await requireOk(response, "Export unavailable. Refresh subscription access and retry.");
     const url = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "blindboxai-pro-scenarios.csv"; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);

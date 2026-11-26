@@ -77,6 +77,13 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   expect((await fixture.store.scenarios(USER_A)).length).toBe(1);
   const csv = await context.request.get(`${origin}/api/pro/scenarios/export`);
   expect(csv.status()).toBe(200); expect(await csv.text()).toContain("User assumptions; not verified sales or cash revenue");
+  const exportButton = page.getByRole("button", { name: "Export CSV", exact: true });
+  await page.route(`${origin}/api/pro/scenarios/export`, route => route.fulfill({
+    status: 429, contentType: "application/json", body: JSON.stringify({ error: "try_again_later" }),
+  }), { times: 1 });
+  await exportButton.click();
+  await expect(page.getByText("Too many attempts. Please wait before trying again.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved resale scenarios" })).toBeVisible();
   expect((await context.cookies(origin)).filter(cookie => cookie.name.startsWith("bbai-pro-auth")).every(cookie => cookie.httpOnly)).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.screenshot({ path: "test-results/pro-mobile-workspace.png", fullPage: true });
@@ -114,6 +121,17 @@ test("mobile customer journey uses actual Next routes, signed events and disposa
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
   expect(accessRequests).toBe(2);
   await expect(page.getByRole("heading", { name: "Your subscription", exact: true })).toHaveCount(0);
+  await page.getByLabel("Email", { exact: true }).fill("one@example.test");
+  await page.getByLabel("Password", { exact: true }).fill("local-test-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(exportButton).toBeEnabled();
+  await page.route(`${origin}/api/pro/scenarios/export`, route => route.fulfill({
+    status: 401, contentType: "application/json", body: JSON.stringify({ error: "sign_in_required" }),
+  }), { times: 1 });
+  await exportButton.click();
+  await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByText("Your session expired. Sign in to continue.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved resale scenarios" })).toHaveCount(0);
 });
 
 test("existing site keeps the free waitlist and payment-disabled default", async ({ page, request }) => {

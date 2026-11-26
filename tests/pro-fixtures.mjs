@@ -124,11 +124,7 @@ export async function proFixtures() {
       const finish = value => { if (key) state.idempotency.set(key, { raw, value }); reply(value); };
       const missing = () => reply({ error: { type: "invalid_request_error", code: "resource_missing", message: "No such fixture resource" } }, 404);
       const mapped = map => { const value = map.get(url.pathname.split("/").pop()); return value ? reply(value) : missing(); };
-      const invoiceResponse = (invoice, field) => {
-        if (!invoice || typeof invoice === "string" || [...url.searchParams.values()].includes(field)) return invoice;
-        const { amount_paid_off_stripe, ...defaultInvoice } = invoice;
-        return defaultInvoice;
-      };
+      const expansions = [...url.searchParams].filter(([key]) => /^expand\[\d*\]$/.test(key)).map(([, value]) => value);
       if (url.pathname.startsWith("/v1/prices/")) return url.pathname.split("/").pop() === providerIds.price ? reply(price()) : missing();
       if (url.pathname.startsWith("/v1/webhook_endpoints/")) return url.pathname.split("/").pop() === providerIds.webhook ? reply({ id: providerIds.webhook, status: state.deliveryValid ? "enabled" : "disabled", livemode: false, url: `${env.PRO_APP_ORIGIN}/api/pro/webhook`, api_version: PRO_STRIPE_API_VERSION, enabled_events: PRO_EVENTS, metadata: { integration: PRO_INTEGRATION } }) : missing();
       if (url.pathname.startsWith("/v1/billing_portal/configurations/")) return url.pathname.split("/").pop() === providerIds.portal ? reply({ id: providerIds.portal, active: true, livemode: false, metadata: { integration: state.portalIntegration }, features: { subscription_cancel: { enabled: true, mode: "at_period_end" }, payment_method_update: { enabled: true }, subscription_update: { enabled: false } } }) : missing();
@@ -139,8 +135,11 @@ export async function proFixtures() {
       if (url.pathname.startsWith("/v1/customers/")) return mapped(state.customers);
       if (url.pathname === "/v1/subscriptions") return reply({ object: "list", has_more: false, data: [...state.subscriptions.values()].filter(s => s.customer === url.searchParams.get("customer")) });
       if (url.pathname.startsWith("/v1/subscriptions/")) {
+        if (expansions.some(field => field !== "latest_invoice")) return reply({ error: { type: "invalid_request_error", message: "Unsupported subscription expansion" } }, 400);
         const sub = state.subscriptions.get(url.pathname.split("/").pop());
-        return sub ? reply({ ...sub, latest_invoice: invoiceResponse(sub.latest_invoice, "latest_invoice.amount_paid_off_stripe") }) : reply({ error: { type: "invalid_request_error", message: "No such subscription" } }, 404);
+        if (!sub) return missing();
+        const invoice = sub.latest_invoice;
+        return reply({ ...sub, latest_invoice: expansions.includes("latest_invoice") || typeof invoice === "string" ? invoice : invoice?.id ?? null });
       }
       if (url.pathname === "/v1/checkout/sessions" && req.method === "POST") {
         if (Number(form.get("expires_at")) < Math.floor(Date.now() / 1000) + 1800) return reply({ error: { type: "invalid_request_error", message: "expires_at must be at least 30 minutes after creation" } }, 400);
@@ -149,8 +148,8 @@ export async function proFixtures() {
       }
       if (url.pathname.startsWith("/v1/checkout/sessions/")) return mapped(state.sessions);
       if (url.pathname.startsWith("/v1/invoices/")) {
-        const invoice = state.invoices.get(url.pathname.split("/").pop());
-        return invoice ? reply(invoiceResponse(invoice, "amount_paid_off_stripe")) : missing();
+        if (expansions.length) return reply({ error: { type: "invalid_request_error", message: "Unsupported invoice expansion" } }, 400);
+        return mapped(state.invoices);
       }
       if (url.pathname.startsWith("/v1/charges/")) return mapped(state.charges);
       if (url.pathname === "/v1/billing_portal/sessions") return finish({ id: "bps_fixture", customer: form.get("customer"), url: "https://billing.stripe.com/p/session/local_fixture" });

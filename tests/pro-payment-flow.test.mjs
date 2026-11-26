@@ -95,6 +95,8 @@ test("Pro requires zero off-Stripe cents on both invoice retrieval paths", async
       sub.latest_invoice = fallback ? invoice.id : invoice;
       for (const [label, offStripeCents, allowed] of [
         ["missing", undefined, false],
+        ["null", null, false],
+        ["string zero", "0", false],
         ["entirely off-Stripe", 999, false],
         ["mixed payment", 400, false],
         ["Stripe-collected", 0, true],
@@ -107,10 +109,10 @@ test("Pro requires zero off-Stripe cents on both invoice retrieval paths", async
         const subscription = requests.find(request => request.path === `/v1/subscriptions/${sub.id}`);
         const fetchedInvoice = requests.find(request => request.path === `/v1/invoices/${invoice.id}`);
         assert.equal(subscription?.stripeVersion, PRO_STRIPE_API_VERSION);
-        assert.ok(Object.values(subscription.query).includes("latest_invoice.amount_paid_off_stripe"));
+        assert.deepEqual(Object.values(subscription.query), ["latest_invoice"]);
         if (fallback) {
           assert.equal(fetchedInvoice?.stripeVersion, PRO_STRIPE_API_VERSION);
-          assert.ok(Object.values(fetchedInvoice.query).includes("amount_paid_off_stripe"));
+          assert.deepEqual(fetchedInvoice.query, {});
         } else {
           assert.equal(fetchedInvoice, undefined);
         }
