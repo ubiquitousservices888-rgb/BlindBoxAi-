@@ -81,3 +81,23 @@ test("malformed stored receipt evidence cannot authorize replacement", () => {
     }
   }
 });
+
+test("malformed receipt containers cannot authorize replacement", () => {
+  for (const status of ["failed", "approved", "ready_for_review", "rejected"]) {
+    for (const key of ["buffer_post_ids", "public_urls"]) {
+      for (const value of [null, "bad", 42, false, []]) {
+        const [result] = triageVideoQueue([{ research_run_id: "rv-4815685fb0b10117", status, [key]: value }]);
+        assert.equal(result.mustNotRepublish, true, JSON.stringify({ status, key, value }));
+        assert.equal(result.nextAction, "HOLD_MISSING_PROVIDER_ID");
+        assert.equal(result.publicProofVerified, false);
+      }
+    }
+  }
+});
+test("absent and empty receipt maps retain existing review gate", () => {
+  for (const fields of [{}, { buffer_post_ids: {}, public_urls: {} }]) {
+    const [result] = triageVideoQueue([{ research_run_id: "rv-4815685fb0b10117", status: "approved", ...fields }]);
+    assert.equal(result.mustNotRepublish, false);
+    assert.equal(result.nextAction, "RESPECT_EXISTING_REVIEW_GATE");
+  }
+});
