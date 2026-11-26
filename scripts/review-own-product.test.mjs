@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildOwnProductPromotion } from "../lib/review-own-product.mjs";
+import { buildOwnProductPromotion, createOwnProductPolicy, ownProductPolicy } from "../lib/review-own-product.mjs";
 
 const item = { research_run_id: "rv-0123456789abcdef", title: "Reviewed fixture", status: "ready_for_review",
   video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/fixture.mp4" };
@@ -13,7 +13,11 @@ test("each explicit product gets only its own Gumroad link on both primary chann
       const result = buildOwnProductPromotion(item, { ...selection, product }, channel);
       const url = `https://ubiquity6.gumroad.com/l/${slug}`;
       assert.equal(result.url, url);
-      assert.deepEqual(result.caption.match(/https:\/\/\S+/g), [url]);
+      assert.deepEqual(result.caption.match(/https:\/\/\S+/g), [result.trackedUrl]);
+      const tracked = new URL(result.trackedUrl);
+      assert.equal(tracked.origin + tracked.pathname, url);
+      assert.equal(tracked.searchParams.get("utm_source"), channel);
+      assert.equal(tracked.searchParams.get("utm_campaign"), `bb-${item.research_run_id}`);
       assert.doesNotMatch(result.caption, /affiliate|ebay|amazon/i);
       assert.equal(result.revenueSource, "gumroad");
       assert.equal(result.source, channel);
@@ -42,13 +46,13 @@ test("even matching selections cannot permit unapproved media hosts or URL forms
 
 // Disposable baseline for the protected path. All provider calls are injected;
 // no actual Buffer mutation, media fetch, or public platform request is allowed.
-import { buildReviewCaption } from "../lib/review-caption.mjs";
+import { buildReviewCaption, reviewCaptionPreview } from "../lib/review-caption.mjs";
 import { createReviewBufferPublisher } from "../lib/buffer-review-publisher.mjs";
 
 const affiliateItem = { research_run_id: "rv-9c5d343830fb30a8", title: "Pokémon Card Rarity: Don't Mistake Common for Rare", vertical: "pokemon_tcg", status: "approved",
   video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1790216466129-3143.mp4" };
 
-function disposablePublisher(row, channel) {
+function disposablePublisher(row, channel, promotionPolicy = ownProductPolicy) {
   const channelId = "fixture-" + channel;
   const postId = "fixture-post-" + channel;
   const mediaId = channel === "youtube" ? "AbCdEf12345" : "1234567890";
@@ -80,7 +84,7 @@ function disposablePublisher(row, channel) {
     }
     throw new Error("Unexpected disposable Buffer query");
   };
-  const publisher = createReviewBufferPublisher({ token: "fixture-token", organizationId: "org-1", fetchImpl,
+  const publisher = createReviewBufferPublisher({ token: "fixture-token", organizationId: "org-1", fetchImpl, promotionPolicy,
     mediaProbe: async () => ({ width: 720, height: 1280, durationSeconds: 30 }),
     publicHttpProbe: async ({ externalLink }) => {
       assert.equal(externalLink, publicUrl);
@@ -116,5 +120,49 @@ test("baseline: current protected publisher rejects Gumroad-only caption before 
     await assert.rejects(() => fixture.publisher({ channel, videoUrl: item.video_url, caption: built.caption, title: built.title, youtubeMadeForKids: false }), /affiliate disclosure/);
     assert.equal(fixture.creates.length, 0);
     assert.deepEqual(fixture.events, []);
+  }
+});
+
+
+test("trusted product policy binds preview and receipt to exact run and media", () => {
+  const chosen = { ...selection, product: "sports_card_bundle", public_title: "The Fake-Check Field Guide" };
+  const policy = createOwnProductPolicy({ [item.research_run_id]: chosen });
+  assert.equal(ownProductPolicy.forItem(item, "youtube"), null);
+  const preview = policy.forItem(item, "youtube");
+  assert.equal(preview.title, "The Fake-Check Field Guide");
+  assert.equal(preview.url, "https://ubiquity6.gumroad.com/l/fxloos");
+  assert.deepEqual(policy.forReceipt(item.research_run_id, item.video_url, "youtube"), preview);
+  assert.throws(() => policy.forReceipt(item.research_run_id, item.video_url.replace("fixture", "different"), "youtube"));
+  assert.throws(() => policy.forItem({ ...item, status: "rejected" }, "youtube"));
+  assert.notEqual(preview.caption, policy.forItem(item, "tiktok").caption);
+  const another = { ...item, research_run_id: "rv-1111111111111111" };
+  assert.notEqual(preview.caption, buildOwnProductPromotion(another, { ...chosen, research_run_id: another.research_run_id }, "youtube").caption);
+});
+
+test("configured Gumroad-only promotion uses shared preview and exact simulated publisher receipts", async () => {
+  const policy = createOwnProductPolicy({ [item.research_run_id]: { ...selection, product: "sports_card_bundle", public_title: "The Fake-Check Field Guide" } });
+  for (const channel of ["youtube", "tiktok"]) {
+    const built = buildReviewCaption(item, channel, undefined, policy);
+    const preview = reviewCaptionPreview(item, [channel], policy)[0];
+    assert.equal(preview.ok, true);
+    assert.equal(preview.title, "The Fake-Check Field Guide");
+    assert.equal(preview.caption, built.caption);
+    assert.equal(new URL(preview.link).pathname, "/l/fxloos");
+    assert.doesNotMatch(preview.caption, /affiliate|ebay|amazon/i);
+    const fixture = disposablePublisher(item, channel, policy);
+    const input = { channel, videoUrl: item.video_url, caption: built.caption, title: built.title,
+      reviewRunId: item.research_run_id, youtubeMadeForKids: false,
+      onAccepted: async receipt => { assert.deepEqual(receipt, { channel, postId: fixture.postId }); fixture.events.push("accepted"); } };
+    await assert.rejects(() => fixture.publisher({ ...input, caption: built.caption + "\nhttps://ebay.example" }), /exact configured Gumroad promotion/);
+    await assert.rejects(() => fixture.publisher({ ...input, title: "Wrong" }), /exact configured Gumroad promotion/);
+    assert.equal(fixture.creates.length, 0);
+    const first = await fixture.publisher(input);
+    assert.equal(first.publicUrl, fixture.publicUrl);
+    assert.equal(first.proofKind, "public_player");
+    assert.deepEqual(fixture.events, ["create", "accepted", "proof"]);
+    assert.equal(fixture.creates[0].text, preview.caption);
+    const retry = await fixture.publisher({ ...input, acceptedPostId: fixture.postId });
+    assert.equal(retry.duplicate, true);
+    assert.equal(fixture.creates.length, 1);
   }
 });

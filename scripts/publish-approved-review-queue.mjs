@@ -9,6 +9,7 @@ import {
 } from "../lib/buffer-review-publisher.mjs";
 import { buildReviewCaption, reviewPublicTitle } from "../lib/review-caption.mjs";
 import { isPublicVideoTitle } from "../lib/public-video-title.mjs";
+import { ownProductPolicy } from "../lib/review-own-product.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -136,7 +137,7 @@ if (!item) {
 }
 const leaseToken = dryRun ? "" : String(item.publishing_at ?? "").trim();
 try {
-  const titleNeedsRepair = !isPublicVideoTitle(item.title);
+  const titleNeedsRepair = !ownProductPolicy.hasRun(item.research_run_id) && !isPublicVideoTitle(item.title);
   const publicTitle = reviewPublicTitle(item);
   const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
   if (!dryRun) required(leaseToken, "queue lease token");
@@ -225,6 +226,7 @@ try {
       channel,
       videoUrl: safeVideoUrl,
       caption,
+      reviewRunId: item.research_run_id,
       title: publicTitle,
       youtubeCategoryId: "17",
       youtubeMadeForKids: channel === "youtube" ? youtubeAudience === "made_for_kids" : undefined,
