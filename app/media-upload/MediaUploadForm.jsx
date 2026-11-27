@@ -136,7 +136,7 @@ async function approveVideo({ accessCode, videoUrl, researchRunId, reviewedTitle
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ videoUrl, researchRunId, reviewedTitle, youtubeAudience }),
+    body: JSON.stringify({ videoUrl, researchRunId, reviewedTitle, youtubeAudience: youtubeAudience }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
@@ -165,7 +165,7 @@ export default function MediaUploadForm() {
       const preview = await loadMobileReviewPreview({ accessCode: code, videoUrl: blob.url, researchRunId: staged.researchRunId, reviewedTitle: staged.title });
       setReviewPreview(preview);
     } catch (err) {
-      setError(normalizeReviewUploadError(err));
+      setError(err instanceof Error ? err.message : "Review action failed. Check the owner dashboard.");
     }
   }
 
@@ -190,7 +190,7 @@ export default function MediaUploadForm() {
       await refreshReview(staged, stagingPayload.blob, accessCode);
     } catch (err) {
       setStatus("staging_failed");
-      setError(normalizeReviewUploadError(err));
+      setError(err instanceof Error ? err.message : "Review action failed. Check the owner dashboard.");
     } finally {
       setBusy(false);
     }
@@ -208,7 +208,7 @@ export default function MediaUploadForm() {
     } catch (err) {
       setReviewPreview(null);
       setYoutubeAudience("");
-      setError(normalizeReviewUploadError(err));
+      setError(err instanceof Error ? err.message : "Review action failed. Check the owner dashboard.");
     } finally {
       setBusy(false);
     }
@@ -264,7 +264,7 @@ export default function MediaUploadForm() {
       await refreshReview(staged, blob, accessCode);
     } catch (err) {
       setStatus(uploadedBlob?.url ? "staging_failed" : "failed");
-      setError(normalizeReviewUploadError(err));
+      setError(uploadedBlob?.url ? (err instanceof Error ? err.message : "Research staging failed. Retry staging only.") : normalizeReviewUploadError(err));
     } finally {
       setBusy(false);
     }

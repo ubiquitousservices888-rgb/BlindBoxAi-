@@ -160,7 +160,7 @@ test("verification diagnostics distinguish integrity failures without exposing u
   assert.equal(invalid.status, 502);
   assert.deepEqual(events.pop(), { event: "free_upload_verification_failed", details: { message: "Stored video fingerprint mismatch" } });
   const unavailable = await reviewUploadVerificationResponse({ path, sizeBytes: 4, verifyImpl: async () => { throw new Error("sensitive upstream details"); }, log });
-  assert.equal(unavailable.status, 502);
+  assert.deepEqual(unavailable, { status: 502, body: { error: "Stored video could not be verified safely." } });
   assert.deepEqual(events.pop(), { event: "free_upload_verification_failed", details: { message: "Storage verification request failed" } });
   const absent = await reviewUploadVerificationResponse({ path, sizeBytes: 4, verifyImpl: async () => ({ verified: false }), log });
   assert.deepEqual(absent, { status: 200, body: { verified: false } });
@@ -173,6 +173,8 @@ test("ticket mismatch is not mislabeled as an expired upload authorization", asy
   assert.equal(normalizeReviewUploadError(new Error("Upload ticket does not match the video fingerprint")), "Upload ticket does not match the video fingerprint");
   assert.match(normalizeReviewUploadError(new Error("token has expired")), /authorization expired/);
   assert.match(normalizeReviewUploadError(new Error("Storage upload timed out.")), /timed out/);
+  assert.match(normalizeReviewUploadError(new Error("Storage upload aborted.")), /interrupted/);
+  assert.doesNotMatch(normalizeReviewUploadError(new Error("Storage upload aborted.")), /timed out/);
   assert.equal(new URL(canonicalReviewUploadUrl(await reviewUploadPath(new Blob(["same"])))).origin, BLINDBOXAI_SUPABASE_ORIGIN);
 });
 

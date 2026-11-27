@@ -43,16 +43,16 @@ export async function POST(request) {
   }
 
   const path = typeof body?.path === "string" ? body.path : "";
-  const sizeBytes = Number(body?.sizeBytes || 0);
+  const sizeBytes = body?.sizeBytes;
   if (!/^media\/review\/[a-zA-Z0-9._-]+\.mp4$/i.test(path)) {
     return NextResponse.json({ error: "Invalid video path." }, { status: 400, headers: PRIVATE_HEADERS });
   }
-  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > 100 * 1024 * 1024) {
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > 100 * 1024 * 1024) {
     return NextResponse.json({ error: "Invalid video size." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
   if (body?.action === "verify_existing") {
-    const result = await reviewUploadVerificationResponse({ path, sizeBytes: body.sizeBytes });
+    const result = await reviewUploadVerificationResponse({ path, sizeBytes });
     return NextResponse.json(result.body, { status: result.status, headers: PRIVATE_HEADERS });
   }
   if (body?.action !== undefined && body.action !== "ticket") {
