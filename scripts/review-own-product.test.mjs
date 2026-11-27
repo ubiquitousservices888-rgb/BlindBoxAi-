@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildOwnProductPromotion, createOwnProductPolicy, ownProductPolicy } from "../lib/review-own-product.mjs";
+import { buildOwnProductPromotion, createOwnProductPolicy, ownProductPolicy, bindOwnProductPolicy } from "../lib/review-own-product.mjs";
 
 const item = { research_run_id: "rv-0123456789abcdef", title: "Reviewed fixture", status: "ready_for_review",
   video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/fixture.mp4" };
@@ -163,6 +163,30 @@ test("configured Gumroad-only promotion uses shared preview and exact simulated 
     assert.equal(fixture.creates[0].text, preview.caption);
     const retry = await fixture.publisher({ ...input, acceptedPostId: fixture.postId });
     assert.equal(retry.duplicate, true);
+    assert.equal(fixture.creates.length, 1);
+  }
+});
+
+test("automatic selection drives matching preview and both simulated Buffer receipts for the staged upload", async () => {
+  const staged = { research_run_id: "rv-46e2ab7acda58ff9", title: "The fake test field guide", status: "ready_for_review",
+    video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1795749758411-4643.mp4" };
+  const claimed = { ...staged, status: "publishing" };
+  const policy = bindOwnProductPolicy(claimed);
+  for (const channel of ["youtube", "tiktok"]) {
+    const preview = reviewCaptionPreview(staged, [channel])[0];
+    const built = buildReviewCaption(claimed, channel, undefined, policy);
+    assert.equal(preview.ok, true);
+    assert.equal(preview.caption, built.caption);
+    assert.equal(new URL(preview.link).pathname, "/l/fxloos");
+    const fixture = disposablePublisher(claimed, channel, policy);
+    const input = { channel, videoUrl: claimed.video_url, caption: built.caption, title: built.title,
+      reviewRunId: claimed.research_run_id, youtubeMadeForKids: false,
+      onAccepted: async () => { fixture.events.push("accepted"); } };
+    await assert.rejects(() => fixture.publisher({ ...input, caption: built.caption.replace("/l/fxloos", "/l/bjfpgf") }), /exact configured Gumroad promotion/);
+    assert.equal(fixture.creates.length, 0);
+    const sent = await fixture.publisher(input);
+    assert.equal(sent.publicUrl, fixture.publicUrl);
+    assert.equal((await fixture.publisher({ ...input, acceptedPostId: fixture.postId })).duplicate, true);
     assert.equal(fixture.creates.length, 1);
   }
 });

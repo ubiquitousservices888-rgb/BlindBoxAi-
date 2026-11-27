@@ -9,7 +9,7 @@ import {
 } from "../lib/buffer-review-publisher.mjs";
 import { buildReviewCaption, reviewPublicTitle } from "../lib/review-caption.mjs";
 import { isPublicVideoTitle } from "../lib/public-video-title.mjs";
-import { ownProductPolicy } from "../lib/review-own-product.mjs";
+import { bindOwnProductPolicy } from "../lib/review-own-product.mjs";
 import { assertPublicMp4 } from "../lib/buffer-media-safety.mjs";
 import { probeYoutubeShortsMedia } from "../lib/review-shorts-preflight.mjs";
 import { normalizeReviewRunId } from "../lib/review-run-id.mjs";
@@ -137,10 +137,14 @@ if (!item) {
 }
 const leaseToken = dryRun ? "" : String(item.publishing_at ?? "").trim();
 try {
-  const titleNeedsRepair = !ownProductPolicy.hasRun(item.research_run_id) && !isPublicVideoTitle(item.title);
-  const publicTitle = reviewPublicTitle(item);
   const safeVideoUrl = assertApprovedReviewVideoUrl(item.video_url);
   if (!dryRun) required(leaseToken, "queue lease token");
+  // The authenticated peek/claim endpoint omits status from its projection.
+  // Only a successful claim with a lease is allowed to supply publishing.
+  const promotionItem = { ...item, status: item.status ?? (dryRun ? "approved" : "publishing") };
+  const promotionPolicy = bindOwnProductPolicy(promotionItem);
+  const titleNeedsRepair = !promotionPolicy.hasRun(item.research_run_id) && !isPublicVideoTitle(item.title);
+  const publicTitle = reviewPublicTitle(promotionItem, promotionPolicy);
   if (titleNeedsRepair) {
     if (dryRun) {
       console.log(`REVIEW_QUEUE_WOULD_REPAIR_TITLE: ${publicTitle}`);
@@ -206,6 +210,8 @@ try {
   }
   console.log(`REVIEW_QUEUE_MAX_BUFFER_POSTS: ${MAX_BUFFER_POSTS_PER_EXECUTION}`);
   if (dryRun) {
+    for (const channel of channels) buildReviewCaption(promotionItem, channel, publicTitle, promotionPolicy);
+    console.log("REVIEW_QUEUE_DRY_RUN_CAPTION_VALIDATED: true");
     console.log(`REVIEW_QUEUE_WOULD_PUBLISH_RUN: ${item.research_run_id}`);
     console.log(`REVIEW_QUEUE_WOULD_PUBLISH_TITLE: ${publicTitle}`);
     console.log(`REVIEW_QUEUE_WOULD_PUBLISH_CHANNEL: ${channels[0]}`);
@@ -216,12 +222,13 @@ try {
     token: process.env.BUFFER_API_TOKEN,
     organizationId: process.env.BUFFER_ORGANIZATION_ID,
     addOnChannels,
+    promotionPolicy,
   });
 
   const results = [];
   let rowComplete = false;
   for (const channel of channels) {
-    const { campaignId, source, caption } = buildReviewCaption(item, channel, publicTitle);
+    const { campaignId, source, caption } = buildReviewCaption(promotionItem, channel, publicTitle, promotionPolicy);
     const result = await publisher({
       channel,
       videoUrl: safeVideoUrl,

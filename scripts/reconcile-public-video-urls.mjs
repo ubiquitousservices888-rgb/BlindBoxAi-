@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
-import { ownProductPolicy } from "../lib/review-own-product.mjs";
+import { bindOwnProductPolicy, ownProductPolicy } from "../lib/review-own-product.mjs";
 import { assertApprovedReviewVideoUrl } from "../lib/review-publish-safety.mjs";
 import { createReviewSourceVerifier } from "../lib/review-source-identity.mjs";
 import { assertPublicPostProof, canonicalPublicPostUrl, probePublicPostHttp, publicProofDiagnostics, readReviewBufferPost, resolveReviewBufferChannel } from "../lib/buffer-review-publisher.mjs";
@@ -74,7 +74,14 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
       try { candidatePublicUrl = canonicalPublicPostUrl(channel, post.externalLink); } catch {}
       const observed = { ...base, ...(candidatePublicUrl ? { candidatePublicUrl } : {}), providerIdentityVerified: true };
       let direct;
-      try { direct = ownProductPolicy.forReceipt(row.research_run_id, row.video_url, channel); }
+      try {
+        // New trusted inventory snapshots may carry the original reviewed
+        // queue title; never infer a product from a provider caption.
+        const policy = typeof row.reviewed_title === "string"
+          ? bindOwnProductPolicy({ ...row, title: row.reviewed_title, status: "approved" })
+          : ownProductPolicy;
+        direct = policy.forReceipt(row.research_run_id, row.video_url, channel);
+      }
       catch { receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue; }
       if (direct ? post.text !== direct.caption : (!String(post.text).includes(DISCLOSURE) || !hasTrackedCta(post.text, row.research_run_id, channel))) {
         receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue;
