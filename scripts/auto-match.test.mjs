@@ -20,7 +20,7 @@ test("exact existing upload uses the previously selected bundle and both channel
   assert.throws(()=>bindOwnProductPolicy({...current, status:"rejected"}));
 });
 test("new known title automatically selects exact product; receipt is bound to the same row",()=>{
-  for (const [title, slug] of [["The Fake-Check Field Guide","bjfpgf"],["The fake check Field guide","bjfpgf"],["The fake check Field guide on gumroad","bjfpgf"],["Sports Card Collecting Series","fxloos"],["Sports Card Collecting Series on Gumroad","fxloos"]]) {
+  for (const [title, slug] of [["The Fake-Check Field Guide","bjfpgf"],["The fake check Field guide","bjfpgf"],["The fake check Field guide on gumroad","bjfpgf"],["The fake check Field guide for gumroad","bjfpgf"],["The fake check Field guide from gumroad","bjfpgf"],["The fake check Field guide at gumroad","bjfpgf"],["Sports Card Collecting Series","fxloos"],["Sports Card Collecting Series on Gumroad","fxloos"],["Sports Card Collecting Series for Gumroad","fxloos"]]) {
     const row = make(title);
     const policy = bindOwnProductPolicy({...row,status:"publishing"});
     for (const channel of ["youtube","tiktok"]) {
@@ -35,7 +35,7 @@ test("new known title automatically selects exact product; receipt is bound to t
   }
 });
 test("unknown, conflicting and invalid source data cannot select an owned product",()=>{
-  for (const title of ["Fake check", "Fake-Check Field Guide and Sports Card Collecting Series", "https://evil.example", "The fake test field guide", "Fake-Check Field Guide and Sports Card Collecting Series on Gumroad", "Fake-Check Field Guide on Gumroad https://evil.example"]) {
+  for (const title of ["Fake check", "Fake-Check Field Guide and Sports Card Collecting Series", "https://evil.example", "The fake test field guide", "Fake-Check Field Guide and Sports Card Collecting Series on Gumroad", "Fake-Check Field Guide on Gumroad https://evil.example", "Fake-Check Field Guide for Gumroad for Gumroad", "Fake-Check Field Guide and Sports Card Collecting Series for Gumroad", "Fake-Check Field Guide for Gumroad https://evil.example"]) {
     const row=make(title);
     assert.equal(ownProductPolicy.forItem(row,"youtube"),null);
     assert.equal(bindOwnProductPolicy(row).forReceipt(row.research_run_id,row.video_url,"youtube"),null);
@@ -44,4 +44,19 @@ test("unknown, conflicting and invalid source data cannot select an owned produc
   assert.throws(()=>ownProductPolicy.forItem({...row,research_run_id:"rv-1111111111111111"},"youtube"));
   assert.throws(()=>bindOwnProductPolicy({...row,status:"rejected"}));
   assert.throws(()=>ownProductPolicy.forItem({...row,video_url:"https://evil.example/video.mp4"},"youtube"));
+});
+
+test("latest owner screenshot matches the exact staged video and both channel receipts", () => {
+  const row = make("The fake check Field guide for gumroad", "1795751421931-4643");
+  assert.equal(row.research_run_id, "rv-ce3c1c56cb5f3540");
+  const policy = bindOwnProductPolicy({ ...row, status: "publishing" });
+  for (const channel of ["youtube", "tiktok"]) {
+    const preview = ownProductPolicy.forItem(row, channel);
+    const url = new URL(preview.trackedUrl);
+    assert.equal(url.origin + url.pathname, "https://ubiquity6.gumroad.com/l/bjfpgf");
+    assert.equal(url.searchParams.get("utm_source"), channel);
+    assert.equal(url.searchParams.get("utm_campaign"), "bb-rv-ce3c1c56cb5f3540");
+    assert.deepEqual(policy.forReceipt(row.research_run_id, row.video_url, channel), preview);
+  }
+  assert.throws(() => bindOwnProductPolicy({ ...row, status: "rejected" }));
 });
