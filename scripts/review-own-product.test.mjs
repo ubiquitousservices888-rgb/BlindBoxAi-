@@ -72,9 +72,13 @@ function disposablePublisher(row, channel, promotionPolicy = ownProductPolicy) {
     if (body.query.includes("query Channels")) return json({ channels: [{ id: channelId, service: channel, serviceId: channel === "youtube" ? "UCwaUc4e4iv2Q4P1nxlVrTvw" : "fixture-tiktok", isQueuePaused: false, isDisconnected: false, isLocked: false }] });
     if (body.query.includes("query Existing")) return json({ posts: { edges: [], pageInfo: { hasNextPage: false, endCursor: null } } });
     if (body.query.includes("mutation CreateReviewVideo")) {
-      creates.push(body.variables.input);
+      const input = body.variables.input;
+      assert.equal(input.channelId, channelId);
+      assert.deepEqual(input.assets, [{ video: { url: row.video_url } }]);
+      creates.push(input);
       events.push("create");
-      created = { id: postId, text: body.variables.input.text, status: "sending", channelId, assets: [{ source: row.video_url }] };
+      created = { id: postId, text: input.text, status: "sending", channelId: input.channelId,
+        assets: input.assets.map(asset => ({ source: asset.video.url })) };
       return json({ createPost: { post: created } });
     }
     if (body.query.includes("query VerifySentPost")) {

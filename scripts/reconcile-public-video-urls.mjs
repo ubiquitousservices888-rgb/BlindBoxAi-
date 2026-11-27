@@ -85,7 +85,12 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
         receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue;
       }
       observed.attributionVerified = true;
-      if (direct) observed.monetizationMode = "own_product";
+      if (direct) {
+        observed.monetizationMode = "own_product";
+        // The receipt query does not return a separate YouTube title. A
+        // verified public URL and exact caption are not title verification.
+        observed.publicTitleVerification = channel === "youtube" ? "UNVERIFIED" : "NOT_APPLICABLE";
+      }
       const sourceProof = Array.isArray(post.assets) && post.assets.length === 1
         ? await verifySource({ approvedUrl: row.video_url, sourceUrl: post.assets[0]?.source, expectedSizeBytes: row.size_bytes }) : null;
       if (!sourceProof?.matched) {

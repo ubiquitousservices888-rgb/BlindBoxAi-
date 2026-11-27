@@ -160,8 +160,14 @@ test("historical direct Gumroad receipts require actual approval and exact capti
     assert.equal(results.length, 2);
     for (const receipt of results) {
       assert.equal(receipt.status, valid ? "VERIFIED" : "UNVERIFIED");
-      if (valid) assert.equal(receipt.monetizationMode, "own_product");
-      else assert.equal(receipt.reason, "APPROVED_ATTRIBUTION_UNVERIFIED");
+      if (valid) {
+        assert.equal(receipt.monetizationMode, "own_product");
+        assert.equal(receipt.attributionVerified, true);
+        assert.equal(receipt.publicTitleVerification, receipt.channel === "youtube" ? "UNVERIFIED" : "NOT_APPLICABLE");
+      } else {
+        assert.equal(receipt.reason, "APPROVED_ATTRIBUTION_UNVERIFIED");
+        assert.equal(receipt.publicTitleVerification, undefined);
+      }
     }
     assert.equal(probes, valid ? 2 : 0);
   }
