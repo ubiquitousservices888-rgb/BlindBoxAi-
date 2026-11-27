@@ -89,3 +89,49 @@ test("server verifies actual stored bytes, length and fixed media URL", async ()
   for (const args of [["else"], ["sam"], ["same!"], ["same", 206], ["same", 200, "text/html"], ["same", 200, "video/mp4", "https://wrong.example"]]) await assert.rejects(() => verify(...args));
   await assert.rejects(() => verifyReviewUpload({ path: "media/review/legacy.mp4", sizeBytes: 4, fetchImpl: () => assert.fail("unexpected fetch") }));
 });
+
+test("100 MiB fingerprints use bounded slices, not a whole-file allocation", async () => {
+  const size = 100 * 1024 * 1024;
+  const cap = 256 * 1024;
+  const expected = createHash("sha256");
+  let offset = 0, largest = 0, reads = 0;
+  const file = {
+    size,
+    arrayBuffer() { assert.fail("whole-file allocation"); },
+    slice(start, end) {
+      assert.equal(start, offset);
+      assert.ok(end > start && end <= size && end - start <= cap);
+      const bytes = new Uint8Array(end - start).fill(reads % 251);
+      largest = Math.max(largest, bytes.byteLength);
+      reads++;
+      offset = end;
+      expected.update(bytes);
+      return { arrayBuffer: async () => bytes.buffer };
+    },
+  };
+  const path = await reviewUploadPath(file);
+  assert.equal(path, `media/review/sha256-${expected.digest("hex")}.mp4`);
+  assert.equal(offset, size);
+  assert.equal(largest, cap);
+  assert.equal(reads, 400);
+});
+
+test("incremental SHA-256 preserves historical paths at padding and slice boundaries", async () => {
+  for (const length of [1, 55, 56, 63, 64, 65, 255, 256 * 1024 - 1, 256 * 1024, 256 * 1024 + 1]) {
+    const bytes = Buffer.alloc(length);
+    for (let i = 0; i < length; i++) bytes[i] = i % 251;
+    const expected = createHash("sha256").update(bytes).digest("hex");
+    assert.equal(await reviewUploadPath(new Blob([bytes])), `media/review/sha256-${expected}.mp4`);
+  }
+});
+
+test("short or oversized chunks fail before requesting a ticket", async () => {
+  const { uploadOrRecoverReviewMedia } = await import("../lib/review-upload-identity.mjs");
+  for (const length of [1, 3]) {
+    let operations = 0;
+    const blocked = async () => { operations++; assert.fail("unexpected storage operation"); };
+    const file = { size: 2, slice: () => ({ arrayBuffer: async () => new ArrayBuffer(length) }) };
+    await assert.rejects(() => uploadOrRecoverReviewMedia({ file, verifyExisting: blocked, requestTicket: blocked, upload: blocked }), /Video bytes changed while reading the file/);
+    assert.equal(operations, 0);
+  }
+});
