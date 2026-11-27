@@ -60,3 +60,27 @@ test("latest owner screenshot matches the exact staged video and both channel re
   }
   assert.throws(() => bindOwnProductPolicy({ ...row, status: "rejected" }));
 });
+
+test("owned-product previews and bound receipts fail closed for parked LinkedIn", () => {
+  for (const row of [current, make("The Fake-Check Field Guide"), make("Sports Card Collecting Series")]) {
+    const claimed = { ...row, status: "publishing" };
+    const bound = bindOwnProductPolicy(claimed);
+    assert.throws(() => ownProductPolicy.forItem(row, "linkedin"), /Unsupported direct-product channel/);
+    assert.throws(() => bound.forItem(claimed, "linkedin"), /Unsupported direct-product channel/);
+    assert.throws(() => bound.forReceipt(row.research_run_id, row.video_url, "linkedin"), /Unsupported direct-product channel/);
+    for (const channel of ["youtube", "tiktok"]) {
+      assert.deepEqual(bound.forReceipt(row.research_run_id, row.video_url, channel), ownProductPolicy.forItem(row, channel));
+    }
+  }
+});
+
+test("public title normalization must not replace the reviewed title in receipt identity", () => {
+  for (const row of [current, make("The fake check Field guide for gumroad")]) {
+    const claimed = { ...row, status: "publishing" };
+    const bound = bindOwnProductPolicy(claimed);
+    const publicTitle = bound.forItem(claimed, "youtube").title;
+    assert.notEqual(publicTitle, row.title);
+    assert.throws(() => bound.forItem({ ...claimed, title: publicTitle }, "youtube"), /Exact reviewed media identity required/);
+    assert.equal(bound.forReceipt(row.research_run_id, row.video_url, "youtube").title, publicTitle);
+  }
+});
