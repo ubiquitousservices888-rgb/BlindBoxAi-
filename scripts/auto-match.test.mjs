@@ -20,7 +20,7 @@ test("exact existing upload uses the previously selected bundle and both channel
   assert.throws(()=>bindOwnProductPolicy({...current, status:"rejected"}));
 });
 test("new known title automatically selects exact product; receipt is bound to the same row",()=>{
-  for (const [title, slug] of [["The Fake-Check Field Guide","bjfpgf"],["Sports Card Collecting Series","fxloos"]]) {
+  for (const [title, slug] of [["The Fake-Check Field Guide","bjfpgf"],["The fake check Field guide","bjfpgf"],["Sports Card Collecting Series","fxloos"]]) {
     const row = make(title);
     const policy = bindOwnProductPolicy({...row,status:"publishing"});
     for (const channel of ["youtube","tiktok"]) {

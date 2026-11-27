@@ -450,7 +450,8 @@ test("legacy queue titles are repaired only while holding the exact publishing l
   const publisher = fs.readFileSync(new URL("./publish-approved-review-queue.mjs", import.meta.url), "utf8");
   const queue = fs.readFileSync(new URL("../supabase/functions/review-video-queue/index.ts", import.meta.url), "utf8");
   const reviewCaption = fs.readFileSync(new URL("../lib/review-caption.mjs", import.meta.url), "utf8");
-  assert.match(publisher, /const publicTitle = reviewPublicTitle\(item\)/);
+  assert.match(publisher, /const promotionPolicy = bindOwnProductPolicy\(promotionItem\)/);
+  assert.match(publisher, /const publicTitle = reviewPublicTitle\(promotionItem, promotionPolicy\)/);
   assert.match(reviewCaption, /resolvePublicVideoTitle\(item\?\.title/);
   assert.match(publisher, /action: "repair_title"/);
   const repairStart = queue.indexOf("async function repairTitle(");
@@ -621,7 +622,7 @@ test("live publisher fail-closes on missing tracked CTA or unverifiable public U
   assert.match(reviewCaption, /tracked CTA is missing campaign or source/);
   assert.match(reviewCaption, /tracked CTA and affiliate disclosure are required/);
   assert.match(source, /isVerifiedPublicPostUrl\(channel, result\.publicUrl\)/);
-  const ctaGuard = source.indexOf("buildReviewCaption(item, channel, publicTitle)");
+  const ctaGuard = source.indexOf("const { campaignId, source, caption } = buildReviewCaption(promotionItem, channel, publicTitle, promotionPolicy);");
   const urlGuard = source.indexOf("platform public URL lacks an independent HTTP 200 receipt");
   assert.match(source, /result\.publicHttpStatus !== 200/);
   assert.match(source, /REVIEW_QUEUE_PUBLIC_HTTP_PROOF/);
