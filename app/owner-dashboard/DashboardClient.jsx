@@ -499,7 +499,7 @@ function CaptionPreview({ preview }) {
           <strong>{entry.channel === "youtube" ? "YouTube" : entry.channel === "tiktok" ? "TikTok" : entry.channel}</strong>
           {entry.ok ? (
             <>
-              {entry.landing ? <div style={{ fontSize: 13, marginTop: 4 }}>Affiliate page: {entry.landing}</div> : null}
+              {entry.landing ? <div style={{ fontSize: 13, marginTop: 4 }}>Promotion destination: {entry.landing}</div> : null}
               <div style={{ fontSize: 13, marginTop: 4, wordBreak: "break-all" }}>Link: {entry.link}</div>
               <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 13, margin: "4px 0 0", padding: 8, border: "1px solid currentColor", borderRadius: 8 }}>{entry.caption}</pre>
             </>
