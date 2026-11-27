@@ -20,7 +20,7 @@ test("exact existing upload uses the previously selected bundle and both channel
   assert.throws(()=>bindOwnProductPolicy({...current, status:"rejected"}));
 });
 test("new known title automatically selects exact product; receipt is bound to the same row",()=>{
-  for (const [title, slug] of [["The Fake-Check Field Guide","bjfpgf"],["The fake check Field guide","bjfpgf"],["Sports Card Collecting Series","fxloos"]]) {
+  for (const [title, slug] of [["The Fake-Check Field Guide","bjfpgf"],["The fake check Field guide","bjfpgf"],["The fake check Field guide on gumroad","bjfpgf"],["Sports Card Collecting Series","fxloos"],["Sports Card Collecting Series on Gumroad","fxloos"]]) {
     const row = make(title);
     const policy = bindOwnProductPolicy({...row,status:"publishing"});
     for (const channel of ["youtube","tiktok"]) {
@@ -35,7 +35,7 @@ test("new known title automatically selects exact product; receipt is bound to t
   }
 });
 test("unknown, conflicting and invalid source data cannot select an owned product",()=>{
-  for (const title of ["Fake check", "Fake-Check Field Guide and Sports Card Collecting Series", "https://evil.example", "The fake test field guide"]) {
+  for (const title of ["Fake check", "Fake-Check Field Guide and Sports Card Collecting Series", "https://evil.example", "The fake test field guide", "Fake-Check Field Guide and Sports Card Collecting Series on Gumroad", "Fake-Check Field Guide on Gumroad https://evil.example"]) {
     const row=make(title);
     assert.equal(ownProductPolicy.forItem(row,"youtube"),null);
     assert.equal(bindOwnProductPolicy(row).forReceipt(row.research_run_id,row.video_url,"youtube"),null);
