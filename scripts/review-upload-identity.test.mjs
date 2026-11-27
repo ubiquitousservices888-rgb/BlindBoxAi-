@@ -30,9 +30,62 @@ test("disposable no-overwrite storage and URL-based queue accept identical bytes
   assert.equal(queue.size, 2);
 });
 
-test("invalid length, unavailable crypto or inconsistent bytes fail before ticket creation", async () => {
+test("invalid length, unavailable crypto or inconsistent bytes fail helper validation", async () => {
   for (const file of [new Blob([]), { size: 100 * 1024 * 1024 + 1, arrayBuffer() { throw Error("must not read"); } }, { size: 2, arrayBuffer: async () => new ArrayBuffer(1) }]) {
     await assert.rejects(() => reviewUploadPath(file));
   }
   await assert.rejects(() => reviewUploadPath(new Blob(["test"]), {}), /fingerprinting is unavailable/);
+});
+
+test("lost successful upload response is recovered without a second PUT or ticket", async () => {
+  const file = new File(["same"], "one.mp4");
+  const path = await reviewUploadPath(file);
+  const publicUrl = `https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/${path}`;
+  let stored = false, tickets = 0, puts = 0;
+  const options = { file, verifyExisting: async () => stored ? { path, publicUrl, verified: true } : { verified: false },
+    requestTicket: async () => { tickets++; return { path, publicUrl, signedUrl: "fixture" }; },
+    upload: async () => { puts++; stored = true; throw new Error("response lost"); } };
+  const { uploadOrRecoverReviewMedia } = await import("../lib/review-upload-identity.mjs");
+  assert.deepEqual(await uploadOrRecoverReviewMedia(options), { url: publicUrl, pathname: path });
+  assert.deepEqual(await uploadOrRecoverReviewMedia(options), { url: publicUrl, pathname: path });
+  assert.equal(tickets, 1);
+  assert.equal(puts, 1);
+});
+
+test("invalid file and unverified recovery never issue an extra ticket or PUT", async () => {
+  const { uploadOrRecoverReviewMedia, canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
+  let tickets = 0, puts = 0, verifies = 0;
+  const options = { file: new File(["same"], "one.mp4"),
+    verifyExisting: async () => { verifies++; return { verified: false }; },
+    requestTicket: async ({ path }) => { tickets++; return { path, publicUrl: canonicalReviewUploadUrl(path), signedUrl: "fixture" }; },
+    upload: async () => { puts++; throw new Error("write uncertain"); } };
+  await assert.rejects(() => uploadOrRecoverReviewMedia({ ...options, file: new Blob([]) }), /Invalid review video size/);
+  assert.deepEqual([tickets, puts, verifies], [0, 0, 0]);
+  await assert.rejects(() => uploadOrRecoverReviewMedia(options), /write uncertain/);
+  assert.deepEqual([tickets, puts, verifies], [1, 1, 2]);
+  await assert.rejects(() => uploadOrRecoverReviewMedia({ ...options, verifyExisting: async () => ({ verified: true, path: "wrong", publicUrl: "https://wrong.example" }) }), /Invalid stored video verification/);
+  assert.deepEqual([tickets, puts], [1, 1]);
+});
+
+test("server verifies actual stored bytes, length and fixed media URL", async () => {
+  const { canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
+  const { verifyReviewUpload } = await import("../lib/review-upload-verification.mjs");
+  const path = await reviewUploadPath(new Blob(["same"]));
+  const publicUrl = canonicalReviewUploadUrl(path);
+  const response = (data, status = 200, type = "video/mp4", url = publicUrl) => {
+    const result = new Response(data, { status, headers: { "content-type": type } });
+    Object.defineProperty(result, "url", { value: url });
+    return result;
+  };
+  const verify = (data, status, type, url) => verifyReviewUpload({ path, sizeBytes: 4, fetchImpl: async (requested, init) => {
+    assert.equal(requested, publicUrl);
+    assert.equal(init.redirect, "error");
+    assert.equal(init.cache, "no-store");
+    assert.equal(init.headers, undefined);
+    return response(data, status, type, url);
+  } });
+  assert.deepEqual(await verify("same"), { verified: true, path, publicUrl });
+  for (const missing of [400, 404]) assert.deepEqual(await verify("missing", missing), { verified: false });
+  for (const args of [["else"], ["sam"], ["same!"], ["same", 206], ["same", 200, "text/html"], ["same", 200, "video/mp4", "https://wrong.example"]]) await assert.rejects(() => verify(...args));
+  await assert.rejects(() => verifyReviewUpload({ path: "media/review/legacy.mp4", sizeBytes: 4, fetchImpl: () => assert.fail("unexpected fetch") }));
 });

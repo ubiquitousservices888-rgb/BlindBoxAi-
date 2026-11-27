@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { resolvePublicVideoTitle } from "../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
-import { reviewUploadPath } from "../../lib/review-upload-identity.mjs";
+import { uploadOrRecoverReviewMedia } from "../../lib/review-upload-identity.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
@@ -70,6 +70,22 @@ async function requestUploadTicket({ accessCode, path, sizeBytes }) {
   if (!response.ok || !body?.signedUrl || !body?.publicUrl) {
     throw new Error(body?.error || "Unable to authorize free video storage.");
   }
+  return body;
+}
+
+
+async function verifyExistingUpload({ accessCode, path, sizeBytes }) {
+  const response = await fetch(STORAGE_BROKER, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessCode}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action: "verify_existing", path, sizeBytes }),
+    cache: "no-store",
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body?.error || "Stored video verification failed.");
   return body;
 }
 
@@ -205,15 +221,16 @@ export default function MediaUploadForm() {
       assertYoutubeShortsMetadata(metadata);
       setStatus("authorizing");
       // One media/review path for identical bytes, even after a rename or reload.
-      // Storage continues to refuse overwrites; never trust a conflict as successful staging.
-      const path = await reviewUploadPath(file);
-      const ticket = await requestUploadTicket({ accessCode, path, sizeBytes: file.size });
-
-      setStatus("uploading");
-      await uploadToSignedUrl({ signedUrl: ticket.signedUrl, file, onProgress: setProgress });
-
-      if (!/^https:\/\//i.test(ticket.publicUrl)) throw new Error("Storage did not return a public HTTPS media URL.");
-      const blob = { url: ticket.publicUrl, pathname: ticket.path };
+      // Verify existing bytes before reuse. Never retry a mutating PUT automatically.
+      const blob = await uploadOrRecoverReviewMedia({
+        file,
+        verifyExisting: (params) => verifyExistingUpload({ accessCode, ...params }),
+        requestTicket: (params) => requestUploadTicket({ accessCode, ...params }),
+        upload: async (ticket) => {
+          setStatus("uploading");
+          await uploadToSignedUrl({ signedUrl: ticket.signedUrl, file, onProgress: setProgress });
+        },
+      });
       uploadedBlob = blob;
       setResult(blob);
 
@@ -236,7 +253,7 @@ export default function MediaUploadForm() {
     ? status === "reading_metadata"
       ? "Reading video details..."
       : status === "authorizing"
-        ? "Authorizing free storage..."
+        ? "Checking existing video and authorizing storage..."
         : status === "staging"
           ? "Staging research campaign..."
           : status === "approved"
@@ -283,7 +300,7 @@ export default function MediaUploadForm() {
         />
       </label>
 
-      {!stageResult && !stagingPayload && !approved ? <button type="submit" disabled={busy} style={{ padding: 14, fontSize: 16, fontWeight: 700 }}>{buttonLabel}</button> : null}
+      {!stageResult && (!stagingPayload || busy) && !approved ? <button type="submit" disabled={busy} style={{ padding: 14, fontSize: 16, fontWeight: 700 }}>{buttonLabel}</button> : null}
 
       {busy ? <p aria-live="polite" style={{ margin: 0 }}>Keep this page open until the current step finishes.</p> : null}
       {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
@@ -305,7 +322,7 @@ export default function MediaUploadForm() {
                 <p role="status"><strong>APPROVED + LAUNCH DISPATCHED.</strong> YouTube and TikTok are now handled automatically. YouTube audience: not made for kids.</p>
               )}
             </>
-          ) : stagingPayload ? (
+          ) : stagingPayload && status === "staging_failed" ? (
             <>
               <p>The upload is safe. Research staging did not finish, so do not upload it again.</p>
               <button type="button" disabled={busy || !accessCode} onClick={retryStage} style={{ padding: 12, fontWeight: 700 }}>Retry research staging only</button>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
+import { verifyReviewUpload } from "../../../../lib/review-upload-verification.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,18 @@ export async function POST(request) {
   }
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > 100 * 1024 * 1024) {
     return NextResponse.json({ error: "Invalid video size." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+
+  if (body?.action === "verify_existing") {
+    try {
+      const proof = await verifyReviewUpload({ path, sizeBytes });
+      return NextResponse.json(proof, { headers: PRIVATE_HEADERS });
+    } catch {
+      return NextResponse.json({ error: "Stored video could not be verified safely." }, { status: 502, headers: PRIVATE_HEADERS });
+    }
+  }
+  if (body?.action !== undefined && body.action !== "ticket") {
+    return NextResponse.json({ error: "Invalid storage action." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
   try {
