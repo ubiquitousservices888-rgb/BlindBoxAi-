@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { reviewUploadPath } from "../lib/review-upload-identity.mjs";
 
 test("identical bytes with different filenames use one canonical upload path", async () => {
@@ -249,4 +250,70 @@ test("mobile preview rejects upload-only credentials, duplicate identities, miss
   unsafe.caption_preview[0].link = "javascript:alert(1)";
   unsafe.caption_preview[0].caption = "javascript:alert(1)";
   await assert.rejects(() => loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([unsafe]) }), /link is invalid/);
+});
+
+// Compile actual route bodies with disposable dependencies, never production.
+async function uploadRouteFixture(route, body, { owner = true, proofKind = "valid", wrongTicket = false } = {}) {
+  const { isCanonicalReviewUploadPath, canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
+  const { BLINDBOXAI_SUPABASE_ORIGIN } = await import("../lib/blindbox-supabase-boundary.mjs");
+  const events = [];
+  const deps = {
+    NextResponse: { json: (body, opts = {}) => ({ body, status: opts.status ?? 200 }) },
+    assertOwnerCode: () => { if (!owner) throw Error("denied"); },
+    assertUploadCode: () => { throw Error("denied"); },
+    isCanonicalReviewUploadPath, canonicalReviewUploadUrl, BLINDBOXAI_SUPABASE_ORIGIN,
+    resolvePublicVideoTitle: title => title,
+    assertYoutubeShortsMetadata: () => {},
+    reviewUploadVerificationResponse: async ({ path }) => {
+      events.push("verify");
+      if (proofKind === "missing") return { status: 200, body: { verified: false } };
+      if (proofKind === "mismatch") return { status: 502, body: { error: "Stored video could not be verified safely." } };
+      if (proofKind === "wrong_identity") return { status: 200, body: { verified: true, path: "wrong", publicUrl: "wrong" } };
+      return { status: 200, body: { verified: true, path, publicUrl: canonicalReviewUploadUrl(path) } };
+    },
+    fetch: async (url, init) => {
+      const payload = JSON.parse(init.body);
+      if (url.endsWith("blindbox-video-upload")) {
+        events.push("ticket");
+        const publicUrl = isCanonicalReviewUploadPath(payload.path) ? canonicalReviewUploadUrl(payload.path) : BLINDBOXAI_SUPABASE_ORIGIN + "/legacy.mp4";
+        return { ok: true, status: 200, json: async () => ({ path: wrongTicket ? "wrong" : payload.path, signedUrl: "fixture", publicUrl }) };
+      }
+      assert.ok(url.endsWith("review-video-queue"));
+      assert.equal(payload.action, "stage");
+      assert.equal(payload.uploadKind, undefined);
+      events.push("stage");
+      return { ok: true, status: 200, json: async () => ({ state: "READY_FOR_REVIEW" }) };
+    },
+  };
+  const source = readFileSync(new URL(route, import.meta.url), "utf8").replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
+  const post = new Function(...Object.keys(deps), source + "\nreturn POST;")(...Object.values(deps));
+  const response = await post({ headers: { get: () => "Bearer fixture" }, json: async () => body });
+  return { status: response.status, events };
+}
+
+test("mobile ticket issuance rejects legacy filenames and mismatched broker identity", async () => {
+  const path = await reviewUploadPath(new Blob(["video"]));
+  const route = "../app/api/media/free-upload-ticket/route.js";
+  const body = { action: "mobile_ticket", path, sizeBytes: 5 };
+  assert.deepEqual(await uploadRouteFixture(route, { ...body, path: "media/review/legacy.mp4" }), { status: 400, events: [] });
+  assert.deepEqual(await uploadRouteFixture(route, body, { wrongTicket: true }), { status: 502, events: ["ticket"] });
+  assert.deepEqual(await uploadRouteFixture(route, body), { status: 200, events: ["ticket"] });
+  assert.deepEqual(await uploadRouteFixture(route, { path: "media/review/legacy.mp4", sizeBytes: 5 }), { status: 200, events: ["ticket"] });
+  assert.deepEqual(await uploadRouteFixture(route, body, { owner: false }), { status: 401, events: [] });
+});
+
+test("fingerprinted staging proves stored bytes before queue mutation, even after successful upload", async () => {
+  const { canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
+  const path = await reviewUploadPath(new Blob(["video"]));
+  const body = { uploadKind: "fingerprinted_mobile", videoUrl: canonicalReviewUploadUrl(path), title: "Fixture review", sizeBytes: 5, durationSeconds: 15, width: 720, height: 1280 };
+  const route = "../app/api/owner/stage-review/route.js";
+  for (const [proofKind, status] of [["missing", 409], ["mismatch", 502], ["wrong_identity", 409]]) {
+    assert.deepEqual(await uploadRouteFixture(route, body, { proofKind }), { status, events: ["verify"] });
+  }
+  assert.deepEqual(await uploadRouteFixture(route, body), { status: 200, events: ["verify", "stage"] });
+  const { uploadKind, ...oldClient } = body;
+  assert.deepEqual(await uploadRouteFixture(route, oldClient), { status: 200, events: ["verify", "stage"] });
+  assert.deepEqual(await uploadRouteFixture(route, { ...body, videoUrl: body.videoUrl + "?alias=true" }), { status: 400, events: [] });
+  assert.deepEqual(await uploadRouteFixture(route, { ...oldClient, videoUrl: body.videoUrl.replace(path, "media/review/legacy.mp4") }), { status: 200, events: ["stage"] });
+  assert.deepEqual(await uploadRouteFixture(route, body, { owner: false }), { status: 401, events: [] });
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
 import { reviewUploadVerificationResponse } from "../../../../lib/review-upload-verification.mjs";
+import { isCanonicalReviewUploadPath, canonicalReviewUploadUrl } from "../../../../lib/review-upload-identity.mjs";
 import { BLINDBOXAI_SUPABASE_ORIGIN } from "../../../../lib/blindbox-supabase-boundary.mjs";
 
 export const runtime = "nodejs";
@@ -55,7 +56,11 @@ export async function POST(request) {
     const result = await reviewUploadVerificationResponse({ path, sizeBytes });
     return NextResponse.json(result.body, { status: result.status, headers: PRIVATE_HEADERS });
   }
-  if (body?.action !== undefined && body.action !== "ticket") {
+  const mobileTicket = body?.action === "mobile_ticket";
+  if (mobileTicket && !isCanonicalReviewUploadPath(path)) {
+    return NextResponse.json({ error: "Invalid fingerprinted video path." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+  if (body?.action !== undefined && body.action !== "ticket" && !mobileTicket) {
     return NextResponse.json({ error: "Invalid storage action." }, { status: 400, headers: PRIVATE_HEADERS });
   }
 
@@ -77,6 +82,9 @@ export async function POST(request) {
       );
     }
 
+    if (mobileTicket && (data.path !== path || data.publicUrl !== canonicalReviewUploadUrl(path))) {
+      return NextResponse.json({ error: "Storage ticket identity mismatch." }, { status: 502, headers: PRIVATE_HEADERS });
+    }
     return NextResponse.json(
       { signedUrl: data.signedUrl, publicUrl: data.publicUrl, path: data.path },
       { status: 200, headers: PRIVATE_HEADERS },

@@ -57,7 +57,7 @@ async function requestUploadTicket({ accessCode, path, sizeBytes }) {
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ path, sizeBytes }),
+    body: JSON.stringify({ action: "mobile_ticket", path, sizeBytes }),
     cache: "no-store",
   });
   const body = await response.json().catch(() => ({}));
@@ -117,6 +117,7 @@ async function stageForResearch({ accessCode, blob, title, file, metadata }) {
     },
     body: JSON.stringify({
       videoUrl: blob.url,
+      uploadKind: "fingerprinted_mobile",
       title,
       sizeBytes: file.size,
       durationSeconds: metadata.durationSeconds,
