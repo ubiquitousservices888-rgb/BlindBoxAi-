@@ -507,7 +507,7 @@ test("workflow requires explicit channel and exact review row inputs", () => {
   const optionsBlock = channelBlock.slice(channelBlock.indexOf("options:"));
   assert.deepEqual(
     [...optionsBlock.matchAll(/^[ \t]+- ([a-z0-9_-]+)$/gm)].map((match) => match[1]),
-    ["youtube", "tiktok", "linkedin", "all"],
+    ["youtube", "tiktok", "all"],
   );
 
   const runBlock = source.slice(runStart, audienceStart);
