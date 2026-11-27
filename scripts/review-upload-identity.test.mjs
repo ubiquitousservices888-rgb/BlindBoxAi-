@@ -253,7 +253,7 @@ test("mobile preview rejects upload-only credentials, duplicate identities, miss
 });
 
 // Compile actual route bodies with disposable dependencies, never production.
-async function uploadRouteFixture(route, body, { owner = true, proofKind = "valid", wrongTicket = false } = {}) {
+async function uploadRouteFixture(route, body, { owner = true, proofKind = "valid", wrongTicket = false, wrongPublicUrl = false } = {}) {
   const { isCanonicalReviewUploadPath, canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
   const { BLINDBOXAI_SUPABASE_ORIGIN } = await import("../lib/blindbox-supabase-boundary.mjs");
   const events = [];
@@ -264,7 +264,9 @@ async function uploadRouteFixture(route, body, { owner = true, proofKind = "vali
     isCanonicalReviewUploadPath, canonicalReviewUploadUrl, BLINDBOXAI_SUPABASE_ORIGIN,
     resolvePublicVideoTitle: title => title,
     assertYoutubeShortsMetadata: () => {},
-    reviewUploadVerificationResponse: async ({ path }) => {
+    reviewUploadVerificationResponse: async ({ path, sizeBytes }) => {
+      assert.equal(sizeBytes, body.sizeBytes);
+      assert.ok(Number.isSafeInteger(sizeBytes) && sizeBytes > 0 && sizeBytes <= 100 * 1024 * 1024);
       events.push("verify");
       if (proofKind === "missing") return { status: 200, body: { verified: false } };
       if (proofKind === "mismatch") return { status: 502, body: { error: "Stored video could not be verified safely." } };
@@ -276,7 +278,7 @@ async function uploadRouteFixture(route, body, { owner = true, proofKind = "vali
       if (url.endsWith("blindbox-video-upload")) {
         events.push("ticket");
         const publicUrl = isCanonicalReviewUploadPath(payload.path) ? canonicalReviewUploadUrl(payload.path) : BLINDBOXAI_SUPABASE_ORIGIN + "/legacy.mp4";
-        return { ok: true, status: 200, json: async () => ({ path: wrongTicket ? "wrong" : payload.path, signedUrl: "fixture", publicUrl }) };
+        return { ok: true, status: 200, json: async () => ({ path: wrongTicket ? "wrong" : payload.path, signedUrl: "fixture", publicUrl: wrongPublicUrl ? BLINDBOXAI_SUPABASE_ORIGIN + "/wrong.mp4" : publicUrl }) };
       }
       assert.ok(url.endsWith("review-video-queue"));
       assert.equal(payload.action, "stage");
@@ -297,6 +299,7 @@ test("mobile ticket issuance rejects legacy filenames and mismatched broker iden
   const body = { action: "mobile_ticket", path, sizeBytes: 5 };
   assert.deepEqual(await uploadRouteFixture(route, { ...body, path: "media/review/legacy.mp4" }), { status: 400, events: [] });
   assert.deepEqual(await uploadRouteFixture(route, body, { wrongTicket: true }), { status: 502, events: ["ticket"] });
+  assert.deepEqual(await uploadRouteFixture(route, body, { wrongPublicUrl: true }), { status: 502, events: ["ticket"] });
   assert.deepEqual(await uploadRouteFixture(route, body), { status: 200, events: ["ticket"] });
   assert.deepEqual(await uploadRouteFixture(route, { path: "media/review/legacy.mp4", sizeBytes: 5 }), { status: 200, events: ["ticket"] });
   assert.deepEqual(await uploadRouteFixture(route, body, { owner: false }), { status: 401, events: [] });
@@ -313,6 +316,14 @@ test("fingerprinted staging proves stored bytes before queue mutation, even afte
   assert.deepEqual(await uploadRouteFixture(route, body), { status: 200, events: ["verify", "stage"] });
   const { uploadKind, ...oldClient } = body;
   assert.deepEqual(await uploadRouteFixture(route, oldClient), { status: 200, events: ["verify", "stage"] });
+  const alias = new URL(body.videoUrl);
+  const hostCase = body.videoUrl.replace(alias.hostname, alias.hostname.toUpperCase());
+  for (const videoUrl of [hostCase, body.videoUrl.replace(alias.host, alias.host + ":443"), " " + body.videoUrl, body.videoUrl + "?alias=true"]) {
+    assert.deepEqual(await uploadRouteFixture(route, { ...oldClient, videoUrl }), { status: 400, events: [] });
+  }
+  for (const sizeBytes of [undefined, 0, -1, 1.5, "5", 100 * 1024 * 1024 + 1]) {
+    assert.deepEqual(await uploadRouteFixture(route, { ...body, sizeBytes }), { status: 400, events: [] });
+  }
   assert.deepEqual(await uploadRouteFixture(route, { ...body, videoUrl: body.videoUrl + "?alias=true" }), { status: 400, events: [] });
   assert.deepEqual(await uploadRouteFixture(route, { ...oldClient, videoUrl: body.videoUrl.replace(path, "media/review/legacy.mp4") }), { status: 200, events: ["stage"] });
   assert.deepEqual(await uploadRouteFixture(route, body, { owner: false }), { status: 401, events: [] });

@@ -61,7 +61,9 @@ export async function POST(request) {
   // Independently prove stored bytes before staging fingerprinted mobile uploads.
   // Legacy non-mobile render and verification callers keep their existing path.
   const videoUrl = typeof body?.videoUrl === "string" ? body.videoUrl : "";
-  const path = videoUrl.startsWith(REVIEW_MEDIA_BASE) ? videoUrl.slice(REVIEW_MEDIA_BASE.length) : "";
+  let normalizedUrl = "";
+  try { normalizedUrl = new URL(videoUrl).toString(); } catch { /* Invalid URLs cannot identify fingerprinted media. */ }
+  const path = normalizedUrl.startsWith(REVIEW_MEDIA_BASE) ? normalizedUrl.slice(REVIEW_MEDIA_BASE.length) : "";
   const fingerprinted = body?.uploadKind === "fingerprinted_mobile" || path.startsWith("media/review/sha256-");
   if (body?.uploadKind !== undefined && body.uploadKind !== "fingerprinted_mobile") {
     return NextResponse.json({ error: "Invalid review upload kind." }, { status: 400, headers: PRIVATE_HEADERS });
@@ -70,7 +72,11 @@ export async function POST(request) {
     if (!isCanonicalReviewUploadPath(path) || videoUrl !== canonicalReviewUploadUrl(path)) {
       return NextResponse.json({ error: "Invalid fingerprinted video URL." }, { status: 400, headers: PRIVATE_HEADERS });
     }
-    const proof = await reviewUploadVerificationResponse({ path, sizeBytes: body.sizeBytes });
+    const sizeBytes = body.sizeBytes;
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: "Invalid video size." }, { status: 400, headers: PRIVATE_HEADERS });
+    }
+    const proof = await reviewUploadVerificationResponse({ path, sizeBytes });
     if (proof.status !== 200) return NextResponse.json(proof.body, { status: proof.status, headers: PRIVATE_HEADERS });
     if (proof.body?.verified !== true || proof.body.path !== path || proof.body.publicUrl !== videoUrl) {
       return NextResponse.json({ error: "Uploaded video is not verified. Retry staging after storage is available." }, { status: 409, headers: PRIVATE_HEADERS });

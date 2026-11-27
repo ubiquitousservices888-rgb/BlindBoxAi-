@@ -83,6 +83,10 @@ export async function POST(request) {
     }
 
     if (mobileTicket && (data.path !== path || data.publicUrl !== canonicalReviewUploadUrl(path))) {
+      console.error("free_upload_ticket_identity_mismatch", {
+        pathMismatch: data.path !== path,
+        publicUrlMismatch: data.publicUrl !== canonicalReviewUploadUrl(path),
+      });
       return NextResponse.json({ error: "Storage ticket identity mismatch." }, { status: 502, headers: PRIVATE_HEADERS });
     }
     return NextResponse.json(
