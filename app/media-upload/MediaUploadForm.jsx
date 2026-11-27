@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { resolvePublicVideoTitle } from "../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
-import { uploadOrRecoverReviewMedia } from "../../lib/review-upload-identity.mjs";
+import { uploadOrRecoverReviewMedia, normalizeReviewUploadError } from "../../lib/review-upload-identity.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
@@ -16,13 +16,6 @@ function safeTitleFromFile(name) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 100) || "Collector research video";
-}
-
-function normalizeUploadError(error) {
-  const message = error instanceof Error ? error.message : "Upload failed.";
-  if (/token has expired|ticket/i.test(message)) return "Upload authorization expired. Tap Upload & stage for research again.";
-  if (/abort|timeout/i.test(message)) return "Upload timed out. Keep this page open and retry once.";
-  return message;
 }
 
 function readVideoMetadata(file) {
@@ -174,7 +167,7 @@ export default function MediaUploadForm() {
       setStatus("complete");
     } catch (err) {
       setStatus("staging_failed");
-      setError(normalizeUploadError(err));
+      setError(normalizeReviewUploadError(err));
     } finally {
       setBusy(false);
     }
@@ -190,7 +183,7 @@ export default function MediaUploadForm() {
       setStatus("approved");
       setAccessCode("");
     } catch (err) {
-      setError(normalizeUploadError(err));
+      setError(normalizeReviewUploadError(err));
     } finally {
       setBusy(false);
     }
@@ -243,7 +236,7 @@ export default function MediaUploadForm() {
       setStatus("complete");
     } catch (err) {
       setStatus(uploadedBlob?.url ? "staging_failed" : "failed");
-      setError(normalizeUploadError(err));
+      setError(normalizeReviewUploadError(err));
     } finally {
       setBusy(false);
     }

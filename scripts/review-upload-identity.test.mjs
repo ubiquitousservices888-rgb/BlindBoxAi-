@@ -135,3 +135,43 @@ test("short or oversized chunks fail before requesting a ticket", async () => {
     assert.equal(operations, 0);
   }
 });
+
+test("invalid verification inputs fail as client errors, not storage failures", async () => {
+  const { reviewUploadVerificationResponse } = await import("../lib/review-upload-verification.mjs");
+  const path = await reviewUploadPath(new Blob(["same"]));
+  for (const args of [{ path: "media/review/legacy.mp4", sizeBytes: 4 }, { path, sizeBytes: 1.5 }, { path, sizeBytes: "4" }]) {
+    const result = await reviewUploadVerificationResponse({ ...args, verifyImpl: () => assert.fail("unexpected storage read"), log: () => assert.fail("unexpected storage error") });
+    assert.equal(result.status, 400);
+  }
+});
+
+test("verification diagnostics distinguish integrity failures without exposing upstream details", async () => {
+  const { reviewUploadVerificationResponse, verifyReviewUpload } = await import("../lib/review-upload-verification.mjs");
+  const { canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
+  const path = await reviewUploadPath(new Blob(["same"]));
+  const events = [];
+  const log = (event, details) => events.push({ event, details });
+  const verifyImpl = (args) => verifyReviewUpload({ ...args, fetchImpl: async () => {
+    const result = new Response("else", { headers: { "content-type": "video/mp4" } });
+    Object.defineProperty(result, "url", { value: canonicalReviewUploadUrl(path) });
+    return result;
+  } });
+  const invalid = await reviewUploadVerificationResponse({ path, sizeBytes: 4, verifyImpl, log });
+  assert.equal(invalid.status, 502);
+  assert.deepEqual(events.pop(), { event: "free_upload_verification_failed", details: { message: "Stored video fingerprint mismatch" } });
+  const unavailable = await reviewUploadVerificationResponse({ path, sizeBytes: 4, verifyImpl: async () => { throw new Error("sensitive upstream details"); }, log });
+  assert.equal(unavailable.status, 502);
+  assert.deepEqual(events.pop(), { event: "free_upload_verification_failed", details: { message: "Storage verification request failed" } });
+  const absent = await reviewUploadVerificationResponse({ path, sizeBytes: 4, verifyImpl: async () => ({ verified: false }), log });
+  assert.deepEqual(absent, { status: 200, body: { verified: false } });
+  assert.equal(events.length, 0);
+});
+
+test("ticket mismatch is not mislabeled as an expired upload authorization", async () => {
+  const { normalizeReviewUploadError, canonicalReviewUploadUrl } = await import("../lib/review-upload-identity.mjs");
+  const { BLINDBOXAI_SUPABASE_ORIGIN } = await import("../lib/blindbox-supabase-boundary.mjs");
+  assert.equal(normalizeReviewUploadError(new Error("Upload ticket does not match the video fingerprint")), "Upload ticket does not match the video fingerprint");
+  assert.match(normalizeReviewUploadError(new Error("token has expired")), /authorization expired/);
+  assert.match(normalizeReviewUploadError(new Error("Storage upload timed out.")), /timed out/);
+  assert.equal(new URL(canonicalReviewUploadUrl(await reviewUploadPath(new Blob(["same"])))).origin, BLINDBOXAI_SUPABASE_ORIGIN);
+});

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
-import { verifyReviewUpload } from "../../../../lib/review-upload-verification.mjs";
+import { reviewUploadVerificationResponse } from "../../../../lib/review-upload-verification.mjs";
+import { BLINDBOXAI_SUPABASE_ORIGIN } from "../../../../lib/blindbox-supabase-boundary.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BROKER_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/blindbox-video-upload";
+const BROKER_URL = `${BLINDBOXAI_SUPABASE_ORIGIN}/functions/v1/blindbox-video-upload`;
 const PRIVATE_HEADERS = {
   "Cache-Control": "private, no-store, max-age=0",
   Vary: "Authorization",
@@ -51,12 +52,8 @@ export async function POST(request) {
   }
 
   if (body?.action === "verify_existing") {
-    try {
-      const proof = await verifyReviewUpload({ path, sizeBytes });
-      return NextResponse.json(proof, { headers: PRIVATE_HEADERS });
-    } catch {
-      return NextResponse.json({ error: "Stored video could not be verified safely." }, { status: 502, headers: PRIVATE_HEADERS });
-    }
+    const result = await reviewUploadVerificationResponse({ path, sizeBytes: body.sizeBytes });
+    return NextResponse.json(result.body, { status: result.status, headers: PRIVATE_HEADERS });
   }
   if (body?.action !== undefined && body.action !== "ticket") {
     return NextResponse.json({ error: "Invalid storage action." }, { status: 400, headers: PRIVATE_HEADERS });
