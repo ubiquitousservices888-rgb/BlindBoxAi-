@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildOwnProductPromotion, createOwnProductPolicy, ownProductPolicy, bindOwnProductPolicy } from "../lib/review-own-product.mjs";
+import { buildOwnProductPromotion, createOwnProductPolicy, ownProductPolicy, bindOwnProductPolicy, publicOwnProductDisplayTitle } from "../lib/review-own-product.mjs";
 
 const item = { research_run_id: "rv-0123456789abcdef", title: "Reviewed fixture", status: "ready_for_review",
   video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/fixture.mp4" };
@@ -213,4 +213,26 @@ test("both approved storage paths retain Gumroad-only promotion and strict sourc
     const video_url = "https://fixture.public.blob.vercel-storage.com.evil.example/media/review/fixture.mp4";
     assert.throws(() => buildOwnProductPromotion({ ...item, video_url }, { ...selection, video_url }, channel));
   }
+});
+
+test("owner-selected current Fake-Check upload uses the bundle on both channels without changing reviewed identity", () => {
+  const staged = { research_run_id: "rv-f98394fe47851ae2", title: "Fake chick Field guide for gum road", status: "ready_for_review",
+    video_url: "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1795818317360-4643.mp4" };
+  const claimed = { ...staged, status: "publishing" };
+  const policy = bindOwnProductPolicy(claimed);
+  for (const channel of ["youtube", "tiktok"]) {
+    const preview = ownProductPolicy.forItem(staged, channel);
+    assert.equal(preview?.title, "The Fake-Check Field Guide");
+    assert.equal(preview.url, "https://ubiquity6.gumroad.com/l/fxloos");
+    assert.equal(new URL(preview.trackedUrl).searchParams.get("utm_source"), channel);
+    assert.equal(new URL(preview.trackedUrl).searchParams.get("utm_campaign"), `bb-${staged.research_run_id}`);
+    assert.deepEqual(policy.forItem(claimed, channel), preview);
+    assert.deepEqual(policy.forReceipt(staged.research_run_id, staged.video_url, channel), preview);
+    assert.doesNotMatch(preview.caption, /affiliate|ebay|amazon|bjfpgf/i);
+    for (const patch of [{ title: "Changed" }, { video_url: staged.video_url.replace("4643", "4644") }, { status: "rejected" }]) {
+      assert.throws(() => ownProductPolicy.forItem({ ...staged, ...patch }, channel));
+    }
+    assert.equal(ownProductPolicy.forItem({ ...staged, research_run_id: "rv-1111111111111111" }, channel), null);
+  }
+  assert.equal(publicOwnProductDisplayTitle({ ...staged, status: "published" }), "The Fake-Check Field Guide");
 });
