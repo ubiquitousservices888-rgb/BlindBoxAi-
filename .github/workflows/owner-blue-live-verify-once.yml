@@ -59,9 +59,12 @@ jobs:
             if [ "$http_code" = "200" ]; then
               python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           data = json.loads(Path("owner-blue-live-verify.json").read_text())
+          if data.get("revision") != os.environ["GITHUB_SHA"]:
+              raise SystemExit("Owner Blue verifier revision mismatch")
           required_true = [
               "ok",
               "dashboardAuthenticated",
@@ -94,25 +97,31 @@ jobs:
               exit 0
             fi
 
-            case "$http_code" in
-              000|409|500|501|502|503|504|505|506|507|508|510|511)
-                sleep 10
-                continue
-                ;;
-            esac
+            if [ "$http_code" = "000" ]; then
+              echo "Owner Blue live verifier transport outcome indeterminate; inspect queue before retrying"
+              exit 1
+            fi
 
-            echo "Owner Blue live verifier failed with HTTP $http_code"
-            python - <<'PY'
+            reason="$(python - <<'PY'
           import json
+          import re
           from pathlib import Path
           try:
-              data = json.loads(Path("owner-blue-live-verify.json").read_text())
-              print("error:", data.get("error", "unknown"))
+              error = json.loads(Path("owner-blue-live-verify.json").read_text()).get("error")
+              print(error if isinstance(error, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,80}", error) else "unknown")
           except Exception:
-              print("error: unreadable verifier response")
+              print("unreadable_response")
           PY
+          )"
+            echo "Owner Blue live verifier HTTP $http_code: $reason (attempt $attempt/24)"
+            # Only this exact response is known to precede all queue/storage writes.
+            if [ "$http_code" = "409" ] && [ "$reason" = "production_revision_not_ready" ]; then
+              sleep 10
+              continue
+            fi
+            echo "Owner Blue live verifier stopped; inspect queue before retrying"
             exit 1
           done
 
-          echo "Owner Blue live verifier did not reach the expected production revision"
+          echo "Owner Blue live verifier exhausted identity or revision readiness retries"
           exit 1
