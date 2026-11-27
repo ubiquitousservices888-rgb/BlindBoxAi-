@@ -190,3 +190,23 @@ test("automatic selection drives matching preview and both simulated Buffer rece
     assert.equal(fixture.creates.length, 1);
   }
 });
+
+test("both approved storage paths retain Gumroad-only promotion and strict source binding", () => {
+  const urls = ["https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/fixture.mp4", "https://fixture.public.blob.vercel-storage.com/media/review/fixture.mp4"];
+  for (const channel of ["youtube", "tiktok"]) {
+    for (const video_url of urls) {
+      const result = buildOwnProductPromotion({ ...item, video_url }, { ...selection, video_url }, channel);
+      assert.deepEqual(result.caption.match(/https:\/\/\S+/g), [result.trackedUrl]);
+      assert.equal(new URL(result.trackedUrl).pathname, "/l/bjfpgf");
+      assert.equal(result.revenueSource, "gumroad");
+      assert.doesNotMatch(result.caption, /affiliate|ebay|amazon/i);
+      for (const unsafe of [video_url + "?token=x", video_url + "#fragment", video_url.replace("https://", "https://user@"), video_url.replace("fixture.mp4", "nested/fixture.mp4"), video_url.replace("fixture.mp4", "fixture.jpg"), video_url.replace("https://", "http://")]) {
+        assert.throws(() => buildOwnProductPromotion({ ...item, video_url: unsafe }, { ...selection, video_url: unsafe }, channel));
+      }
+      assert.throws(() => buildOwnProductPromotion({ ...item, video_url, status: "rejected" }, { ...selection, video_url }, channel));
+      assert.throws(() => buildOwnProductPromotion({ ...item, video_url }, { ...selection, video_url: urls.find(url => url !== video_url) }, channel));
+    }
+    const video_url = "https://fixture.public.blob.vercel-storage.com.evil.example/media/review/fixture.mp4";
+    assert.throws(() => buildOwnProductPromotion({ ...item, video_url }, { ...selection, video_url }, channel));
+  }
+});
