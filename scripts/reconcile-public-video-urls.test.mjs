@@ -124,3 +124,45 @@ test("a byte-proven approved-host mirror can reconcile, while a hash mismatch ca
     assert.equal(probes, matched ? 1 : 0);
   }
 });
+
+test("historical direct Gumroad receipts require actual approval and exact captions on both channels", async () => {
+  const video_url = "https://lazzdoadoqzrzlarerfx.supabase.co/storage/v1/object/public/blindboxai-review-videos/media/review/1795749758411-4643.mp4";
+  const research_run_id = "rv-46e2ab7acda58ff9";
+  const reviewed_title = "The fake test field guide";
+  const directRow = { research_run_id, video_url, reviewed_title, buffer_post_ids: { youtube: "own-yt", tiktok: "own-tt" } };
+  const channels = [
+    { id: "own-yt-channel", service: "youtube", serviceId: REVIEW_YOUTUBE_CHANNEL_ID },
+    { id: "own-tt-channel", service: "tiktok", serviceId: "fixture-tiktok" },
+  ];
+  const publicUrls = { youtube: "https://www.youtube.com/watch?v=AbCdEf12345", tiktok: "https://www.tiktok.com/@fixture/video/1234567890" };
+  const ids = { youtube: "AbCdEf12345", tiktok: "1234567890" };
+  const caption = channel => "The Fake-Check Field Guide\nOur digital collecting resource: Sports Card Collecting Series. Get it on Gumroad:\nhttps://ubiquity6.gumroad.com/l/fxloos?utm_source=" + channel + "&utm_campaign=bb-" + research_run_id;
+  for (const [status, mismatch, valid] of [["approved", false, true], ["publishing", false, true], ["published", false, true], ["published", true, false], ["rejected", false, false], ["ready_for_review", false, false], [undefined, false, false]]) {
+    let probes = 0;
+    const results = await reconcilePublicVideoUrls({
+      inventory: [{ ...directRow, status }], token: "disposable-token", organizationId: "disposable-org",
+      fetchImpl: async (url, init) => {
+        assert.equal(url, "https://api.buffer.com");
+        const body = JSON.parse(init.body);
+        assert.doesNotMatch(body.query, /mutation/);
+        let data;
+        if (body.query.includes("query Organizations")) data = { account: { organizations: [{ id: "disposable-org" }] } };
+        else if (body.query.includes("query Channels")) data = { channels };
+        else if (body.query.includes("query VerifySentPost")) {
+          const channel = body.variables.postId === "own-yt" ? "youtube" : "tiktok";
+          data = { post: { id: body.variables.postId, channelId: channels.find(c => c.service === channel).id, status: "sent", externalLink: publicUrls[channel], assets: [{ source: video_url }], text: mismatch ? caption(channel).replace("/l/fxloos", "/l/bjfpgf") : caption(channel) } };
+        } else throw new Error("Unexpected read-only provider request");
+        return new Response(JSON.stringify({ data }));
+      },
+      sourceProbeImpl: async () => ({ matched: true, method: "SHA256" }),
+      probeImpl: async ({ channel }) => { probes++; return { status: 200, publicMediaAvailable: true, mediaId: ids[channel], checkedAt: "2026-11-26T00:00:00Z" }; },
+    });
+    assert.equal(results.length, 2);
+    for (const receipt of results) {
+      assert.equal(receipt.status, valid ? "VERIFIED" : "UNVERIFIED");
+      if (valid) assert.equal(receipt.monetizationMode, "own_product");
+      else assert.equal(receipt.reason, "APPROVED_ATTRIBUTION_UNVERIFIED");
+    }
+    assert.equal(probes, valid ? 2 : 0);
+  }
+});
