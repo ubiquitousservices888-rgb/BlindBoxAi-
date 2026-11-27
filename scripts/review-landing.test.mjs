@@ -121,7 +121,7 @@ test("dashboard lists approved-but-unpublished videos with a guarded Publish now
   assert.match(dashboard, /disabled=\{publishDisabled\}/);
   assert.match(dashboard, /reviewedTitle: item\.title/);
   assert.match(dashboard, /approveReviewVideo\(item\.mediaUrl, item\.researchRunId, item\.title\)/);
-  assert.match(dashboard, /Affiliate page: \{entry\.landing\}/);
+  assert.match(dashboard, /Promotion destination: \{entry\.landing\}/);
   assert.match(dashboard, /fetch\("\/api\/owner\/review-queue\?include=approved"/);
   const publishFn = dashboard.slice(dashboard.indexOf("async function publishApprovedVideo"), dashboard.indexOf("async function deleteReviewVideo"));
   assert.ok(publishFn.indexOf('setReviewMessage("")') > 0 && publishFn.indexOf('setReviewMessage("")') < publishFn.indexOf("await fetch"));
