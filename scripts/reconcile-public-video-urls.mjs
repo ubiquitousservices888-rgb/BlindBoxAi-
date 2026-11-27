@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
-import { bindOwnProductPolicy, ownProductPolicy } from "../lib/review-own-product.mjs";
+import { bindHistoricalOwnProductPolicy } from "../lib/review-own-product.mjs";
 import { assertApprovedReviewVideoUrl } from "../lib/review-publish-safety.mjs";
 import { createReviewSourceVerifier } from "../lib/review-source-identity.mjs";
 import { assertPublicPostProof, canonicalPublicPostUrl, probePublicPostHttp, publicProofDiagnostics, readReviewBufferPost, resolveReviewBufferChannel } from "../lib/buffer-review-publisher.mjs";
@@ -77,9 +77,7 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
       try {
         // New trusted inventory snapshots may carry the original reviewed
         // queue title; never infer a product from a provider caption.
-        const policy = typeof row.reviewed_title === "string"
-          ? bindOwnProductPolicy({ ...row, title: row.reviewed_title, status: "approved" })
-          : ownProductPolicy;
+        const policy = bindHistoricalOwnProductPolicy(row);
         direct = policy.forReceipt(row.research_run_id, row.video_url, channel);
       }
       catch { receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue; }
