@@ -4,6 +4,7 @@ import { useState } from "react";
 import { resolvePublicVideoTitle } from "../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
 import { uploadOrRecoverReviewMedia, normalizeReviewUploadError } from "../../lib/review-upload-identity.mjs";
+import { loadMobileReviewPreview, mobileReviewReady, launchMobileReview } from "../../lib/mobile-review-approval.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
@@ -128,14 +129,14 @@ async function stageForResearch({ accessCode, blob, title, file, metadata }) {
   return body;
 }
 
-async function approveVideo({ accessCode, videoUrl, researchRunId, reviewedTitle }) {
+async function approveVideo({ accessCode, videoUrl, researchRunId, reviewedTitle, youtubeAudience }) {
   const response = await fetch("/api/owner/approve-review", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessCode}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ videoUrl, researchRunId, reviewedTitle, youtubeAudience: "not_made_for_kids" }),
+    body: JSON.stringify({ videoUrl, researchRunId, reviewedTitle, youtubeAudience }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body?.error || "Unable to approve this video.");
@@ -154,6 +155,27 @@ export default function MediaUploadForm() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [approved, setApproved] = useState(false);
+  const [reviewPreview, setReviewPreview] = useState(null);
+  const [youtubeAudience, setYoutubeAudience] = useState("");
+
+  async function refreshReview(staged, blob, code) {
+    setReviewPreview(null);
+    setYoutubeAudience("");
+    try {
+      const preview = await loadMobileReviewPreview({ accessCode: code, videoUrl: blob.url, researchRunId: staged.researchRunId, reviewedTitle: staged.title });
+      setReviewPreview(preview);
+    } catch (err) {
+      setError(normalizeReviewUploadError(err));
+    }
+  }
+
+  async function retryReview() {
+    if (busy || approved || !stageResult || !result?.url || !accessCode) return;
+    setBusy(true);
+    setError("");
+    try { await refreshReview(stageResult, result, accessCode); }
+    finally { setBusy(false); }
+  }
 
   async function retryStage() {
     if (!stagingPayload || !accessCode) return;
@@ -165,6 +187,7 @@ export default function MediaUploadForm() {
       setStageResult(staged);
       setStagingPayload(null);
       setStatus("complete");
+      await refreshReview(staged, stagingPayload.blob, accessCode);
     } catch (err) {
       setStatus("staging_failed");
       setError(normalizeReviewUploadError(err));
@@ -174,15 +197,17 @@ export default function MediaUploadForm() {
   }
 
   async function approveCurrentVideo() {
-    if (!result?.url || !accessCode || approved || busy) return;
+    if (!result?.url || !accessCode || approved || busy || !mobileReviewReady(reviewPreview) || !youtubeAudience) return;
     setBusy(true);
     setError("");
     try {
-      await approveVideo({ accessCode, videoUrl: result.url, researchRunId: stageResult?.researchRunId, reviewedTitle: stageResult?.title });
+      await launchMobileReview({ accessCode, videoUrl: result.url, researchRunId: stageResult?.researchRunId, reviewedTitle: stageResult?.title, youtubeAudience, preview: reviewPreview, postApproval: approveVideo });
       setApproved(true);
       setStatus("approved");
       setAccessCode("");
     } catch (err) {
+      setReviewPreview(null);
+      setYoutubeAudience("");
       setError(normalizeReviewUploadError(err));
     } finally {
       setBusy(false);
@@ -197,6 +222,8 @@ export default function MediaUploadForm() {
     setStageResult(null);
     setStagingPayload(null);
     setApproved(false);
+    setReviewPreview(null);
+    setYoutubeAudience("");
 
     if (!file) return setError("Choose an MP4 video first.");
     if (file.type !== "video/mp4" && !file.name.toLowerCase().endsWith(".mp4")) return setError("Only MP4 video files are allowed.");
@@ -234,6 +261,7 @@ export default function MediaUploadForm() {
       setStageResult(staged);
       setStagingPayload(null);
       setStatus("complete");
+      await refreshReview(staged, blob, accessCode);
     } catch (err) {
       setStatus(uploadedBlob?.url ? "staging_failed" : "failed");
       setError(normalizeReviewUploadError(err));
@@ -262,12 +290,12 @@ export default function MediaUploadForm() {
     <form onSubmit={submit} style={{ display: "grid", gap: 16 }}>
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Owner upload code</strong>
-        <input type="password" autoComplete="off" value={accessCode} onChange={(event) => setAccessCode(event.target.value)} required disabled={busy || approved} style={{ padding: 12, fontSize: 16 }} />
+        <input type="password" autoComplete="off" value={accessCode} onChange={(event) => { setAccessCode(event.target.value); setReviewPreview(null); setYoutubeAudience(""); }} required disabled={busy || approved} style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Research title</strong>
-        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} disabled={busy || approved} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
+        <input type="text" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={100} disabled={busy || approved || Boolean(stageResult) || Boolean(stagingPayload)} placeholder="What Would You Pay? — Tanner Houck Rookie Auto Relic" style={{ padding: 12, fontSize: 16 }} />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
@@ -286,6 +314,8 @@ export default function MediaUploadForm() {
             setStagingPayload(null);
             setProgress(0);
             setApproved(false);
+            setReviewPreview(null);
+            setYoutubeAudience("");
           }}
           required
           disabled={busy || approved}
@@ -308,11 +338,26 @@ export default function MediaUploadForm() {
               <video src={result.url} controls playsInline preload="metadata" style={{ width: "100%", maxWidth: 420, borderRadius: 10, background: "black" }} />
               <p>Research campaign: <code>{stageResult.campaignId}</code></p>
               {!approved ? (
-                <button type="button" disabled={busy || !accessCode} onClick={approveCurrentVideo} style={{ padding: 14, fontWeight: 800, background: "#2563eb", color: "white", border: 0, borderRadius: 8 }}>
-                  BLUE APPROVE + LAUNCH
-                </button>
+                <>
+                  {reviewPreview?.channels.map(entry => (
+                    <div key={entry.channel} style={{ margin: "12px 0", overflowWrap: "anywhere" }}>
+                      <strong>{entry.channel === "youtube" ? "YouTube" : "TikTok"}</strong>
+                      {entry.ok ? <><p>{entry.title}</p><p>Promotion destination: {entry.landing}</p><p>{entry.link}</p><p style={{ whiteSpace: "pre-wrap" }}>{entry.caption}</p></> : <p role="alert">{entry.error}</p>}
+                    </div>
+                  ))}
+                  {!mobileReviewReady(reviewPreview) ? <p role="note">Both promotion previews must be ready before Blue approval.</p> : null}
+                  <button type="button" disabled={busy || !accessCode} onClick={retryReview}>Refresh promotion preview</button>
+                  <fieldset disabled={busy || !mobileReviewReady(reviewPreview)} style={{ margin: "12px 0" }}>
+                    <legend>YouTube audience</legend>
+                    <label><input type="radio" name="mobile-review-audience" checked={youtubeAudience === "not_made_for_kids"} onChange={() => setYoutubeAudience("not_made_for_kids")} /> Not made for kids</label>{" "}
+                    <label><input type="radio" name="mobile-review-audience" checked={youtubeAudience === "made_for_kids"} onChange={() => setYoutubeAudience("made_for_kids")} /> Made for kids</label>
+                  </fieldset>
+                  <button type="button" disabled={busy || !accessCode || !mobileReviewReady(reviewPreview) || !youtubeAudience} onClick={approveCurrentVideo} style={{ padding: 14, fontWeight: 800, background: mobileReviewReady(reviewPreview) && youtubeAudience && !busy ? "#2563eb" : "#64748b", color: "white", border: 0, borderRadius: 8 }}>
+                    BLUE APPROVE + LAUNCH
+                  </button>
+                </>
               ) : (
-                <p role="status"><strong>APPROVED + LAUNCH DISPATCHED.</strong> YouTube and TikTok are now handled automatically. YouTube audience: not made for kids.</p>
+                <p role="status"><strong>APPROVED + LAUNCH DISPATCHED.</strong> YouTube and TikTok are now handled automatically. YouTube audience: {youtubeAudience === "made_for_kids" ? "made for kids" : "not made for kids"}.</p>
               )}
             </>
           ) : stagingPayload && status === "staging_failed" ? (

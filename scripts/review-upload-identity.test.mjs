@@ -175,3 +175,76 @@ test("ticket mismatch is not mislabeled as an expired upload authorization", asy
   assert.match(normalizeReviewUploadError(new Error("Storage upload timed out.")), /timed out/);
   assert.equal(new URL(canonicalReviewUploadUrl(await reviewUploadPath(new Blob(["same"])))).origin, BLINDBOXAI_SUPABASE_ORIGIN);
 });
+
+const mobileFixture = {
+  accessCode: "owner-fixture",
+  videoUrl: "https://fixture.invalid/media/review/video.mp4",
+  researchRunId: "rv-0123456789abcdef",
+  reviewedTitle: "Collector fixture",
+};
+function mobileRow(overrides = {}) {
+  return {
+    research_run_id: mobileFixture.researchRunId, video_url: mobileFixture.videoUrl,
+    title: mobileFixture.reviewedTitle, status: "ready_for_review",
+    caption_preview: ["youtube", "tiktok"].map(channel => {
+      const link = `https://blindboxai.com/fixture?source=${channel}`;
+      return { channel, ok: true, title: "Public fixture", link, caption: `Disclosure\n${link}`, landing: "Affiliate research" };
+    }), ...overrides,
+  };
+}
+function mobileFetch(items, status = 200) {
+  return async (url, options) => {
+    assert.equal(url, "/api/owner/review-queue?include=approved");
+    assert.equal(options.headers.Authorization, "Bearer owner-fixture");
+    assert.equal(options.cache, "no-store");
+    return { ok: status === 200, status, json: async () => ({ items }) };
+  };
+}
+
+test("mobile review uses exact authenticated queue identity, both captions, and explicit audience", async () => {
+  const { loadMobileReviewPreview, launchMobileReview } = await import("../lib/mobile-review-approval.mjs");
+  const row = mobileRow();
+  const preview = await loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([row]) });
+  assert.deepEqual(preview.channels, row.caption_preview);
+  for (const youtubeAudience of ["made_for_kids", "not_made_for_kids"]) {
+    const posted = [];
+    await launchMobileReview({ ...mobileFixture, youtubeAudience, preview, fetchImpl: mobileFetch([row]), postApproval: async body => posted.push(body) });
+    assert.deepEqual(posted, [{ ...mobileFixture, youtubeAudience }]);
+  }
+});
+
+test("mobile approval rejects missing audience, stale identity, or blocked caption without launching", async () => {
+  const { loadMobileReviewPreview, launchMobileReview, mobileReviewReady } = await import("../lib/mobile-review-approval.mjs");
+  const row = mobileRow();
+  const preview = await loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([row]) });
+  const blockedRow = mobileRow({ caption_preview: [row.caption_preview[0], { channel: "tiktok", ok: false, error: "No destination" }] });
+  const blocked = await loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([blockedRow]) });
+  assert.equal(mobileReviewReady(blocked), false);
+  const postApproval = () => assert.fail("unexpected approval");
+  for (const args of [{ youtubeAudience: "" }, { videoUrl: "https://fixture.invalid/other.mp4" }, { preview: blocked }]) {
+    await assert.rejects(() => launchMobileReview({ ...mobileFixture, youtubeAudience: "not_made_for_kids", preview, postApproval, fetchImpl: () => assert.fail("unexpected fetch"), ...args }));
+  }
+});
+
+test("mobile approval rechecks promotion drift before posting and fails closed", async () => {
+  const { loadMobileReviewPreview, launchMobileReview } = await import("../lib/mobile-review-approval.mjs");
+  const row = mobileRow();
+  const preview = await loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([row]) });
+  const changed = mobileRow();
+  changed.caption_preview[0].link = "https://ubiquity6.gumroad.com/l/fxloos";
+  changed.caption_preview[0].caption = `Our digital product\n${changed.caption_preview[0].link}`;
+  await assert.rejects(() => launchMobileReview({ ...mobileFixture, youtubeAudience: "made_for_kids", preview, fetchImpl: mobileFetch([changed]), postApproval: () => assert.fail("unexpected approval") }), /promotion preview changed/);
+});
+
+test("mobile preview rejects upload-only credentials, duplicate identities, missing channels and unsafe links", async () => {
+  const { loadMobileReviewPreview } = await import("../lib/mobile-review-approval.mjs");
+  const row = mobileRow();
+  await assert.rejects(() => loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([], 401) }), /owner control code/);
+  for (const items of [[row, row], [mobileRow({ status: "published" })], [mobileRow({ caption_preview: [row.caption_preview[0]] })], [mobileRow({ title: "Different title" })]]) {
+    await assert.rejects(() => loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch(items) }));
+  }
+  const unsafe = mobileRow();
+  unsafe.caption_preview[0].link = "javascript:alert(1)";
+  unsafe.caption_preview[0].caption = "javascript:alert(1)";
+  await assert.rejects(() => loadMobileReviewPreview({ ...mobileFixture, fetchImpl: mobileFetch([unsafe]) }), /link is invalid/);
+});
