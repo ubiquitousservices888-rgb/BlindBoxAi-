@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { assertOwnerCode, assertUploadCode } from "../../../../lib/evidence";
 import { resolvePublicVideoTitle } from "../../../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../../../lib/review-shorts-eligibility.mjs";
+import { isCanonicalReviewUploadPath, canonicalReviewUploadUrl } from "../../../../lib/review-upload-identity.mjs";
+import { reviewUploadVerificationResponse } from "../../../../lib/review-upload-verification.mjs";
+import { BLINDBOXAI_SUPABASE_ORIGIN } from "../../../../lib/blindbox-supabase-boundary.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +15,8 @@ const PRIVATE_HEADERS = {
   Vary: "Authorization",
 };
 
-const REVIEW_QUEUE_URL = "https://lazzdoadoqzrzlarerfx.supabase.co/functions/v1/review-video-queue";
+const REVIEW_QUEUE_URL = `${BLINDBOXAI_SUPABASE_ORIGIN}/functions/v1/review-video-queue`;
+const REVIEW_MEDIA_BASE = `${BLINDBOXAI_SUPABASE_ORIGIN}/storage/v1/object/public/blindboxai-review-videos/`;
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: PRIVATE_HEADERS });
@@ -52,6 +56,31 @@ export async function POST(request) {
     assertYoutubeShortsMetadata(body);
   } catch (cause) {
     return NextResponse.json({ error: cause.message }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+
+  // Independently prove stored bytes before staging fingerprinted mobile uploads.
+  // Legacy non-mobile render and verification callers keep their existing path.
+  const videoUrl = typeof body?.videoUrl === "string" ? body.videoUrl : "";
+  let normalizedUrl = "";
+  try { normalizedUrl = new URL(videoUrl).toString(); } catch { /* Invalid URLs cannot identify fingerprinted media. */ }
+  const path = normalizedUrl.startsWith(REVIEW_MEDIA_BASE) ? normalizedUrl.slice(REVIEW_MEDIA_BASE.length) : "";
+  const fingerprinted = body?.uploadKind === "fingerprinted_mobile" || path.startsWith("media/review/sha256-");
+  if (body?.uploadKind !== undefined && body.uploadKind !== "fingerprinted_mobile") {
+    return NextResponse.json({ error: "Invalid review upload kind." }, { status: 400, headers: PRIVATE_HEADERS });
+  }
+  if (fingerprinted) {
+    if (!isCanonicalReviewUploadPath(path) || videoUrl !== canonicalReviewUploadUrl(path)) {
+      return NextResponse.json({ error: "Invalid fingerprinted video URL." }, { status: 400, headers: PRIVATE_HEADERS });
+    }
+    const sizeBytes = body.sizeBytes;
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: "Invalid video size." }, { status: 400, headers: PRIVATE_HEADERS });
+    }
+    const proof = await reviewUploadVerificationResponse({ path, sizeBytes });
+    if (proof.status !== 200) return NextResponse.json(proof.body, { status: proof.status, headers: PRIVATE_HEADERS });
+    if (proof.body?.verified !== true || proof.body.path !== path || proof.body.publicUrl !== videoUrl) {
+      return NextResponse.json({ error: "Uploaded video is not verified. Retry staging after storage is available." }, { status: 409, headers: PRIVATE_HEADERS });
+    }
   }
 
   try {

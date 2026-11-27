@@ -111,7 +111,8 @@ test("runner sends LinkedIn only as an exact add-on after a primary channel is l
   const otherCaller = fs.readFileSync(new URL("./publish-reviewed-upload.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(otherCaller, /addOnChannels/);
   const workflow = fs.readFileSync(new URL("../.github/workflows/publish-approved-reviews.yml", import.meta.url), "utf8");
-  assert.match(workflow, /^\s*ADDON_VIDEO_CHANNELS:\s*linkedin\s*$/m);
+  assert.match(workflow, /^\s*ADDON_VIDEO_CHANNELS:[ \t]*""[ \t]*$/m);
+  assert.doesNotMatch(workflow, /^[ \t]+- linkedin[ \t]*$/m);
   assert.match(workflow, /^\s*VIDEO_CHANNELS:\s*youtube,tiktok\s*$/m);
 });
 

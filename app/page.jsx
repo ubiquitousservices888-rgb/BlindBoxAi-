@@ -5,6 +5,7 @@ import FeaturedAccessoryGrid from "./_components/FeaturedAccessoryGrid";
 import { allSeries, ebayOutboundPath, seriesPriceVerification } from "../lib/data";
 import { evaluateAffiliateEligibility, PUBLIC_PRICE_FRESHNESS_DAYS } from "../lib/market-eligibility.mjs";
 import { isPublicVideo, publicVideoStatusLabel, summarizePublicVideos } from "../lib/public-video-status.mjs";
+import { publicOwnProductDisplayTitle } from "../lib/review-own-product.mjs";
 
 export const revalidate = 300;
 
@@ -151,7 +152,7 @@ export default async function Home() {
                 <video controls playsInline preload="metadata" src={video.video_url} />
                 <div className="bv-video-copy">
                   <span>{videoVerticalLabel(video.vertical)}</span>
-                  <h3>{video.title}</h3>
+                  <h3>{publicOwnProductDisplayTitle(video)}</h3>
                   <p>{publicVideoStatusLabel(video.status)} · {video.status === "partial" ? "Not all channels confirmed." : "Collector research from BlindBoxAI."}</p>
                 </div>
               </article>

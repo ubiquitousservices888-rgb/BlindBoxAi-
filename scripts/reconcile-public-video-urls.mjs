@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DISCLOSURE } from "../lib/daily-product-pipeline.mjs";
+import { bindHistoricalOwnProductPolicy } from "../lib/review-own-product.mjs";
 import { assertApprovedReviewVideoUrl } from "../lib/review-publish-safety.mjs";
 import { createReviewSourceVerifier } from "../lib/review-source-identity.mjs";
 import { assertPublicPostProof, canonicalPublicPostUrl, probePublicPostHttp, publicProofDiagnostics, readReviewBufferPost, resolveReviewBufferChannel } from "../lib/buffer-review-publisher.mjs";
@@ -72,10 +73,24 @@ export async function reconcilePublicVideoUrls({ inventory, token, organizationI
       let candidatePublicUrl;
       try { candidatePublicUrl = canonicalPublicPostUrl(channel, post.externalLink); } catch {}
       const observed = { ...base, ...(candidatePublicUrl ? { candidatePublicUrl } : {}), providerIdentityVerified: true };
-      if (!String(post.text).includes(DISCLOSURE) || !hasTrackedCta(post.text, row.research_run_id, channel)) {
+      let direct;
+      try {
+        // New trusted inventory snapshots may carry the original reviewed
+        // queue title; never infer a product from a provider caption.
+        const policy = bindHistoricalOwnProductPolicy(row);
+        direct = policy.forReceipt(row.research_run_id, row.video_url, channel);
+      }
+      catch { receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue; }
+      if (direct ? post.text !== direct.caption : (!String(post.text).includes(DISCLOSURE) || !hasTrackedCta(post.text, row.research_run_id, channel))) {
         receipts.push({ ...observed, reason: "APPROVED_ATTRIBUTION_UNVERIFIED" }); continue;
       }
       observed.attributionVerified = true;
+      if (direct) {
+        observed.monetizationMode = "own_product";
+        // The receipt query does not return a separate YouTube title. A
+        // verified public URL and exact caption are not title verification.
+        observed.publicTitleVerification = channel === "youtube" ? "UNVERIFIED" : "NOT_APPLICABLE";
+      }
       const sourceProof = Array.isArray(post.assets) && post.assets.length === 1
         ? await verifySource({ approvedUrl: row.video_url, sourceUrl: post.assets[0]?.source, expectedSizeBytes: row.size_bytes }) : null;
       if (!sourceProof?.matched) {

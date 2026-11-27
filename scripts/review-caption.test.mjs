@@ -102,7 +102,7 @@ test("owner preview never throws and blocks a row it cannot build safely", () =>
 
 test("publisher, owner route and approval card all use the shared caption builder", () => {
   assert.match(publisher, /from "\.\.\/lib\/review-caption\.mjs"/);
-  assert.match(publisher, /buildReviewCaption\(item, channel, publicTitle\)/);
+  assert.match(publisher, /const \{ campaignId, source, caption \} = buildReviewCaption\(promotionItem, channel, publicTitle, promotionPolicy\)/);
   assert.doesNotMatch(publisher, /videoCaptionForService|buildTrackedSocialCta/);
   assert.match(route, /reviewCaptionPreview\(item\)/);
   assert.match(route, /\["ready_for_review", "approved"\]/);
