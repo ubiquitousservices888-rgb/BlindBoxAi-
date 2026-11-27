@@ -3,18 +3,11 @@
 import { useState } from "react";
 import { resolvePublicVideoTitle } from "../../lib/public-video-title.mjs";
 import { assertYoutubeShortsMetadata } from "../../lib/review-shorts-eligibility.mjs";
+import { reviewUploadPath } from "../../lib/review-upload-identity.mjs";
 
 const STORAGE_BROKER = "/api/media/free-upload-ticket";
 const MOBILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
-
-function safeName(name) {
-  const base = String(name || "review-video.mp4")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-  return base.toLowerCase().endsWith(".mp4") ? base : `${base}.mp4`;
-}
 
 function safeTitleFromFile(name) {
   return String(name || "Collector research video")
@@ -189,6 +182,7 @@ export default function MediaUploadForm() {
 
   async function submit(event) {
     event.preventDefault();
+    if (busy || approved || stageResult || stagingPayload) return;
     setError("");
     setResult(null);
     setStageResult(null);
@@ -210,7 +204,9 @@ export default function MediaUploadForm() {
       const metadata = await readVideoMetadata(file);
       assertYoutubeShortsMetadata(metadata);
       setStatus("authorizing");
-      const path = `media/review/${Date.now()}-${safeName(file.name)}`;
+      // One media/review path for identical bytes, even after a rename or reload.
+      // Storage continues to refuse overwrites; never trust a conflict as successful staging.
+      const path = await reviewUploadPath(file);
       const ticket = await requestUploadTicket({ accessCode, path, sizeBytes: file.size });
 
       setStatus("uploading");
@@ -287,7 +283,7 @@ export default function MediaUploadForm() {
         />
       </label>
 
-      {!stageResult && !approved ? <button type="submit" disabled={busy} style={{ padding: 14, fontSize: 16, fontWeight: 700 }}>{buttonLabel}</button> : null}
+      {!stageResult && !stagingPayload && !approved ? <button type="submit" disabled={busy} style={{ padding: 14, fontSize: 16, fontWeight: 700 }}>{buttonLabel}</button> : null}
 
       {busy ? <p aria-live="polite" style={{ margin: 0 }}>Keep this page open until the current step finishes.</p> : null}
       {error ? <p role="alert" style={{ color: "crimson" }}>{error}</p> : null}
